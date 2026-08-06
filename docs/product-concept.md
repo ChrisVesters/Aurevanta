@@ -89,6 +89,12 @@ holidays, working days — mapping an effort distribution onto calendar dates). 
 multiply schema complexity considerably. A flat list of tasks already demonstrates the
 core value.
 
+> **Superseded, 2026-08-06.** `roadmap.md` reverses the first half of this. Measurement
+> showed that summing a flat list is not a neutral simplification — it silently assumes one
+> worker doing everything in sequence, and the same ten items forecast at 51 or 86 days
+> depending only on structure. Precedence dependencies therefore moved into the schema and
+> the engine; capacity modelling remains later, as M11.
+
 ## Modelling concerns to design around
 
 ### The input problem is harder than the maths
