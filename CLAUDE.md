@@ -9,7 +9,8 @@ Licensed GPL-3.0.
 `docs/product-concept.md` holds the domain concepts and planned features — read it before
 designing schema or domain logic. It is design intent, not a description of existing code.
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
-depends on; only M0 (tenancy and identity) is built.
+depends on; only M0 (tenancy and identity) is built. `docs/m1-plan.md` breaks the next
+milestone into implementation steps.
 
 ## Layout
 
