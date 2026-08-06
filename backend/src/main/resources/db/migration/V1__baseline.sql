@@ -1,0 +1,4 @@
+-- Baseline migration.
+--
+-- Establishes the Flyway schema history for Aurevanta. The domain schema
+-- (projects, tasks, P10/P50/P90 estimates) lands in subsequent migrations.
