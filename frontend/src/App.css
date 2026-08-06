@@ -1,12 +1,60 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
+/* Layout and controls for the landing, sign-up, sign-in and signed-in screens.
+   Colours and type come from the tokens in index.css. */
+
+.loading {
+  margin: auto;
+  padding: 48px 24px;
+}
+
+/* Landing page ------------------------------------------------------------ */
+
+.landing {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+
+  h2 {
+    color: var(--text-h);
+  }
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 32px;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    padding: 16px 20px;
+  }
+
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+}
+
+.wordmark {
+  font-size: 19px;
+  letter-spacing: -0.3px;
+  color: var(--text-h);
+  text-decoration: none;
+}
+
+a.button-link,
+.button-link {
+  font-size: 15px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  white-space: nowrap;
   color: var(--accent);
   background: var(--accent-bg);
   border: 2px solid transparent;
   transition: border-color 0.3s;
-  margin-bottom: 24px;
 
   &:hover {
     border-color: var(--accent-border);
@@ -18,167 +66,296 @@
 }
 
 .hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
+  padding: 88px 32px 64px;
+  max-width: 760px;
 
   @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
+    padding: 48px 20px 40px;
   }
-}
 
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
+  h1 {
+    margin: 0 0 20px;
+  }
 
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
+  .lede {
+    font-size: 20px;
+    line-height: 152%;
+
     @media (max-width: 1024px) {
-      padding: 24px 20px;
+      font-size: 17px;
     }
   }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
 }
 
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
+.cta-row {
   display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  margin-top: 32px;
 
-  .logo {
-    height: 18px;
+  .primary {
+    font-size: 16px;
+    padding: 12px 20px;
   }
+}
+
+.principle {
+  padding: 40px 32px;
+  max-width: 760px;
+  border-top: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px;
+  }
+
+  h2 {
+    margin-bottom: 16px;
+  }
+
+  p + p {
+    margin-top: 16px;
+  }
+}
+
+.features {
+  padding: 40px 32px 64px;
+  border-top: 1px solid var(--border);
+
+  @media (max-width: 1024px) {
+    padding: 32px 20px 48px;
+  }
+
+  h2 {
+    margin-bottom: 24px;
+  }
+
+  ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 32px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: 1060px;
+  }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 500;
+    margin: 0 0 8px;
+    color: var(--text-h);
+  }
+
+  p {
+    font-size: 16px;
+  }
+}
+
+.not-found {
+  margin: auto;
+  padding: 48px 24px;
+  max-width: 480px;
+
+  h1 {
+    margin-top: 0;
+  }
+}
+
+/* Sign-up and sign-in ----------------------------------------------------- */
+
+.auth-screen {
+  margin: auto;
+  width: 100%;
+  max-width: 440px;
+  padding: 48px 24px;
+  box-sizing: border-box;
+}
+
+.back-home {
+  margin-bottom: 24px;
+  font-size: 15px;
 
   a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
+    color: inherit;
     text-decoration: none;
-    transition: box-shadow 0.3s;
 
     &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
+      color: var(--accent);
     }
   }
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  h1 {
+    font-size: 32px;
+    letter-spacing: -0.9px;
+    margin: 0;
+
+    @media (max-width: 1024px) {
+      font-size: 28px;
+    }
   }
 }
 
-.ticks {
-  position: relative;
+.lede {
+  font-size: 16px;
+  line-height: 150%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 15px;
+    color: var(--text-h);
+  }
+
+  input {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--danger-border);
+    }
+  }
+}
+
+.hint {
+  font-size: 14px;
+}
+
+.field-error,
+.form-error {
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.form-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: 6px;
+  background: var(--danger-bg);
+}
+
+button.primary {
+  font: inherit;
+  font-size: 16px;
+  padding: 11px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 2px solid transparent;
+  transition: border-color 0.3s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent-border);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    cursor: progress;
+    opacity: 0.6;
+  }
+}
+
+button.link {
+  font: inherit;
+  font-size: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.switch {
+  font-size: 15px;
+}
+
+/* Signed in --------------------------------------------------------------- */
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+
+  .wordmark {
+    margin-inline-end: 16px;
+    padding-inline-end: 16px;
+    border-inline-end: 1px solid var(--border);
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+
+  .organisation {
+    color: var(--text-h);
+    font-size: 17px;
+  }
+
+  .role {
+    margin-inline-start: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  .session {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 15px;
+  }
+}
+
+.home {
+  margin: auto;
   width: 100%;
+  max-width: 560px;
+  padding: 48px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
+  h1 {
+    margin: 0;
   }
 }

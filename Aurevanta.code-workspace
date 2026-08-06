@@ -3,10 +3,16 @@
 		{
 			"path": "backend",
 			"name": "backend"
-		}, {
+		},
+		{
 			"path": "frontend",
 			"name": "frontend"
+		},
+		{
+			"path": "docs"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"java.configuration.updateBuildConfiguration": "interactive"
+	}
 }
