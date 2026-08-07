@@ -10,9 +10,13 @@ import javax.crypto.spec.SecretKeySpec;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import eu.sonetas.aurevanta.TestcontainersConfiguration;
+import eu.sonetas.aurevanta.auth.registration.RegistrationRequest;
+import eu.sonetas.aurevanta.auth.signin.LoginRequest;
+import eu.sonetas.aurevanta.membership.MembershipRepository;
 import eu.sonetas.aurevanta.tenant.TenantRepository;
 import eu.sonetas.aurevanta.user.User;
 import eu.sonetas.aurevanta.user.UserRepository;
+import eu.sonetas.aurevanta.user.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -55,10 +59,14 @@ class AuthApiTests {
 	private UserRepository users;
 
 	@Autowired
+	private MembershipRepository memberships;
+
+	@Autowired
 	private TenantRepository tenants;
 
 	@BeforeEach
 	void clearAccounts() {
+		this.memberships.deleteAll();
 		this.users.deleteAll();
 		this.tenants.deleteAll();
 	}
@@ -84,9 +92,22 @@ class AuthApiTests {
 	void registrationStoresThePasswordOnlyAsAHash() throws Exception {
 		register("Acme", "ada@acme.test");
 
-		User stored = this.users.findWithTenantByEmailIgnoringCase("ada@acme.test").orElseThrow();
+		User stored = this.users.findByEmailIgnoringCase("ada@acme.test").orElseThrow();
 
 		assertThat(stored.getPasswordHash()).doesNotContain(PASSWORD).startsWith("{bcrypt}$2");
+	}
+
+	/** The account is the identity; the organisation and role hang off a membership. */
+	@Test
+	void registrationRecordsTheOwnerAsAMemberOfTheOrganisationItCreated() throws Exception {
+		register("Acme", "ada@acme.test");
+
+		User stored = this.users.findByEmailIgnoringCase("ada@acme.test").orElseThrow();
+
+		assertThat(this.memberships.findAllForUser(stored.getId())).singleElement().satisfies((membership) -> {
+			assertThat(membership.getRole()).isEqualTo(UserRole.OWNER);
+			assertThat(membership.getTenant().getSlug()).isEqualTo("acme");
+		});
 	}
 
 	@Test
@@ -147,16 +168,22 @@ class AuthApiTests {
 			.andExpect(jsonPath("$.errors.email").isNotEmpty());
 	}
 
+	/**
+	 * One membership is the only state registration can produce, so the common path signs
+	 * the caller straight in with nothing to choose between.
+	 */
 	@Test
-	void loginReturnsATokenAndIgnoresTheCaseOfTheEmail() throws Exception {
+	void loginSignsStraightInWhenTheAccountHoldsOneMembership() throws Exception {
 		register("Acme", "ada@acme.test");
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
 				.content(login("ADA@ACME.TEST", PASSWORD)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.accessToken").isNotEmpty())
-			.andExpect(jsonPath("$.account.organisation.slug").value("acme"));
+			.andExpect(jsonPath("$.outcome").value("SIGNED_IN"))
+			.andExpect(jsonPath("$.session.accessToken").isNotEmpty())
+			.andExpect(jsonPath("$.session.account.organisation.slug").value("acme"))
+			.andExpect(jsonPath("$.identity").doesNotExist());
 	}
 
 	@Test
@@ -215,6 +242,7 @@ class AuthApiTests {
 			.subject(UUID.randomUUID().toString())
 			.issuedAt(Instant.now())
 			.expiresAt(Instant.now().plus(Duration.ofHours(1)))
+			.claim("token_type", "access")
 			.claim("tenant_id", UUID.randomUUID().toString())
 			.claim("email", "forger@acme.test")
 			.claim("role", "OWNER")
@@ -230,7 +258,22 @@ class AuthApiTests {
 	@Test
 	void aTokenStopsWorkingOnceItsAccountIsGone() throws Exception {
 		String token = accessToken(register("Acme", "ada@acme.test"));
+		this.memberships.deleteAll();
 		this.users.deleteAll();
+
+		this.mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+			.andExpect(status().isUnauthorized());
+	}
+
+	/**
+	 * The token still verifies and still names a tenant, but the standing it describes is
+	 * gone. Reloading the membership on every request is what makes that take effect at
+	 * once rather than when the token happens to expire.
+	 */
+	@Test
+	void aTokenStopsWorkingOnceItsMembershipIsRevoked() throws Exception {
+		String token = accessToken(register("Acme", "ada@acme.test"));
+		this.memberships.deleteAll();
 
 		this.mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 			.andExpect(status().isUnauthorized());

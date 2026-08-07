@@ -1,32 +1,49 @@
 import { describe, expect, it, vi } from 'vitest';
-import { clearStoredToken, readStoredToken, storeToken } from './session';
+import { clearStoredSession, readStoredSession, storeSession } from './session';
 
 describe('session storage', () => {
-  it('has no token before one is stored', () => {
-    expect(readStoredToken()).toBeNull();
+  it('has no session before one is stored', () => {
+    expect(readStoredSession()).toBeNull();
   });
 
-  it('reads back a stored token', () => {
-    storeToken('a.test.token');
+  it('reads back a stored access token', () => {
+    storeSession({ token: 'a.test.token', kind: 'access' });
 
-    expect(readStoredToken()).toBe('a.test.token');
+    expect(readStoredSession()).toEqual({
+      token: 'a.test.token',
+      kind: 'access'
+    });
   });
 
-  it('forgets a cleared token', () => {
-    storeToken('a.test.token');
+  // The kind is stored because it decides which endpoint restores the session.
+  it('reads back a stored identity token as such', () => {
+    storeSession({ token: 'an.identity.token', kind: 'identity' });
 
-    clearStoredToken();
+    expect(readStoredSession()?.kind).toBe('identity');
+  });
 
-    expect(readStoredToken()).toBeNull();
+  it('forgets a cleared session', () => {
+    storeSession({ token: 'a.test.token', kind: 'access' });
+
+    clearStoredSession();
+
+    expect(readStoredSession()).toBeNull();
   });
 
   // Private browsing modes can refuse storage; the session should degrade, not crash.
-  it('reports no token when reading throws', () => {
+  it('reports no session when reading throws', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('denied');
     });
 
-    expect(readStoredToken()).toBeNull();
+    expect(readStoredSession()).toBeNull();
+  });
+
+  // Anything left by an older version of the app is unusable, not a crash.
+  it('reports no session when the stored value is not a session', () => {
+    window.localStorage.setItem('aurevanta.session', 'a.bare.token');
+
+    expect(readStoredSession()).toBeNull();
   });
 
   it('survives a refused write', () => {
@@ -34,7 +51,9 @@ describe('session storage', () => {
       throw new Error('denied');
     });
 
-    expect(() => storeToken('a.test.token')).not.toThrow();
+    expect(() =>
+      storeSession({ token: 'a.test.token', kind: 'access' })
+    ).not.toThrow();
   });
 
   it('survives a refused removal', () => {
@@ -42,6 +61,6 @@ describe('session storage', () => {
       throw new Error('denied');
     });
 
-    expect(() => clearStoredToken()).not.toThrow();
+    expect(() => clearStoredSession()).not.toThrow();
   });
 });

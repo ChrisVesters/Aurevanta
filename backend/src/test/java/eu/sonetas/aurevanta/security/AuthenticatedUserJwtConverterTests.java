@@ -26,8 +26,8 @@ class AuthenticatedUserJwtConverterTests {
 	private final AuthenticatedUserJwtConverter converter = new AuthenticatedUserJwtConverter();
 
 	@Test
-	void convertsAWellFormedToken() {
-		AbstractAuthenticationToken authentication = this.converter.convert(token().build());
+	void convertsAWellFormedAccessToken() {
+		AbstractAuthenticationToken authentication = this.converter.convert(accessToken().build());
 
 		assertThat(authentication.getPrincipal()).isEqualTo(new AuthenticatedUser(UUID.fromString(USER_ID),
 				UUID.fromString(TENANT_ID), "ada@acme.test", UserRole.OWNER));
@@ -36,24 +36,59 @@ class AuthenticatedUserJwtConverterTests {
 	}
 
 	@Test
-	void grantsAnAuthorityNamedAfterTheRole() {
+	void grantsAnAccessTokenTheTenantScopeAndAnAuthorityNamedAfterTheRole() {
 		AbstractAuthenticationToken authentication = this.converter
-			.convert(token().claim(TokenClaims.ROLE, "MEMBER").build());
+			.convert(accessToken().claim(TokenClaims.ROLE, "MEMBER").build());
 
-		assertThat(authentication.getAuthorities()).extracting(Object::toString).containsExactly("ROLE_MEMBER");
+		assertThat(authentication.getAuthorities()).extracting(Object::toString)
+			.containsExactlyInAnyOrder(Authorities.TENANT_SCOPED, "ROLE_MEMBER");
 	}
 
 	@Test
 	void keepsTheVerifiedTokenAsCredentials() {
-		Jwt jwt = token().build();
+		Jwt jwt = accessToken().build();
 
 		assertThat(this.converter.convert(jwt).getCredentials()).isSameAs(jwt);
+	}
+
+	/**
+	 * The whole point of an identity token: it names a person and no organisation, so
+	 * nothing downstream can read a tenant out of it by mistake.
+	 */
+	@Test
+	void convertsAnIdentityTokenIntoAPrincipalWithNoTenantAndNoRole() {
+		AbstractAuthenticationToken authentication = this.converter.convert(identityToken().build());
+
+		AuthenticatedUser principal = (AuthenticatedUser) authentication.getPrincipal();
+		assertThat(principal.userId()).isEqualTo(UUID.fromString(USER_ID));
+		assertThat(principal.email()).isEqualTo("ada@acme.test");
+		assertThat(principal.tenantId()).isNull();
+		assertThat(principal.role()).isNull();
+		assertThat(principal.hasTenant()).isFalse();
+	}
+
+	@Test
+	void grantsAnIdentityTokenNothingButTheIdentityScope() {
+		AbstractAuthenticationToken authentication = this.converter.convert(identityToken().build());
+
+		assertThat(authentication.getAuthorities()).extracting(Object::toString).containsExactly(Authorities.IDENTITY);
+	}
+
+	/** A tenant claim on an identity token must not promote it; the type decides. */
+	@Test
+	void ignoresATenantClaimSmuggledOntoAnIdentityToken() {
+		AbstractAuthenticationToken authentication = this.converter
+			.convert(identityToken().claim(TokenClaims.TENANT_ID, TENANT_ID).claim(TokenClaims.ROLE, "OWNER").build());
+
+		assertThat(((AuthenticatedUser) authentication.getPrincipal()).hasTenant()).isFalse();
+		assertThat(authentication.getAuthorities()).extracting(Object::toString).containsExactly(Authorities.IDENTITY);
 	}
 
 	@Test
 	void rejectsATokenWithoutASubject() {
 		assertThatRejects(Jwt.withTokenValue("token")
 			.header("alg", "HS256")
+			.claim(TokenClaims.TOKEN_TYPE, TokenClaims.ACCESS)
 			.claim(TokenClaims.TENANT_ID, TENANT_ID)
 			.claim(TokenClaims.EMAIL, "ada@acme.test")
 			.claim(TokenClaims.ROLE, "OWNER")
@@ -62,29 +97,30 @@ class AuthenticatedUserJwtConverterTests {
 
 	@Test
 	void rejectsASubjectThatIsNotAnIdentifier() {
-		assertThatRejects(token().subject("not-a-uuid").build(), "sub");
+		assertThatRejects(accessToken().subject("not-a-uuid").build(), "sub");
 	}
 
 	@Test
-	void rejectsATokenWithoutATenant() {
-		assertThatRejects(token().claim(TokenClaims.TENANT_ID, "").build(), TokenClaims.TENANT_ID);
+	void rejectsAnAccessTokenWithoutATenant() {
+		assertThatRejects(accessToken().claim(TokenClaims.TENANT_ID, "").build(), TokenClaims.TENANT_ID);
 	}
 
 	@Test
 	void rejectsATenantThatIsNotAnIdentifier() {
-		assertThatRejects(token().claim(TokenClaims.TENANT_ID, "not-a-uuid").build(), TokenClaims.TENANT_ID);
+		assertThatRejects(accessToken().claim(TokenClaims.TENANT_ID, "not-a-uuid").build(), TokenClaims.TENANT_ID);
 	}
 
 	@Test
 	void rejectsATokenWithoutAnEmail() {
-		assertThatRejects(token().claim(TokenClaims.EMAIL, " ").build(), TokenClaims.EMAIL);
+		assertThatRejects(accessToken().claim(TokenClaims.EMAIL, " ").build(), TokenClaims.EMAIL);
 	}
 
 	@Test
-	void rejectsATokenWithoutARole() {
+	void rejectsAnAccessTokenWithoutARole() {
 		assertThatRejects(Jwt.withTokenValue("token")
 			.header("alg", "HS256")
 			.subject(USER_ID)
+			.claim(TokenClaims.TOKEN_TYPE, TokenClaims.ACCESS)
 			.claim(TokenClaims.TENANT_ID, TENANT_ID)
 			.claim(TokenClaims.EMAIL, "ada@acme.test")
 			.build(), TokenClaims.ROLE);
@@ -92,7 +128,27 @@ class AuthenticatedUserJwtConverterTests {
 
 	@Test
 	void rejectsARoleThisApplicationDoesNotIssue() {
-		assertThatRejects(token().claim(TokenClaims.ROLE, "SUPERUSER").build(), TokenClaims.ROLE);
+		assertThatRejects(accessToken().claim(TokenClaims.ROLE, "SUPERUSER").build(), TokenClaims.ROLE);
+	}
+
+	/**
+	 * Defaulting the kind of token would mean defaulting whether its holder has a tenant,
+	 * which is exactly the guess this converter refuses to make.
+	 */
+	@Test
+	void rejectsATokenThatDoesNotSayWhichKindItIs() {
+		assertThatRejects(Jwt.withTokenValue("token")
+			.header("alg", "HS256")
+			.subject(USER_ID)
+			.claim(TokenClaims.TENANT_ID, TENANT_ID)
+			.claim(TokenClaims.EMAIL, "ada@acme.test")
+			.claim(TokenClaims.ROLE, "OWNER")
+			.build(), TokenClaims.TOKEN_TYPE);
+	}
+
+	@Test
+	void rejectsAKindOfTokenThisApplicationDoesNotIssue() {
+		assertThatRejects(accessToken().claim(TokenClaims.TOKEN_TYPE, "refresh").build(), TokenClaims.TOKEN_TYPE);
 	}
 
 	private void assertThatRejects(Jwt jwt, String claim) {
@@ -100,13 +156,22 @@ class AuthenticatedUserJwtConverterTests {
 			.hasMessageContaining(claim);
 	}
 
-	private Jwt.Builder token() {
+	private Jwt.Builder accessToken() {
 		return Jwt.withTokenValue("token")
 			.header("alg", "HS256")
 			.subject(USER_ID)
+			.claim(TokenClaims.TOKEN_TYPE, TokenClaims.ACCESS)
 			.claim(TokenClaims.TENANT_ID, TENANT_ID)
 			.claim(TokenClaims.EMAIL, "ada@acme.test")
 			.claim(TokenClaims.ROLE, "OWNER");
+	}
+
+	private Jwt.Builder identityToken() {
+		return Jwt.withTokenValue("token")
+			.header("alg", "HS256")
+			.subject(USER_ID)
+			.claim(TokenClaims.TOKEN_TYPE, TokenClaims.IDENTITY)
+			.claim(TokenClaims.EMAIL, "ada@acme.test");
 	}
 
 }

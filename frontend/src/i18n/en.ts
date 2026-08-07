@@ -9,7 +9,13 @@ export const en = {
     // A proper noun: present in the catalogue so a locale could transliterate it, but
     // not expected to change.
     name: 'Aurevanta',
-    loading: 'Loading…'
+    loading: 'Loading…',
+    signOut: 'Sign out'
+  },
+  // Shared: a role is shown wherever an organisation is named, not on one screen.
+  roles: {
+    OWNER: 'Owner',
+    MEMBER: 'Member'
   },
   landing: {
     nav: {
@@ -75,12 +81,12 @@ export const en = {
       noAccount: 'New here? <register>Create an organisation</register>'
     }
   },
+  chooseOrganisation: {
+    title: 'Choose an organisation',
+    lede: 'You belong to more than one. Everything you plan is scoped to the one you pick, and you can switch later.',
+    none: 'You do not belong to an organisation yet. Ask someone who does to invite you, and the invitation will arrive by email.'
+  },
   dashboard: {
-    role: {
-      OWNER: 'Owner',
-      MEMBER: 'Member'
-    },
-    signOut: 'Sign out',
     title: 'You’re set up',
     body: '{{organisation}} is ready. Everything you plan from here belongs to this organisation and is visible only to its members.',
     next: 'Estimating comes next.'
@@ -99,6 +105,7 @@ export const en = {
       organisation_name_unusable:
         'Organisation name must contain at least one letter or digit.',
       invalid_credentials: 'Email or password is incorrect.',
+      not_a_member: 'You do not belong to that organisation.',
       registration_conflict:
         'That email address or organisation name was just taken.',
       validation_failed: 'Some fields need attention.'

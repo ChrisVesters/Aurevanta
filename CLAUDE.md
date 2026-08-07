@@ -18,6 +18,14 @@ milestone into implementation steps.
   Package root `eu.sonetas.aurevanta`.
 - `frontend/` — React 19 + TypeScript SPA built with Vite 8.
 
+**Backend packages are by feature, not by layer** — `tenant`, `user`, `membership`,
+`security` each hold their own entity, repository, service and web types. `auth` is large
+enough to be split a second time, by use case: `auth.registration`, `auth.signin`, and
+`auth.problem` for the failure vocabulary every use case reports through. The controller
+and the response shapes all its endpoints share stay in `auth` itself. A new auth use case
+— verifying an address, resetting a password — is a new subpackage, not more files at the
+root.
+
 ## Commands
 
 Backend (from `backend/`):
@@ -94,13 +102,29 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   application: take the tenant from `CurrentUser.requiredTenantId()`, never from a request
   parameter or path variable. A query that filters only by an id the caller supplied is a
   cross-tenant leak.
-- Registering (`POST /api/auth/register`) creates a `tenants` row and its first `users`
-  row with role `OWNER`, in one transaction, and returns an access token. There is no
+- **Identity is global; membership is per organisation.** `users` holds the person —
+  email, password, display name — and carries no tenant and no role. A `memberships` row
+  (`user_id` + `tenant_id` + `role`, unique together) is what grants standing in one
+  organisation, so one address can belong to several with a different role in each.
+- Registering (`POST /api/auth/register`) creates a `tenants` row, a `users` row and an
+  `OWNER` membership in one transaction, and returns an access token. There is no
   invitation flow yet — additional members are the next piece of work.
-- Authentication is a **stateless HMAC-signed JWT** presented as `Authorization: Bearer`.
-  The token pins `tenant_id` at issue time. `spring-boot-starter-oauth2-resource-server`
-  verifies it; `AuthenticatedUserJwtConverter` turns it into an `AuthenticatedUser`
+- Authentication is a **stateless HMAC-signed JWT** presented as `Authorization: Bearer`,
+  in **two kinds**, told apart by the `token_type` claim (required, never defaulted):
+  - **access** — pins `tenant_id` and `role`; grants `SCOPE_TENANT` plus `ROLE_<role>`,
+    and is the only kind any tenant-scoped endpoint accepts.
+  - **identity** — names the person and no organisation; grants only `SCOPE_IDENTITY`,
+    which reaches `GET /api/memberships` and `POST /api/auth/tenants/{tenantId}/token`
+    and nothing else. Issued when sign-in cannot pick an organisation: several to choose
+    between, or none at all.
+
+  `spring-boot-starter-oauth2-resource-server` verifies the signature;
+  `AuthenticatedUserJwtConverter` branches on the kind to build the `AuthenticatedUser`
   principal. There are no sessions and no CSRF tokens.
+- **The exchange endpoint is the one place a tenant comes from the request**, and it is
+  safe only because the membership is looked up by the caller's own user id *together
+  with* the requested tenant. Widening that lookup to the tenant alone would turn it into
+  cross-tenant escalation; `MembershipApiTests` guards it with a two-organisation fixture.
 - `aurevanta.security.jwt.secret` is unset by default, so each start generates a random
   key. Set it (32+ chars, e.g. `AUREVANTA_SECURITY_JWT_SECRET`) anywhere tokens must
   survive a restart or be accepted by more than one instance.

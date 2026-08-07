@@ -3,6 +3,13 @@ package eu.sonetas.aurevanta.auth;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import eu.sonetas.aurevanta.auth.problem.AuthProblemException;
+import eu.sonetas.aurevanta.auth.problem.EmailAlreadyRegisteredException;
+import eu.sonetas.aurevanta.auth.problem.InvalidCredentialsException;
+import eu.sonetas.aurevanta.auth.problem.NotAMemberException;
+import eu.sonetas.aurevanta.auth.problem.OrganisationNameUnavailableException;
+import eu.sonetas.aurevanta.auth.problem.UnusableOrganisationNameException;
+import eu.sonetas.aurevanta.auth.registration.RegistrationRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -87,7 +94,8 @@ class AuthExceptionHandlerTests {
 						"organisation_name_unavailable"),
 				Arguments.of(new UnusableOrganisationNameException(), HttpStatus.BAD_REQUEST,
 						"organisation_name_unusable"),
-				Arguments.of(new InvalidCredentialsException(), HttpStatus.UNAUTHORIZED, "invalid_credentials"));
+				Arguments.of(new InvalidCredentialsException(), HttpStatus.UNAUTHORIZED, "invalid_credentials"),
+				Arguments.of(new NotAMemberException(), HttpStatus.FORBIDDEN, "not_a_member"));
 	}
 
 	@SuppressWarnings("unchecked")

@@ -2,21 +2,32 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
-import { storeToken } from './auth/session';
 import {
   ACCOUNT,
-  AUTHENTICATION,
+  ACME_MEMBERSHIP,
+  SIGNED_IN,
+  UMBRELLA_MEMBERSHIP,
   jsonResponse,
   mockFetch,
-  renderRouted
+  renderRouted,
+  storeAccessToken,
+  storeIdentityToken
 } from './test/render';
 
 describe('routing', () => {
   const fetchMock = mockFetch();
 
   function signedIn() {
-    storeToken('a.test.token');
+    storeAccessToken();
     fetchMock.mockResolvedValue(jsonResponse(200, ACCOUNT));
+  }
+
+  /** Authenticated, but holding an identity token with an organisation still to pick. */
+  function choosing(
+    memberships: unknown[] = [ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]
+  ) {
+    storeIdentityToken();
+    fetchMock.mockResolvedValue(jsonResponse(200, memberships));
   }
 
   it('shows the landing page at the root, not a sign-in form', () => {
@@ -119,8 +130,52 @@ describe('routing', () => {
     ).not.toBeInTheDocument();
   });
 
+  /**
+   * The chooser stands in for the route rather than living at an address of its own: it
+   * belongs to the state of the session, not to somewhere a visitor navigates to.
+   */
+  it('asks a visitor with several organisations to pick one', async () => {
+    choosing();
+
+    renderRouted(<App />, { route: '/app' });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Choose an organisation' })
+      ).toBeInTheDocument()
+    );
+    expect(
+      screen.queryByRole('heading', { name: /you.re set up/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the empty state to a visitor who belongs to no organisation', async () => {
+    choosing([]);
+
+    renderRouted(<App />, { route: '/app' });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/do not belong to an organisation yet/i)
+      ).toBeInTheDocument()
+    );
+  });
+
+  // Signing in again is not what they are missing, so the sign-in form would be a dead end.
+  it('keeps a visitor still choosing an organisation off the sign-in page', async () => {
+    choosing();
+
+    renderRouted(<App />, { route: '/login' });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('heading', { name: 'Choose an organisation' })
+      ).toBeInTheDocument()
+    );
+  });
+
   it('moves the visitor to the dashboard once they sign in', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, AUTHENTICATION));
+    fetchMock.mockResolvedValue(jsonResponse(200, SIGNED_IN));
 
     renderRouted(<App />, { route: '/login' });
     await userEvent.type(screen.getByLabelText('Email'), 'ada@acme.test');
@@ -146,7 +201,7 @@ describe('routing', () => {
       ).toBeInTheDocument()
     );
 
-    fetchMock.mockResolvedValue(jsonResponse(200, AUTHENTICATION));
+    fetchMock.mockResolvedValue(jsonResponse(200, SIGNED_IN));
     await userEvent.type(screen.getByLabelText('Email'), 'ada@acme.test');
     await userEvent.type(
       screen.getByLabelText('Password'),
@@ -182,7 +237,7 @@ describe('routing', () => {
   });
 
   it('waits rather than flashing the sign-in page while a session is restored', () => {
-    storeToken('a.test.token');
+    storeAccessToken();
     fetchMock.mockReturnValue(new Promise(() => {}));
 
     renderRouted(<App />, { route: '/app' });

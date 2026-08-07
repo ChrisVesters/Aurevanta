@@ -1,4 +1,4 @@
-package eu.sonetas.aurevanta.auth;
+package eu.sonetas.aurevanta.auth.problem;
 
 import org.springframework.http.HttpStatus;
 

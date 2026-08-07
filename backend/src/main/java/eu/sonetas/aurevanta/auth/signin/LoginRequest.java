@@ -1,4 +1,4 @@
-package eu.sonetas.aurevanta.auth;
+package eu.sonetas.aurevanta.auth.signin;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

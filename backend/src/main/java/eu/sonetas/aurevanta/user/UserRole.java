@@ -1,12 +1,16 @@
 package eu.sonetas.aurevanta.user;
 
-/** A user's standing within their own tenant. */
+/**
+ * A person's standing within one organisation. Held on their membership rather than on
+ * their account, so the same person can own one organisation and merely belong to
+ * another.
+ */
 public enum UserRole {
 
-	/** Created the tenant by registering; may administer it. */
+	/** Created the organisation, or was invited as one; may administer it. */
 	OWNER,
 
-	/** Joined an existing tenant. */
+	/** Belongs to the organisation without the right to administer it. */
 	MEMBER
 
 }

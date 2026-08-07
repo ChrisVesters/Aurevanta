@@ -2,21 +2,39 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useAuth } from './AuthContext';
-import { storeToken, readStoredToken } from './session';
+import { readStoredSession } from './session';
 import {
   ACCOUNT,
+  ACME_MEMBERSHIP,
   AUTHENTICATION,
+  CHOOSE_ORGANISATION,
+  NO_ORGANISATION,
+  SIGNED_IN,
+  UMBRELLA_MEMBERSHIP,
   jsonResponse,
   mockFetch,
-  renderRouted
+  renderRouted,
+  storeAccessToken,
+  storeIdentityToken
 } from '../test/render';
 
 function Probe() {
-  const { status, account, register, login, logout } = useAuth();
+  const {
+    status,
+    account,
+    memberships,
+    register,
+    login,
+    selectOrganisation,
+    logout
+  } = useAuth();
   return (
     <div>
       <p data-testid="status">{status}</p>
       <p data-testid="account">{account?.email ?? 'none'}</p>
+      <p data-testid="memberships">
+        {memberships.map((m) => m.organisation.slug).join(',') || 'none'}
+      </p>
       <button
         type="button"
         onClick={() =>
@@ -41,6 +59,16 @@ function Probe() {
       >
         login
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          void selectOrganisation(UMBRELLA_MEMBERSHIP.organisation.id).catch(
+            () => {}
+          )
+        }
+      >
+        select
+      </button>
       <button type="button" onClick={logout}>
         logout
       </button>
@@ -58,8 +86,8 @@ describe('AuthProvider', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('restores a session from a stored token', async () => {
-    storeToken('a.test.token');
+  it('restores a session from a stored access token', async () => {
+    storeAccessToken();
     fetchMock.mockResolvedValue(jsonResponse(200, ACCOUNT));
 
     renderRouted(<Probe />);
@@ -78,9 +106,47 @@ describe('AuthProvider', () => {
     );
   });
 
-  // An expired token, or one whose account is gone, must not leave a stale session.
-  it('discards a stored token the server rejects', async () => {
-    storeToken('stale.test.token');
+  // An identity token names no organisation, so /auth/me would have nothing to answer
+  // with; the membership list is what proves the token still works.
+  it('restores an unfinished choice from a stored identity token', async () => {
+    storeIdentityToken();
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, [ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP])
+    );
+
+    renderRouted(<Probe />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('choosing')
+    );
+    expect(screen.getByTestId('memberships')).toHaveTextContent(
+      'acme-planning-co,umbrella'
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/memberships',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer an.identity.token'
+        })
+      })
+    );
+  });
+
+  it('restores someone who belongs to nothing as unaffiliated', async () => {
+    storeIdentityToken();
+    fetchMock.mockResolvedValue(jsonResponse(200, []));
+
+    renderRouted(<Probe />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('unaffiliated')
+    );
+    expect(screen.getByTestId('memberships')).toHaveTextContent('none');
+  });
+
+  // An expired token, or one whose membership is gone, must not leave a stale session.
+  it('discards a stored access token the server rejects', async () => {
+    storeAccessToken('stale.test.token');
     fetchMock.mockResolvedValue(jsonResponse(401));
 
     renderRouted(<Probe />);
@@ -88,7 +154,19 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('status')).toHaveTextContent('anonymous')
     );
-    expect(readStoredToken()).toBeNull();
+    expect(readStoredSession()).toBeNull();
+  });
+
+  it('discards a stored identity token the server rejects', async () => {
+    storeIdentityToken('stale.identity.token');
+    fetchMock.mockResolvedValue(jsonResponse(401));
+
+    renderRouted(<Probe />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('anonymous')
+    );
+    expect(readStoredSession()).toBeNull();
   });
 
   it('signs in and stores the token on registration', async () => {
@@ -100,11 +178,14 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('status')).toHaveTextContent('authenticated')
     );
-    expect(readStoredToken()).toBe('a.test.token');
+    expect(readStoredSession()).toEqual({
+      token: 'a.test.token',
+      kind: 'access'
+    });
   });
 
-  it('signs in and stores the token on login', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, AUTHENTICATION));
+  it('signs straight in when the account holds one membership', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, SIGNED_IN));
 
     renderRouted(<Probe />);
     await userEvent.click(screen.getByRole('button', { name: 'login' }));
@@ -112,7 +193,87 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(screen.getByTestId('status')).toHaveTextContent('authenticated')
     );
-    expect(readStoredToken()).toBe('a.test.token');
+    expect(readStoredSession()).toEqual({
+      token: 'a.test.token',
+      kind: 'access'
+    });
+  });
+
+  it('holds the choice open when the account holds several memberships', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, CHOOSE_ORGANISATION));
+
+    renderRouted(<Probe />);
+    await userEvent.click(screen.getByRole('button', { name: 'login' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('choosing')
+    );
+    expect(screen.getByTestId('memberships')).toHaveTextContent(
+      'acme-planning-co,umbrella'
+    );
+    expect(screen.getByTestId('account')).toHaveTextContent('none');
+    // An identity token, deliberately: it reaches nothing tenant-scoped.
+    expect(readStoredSession()).toEqual({
+      token: 'an.identity.token',
+      kind: 'identity'
+    });
+  });
+
+  it('reports someone who belongs to nothing as unaffiliated', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, NO_ORGANISATION));
+
+    renderRouted(<Probe />);
+    await userEvent.click(screen.getByRole('button', { name: 'login' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('unaffiliated')
+    );
+    expect(screen.getByTestId('memberships')).toHaveTextContent('none');
+  });
+
+  it('exchanges the identity token for the chosen organisation', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, CHOOSE_ORGANISATION));
+    renderRouted(<Probe />);
+    await userEvent.click(screen.getByRole('button', { name: 'login' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('choosing')
+    );
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, AUTHENTICATION));
+    await userEvent.click(screen.getByRole('button', { name: 'select' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('authenticated')
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      `/api/auth/tenants/${UMBRELLA_MEMBERSHIP.organisation.id}/token`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer an.identity.token'
+        })
+      })
+    );
+    expect(readStoredSession()?.kind).toBe('access');
+  });
+
+  // A refused exchange must leave the choice open rather than stranding the visitor.
+  it('keeps the choice open when the exchange is refused', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, CHOOSE_ORGANISATION));
+    renderRouted(<Probe />);
+    await userEvent.click(screen.getByRole('button', { name: 'login' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('choosing')
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, { code: 'not_a_member' })
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'select' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('status')).toHaveTextContent('choosing');
+    expect(readStoredSession()?.kind).toBe('identity');
   });
 
   it('stays anonymous when credentials are refused', async () => {
@@ -125,11 +286,11 @@ describe('AuthProvider', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(screen.getByTestId('status')).toHaveTextContent('anonymous');
-    expect(readStoredToken()).toBeNull();
+    expect(readStoredSession()).toBeNull();
   });
 
   it('discards the token on sign out', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, AUTHENTICATION));
+    fetchMock.mockResolvedValue(jsonResponse(200, SIGNED_IN));
 
     renderRouted(<Probe />);
     await userEvent.click(screen.getByRole('button', { name: 'login' }));
@@ -141,12 +302,27 @@ describe('AuthProvider', () => {
 
     expect(screen.getByTestId('status')).toHaveTextContent('anonymous');
     expect(screen.getByTestId('account')).toHaveTextContent('none');
-    expect(readStoredToken()).toBeNull();
+    expect(readStoredSession()).toBeNull();
+  });
+
+  it('drops the pending choice on sign out', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, CHOOSE_ORGANISATION));
+
+    renderRouted(<Probe />);
+    await userEvent.click(screen.getByRole('button', { name: 'login' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent('choosing')
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'logout' }));
+
+    expect(screen.getByTestId('status')).toHaveTextContent('anonymous');
+    expect(screen.getByTestId('memberships')).toHaveTextContent('none');
   });
 
   // Leaving the page mid-restore must not write to an unmounted component.
   it('abandons a session restore when it is unmounted first', async () => {
-    storeToken('a.test.token');
+    storeAccessToken();
     let settle: (response: Response) => void = () => {};
     fetchMock.mockReturnValue(
       new Promise<Response>((resolve) => {
@@ -163,8 +339,26 @@ describe('AuthProvider', () => {
     expect(errors).not.toHaveBeenCalled();
   });
 
+  it('abandons a membership restore when it is unmounted first', async () => {
+    storeIdentityToken();
+    let settle: (response: Response) => void = () => {};
+    fetchMock.mockReturnValue(
+      new Promise<Response>((resolve) => {
+        settle = resolve;
+      })
+    );
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const { unmount } = renderRouted(<Probe />);
+    unmount();
+    settle(jsonResponse(200, [ACME_MEMBERSHIP]));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    expect(errors).not.toHaveBeenCalled();
+  });
+
   it('abandons a failed session restore when it is unmounted first', async () => {
-    storeToken('a.test.token');
+    storeAccessToken();
     let fail: (reason: Error) => void = () => {};
     fetchMock.mockReturnValue(
       new Promise<Response>((_resolve, reject) => {

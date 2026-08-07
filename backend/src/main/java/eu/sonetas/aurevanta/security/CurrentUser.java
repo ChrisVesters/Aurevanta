@@ -31,8 +31,18 @@ public class CurrentUser {
 		return find().orElseThrow(() -> new AccessDeniedException("No authenticated user in the current context"));
 	}
 
+	/**
+	 * The organisation the caller's token is pinned to.
+	 * @throws AccessDeniedException if nobody is authenticated, or the caller holds an
+	 * identity token and so has not chosen an organisation. Refusing is the point: a
+	 * missing tenant must stop the query rather than quietly reach every row or none.
+	 */
 	public UUID requiredTenantId() {
-		return require().tenantId();
+		AuthenticatedUser user = require();
+		if (!user.hasTenant()) {
+			throw new AccessDeniedException("The current token is not scoped to an organisation");
+		}
+		return user.tenantId();
 	}
 
 }

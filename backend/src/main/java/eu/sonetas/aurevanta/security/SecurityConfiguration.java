@@ -31,8 +31,18 @@ class SecurityConfiguration {
 						.permitAll()
 						.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info")
 						.permitAll()
+						// The only two endpoints an identity token exists for: list the
+						// caller's organisations, and trade the token for one of them.
+						.requestMatchers(HttpMethod.GET, "/api/memberships")
+						.authenticated()
+						.requestMatchers(HttpMethod.POST, "/api/auth/tenants/*/token")
+						.authenticated()
+						// Everything else serves tenant-owned data, so it takes a token
+						// pinned to an organisation. Stated as a requirement rather than
+						// as "not an identity token", so a future kind of token has to be
+						// granted access deliberately.
 						.anyRequest()
-						.authenticated())
+						.hasAuthority(Authorities.TENANT_SCOPED))
 			.oauth2ResourceServer((resourceServer) -> resourceServer
 				.jwt((jwt) -> jwt.jwtAuthenticationConverter(new AuthenticatedUserJwtConverter())))
 			.build();

@@ -88,8 +88,30 @@ class CurrentUserTests {
 		assertThatThrownBy(this.currentUser::requiredTenantId).isInstanceOf(AccessDeniedException.class);
 	}
 
+	/**
+	 * An identity token authenticates a person but names no organisation. Handing back a
+	 * null tenant would let a query run unscoped, so the refusal has to happen here.
+	 */
+	@Test
+	void requiredTenantIdRefusesACallerWhoHasNotChosenAnOrganisation() {
+		authenticate(new AuthenticatedUser(USER_ID, null, "ada@acme.test", null));
+
+		assertThatThrownBy(this.currentUser::requiredTenantId).isInstanceOf(AccessDeniedException.class)
+			.hasMessageContaining("not scoped to an organisation");
+	}
+
+	@Test
+	void requireStillReturnsACallerWhoHasNotChosenAnOrganisation() {
+		authenticate(new AuthenticatedUser(USER_ID, null, "ada@acme.test", null));
+
+		assertThat(this.currentUser.require().hasTenant()).isFalse();
+	}
+
 	private void authenticate(UserRole role) {
-		AuthenticatedUser principal = new AuthenticatedUser(USER_ID, TENANT_ID, "ada@acme.test", role);
+		authenticate(new AuthenticatedUser(USER_ID, TENANT_ID, "ada@acme.test", role));
+	}
+
+	private void authenticate(AuthenticatedUser principal) {
 		Jwt jwt = Jwt.withTokenValue("token").header("alg", "HS256").subject(USER_ID.toString()).build();
 		SecurityContextHolder.getContext()
 			.setAuthentication(new AurevantaAuthenticationToken(principal, jwt, java.util.List.of()));

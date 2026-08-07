@@ -22,12 +22,12 @@ export function DashboardPage() {
             {t('app.name')}
           </Link>
           <span className="organisation">{account.organisation.name}</span>
-          <span className="role">{t(`dashboard.role.${account.role}`)}</span>
+          <span className="role">{t(`roles.${account.role}`)}</span>
         </div>
         <div className="session">
           <span>{account.displayName}</span>
           <button type="button" className="link" onClick={logout}>
-            {t('dashboard.signOut')}
+            {t('app.signOut')}
           </button>
         </div>
       </header>

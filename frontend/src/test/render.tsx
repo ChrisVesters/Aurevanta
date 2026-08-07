@@ -3,7 +3,14 @@ import { render } from '@testing-library/react';
 import { beforeEach, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../auth/AuthProvider';
-import type { Account, AuthenticationResponse } from '../auth/types';
+import { storeSession } from '../auth/session';
+import type {
+  Account,
+  AuthenticationResponse,
+  Identity,
+  Membership,
+  SignInResponse
+} from '../auth/types';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
@@ -23,6 +30,57 @@ export const AUTHENTICATION: AuthenticationResponse = {
   expiresInSeconds: 43200,
   account: ACCOUNT
 };
+
+export const ACME_MEMBERSHIP: Membership = {
+  id: '33333333-3333-3333-3333-333333333333',
+  role: 'OWNER',
+  organisation: ACCOUNT.organisation,
+  lastAccessedAt: '2026-08-07T09:00:00Z'
+};
+
+export const UMBRELLA_MEMBERSHIP: Membership = {
+  id: '44444444-4444-4444-4444-444444444444',
+  role: 'MEMBER',
+  organisation: {
+    id: '55555555-5555-5555-5555-555555555555',
+    name: 'Umbrella',
+    slug: 'umbrella'
+  },
+  lastAccessedAt: null
+};
+
+export function identity(memberships: Membership[]): Identity {
+  return {
+    identityToken: 'an.identity.token',
+    tokenType: 'Bearer',
+    expiresInSeconds: 43200,
+    memberships
+  };
+}
+
+export const SIGNED_IN: SignInResponse = {
+  outcome: 'SIGNED_IN',
+  session: AUTHENTICATION
+};
+
+export const CHOOSE_ORGANISATION: SignInResponse = {
+  outcome: 'CHOOSE_ORGANISATION',
+  identity: identity([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP])
+};
+
+export const NO_ORGANISATION: SignInResponse = {
+  outcome: 'NO_ORGANISATION',
+  identity: identity([])
+};
+
+/** Puts a token of either kind in storage, as a previous visit would have left it. */
+export function storeAccessToken(token = 'a.test.token') {
+  storeSession({ token, kind: 'access' });
+}
+
+export function storeIdentityToken(token = 'an.identity.token') {
+  storeSession({ token, kind: 'identity' });
+}
 
 /** Renders inside a router and a real AuthProvider, so guards behave as they do live. */
 export function renderRouted(

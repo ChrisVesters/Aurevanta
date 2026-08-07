@@ -16,7 +16,7 @@
 
 | Phase | Step | | Depends on |
 |---|---|---|---|
-| **A — Reshape** | 1 | Split identity from membership | — |
+| **A — Reshape** | 1 | Split identity from membership ✅ *done* | — |
 | **B — Foundations** | 2 | Email infrastructure | — |
 | | 3 | Single-use token infrastructure | 1 |
 | | 4 | Per-field error codes | — |
@@ -172,7 +172,7 @@ knowing before the sending code is written.
 
 # Phase A — Reshape the model
 
-## Step 1 — Split identity from membership
+## Step 1 — Split identity from membership ✅ *done*
 
 **Goal.** One address can hold memberships in several organisations, with a different role
 in each, and a single password.
@@ -230,6 +230,34 @@ MEMBER in another simultaneously.
 
 **Done when** one address holds two memberships with different roles, and no tenant-scoped
 query reads a tenant from anywhere but `CurrentUser`.
+
+### As built — where it differs from the above
+
+Every bullet and every named test landed. Four things a later step should know:
+
+- **An identity token cannot reach `/auth/me`**, contrary to the token table in decision 3.
+  `AccountResponse` names an organisation and a role, so there is no coherent tenant-less
+  answer for it to give. Session restore for an identity token uses `GET /api/memberships`
+  instead, and the frontend stores the *kind* of token alongside it so it knows which to
+  call. Reaching `/auth/me` without a tenant would mean reshaping its response, not
+  relaxing a guard.
+- **There is no "create an organisation" endpoint**, also promised by that table. Nothing in
+  the product can produce a zero-membership identity until Step 11 lets an owner remove
+  someone, so this costs nothing yet — but **Step 11 must not ship without it**, or removing
+  someone's last membership strands them on an empty state with no way out. The empty state
+  currently says to wait for an invitation.
+- **`memberships` has one index, not two.** `uq_memberships_user_tenant` is a btree on
+  `(user_id, tenant_id)` whose leading column already serves every lookup by user, so a
+  separate `ix_memberships_user` would only cost writes.
+- **A chooser screen exists**, slightly ahead of the plan, which names only the empty state.
+  Without it `status === 'choosing'` renders nothing. It is unreachable in the running app
+  until Step 10, but tested against a mocked API. It is *not* the Step 12 switcher: it
+  stands in for the route inside `RequireAuth` rather than sitting in the dashboard header.
+
+One point of wording: the "Done when" clause says `CurrentUser`, and neither caller uses it —
+`AuthController` takes the principal via `@AuthenticationPrincipal`, as M0 already did.
+Same verified source, different accessor; `CurrentUser` is for code below the web layer and
+gets its first production caller in M2.
 
 ---
 

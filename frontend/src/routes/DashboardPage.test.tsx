@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { DashboardPage } from './DashboardPage';
-import { storeToken } from '../auth/session';
-import { ACCOUNT, jsonResponse, mockFetch, renderRouted } from '../test/render';
+import {
+  ACCOUNT,
+  jsonResponse,
+  mockFetch,
+  renderRouted,
+  storeAccessToken
+} from '../test/render';
 
 describe('DashboardPage', () => {
   const fetchMock = mockFetch();
@@ -15,7 +20,7 @@ describe('DashboardPage', () => {
   });
 
   it('names the organisation the session is scoped to', async () => {
-    storeToken('a.test.token');
+    storeAccessToken();
     fetchMock.mockResolvedValue(jsonResponse(200, ACCOUNT));
 
     renderRouted(<DashboardPage />);
@@ -28,7 +33,7 @@ describe('DashboardPage', () => {
   });
 
   it('describes a non-owner as a member', async () => {
-    storeToken('a.test.token');
+    storeAccessToken();
     fetchMock.mockResolvedValue(
       jsonResponse(200, { ...ACCOUNT, role: 'MEMBER' })
     );

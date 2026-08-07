@@ -3,6 +3,8 @@ package eu.sonetas.aurevanta.auth;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import eu.sonetas.aurevanta.auth.problem.AuthProblemException;
+
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +22,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>
  * Ordered ahead of Boot's own problem-detail advice, which would otherwise answer
  * validation failures first and drop the per-field detail the sign-up form needs.
+ *
+ * <p>
+ * The selector names one controller. Every endpoint under {@code /api/auth} still lives
+ * on it, but a second controller in an {@code auth} subpackage would silently lose this
+ * advice — so adding one means widening the selector, not just adding the class.
  */
 @RestControllerAdvice(assignableTypes = AuthController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)

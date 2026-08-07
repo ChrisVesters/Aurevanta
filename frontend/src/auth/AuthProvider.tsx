@@ -2,96 +2,158 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { apiRequest } from '../api/client';
 import { AuthContext, type AuthStatus } from './AuthContext';
-import { clearStoredToken, readStoredToken, storeToken } from './session';
+import {
+  clearStoredSession,
+  readStoredSession,
+  storeSession,
+  type StoredSession
+} from './session';
 import type {
   Account,
   AuthenticationResponse,
+  Identity,
   LoginRequest,
-  RegistrationRequest
+  Membership,
+  RegistrationRequest,
+  SignInResponse
 } from './types';
 
 /**
- * Holds the access token and the account it belongs to.
+ * Holds the token and whatever it entitles the holder to.
  *
- * On load a stored token is checked against `/api/auth/me` rather than trusted, so a
- * token that has expired, or whose account is gone, drops the app back to the sign-in
- * screen instead of leaving a stale name on screen.
+ * Signing in has three endings, because an address may belong to no, one, or several
+ * organisations. Only one of them produces a session; the other two produce an identity
+ * token and a choice, so this provider tracks both.
+ *
+ * On load a stored token is checked against the server rather than trusted, so one that
+ * has expired, or whose membership is gone, drops the app back to the sign-in screen
+ * instead of leaving a stale name on screen.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const token = useRef<string | null>(readStoredToken());
+  const session = useRef<StoredSession | null>(readStoredSession());
   const [account, setAccount] = useState<Account | null>(null);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [status, setStatus] = useState<AuthStatus>(
-    token.current ? 'restoring' : 'anonymous'
+    session.current ? 'restoring' : 'anonymous'
   );
 
+  const forget = useCallback(() => {
+    // Tokens are stateless, so signing out is entirely client-side: discard the token and
+    // it simply expires unused.
+    session.current = null;
+    clearStoredSession();
+    setAccount(null);
+    setMemberships([]);
+    setStatus('anonymous');
+  }, []);
+
+  const acceptSession = useCallback((response: AuthenticationResponse) => {
+    session.current = { token: response.accessToken, kind: 'access' };
+    storeSession(session.current);
+    setAccount(response.account);
+    setMemberships([]);
+    setStatus('authenticated');
+  }, []);
+
+  const acceptIdentity = useCallback((identity: Identity) => {
+    session.current = { token: identity.identityToken, kind: 'identity' };
+    storeSession(session.current);
+    setAccount(null);
+    setMemberships(identity.memberships);
+    setStatus(identity.memberships.length > 0 ? 'choosing' : 'unaffiliated');
+  }, []);
+
   useEffect(() => {
-    if (!token.current) {
+    const stored = session.current;
+    if (!stored) {
       return;
     }
     let cancelled = false;
-    apiRequest<Account>('/auth/me', { token: token.current })
-      .then((restored) => {
+
+    // Which endpoint proves the token still works depends on what kind it is: an access
+    // token names an organisation, an identity token has yet to choose one.
+    async function restore(from: StoredSession) {
+      if (from.kind === 'access') {
+        const restored = await apiRequest<Account>('/auth/me', {
+          token: from.token
+        });
         if (!cancelled) {
           setAccount(restored);
           setStatus('authenticated');
         }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          token.current = null;
-          clearStoredToken();
-          setAccount(null);
-          setStatus('anonymous');
-        }
+        return;
+      }
+      const held = await apiRequest<Membership[]>('/memberships', {
+        token: from.token
       });
+      if (!cancelled) {
+        setMemberships(held);
+        setStatus(held.length > 0 ? 'choosing' : 'unaffiliated');
+      }
+    }
+
+    restore(stored).catch(() => {
+      if (!cancelled) {
+        forget();
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const accept = useCallback((response: AuthenticationResponse) => {
-    token.current = response.accessToken;
-    storeToken(response.accessToken);
-    setAccount(response.account);
-    setStatus('authenticated');
-  }, []);
+  }, [forget]);
 
   const register = useCallback(
     async (request: RegistrationRequest) => {
-      accept(
+      // Registering creates the organisation as well as the account, so there is exactly
+      // one membership and nothing to choose between.
+      acceptSession(
         await apiRequest<AuthenticationResponse>('/auth/register', {
           method: 'POST',
           body: request
         })
       );
     },
-    [accept]
+    [acceptSession]
   );
 
   const login = useCallback(
     async (request: LoginRequest) => {
-      accept(
-        await apiRequest<AuthenticationResponse>('/auth/login', {
-          method: 'POST',
-          body: request
-        })
-      );
+      const response = await apiRequest<SignInResponse>('/auth/login', {
+        method: 'POST',
+        body: request
+      });
+      if (response.outcome === 'SIGNED_IN') {
+        acceptSession(response.session);
+      } else {
+        acceptIdentity(response.identity);
+      }
     },
-    [accept]
+    [acceptSession, acceptIdentity]
   );
 
-  const logout = useCallback(() => {
-    // Tokens are stateless, so signing out is entirely client-side: discard the token and
-    // it simply expires unused.
-    token.current = null;
-    clearStoredToken();
-    setAccount(null);
-    setStatus('anonymous');
-  }, []);
+  const selectOrganisation = useCallback(
+    async (organisationId: string) => {
+      acceptSession(
+        await apiRequest<AuthenticationResponse>(
+          `/auth/tenants/${organisationId}/token`,
+          { method: 'POST', token: session.current?.token }
+        )
+      );
+    },
+    [acceptSession]
+  );
 
   const value = useMemo(
-    () => ({ status, account, register, login, logout }),
-    [status, account, register, login, logout]
+    () => ({
+      status,
+      account,
+      memberships,
+      register,
+      login,
+      selectOrganisation,
+      logout: forget
+    }),
+    [status, account, memberships, register, login, selectOrganisation, forget]
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;
