@@ -17,5 +17,21 @@ services:
       timeout: 5s
       retries: 10
 
+  # Captures outbound mail and delivers none of it, so developing against real addresses
+  # cannot reach a real inbox. Read what was sent at http://localhost:8025.
+  mailpit:
+    image: 'axllent/mailpit:v1.27'
+    ports:
+      - '1025:1025' # SMTP, where spring.mail.* points
+      - '8025:8025' # web UI
+    environment:
+      - 'MP_SMTP_AUTH_ACCEPT_ANY=1'
+      - 'MP_SMTP_AUTH_ALLOW_INSECURE=1'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   aurevanta-postgres:

@@ -10,15 +10,28 @@ type ProblemDetail = {
   status?: number;
   /** Stable machine-readable identifier, e.g. `email_already_registered`. */
   code?: string;
-  /** Field name to message, present when `code` is `validation_failed`. */
-  errors?: Record<string, string>;
+  /** Field name to complaint, present when `code` is `validation_failed`. */
+  errors?: Record<string, FieldProblem>;
+};
+
+/**
+ * Why one field was rejected. `code` names the constraint that failed — `size`, `email` —
+ * and the remaining keys are whatever a message interpolates, such as `min` and `max`.
+ * The server never sends prose here, so there is nothing to display without translating.
+ */
+export type FieldProblem = {
+  code: string;
+  // The backend publishes only the constraint's numeric attributes, since bounds are what
+  // a message interpolates. Typed as such so the whole problem can be handed straight to
+  // `t()` as its interpolation values.
+  [attribute: string]: string | number;
 };
 
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string | undefined;
-  /** Per-field messages, so a form can put each complaint next to its input. */
-  readonly fieldErrors: Record<string, string>;
+  /** Per-field complaints, so a form can put each one next to its input. */
+  readonly fieldErrors: Record<string, FieldProblem>;
 
   constructor(status: number, problem: ProblemDetail | null) {
     super(problem?.detail ?? problem?.title ?? `Request failed (${status})`);

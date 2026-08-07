@@ -67,7 +67,9 @@ public class AuthenticationService {
 	}
 
 	private User authenticate(LoginRequest request) {
-		User user = this.users.findByEmailIgnoringCase(request.email().trim()).orElse(null);
+		// Already stripped by the request record, so the lookup matches what registration
+		// stored rather than differing by a pasted space.
+		User user = this.users.findByEmailIgnoringCase(request.email()).orElse(null);
 		if (user == null) {
 			this.passwordEncoder.matches(request.password(), this.decoyHash);
 			throw new InvalidCredentialsException();

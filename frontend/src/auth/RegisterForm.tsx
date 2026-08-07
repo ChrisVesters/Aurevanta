@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
-import { describeFailure, describeFieldErrors } from '../i18n/problems';
 import { useAuth } from './AuthContext';
 import { Field } from './Field';
 import { textField } from './formValues';
+import { useFormFailure } from './useFormFailure';
 import {
   MAXIMUM_EMAIL_LENGTH,
   MAXIMUM_NAME_LENGTH,
@@ -18,15 +18,18 @@ export function RegisterForm() {
   const { register } = useAuth();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const { message, fieldErrors, report, clear } = useFormFailure([
+    'organisationName',
+    'displayName',
+    'email',
+    'password'
+  ]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setSubmitting(true);
-    setMessage(null);
-    setFieldErrors({});
+    clear();
     try {
       await register({
         organisationName: textField(form, 'organisationName'),
@@ -37,13 +40,7 @@ export function RegisterForm() {
       // On success the session changes and RedirectWhenSignedIn navigates onward, so
       // this component is unmounted; leave `submitting` set rather than flicker.
     } catch (error) {
-      const perField = describeFieldErrors(t, error);
-      setFieldErrors(perField);
-      // A field-level complaint is already shown against its input; only summarise
-      // failures that belong to the form as a whole.
-      setMessage(
-        Object.keys(perField).length > 0 ? null : describeFailure(t, error)
-      );
+      report(error);
       setSubmitting(false);
     }
   }

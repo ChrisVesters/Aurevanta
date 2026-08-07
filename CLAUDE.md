@@ -79,6 +79,13 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   Change the config and reformat rather than editing files by hand.
 - The frontend talks to the backend through the `/api` prefix and the Vite dev proxy,
   which keeps the browser same-origin so there is no CORS configuration in dev.
+- **A form reports a failed submission through `useFormFailure`**, never by calling
+  `describeFailure` on its own. It holds the rule that decides what the visitor sees — a
+  complaint belonging to a field is shown against that field, and only a failure belonging
+  to the whole form gets the banner. A form that handles just the banner answers an empty
+  required field with "some fields need attention" and never says which, or why. Pass it
+  the field names the form renders: suppressing the banner is only safe for complaints the
+  visitor can actually see, so one about a field that is not on screen falls back to it.
 - **No user-visible literal strings.** Every string a person can read comes from the
   catalogue in `src/i18n/en.ts` via `useTranslation()` / `<Trans>`. Keys are type-checked
   against that catalogue (`src/i18n/i18next.d.ts`), and the test setup fails any test that
@@ -95,6 +102,54 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   the session and the guards move the visitor on, which is also what returns someone to
   the page they originally asked for after signing in.
 - Actuator exposes only `health` and `info`.
+
+## Single-use tokens (emailed links)
+
+- **Not the same thing as an access token.** `security` mints stateless JWTs a client
+  presents on every request; `token` backs one emailed link — confirm an address, reset a
+  password — that works once and then never again.
+- **Only a SHA-256 hash is stored**, never the raw value. These tokens grant account access
+  without a password, so a leaked backup must not be a list of working password resets.
+  SHA-256 rather than the `PasswordEncoder`: redemption looks a row up *by* the hash, which
+  a salted, deliberately slow bcrypt would turn into a table scan, and 32 random bytes are
+  not the guessable secret bcrypt exists to protect.
+- `SingleUseTokenService.issue(user, purpose, ttl)` returns the raw token **once** — put it
+  in the mail there or it is gone. `consume(rawToken, purpose)` returns the user and spends
+  the token, or returns empty.
+- **`consume` never says why it refused.** Unknown, expired, already spent and wrong-purpose
+  are one answer, so a caller cannot be used to confirm which tokens exist.
+- **Redemption is one conditional `UPDATE`, not a read then a write.** That is what makes
+  "exactly once" hold when two clicks arrive together; a new purpose must keep it that way.
+- Adding a purpose is a `TokenPurpose` constant. Redemption checks it, so a weaker token
+  (proving someone reads an inbox) can never be spent as a stronger one (taking the account
+  over).
+
+## Outbound mail
+
+- **Depend on the `EmailSender` port, never on a transport.** `SmtpEmailSender` is the only
+  thing that knows mail is SMTP; swapping in a provider's HTTP API later is one new
+  implementation and no change to any caller.
+- **Sending is asynchronous and delivery failure is logged, not thrown.** The bean wired
+  into the context is `AsyncEmailSender`, so a slow or unreachable server cannot add
+  seconds to a request — and registration cannot fail because mail did. A caller therefore
+  learns nothing about delivery; that is the trade, and closing it needs an outbox table
+  and a provider webhook, which M1 does not have.
+- **Mail sent inside a transaction goes out after it commits**, and not at all if it rolls
+  back. A message almost always describes a row the same transaction just wrote — a token,
+  an invitation — so sending it eagerly would race the commit and could deliver a link to
+  something that does not exist. Callers need do nothing; `AsyncEmailSender` waits.
+- **Recipients are masked in logs** (`a***@acme.test`). Addresses are personal data and
+  logs travel further than the database does; the mask is enough to match a lost message
+  to a support request and no more.
+- Transport is `spring.mail.*`, so adopting a provider is configuration. `aurevanta.mail.from`
+  is the sender; `aurevanta.mail.base-url` is the origin links in mail are built against —
+  it points at the *frontend*, and the backend cannot discover it behind a proxy, so it is
+  stated rather than guessed. Build links with `MailProperties.link(path)`.
+- `compose.yaml` runs **Mailpit**: SMTP on 1025, and everything sent in dev is readable at
+  <http://localhost:8025> and delivered to nobody.
+- Tests use `RecordingEmailSender`, which replaces the whole port — wrapper included — so
+  assertions are immediate and nothing waits on a background thread. `SmtpEmailSenderTests`
+  is the single exception, proving the adapter against a real SMTP server via GreenMail.
 
 ## Multi-tenancy and authentication
 
@@ -132,6 +187,22 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `email_already_registered`); `AuthExceptionHandler` is ordered ahead of Boot's own
   problem-detail advice so per-field validation messages survive.
 - **A new failure needs a `code`, not just a message.** The frontend translates the code
-  and ignores the prose. *Known gap:* per-field validation errors carry only Bean
-  Validation's English text, so the frontend matches on field name instead. Giving each
-  field error its own code would remove that guesswork.
+  and ignores the prose.
+- **Per-field validation errors carry a code too**, never Bean Validation's English:
+  `errors: { password: { code: "size", min: 12, max: 72 } }`. The code names the
+  *constraint*, so one catalogue entry per rule serves every form and the bounds come from
+  the server rather than being repeated in the frontend. Adding a constraint to a request
+  object means adding it to `AuthExceptionHandler.CONSTRAINT_CODES` and to
+  `errors.validation` in `en.ts`; an unmapped one degrades to `invalid` rather than leaking
+  its name. Only the constraint's *numeric* attributes go out — a regular expression or a
+  message template is implementation detail, not something to render.
+- **One field can break several rules at once**, and Bean Validation returns them in a set
+  whose order varies between requests. `CODE_PRECEDENCE` decides which is reported, so the
+  answer never depends on arrival order — presence (`not_blank`) before shape (`size`,
+  `email`), and anything unmapped last. A new constraint that can fail *alongside* another
+  on the same field belongs in that list, or the message will flicker.
+- **Request records normalise before validation, in a compact constructor.** `@Email`
+  rejects a padded address outright, so trimming in the service would be too late — someone
+  pasting an address out of a password manager would be told it is invalid. Passwords are
+  deliberately never stripped: spaces are legitimate in a passphrase, and trimming would
+  store one credential and compare another.

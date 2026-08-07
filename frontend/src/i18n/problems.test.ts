@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import i18n from './config';
 import { describeFailure, describeFieldErrors } from './problems';
-import { ApiError } from '../api/client';
+import { ApiError, type FieldProblem } from '../api/client';
 
 const t = i18n.getFixedT('en');
 
@@ -72,34 +72,88 @@ describe('describeFieldErrors', () => {
     );
   });
 
-  it('replaces the server wording for fields the catalogue covers', () => {
+  it('describes each field by the constraint it failed', () => {
     const error = new ApiError(400, {
       code: 'validation_failed',
       errors: {
-        organisationName: 'must not be blank',
-        displayName: 'must not be blank',
-        email: 'must be a well-formed email address',
-        password: 'size must be between 12 and 72'
+        organisationName: { code: 'not_blank' },
+        email: { code: 'email' },
+        password: { code: 'size', min: 12, max: 72 }
       }
     });
 
     expect(describeFieldErrors(t, error)).toEqual({
-      organisationName: 'Enter the name of your organisation.',
-      displayName: 'Enter your name.',
+      organisationName: 'This cannot be empty.',
       email: 'Enter a valid email address.',
-      password: 'Use at least 12 characters.'
+      password: 'Use between 12 and 72 characters.'
     });
   });
 
-  // Better an untranslated message than a silently dropped one.
-  it('keeps the server wording for a field the catalogue does not cover', () => {
+  /**
+   * The bounds come from the server, so changing `@Size` on the request object changes
+   * what the user is told without touching the catalogue.
+   */
+  /** "Use between 0 and 200 characters" is not a sentence worth showing anyone. */
+  it('states a ceiling without inventing a floor', () => {
     const error = new ApiError(400, {
       code: 'validation_failed',
-      errors: { somethingNew: 'must be positive' }
+      errors: { organisationName: { code: 'max_size', min: 0, max: 200 } }
+    });
+
+    expect(describeFieldErrors(t, error).organisationName).toBe(
+      'Use no more than 200 characters.'
+    );
+  });
+
+  it('takes the bounds it interpolates from the failure, not from the catalogue', () => {
+    const error = new ApiError(400, {
+      code: 'validation_failed',
+      errors: { password: { code: 'size', min: 16, max: 64 } }
+    });
+
+    expect(describeFieldErrors(t, error).password).toBe(
+      'Use between 16 and 64 characters.'
+    );
+  });
+
+  /**
+   * Each constraint paired with the attributes the backend sends for it. The leftover
+   * `{{` check is the point: it catches a catalogue entry that interpolates a value the
+   * server does not actually publish, which would put `{{min}}` in front of a user.
+   */
+  it('renders every constraint code the backend can send', () => {
+    const problems: FieldProblem[] = [
+      { code: 'not_blank' },
+      { code: 'size', min: 12, max: 72 },
+      { code: 'max_size', min: 0, max: 200 },
+      { code: 'email' },
+      { code: 'invalid' }
+    ];
+
+    for (const problem of problems) {
+      const message = describeFieldErrors(
+        t,
+        new ApiError(400, {
+          code: 'validation_failed',
+          errors: { f: problem }
+        })
+      ).f;
+
+      expect(message, problem.code).not.toBe('');
+      expect(message, problem.code).not.toContain('{{');
+    }
+  });
+
+  // The server sends no prose, so an unmapped constraint has nothing to fall back to
+  // except our own generic wording — showing nothing would leave the field unexplained.
+  it('falls back to a generic complaint for a constraint it does not know', () => {
+    const error = new ApiError(400, {
+      code: 'validation_failed',
+      errors: { somethingNew: { code: 'decimal_min', value: 5 } }
     });
 
     expect(describeFieldErrors(t, error)).toEqual({
-      somethingNew: 'must be positive'
+      somethingNew: 'Check this and try again.'
     });
   });
 });

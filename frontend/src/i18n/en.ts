@@ -110,12 +110,17 @@ export const en = {
         'That email address or organisation name was just taken.',
       validation_failed: 'Some fields need attention.'
     },
-    // Per-field wording for the constraints the sign-up form knows about.
-    fields: {
-      organisationName: 'Enter the name of your organisation.',
-      displayName: 'Enter your name.',
+    // Keyed by the constraint the backend says a field failed, not by the field's name:
+    // one entry per rule serves every form, and the bounds come from the server so no
+    // number is repeated here. `invalid` is the fallback for a constraint with no wording
+    // — the server sends no prose, so there is nothing else to show.
+    validation: {
+      not_blank: 'This cannot be empty.',
+      size: 'Use between {{min}} and {{max}} characters.',
+      // A constraint that only bounds length above; `size` would say "between 0 and 200".
+      max_size: 'Use no more than {{max}} characters.',
       email: 'Enter a valid email address.',
-      password: 'Use at least {{count}} characters.'
+      invalid: 'Check this and try again.'
     },
     network: 'Could not reach the server. Check your connection and try again.',
     unknown: 'Something went wrong. Please try again.'

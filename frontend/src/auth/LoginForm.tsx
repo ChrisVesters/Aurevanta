@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import type { FormEvent } from 'react';
+import type { SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
-import { describeFailure } from '../i18n/problems';
 import { useAuth } from './AuthContext';
 import { Field } from './Field';
 import { textField } from './formValues';
+import { useFormFailure } from './useFormFailure';
 import { MAXIMUM_EMAIL_LENGTH, MAXIMUM_PASSWORD_LENGTH } from './constants';
 
 export function LoginForm() {
@@ -13,20 +13,23 @@ export function LoginForm() {
   const { login } = useAuth();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { message, fieldErrors, report, clear } = useFormFailure([
+    'email',
+    'password'
+  ]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setSubmitting(true);
-    setMessage(null);
+    clear();
     try {
       await login({
         email: textField(form, 'email'),
         password: textField(form, 'password')
       });
     } catch (error) {
-      setMessage(describeFailure(t, error));
+      report(error);
       setSubmitting(false);
     }
   }
@@ -49,6 +52,7 @@ export function LoginForm() {
         autoComplete="email"
         required
         maxLength={MAXIMUM_EMAIL_LENGTH}
+        error={fieldErrors.email}
       />
       <Field
         id="login-password"
@@ -58,6 +62,7 @@ export function LoginForm() {
         autoComplete="current-password"
         required
         maxLength={MAXIMUM_PASSWORD_LENGTH}
+        error={fieldErrors.password}
       />
 
       <button type="submit" className="primary" disabled={submitting}>

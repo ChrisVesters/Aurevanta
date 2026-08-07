@@ -41,7 +41,7 @@ describe('sign-up form', () => {
       jsonResponse(400, {
         code: 'validation_failed',
         detail: 'Some fields need attention',
-        errors: { password: 'size must be between 12 and 72' }
+        errors: { password: { code: 'size', min: 12, max: 72 } }
       })
     );
 
@@ -53,7 +53,9 @@ describe('sign-up form', () => {
       expect(password).toHaveAttribute('aria-invalid', 'true')
     );
     // The server's English prose is replaced by wording from our own catalogue.
-    expect(screen.getByText('Use at least 12 characters.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Use between 12 and 72 characters.')
+    ).toBeInTheDocument();
     expect(
       screen.queryByText('size must be between 12 and 72')
     ).not.toBeInTheDocument();
@@ -134,6 +136,100 @@ describe('sign-in form', () => {
       email: 'ada@acme.test',
       password: 'a-long-enough-passphrase'
     });
+  });
+
+  /**
+   * Submitting an empty field used to reach "Some fields need attention." and stop there,
+   * saying neither which field nor why, because this form asked only for the form-level
+   * message and threw the per-field complaints away.
+   */
+  it('places a field complaint against its own input', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        detail: 'Some fields need attention',
+        errors: { password: { code: 'not_blank' } }
+      })
+    );
+
+    renderRouted(<LoginForm />);
+    await fillAndSubmit();
+
+    const password = await screen.findByLabelText('Password');
+    await waitFor(() =>
+      expect(password).toHaveAttribute('aria-invalid', 'true')
+    );
+    expect(screen.getByText('This cannot be empty.')).toBeInTheDocument();
+    // Saying it twice, once vaguely, helps nobody.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('places a complaint about the email against the email input', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { email: { code: 'not_blank' } }
+      })
+    );
+
+    renderRouted(<LoginForm />);
+    await fillAndSubmit();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Email')).toHaveAttribute(
+        'aria-invalid',
+        'true'
+      )
+    );
+    expect(screen.getByLabelText('Password')).not.toHaveAttribute(
+      'aria-invalid'
+    );
+  });
+
+  /**
+   * A malformed address used to reach the credential check and come back as "email or
+   * password is incorrect", which points at the wrong thing entirely — the password is
+   * fine, the address could not be anyone's.
+   */
+  it('says an address is malformed rather than blaming the credentials', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { email: { code: 'email' } }
+      })
+    );
+
+    renderRouted(<LoginForm />);
+    await fillAndSubmit();
+
+    expect(
+      await screen.findByText('Enter a valid email address.')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Email or password is incorrect.')
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * Suppressing the banner is only safe for complaints the visitor can actually see. A
+   * field name this form does not render — the two disagreeing about what something is
+   * called — would otherwise be shown nowhere at all, leaving a rejected submission with
+   * no visible explanation.
+   */
+  it('falls back to the banner for a field it does not render', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { organisationName: { code: 'not_blank' } }
+      })
+    );
+
+    renderRouted(<LoginForm />);
+    await fillAndSubmit();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Some fields need attention.'
+    );
   });
 
   it('reports refused credentials without saying which part was wrong', async () => {

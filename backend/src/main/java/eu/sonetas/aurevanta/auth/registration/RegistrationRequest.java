@@ -23,4 +23,26 @@ public record RegistrationRequest(
 		@NotBlank @Email @Size(max = 320) String email,
 
 		@NotBlank @Size(min = 12, max = 72) String password) {
+
+	/**
+	 * Strips surrounding whitespace before anything else sees it, validation included.
+	 * Trimming afterwards would be too late: {@code @Email} rejects a padded address
+	 * outright, so pasting one out of a password manager would be answered with "enter a
+	 * valid email address" about an address that is perfectly valid.
+	 *
+	 * <p>
+	 * The password is deliberately left exactly as typed. Spaces are legitimate
+	 * characters in a passphrase, and trimming would quietly change the credential —
+	 * storing one thing at registration and comparing another at sign-in.
+	 */
+	public RegistrationRequest {
+		organisationName = stripped(organisationName);
+		displayName = stripped(displayName);
+		email = stripped(email);
+	}
+
+	private static String stripped(String value) {
+		return (value != null) ? value.strip() : null;
+	}
+
 }

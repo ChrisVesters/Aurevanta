@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Verification, reset and invitation links carry a single-use token in the query
+      string. Modern browsers already withhold the path cross-origin, but nothing needs
+      a Referer here, so none is sent at all. Step 8 should also drop the token from the
+      address bar once it has been redeemed, so it stops living in browser history.
+    -->
+    <meta name="referrer" content="no-referrer" />
     <title>Aurevanta</title>
   </head>
   <body>

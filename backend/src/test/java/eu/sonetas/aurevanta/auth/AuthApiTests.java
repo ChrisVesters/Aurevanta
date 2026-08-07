@@ -110,6 +110,58 @@ class AuthApiTests {
 		});
 	}
 
+	/**
+	 * Addresses arrive padded all the time — pasted out of a password manager or an email
+	 * client. Stripping has to happen before validation, because {@code @Email} rejects a
+	 * padded address outright, which would answer a perfectly good address with "enter a
+	 * valid email address".
+	 */
+	@Test
+	void registrationAcceptsAnAddressPastedWithSurroundingSpace() throws Exception {
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest("  Acme  ", "  Ada  ", "  ada@acme.test  ", PASSWORD));
+
+		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.account.email").value("ada@acme.test"))
+			.andExpect(jsonPath("$.account.displayName").value("Ada"))
+			.andExpect(jsonPath("$.account.organisation.name").value("Acme"));
+
+		assertThat(this.users.findByEmailIgnoringCase("ada@acme.test")).isPresent();
+	}
+
+	@Test
+	void loginAcceptsAnAddressPastedWithSurroundingSpace() throws Exception {
+		register("Acme", "ada@acme.test");
+
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("  ada@acme.test  ", PASSWORD)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.outcome").value("SIGNED_IN"));
+	}
+
+	/**
+	 * Spaces are legitimate characters in a passphrase. Stripping one would store a
+	 * different credential than the visitor chose, and then refuse the one they type.
+	 */
+	@Test
+	void registrationKeepsAPasswordExactlyAsItWasTyped() throws Exception {
+		String padded = "  a passphrase with spaces  ";
+		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", padded));
+		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+			.andExpect(status().isCreated());
+
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("ada@acme.test", padded)))
+			.andExpect(status().isOk());
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("ada@acme.test", padded.strip())))
+			.andExpect(status().isUnauthorized());
+	}
+
 	@Test
 	void eachRegistrationGetsItsOwnTenant() throws Exception {
 		String first = organisationId(register("Acme", "ada@acme.test"));
@@ -149,23 +201,100 @@ class AuthApiTests {
 			.andExpect(jsonPath("$.code").value("organisation_name_unusable"));
 	}
 
+	/**
+	 * The bounds travel with the failure so the client can write its own sentence around
+	 * them, rather than either hard-coding 12 or repeating the server's English.
+	 */
 	@Test
-	void registrationRejectsAShortPasswordAndSaysWhichFieldFailed() throws Exception {
+	void registrationRejectsAShortPasswordWithTheConstraintAndItsBounds() throws Exception {
 		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", "short"));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("validation_failed"))
-			.andExpect(jsonPath("$.errors.password").isNotEmpty());
+			.andExpect(jsonPath("$.errors.password.code").value("size"))
+			.andExpect(jsonPath("$.errors.password.min").value(12))
+			.andExpect(jsonPath("$.errors.password.max").value(72));
+	}
+
+	/**
+	 * An empty password breaks both {@code @NotBlank} and {@code @Size}, and Hibernate
+	 * Validator returns the two in a set whose order varies from one request to the next.
+	 * Repeated here because a single call would pass roughly half the time whether or not
+	 * the answer is actually pinned down.
+	 */
+	@Test
+	void registrationGivesAnEmptyPasswordTheSameAnswerEveryTime() throws Exception {
+		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", ""));
+
+		for (int attempt = 0; attempt < 12; attempt++) {
+			this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors.password.code").value("not_blank"));
+		}
+	}
+
+	/**
+	 * {@code @Size(max = 200)} reports a lower bound of zero, which would otherwise
+	 * become "use between 0 and 200 characters" — a range nobody should be shown. A
+	 * constraint that only bounds length above says so with its own code.
+	 */
+	@Test
+	void registrationReportsALengthCeilingWithoutInventingAFloor() throws Exception {
+		String tooLong = "x".repeat(201);
+		String body = this.json.writeValueAsString(new RegistrationRequest(tooLong, "Ada", "ada@acme.test", PASSWORD));
+
+		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.organisationName.code").value("max_size"))
+			.andExpect(jsonPath("$.errors.organisationName.max").value(200))
+			.andExpect(jsonPath("$.errors.organisationName.min").value(0));
 	}
 
 	@Test
-	void registrationRejectsAMalformedEmail() throws Exception {
+	void registrationRejectsAMalformedEmailByConstraint() throws Exception {
 		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "not-an-address", PASSWORD));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.errors.email").isNotEmpty());
+			.andExpect(jsonPath("$.errors.email.code").value("email"));
+	}
+
+	@Test
+	void registrationRejectsAMissingFieldByConstraint() throws Exception {
+		String body = this.json.writeValueAsString(new RegistrationRequest("  ", "Ada", "ada@acme.test", PASSWORD));
+
+		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.organisationName.code").value("not_blank"));
+	}
+
+	/**
+	 * The whole point of the change: what a field failed is machine-readable, and the
+	 * English Bean Validation generated for it never leaves the server. Publishing the
+	 * regular expression or the message template would put implementation detail in front
+	 * of a user in a language we did not choose.
+	 */
+	@Test
+	void registrationSendsNoServerProseOrImplementationDetailWithAFieldError() throws Exception {
+		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "not-an-address", "short"));
+
+		String response = this.mvc
+			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
+			.andExpect(status().isBadRequest())
+			// The constraint's message template, its regular expression and its groups
+			// stay
+			// on the server; only what a sentence can be built around goes out.
+			.andExpect(jsonPath("$.errors.password.message").doesNotExist())
+			.andExpect(jsonPath("$.errors.password.groups").doesNotExist())
+			.andExpect(jsonPath("$.errors.password.payload").doesNotExist())
+			.andExpect(jsonPath("$.errors.email.regexp").doesNotExist())
+			.andExpect(jsonPath("$.errors.email.flags").doesNotExist())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+
+		assertThat(response).doesNotContain("must be a well-formed").doesNotContain("size must be between");
 	}
 
 	/**
@@ -184,6 +313,36 @@ class AuthApiTests {
 			.andExpect(jsonPath("$.session.accessToken").isNotEmpty())
 			.andExpect(jsonPath("$.session.account.organisation.slug").value("acme"))
 			.andExpect(jsonPath("$.identity").doesNotExist());
+	}
+
+	/**
+	 * Signing in validates its request the same way registering does, so the form has
+	 * something to put against the offending input rather than only a banner saying that
+	 * some field, somewhere, needs attention.
+	 */
+	@Test
+	void loginRejectsAnEmptyFieldByConstraint() throws Exception {
+		this.mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(login("", "")))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("validation_failed"))
+			.andExpect(jsonPath("$.errors.email.code").value("not_blank"))
+			.andExpect(jsonPath("$.errors.password.code").value("not_blank"));
+	}
+
+	/**
+	 * Checking the shape of the address is not the same as checking who holds it. A typo
+	 * that could not be anyone's address is worth saying so about — it leaks nothing,
+	 * because the caller already knows what they typed — and it saves someone hunting for
+	 * a password problem that does not exist.
+	 */
+	@Test
+	void loginRejectsAMalformedEmailByConstraint() throws Exception {
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("not-an-address", PASSWORD)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("validation_failed"))
+			.andExpect(jsonPath("$.errors.email.code").value("email"));
 	}
 
 	@Test

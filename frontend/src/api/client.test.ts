@@ -98,7 +98,7 @@ describe('apiRequest', () => {
       jsonResponse(400, {
         detail: 'Some fields need attention',
         code: 'validation_failed',
-        errors: { password: 'size must be between 12 and 72' }
+        errors: { password: { code: 'size', min: 12, max: 72 } }
       })
     );
 
@@ -107,7 +107,7 @@ describe('apiRequest', () => {
     );
 
     expect(error.fieldErrors).toEqual({
-      password: 'size must be between 12 and 72'
+      password: { code: 'size', min: 12, max: 72 }
     });
   });
 

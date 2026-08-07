@@ -60,7 +60,7 @@ its owner, JWT auth, tenant isolation enforced in the service layer.
 | Gap | Why it matters |
 |---|---|
 | A tenant can only ever have one user | No invitation flow exists. This blocks M1 and makes the product single-player. |
-| Per-field validation errors carry English prose, not codes | The frontend guesses by field name. Blocks full localisation. |
+| ~~Per-field validation errors carry English prose, not codes~~ | *Retired in M1 step 4:* each field error now carries the constraint that failed and its bounds, and the frontend translates that.  |
 | No password reset, no email verification | Anyone can register with an address they do not control. |
 | Landing page advertises unbuilt features | Fine while private; must not go public as-is. |
 

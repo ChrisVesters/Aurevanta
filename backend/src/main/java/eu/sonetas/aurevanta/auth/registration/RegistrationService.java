@@ -58,8 +58,10 @@ public class RegistrationService {
 	 */
 	@Transactional
 	public Membership register(RegistrationRequest request) {
-		String email = request.email().trim();
-		String organisationName = request.organisationName().trim();
+		// Already stripped by the request record, so that validation saw the same text
+		// that is about to be stored.
+		String email = request.email();
+		String organisationName = request.organisationName();
 		String slug = Slug.of(organisationName);
 		if (slug.isEmpty()) {
 			throw new UnusableOrganisationNameException();
@@ -74,7 +76,7 @@ public class RegistrationService {
 		Instant now = Instant.now(this.clock);
 		Tenant tenant = this.tenants.save(new Tenant(organisationName, slug, now));
 		User user = this.users
-			.save(new User(email, this.passwordEncoder.encode(request.password()), request.displayName().trim(), now));
+			.save(new User(email, this.passwordEncoder.encode(request.password()), request.displayName(), now));
 		return this.memberships.save(new Membership(user, tenant, UserRole.OWNER, now));
 	}
 

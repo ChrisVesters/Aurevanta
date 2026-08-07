@@ -17,9 +17,9 @@
 | Phase | Step | | Depends on |
 |---|---|---|---|
 | **A — Reshape** | 1 | Split identity from membership ✅ *done* | — |
-| **B — Foundations** | 2 | Email infrastructure | — |
-| | 3 | Single-use token infrastructure | 1 |
-| | 4 | Per-field error codes | — |
+| **B — Foundations** | 2 | Email infrastructure ✅ *done* | — |
+| | 3 | Single-use token infrastructure ✅ *done* | 1 |
+| | 4 | Per-field error codes ✅ *done* | — |
 | **C — Account lifecycle** | 5 | Email verification, and the sign-in gate | 1, 2, 3 |
 | | 6 | Password reset | 2, 3 |
 | | 7 | Rate limiting on mail-sending endpoints | 5, 6 |
@@ -265,7 +265,7 @@ gets its first production caller in M2.
 
 Nothing user-visible. Steps 2 and 4 are independent of everything; Step 3 needs Step 1.
 
-## Step 2 — Email infrastructure
+## Step 2 — Email infrastructure ✅ *done*
 
 **Goal.** Anything can send mail; nothing does yet.
 
@@ -290,7 +290,22 @@ nothing waits on a timer.
 **Done when** a test can assert an email was sent, `docker compose up` shows mail in
 Mailpit, and pointing `spring.mail.*` at a real provider needs no code change.
 
-## Step 3 — Single-use token infrastructure
+### As built — where it differs from the above
+
+- **`EmailTemplates` is deferred to Step 5**, which writes the first template. A component
+  holding no templates is code no test can exercise, and this project's bar is that a class
+  is not done until its behaviour is, so it is better created with its first real body than
+  created empty now. What Step 5 needs from Step 2 already exists: `MailProperties.link()`
+  builds the absolute links a template embeds, and is tested against both spellings of the
+  origin and the path.
+- **The executor is a bounded pool, so submission can be refused.** A mail server that
+  stops responding fills the queue rather than growing it without limit, and a refused
+  submission is a lost message logged exactly like a failed delivery. Both paths are tested.
+- The `mail` package exports only `EmailSender`, `EmailMessage` and `MailProperties`.
+  `SmtpEmailSender`, `AsyncEmailSender` and `MailConfiguration` are package-private, so no
+  caller can reach past the port to the transport or to the threading.
+
+## Step 3 — Single-use token infrastructure ✅ *done*
 
 **Goal.** One mechanism for verification, reset and invitation tokens.
 
@@ -309,7 +324,29 @@ rejected; the raw token is never persisted.
 **Done when** a token can be issued and redeemed exactly once, and nothing in the database
 can be replayed.
 
-## Step 4 — Per-field error codes
+### As built — where it differs from the above
+
+- **Invitations will not use `user_tokens`.** The goal line says "verification, reset and
+  invitation", but Step 9 gives `invitations` its own `token_hash` column — and it has to,
+  because an invitee may have no account yet while `user_tokens.user_id` is not null. What
+  the two share is the *mechanism*, not the table: 32 bytes from `SecureRandom`, base64url,
+  stored as hex SHA-256, redeemed by a conditional update. `TokenPurpose` therefore has two
+  constants, not three. Step 9 should lift the generation and hashing rather than
+  reimplement them.
+- **Redemption is one conditional `UPDATE`**, `where consumed_at is null and expires_at >
+  now`, and the affected row count is what decides success. Reading the row and then
+  writing it would let two simultaneous clicks both succeed; there is a test that releases
+  four redemptions together and asserts exactly one wins.
+- **`consume` returns `Optional<User>` and does not distinguish why it refused.** If Step 5
+  or 6 wants an "this link has expired, request another" message distinct from a generic
+  failure, that is a deliberate widening of this signature — the current one is silent on
+  purpose so it cannot be used to probe which tokens exist.
+- **The foreign key cascades on delete.** A token is meaningless without the person it
+  authenticates, and without the cascade every future test that deletes a user would trip a
+  constraint. There is a test for the cascade itself, since a missing one would only surface
+  that way.
+
+## Step 4 — Per-field error codes ✅ *done*
 
 **Goal.** Retire the field-name guessing in M0's debt table, before more forms exist.
 
@@ -327,6 +364,42 @@ can be replayed.
 code renders, and an unknown code falls back rather than showing nothing.
 
 **Done when** no frontend code matches on a field *name* to choose a message.
+
+### As built — where it differs from the above
+
+- **Codes are snake_case**, not lower-cased constraint names: `not_blank` rather than
+  `notblank`, so they read like every other code this API publishes. `Size` → `size`,
+  `Email` → `email`, anything unmapped → `invalid`.
+- **The catalogue is keyed by constraint alone**, with no field dimension. The plan's
+  "translates `field + code`" and its "no code matches on a field *name*" pull in opposite
+  directions; a per-field key would put field names back in the catalogue. The cost is that
+  `not_blank` reads "This cannot be empty." for every field rather than "Enter the name of
+  your organisation." — acceptable, because each input carries a visible label, and the
+  gain is that a new form needs no catalogue entries at all. `RegisterForm` still indexes
+  `fieldErrors.organisationName`, but that *places* an already-chosen message next to its
+  input; it does not choose one.
+- **A field that breaks several rules reports the most telling one, by an explicit
+  precedence.** An empty password fails `@NotBlank` and `@Size(min = 12)` together, and
+  Hibernate Validator returns violations in a set whose iteration order varies *within a
+  single run* — so the original "keep the first one" rule made the message flicker between
+  "this cannot be empty" and "use between 12 and 72 characters". Presence now outranks
+  shape. This was a latent M0 bug that survived into step 4; register's `password` is the
+  only field affected, since every other constraint pair cannot fail on the same input.
+- **A constraint that only bounds length above reports `max_size`, not `size`.**
+  `@Size(max = 320)` reports `min: 0`, and "use between 0 and 320 characters" is not a
+  sentence worth showing; `max_size` lets the client say "no more than" instead of
+  inventing a range.
+- **Attributes are read from the constraint by name, not from `FieldError.getArguments()`
+  by position.** That array is ordered by attribute name, so `@Size` yields `[field, max,
+  min]` and a positional read would silently publish min as max.
+- **Only numeric attributes are published.** Bounds are all a message interpolates today; a
+  constraint's regular expression, message template and groups stay on the server.
+- **One deliberate cast in `problems.ts`.** i18next reads `{{min}}`/`{{max}}` out of the
+  catalogue and requires them as *named* arguments, which no runtime-supplied dictionary
+  can satisfy. The generic dispatch is kept and the compiler given up for that one call;
+  the `renders every constraint code` test replaces it, failing on any placeholder left
+  unfilled. Choosing per-code messages in a `switch` would have type-checked, but would
+  make `describeFieldErrors` a file to edit for every new constraint.
 
 ---
 
