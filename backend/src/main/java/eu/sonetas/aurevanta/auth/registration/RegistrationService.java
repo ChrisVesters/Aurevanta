@@ -6,6 +6,7 @@ import java.time.Instant;
 import eu.sonetas.aurevanta.auth.problem.EmailAlreadyRegisteredException;
 import eu.sonetas.aurevanta.auth.problem.OrganisationNameUnavailableException;
 import eu.sonetas.aurevanta.auth.problem.UnusableOrganisationNameException;
+import eu.sonetas.aurevanta.auth.verification.EmailVerificationService;
 import eu.sonetas.aurevanta.membership.Membership;
 import eu.sonetas.aurevanta.membership.MembershipRepository;
 import eu.sonetas.aurevanta.tenant.Slug;
@@ -32,14 +33,17 @@ public class RegistrationService {
 
 	private final PasswordEncoder passwordEncoder;
 
+	private final EmailVerificationService verification;
+
 	private final Clock clock;
 
 	RegistrationService(TenantRepository tenants, UserRepository users, MembershipRepository memberships,
-			PasswordEncoder passwordEncoder, Clock clock) {
+			PasswordEncoder passwordEncoder, EmailVerificationService verification, Clock clock) {
 		this.tenants = tenants;
 		this.users = users;
 		this.memberships = memberships;
 		this.passwordEncoder = passwordEncoder;
+		this.verification = verification;
 		this.clock = clock;
 	}
 
@@ -77,7 +81,14 @@ public class RegistrationService {
 		Tenant tenant = this.tenants.save(new Tenant(organisationName, slug, now));
 		User user = this.users
 			.save(new User(email, this.passwordEncoder.encode(request.password()), request.displayName(), now));
-		return this.memberships.save(new Membership(user, tenant, UserRole.OWNER, now));
+		Membership owner = this.memberships.save(new Membership(user, tenant, UserRole.OWNER, now));
+
+		// The account exists but cannot be used until this link is followed. Sending
+		// cannot fail registration — delivery problems are logged, not thrown — and the
+		// message waits for this transaction to commit, so the token is durable before
+		// anybody can follow it.
+		this.verification.send(user);
+		return owner;
 	}
 
 }

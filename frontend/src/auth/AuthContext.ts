@@ -19,7 +19,11 @@ export type AuthContextValue = {
   account: Account | null;
   /** The organisations to choose between; empty unless `status` is `choosing`. */
   memberships: Membership[];
-  register: (request: RegistrationRequest) => Promise<void>;
+  /**
+   * Creates the account and returns it. Deliberately does *not* sign anybody in: the
+   * address has not been confirmed yet, and an unconfirmed one is refused a token.
+   */
+  register: (request: RegistrationRequest) => Promise<Account>;
   login: (request: LoginRequest) => Promise<void>;
   /** Trades the identity token for one scoped to the chosen organisation. */
   selectOrganisation: (organisationId: string) => Promise<void>;

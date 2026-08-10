@@ -49,14 +49,19 @@ class AuthController {
 	}
 
 	/**
-	 * Creates an organisation with the caller as its owner, and signs them straight in.
-	 * One membership exists by construction, so there is nothing to choose between.
+	 * Creates an organisation with the caller as its owner, and returns the account
+	 * <em>without</em> a token.
+	 *
+	 * <p>
+	 * Registering no longer signs anybody in. It cannot: an unconfirmed address is
+	 * refused at sign-in, so handing out a session here would issue one to an account
+	 * that is not yet allowed to have it — and would make the gate something a client
+	 * could skip simply by registering.
 	 */
 	@PostMapping("/register")
 	@ResponseStatus(HttpStatus.CREATED)
-	AuthenticationResponse register(@Valid @RequestBody RegistrationRequest request) {
-		Membership owner = this.registrationService.register(request);
-		return AuthenticationResponse.of(owner, this.accessTokenService.issue(owner));
+	AccountResponse register(@Valid @RequestBody RegistrationRequest request) {
+		return AccountResponse.of(this.registrationService.register(request));
 	}
 
 	@PostMapping("/login")

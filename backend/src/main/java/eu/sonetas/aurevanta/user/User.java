@@ -37,6 +37,10 @@ public class User {
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
+	/** Null until the address is proved; an account with none cannot sign in. */
+	@Column(name = "email_verified_at")
+	private Instant emailVerifiedAt;
+
 	protected User() {
 		// for JPA
 	}
@@ -66,6 +70,26 @@ public class User {
 
 	public Instant getCreatedAt() {
 		return createdAt;
+	}
+
+	public boolean isEmailVerified() {
+		return this.emailVerifiedAt != null;
+	}
+
+	public Instant getEmailVerifiedAt() {
+		return emailVerifiedAt;
+	}
+
+	/**
+	 * Records that the address has been proved, keeping the first time it happened.
+	 * Verification can be reached by more than one route — a confirmation link, and from
+	 * Step 6 a password reset — so arriving twice is expected and must not rewrite
+	 * history.
+	 */
+	public void markEmailVerified(Instant at) {
+		if (this.emailVerifiedAt == null) {
+			this.emailVerifiedAt = at;
+		}
 	}
 
 }

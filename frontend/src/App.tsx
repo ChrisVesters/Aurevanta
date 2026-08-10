@@ -6,12 +6,19 @@ import { LandingPage } from './routes/LandingPage';
 import { LoginPage } from './routes/LoginPage';
 import { NotFoundPage } from './routes/NotFoundPage';
 import { RegisterPage } from './routes/RegisterPage';
+import { VerifyEmailPage } from './routes/VerifyEmailPage';
 import './App.css';
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+
+      {/*
+        Where the link in a confirmation email lands. Public and outside the guards: the
+        person following it cannot sign in yet — that is precisely what it is for.
+      */}
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* Signing in or up here moves the visitor on to /app automatically. */}
       <Route element={<RedirectWhenSignedIn />}>

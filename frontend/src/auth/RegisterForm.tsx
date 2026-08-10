@@ -18,6 +18,9 @@ export function RegisterForm() {
   const { register } = useAuth();
   const location = useLocation();
   const [submitting, setSubmitting] = useState(false);
+  const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(
+    null
+  );
   const { message, fieldErrors, report, clear } = useFormFailure([
     'organisationName',
     'displayName',
@@ -31,18 +34,37 @@ export function RegisterForm() {
     setSubmitting(true);
     clear();
     try {
-      await register({
+      const account = await register({
         organisationName: textField(form, 'organisationName'),
         displayName: textField(form, 'displayName'),
         email: textField(form, 'email'),
         password: textField(form, 'password')
       });
-      // On success the session changes and RedirectWhenSignedIn navigates onward, so
-      // this component is unmounted; leave `submitting` set rather than flicker.
+      // Registering no longer signs anybody in, so nothing navigates: the account exists
+      // but cannot be used until the address is confirmed. Say so, and say where.
+      setConfirmationSentTo(account.email);
     } catch (error) {
       report(error);
       setSubmitting(false);
     }
+  }
+
+  if (confirmationSentTo) {
+    return (
+      <div className="auth-form">
+        <h1>{t('auth.register.checkEmail.title')}</h1>
+        <p className="lede">
+          {t('auth.register.checkEmail.body', { email: confirmationSentTo })}
+        </p>
+        <p className="lede">{t('auth.register.checkEmail.nothingYet')}</p>
+        <p className="switch">
+          <Trans
+            i18nKey="auth.register.checkEmail.signIn"
+            components={{ signIn: <Link to="/login" /> }}
+          />
+        </p>
+      </div>
+    );
   }
 
   return (

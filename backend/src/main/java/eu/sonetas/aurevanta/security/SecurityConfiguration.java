@@ -26,23 +26,27 @@ class SecurityConfiguration {
 			.formLogin(AbstractHttpConfigurer::disable)
 			.logout(AbstractHttpConfigurer::disable)
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-			.authorizeHttpRequests(
-					(requests) -> requests.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login")
-						.permitAll()
-						.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info")
-						.permitAll()
-						// The only two endpoints an identity token exists for: list the
-						// caller's organisations, and trade the token for one of them.
-						.requestMatchers(HttpMethod.GET, "/api/memberships")
-						.authenticated()
-						.requestMatchers(HttpMethod.POST, "/api/auth/tenants/*/token")
-						.authenticated()
-						// Everything else serves tenant-owned data, so it takes a token
-						// pinned to an organisation. Stated as a requirement rather than
-						// as "not an identity token", so a future kind of token has to be
-						// granted access deliberately.
-						.anyRequest()
-						.hasAuthority(Authorities.TENANT_SCOPED))
+			.authorizeHttpRequests((requests) -> requests
+				// Everything reachable before anyone can sign in — including the
+				// two confirmation endpoints, which exist precisely for people
+				// who cannot.
+				.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/verify-email",
+						"/api/auth/verify-email/resend")
+				.permitAll()
+				.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info")
+				.permitAll()
+				// The only two endpoints an identity token exists for: list the
+				// caller's organisations, and trade the token for one of them.
+				.requestMatchers(HttpMethod.GET, "/api/memberships")
+				.authenticated()
+				.requestMatchers(HttpMethod.POST, "/api/auth/tenants/*/token")
+				.authenticated()
+				// Everything else serves tenant-owned data, so it takes a token
+				// pinned to an organisation. Stated as a requirement rather than
+				// as "not an identity token", so a future kind of token has to be
+				// granted access deliberately.
+				.anyRequest()
+				.hasAuthority(Authorities.TENANT_SCOPED))
 			.oauth2ResourceServer((resourceServer) -> resourceServer
 				.jwt((jwt) -> jwt.jwtAuthenticationConverter(new AuthenticatedUserJwtConverter())))
 			.build();

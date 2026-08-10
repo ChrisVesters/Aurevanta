@@ -28,11 +28,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * validation failures first and drop the per-field detail the sign-up form needs.
  *
  * <p>
- * The selector names one controller. Every endpoint under {@code /api/auth} still lives
- * on it, but a second controller in an {@code auth} subpackage would silently lose this
- * advice — so adding one means widening the selector, not just adding the class.
+ * Scoped by package rather than by class, so every controller serving {@code /api/auth}
+ * is covered — including ones in subpackages, which a selector naming a single class
+ * would have silently left answering Boot's default problem documents instead.
  */
-@RestControllerAdvice(assignableTypes = AuthController.class)
+@RestControllerAdvice(basePackages = "eu.sonetas.aurevanta.auth")
 @Order(Ordered.HIGHEST_PRECEDENCE)
 class AuthExceptionHandler {
 

@@ -16,6 +16,7 @@ export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
   email: 'ada@acme.test',
   displayName: 'Ada',
+  emailVerified: true,
   role: 'OWNER',
   organisation: {
     id: '22222222-2222-2222-2222-222222222222',
@@ -29,6 +30,12 @@ export const AUTHENTICATION: AuthenticationResponse = {
   tokenType: 'Bearer',
   expiresInSeconds: 43200,
   account: ACCOUNT
+};
+
+/** What registration returns now: the account, and deliberately no session. */
+export const UNVERIFIED_ACCOUNT: Account = {
+  ...ACCOUNT,
+  emailVerified: false
 };
 
 export const ACME_MEMBERSHIP: Membership = {

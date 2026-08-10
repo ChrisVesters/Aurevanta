@@ -20,7 +20,7 @@
 | **B — Foundations** | 2 | Email infrastructure ✅ *done* | — |
 | | 3 | Single-use token infrastructure ✅ *done* | 1 |
 | | 4 | Per-field error codes ✅ *done* | — |
-| **C — Account lifecycle** | 5 | Email verification, and the sign-in gate | 1, 2, 3 |
+| **C — Account lifecycle** | 5 | Email verification, and the sign-in gate ✅ *done* | 1, 2, 3 |
 | | 6 | Password reset | 2, 3 |
 | | 7 | Rate limiting on mail-sending endpoints | 5, 6 |
 | | 8 | Frontend: verification, reset, gate handling | 5, 6 |
@@ -408,7 +408,7 @@ code renders, and an unknown code falls back rather than showing nothing.
 Steps 5–8 ship together. Shipping 5 without 6 and 8 strands anyone whose mail is lost;
 shipping any of them without 7 leaves an unauthenticated sending endpoint unthrottled.
 
-## Step 5 — Email verification, and the sign-in gate
+## Step 5 — Email verification, and the sign-in gate ✅ *done*
 
 **Goal.** Verified addresses only. Where decision 2 lands, so it changes M0 behaviour.
 
@@ -433,6 +433,29 @@ succeeds after verification. Resend returns `202` for unknown and already-verifi
 and sends nothing.
 
 **Done when** an unverified account cannot obtain an access token by any route.
+
+### As built — where it differs from the above
+
+- **`EmailTemplates` arrived here**, as Step 2 recorded it would: a component holding no
+  templates was not worth creating empty.
+- **The exception advice is now scoped by package**, not by class. Step 4 flagged that a
+  second controller in an `auth` subpackage would silently lose it; `VerificationController`
+  is that controller, so `@RestControllerAdvice(basePackages = "eu.sonetas.aurevanta.auth")`
+  replaces the single-class selector.
+- **Existing accounts are grandfathered as confirmed** by the migration. Nothing is
+  deployed, so this touches developer databases only — but leaving them unconfirmed would
+  strand them with no way back in until Step 8 builds the screen that asks for a new link.
+- **Part of Step 8 came forward, because Step 5 makes it non-optional.** Registration no
+  longer returns a token, so `AuthProvider.register` had to stop establishing a session and
+  `RegisterForm` had to end somewhere — it now shows a "confirm your address" screen. The
+  `/verify-email` route came with it: the step emails a link, so the page that link lands on
+  is not separable from the step that sends it. Deferring it shipped a confirmation email
+  pointing at a 404 — the whole journey the gate depends on, broken. `/forgot-password` and
+  `/reset-password` remain Step 8's, alongside Step 6.
+- **`/verify-email` also serves without a token**, showing a form that asks for a new link.
+  A link that has expired or been used is precisely when somebody needs another one, so it
+  must not be a dead end; the sign-in form links to the same page for anyone refused by the
+  gate.
 
 ## Step 6 — Password reset
 

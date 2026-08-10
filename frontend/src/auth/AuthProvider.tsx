@@ -103,17 +103,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [forget]);
 
   const register = useCallback(
-    async (request: RegistrationRequest) => {
-      // Registering creates the organisation as well as the account, so there is exactly
-      // one membership and nothing to choose between.
-      acceptSession(
-        await apiRequest<AuthenticationResponse>('/auth/register', {
-          method: 'POST',
-          body: request
-        })
-      );
-    },
-    [acceptSession]
+    async (request: RegistrationRequest) =>
+      // No session comes back, and none is established. The account exists but its address
+      // is unconfirmed, and sign-in refuses those — so the visitor goes to their inbox,
+      // not to the dashboard.
+      apiRequest<Account>('/auth/register', { method: 'POST', body: request }),
+    []
   );
 
   const login = useCallback(

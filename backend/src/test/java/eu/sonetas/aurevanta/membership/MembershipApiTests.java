@@ -263,8 +263,15 @@ class MembershipApiTests {
 		assertThat(this.memberships.findForUserInTenant(this.mallory.getId(), this.acme.getId())).isEmpty();
 	}
 
+	/**
+	 * Seeded already confirmed. These fixtures exist to exercise membership, and an
+	 * unconfirmed address is refused at sign-in — which is its own test, over in
+	 * {@code AuthApiTests}, not a precondition every test here should have to restate.
+	 */
 	private User user(String email, String displayName) {
-		return this.users.save(new User(email, this.passwordEncoder.encode(PASSWORD), displayName, CREATED_AT));
+		User user = new User(email, this.passwordEncoder.encode(PASSWORD), displayName, CREATED_AT);
+		user.markEmailVerified(CREATED_AT);
+		return this.users.save(user);
 	}
 
 	private RequestBuilder login(String email) {

@@ -72,13 +72,43 @@ export const en = {
       lede: 'Aurevanta plans work in ranges rather than single dates. Set up an organisation and you can start estimating right away.',
       submit: 'Create organisation',
       submitting: 'Creating…',
-      haveAccount: 'Already have an account? <signIn>Sign in</signIn>'
+      haveAccount: 'Already have an account? <signIn>Sign in</signIn>',
+      // Where signing up now ends. The account exists but cannot be used until the
+      // address is confirmed, so this screen has to say that plainly rather than imply
+      // something went wrong.
+      checkEmail: {
+        title: 'Confirm your email address',
+        body: 'We have sent a link to {{email}}. Follow it to finish setting up your organisation — you cannot sign in until you do.',
+        nothingYet:
+          'It can take a minute to arrive. If it does not, check your spam folder.',
+        signIn: 'Already confirmed? <signIn>Sign in</signIn>'
+      }
     },
     login: {
       title: 'Sign in',
       submit: 'Sign in',
       submitting: 'Signing in…',
-      noAccount: 'New here? <register>Create an organisation</register>'
+      noAccount: 'New here? <register>Create an organisation</register>',
+      needLink:
+        'Never received your confirmation link? <verify>Ask for a new one</verify>'
+    },
+    verifyEmail: {
+      confirming: 'Confirming your address…',
+      confirmed: {
+        title: 'Address confirmed',
+        body: 'That is everything — your organisation is ready to use.',
+        signIn: '<signIn>Sign in</signIn> to get started.'
+      },
+      needLink: {
+        title: 'Ask for a new confirmation link',
+        body: 'Enter the address you registered with and we will send another link.',
+        submit: 'Send a new link',
+        submitting: 'Sending…',
+        // Says the same thing whether or not the address has an account, because the
+        // server does too — anything more precise would disclose who is registered.
+        requested:
+          'If that address needs confirming, a new link is on its way. It can take a minute to arrive, and it is worth checking your spam folder.'
+      }
     }
   },
   chooseOrganisation: {
@@ -105,6 +135,10 @@ export const en = {
       organisation_name_unusable:
         'Organisation name must contain at least one letter or digit.',
       invalid_credentials: 'Email or password is incorrect.',
+      email_not_verified:
+        'Confirm your email address before signing in. Check your inbox for the link we sent when you registered.',
+      invalid_token:
+        'That link has expired or has already been used. Ask for a new one.',
       not_a_member: 'You do not belong to that organisation.',
       registration_conflict:
         'That email address or organisation name was just taken.',

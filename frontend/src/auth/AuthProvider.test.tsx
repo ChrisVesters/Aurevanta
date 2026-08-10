@@ -7,6 +7,7 @@ import {
   ACCOUNT,
   ACME_MEMBERSHIP,
   AUTHENTICATION,
+  UNVERIFIED_ACCOUNT,
   CHOOSE_ORGANISATION,
   NO_ORGANISATION,
   SIGNED_IN,
@@ -169,19 +170,21 @@ describe('AuthProvider', () => {
     expect(readStoredSession()).toBeNull();
   });
 
-  it('signs in and stores the token on registration', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, AUTHENTICATION));
+  /**
+   * The hard gate: an unconfirmed address is refused a token, so registering cannot hand
+   * one out either. Anyone signed in here would be holding a session the server would
+   * never have issued.
+   */
+  it('creates the account without signing anybody in', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, UNVERIFIED_ACCOUNT));
 
     renderRouted(<Probe />);
     await userEvent.click(screen.getByRole('button', { name: 'register' }));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('status')).toHaveTextContent('authenticated')
-    );
-    expect(readStoredSession()).toEqual({
-      token: 'a.test.token',
-      kind: 'access'
-    });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(screen.getByTestId('status')).toHaveTextContent('anonymous');
+    expect(screen.getByTestId('account')).toHaveTextContent('none');
+    expect(readStoredSession()).toBeNull();
   });
 
   it('signs straight in when the account holds one membership', async () => {

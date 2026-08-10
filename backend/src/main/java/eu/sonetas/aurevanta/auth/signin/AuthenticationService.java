@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import eu.sonetas.aurevanta.auth.problem.EmailNotVerifiedException;
 import eu.sonetas.aurevanta.auth.problem.InvalidCredentialsException;
 import eu.sonetas.aurevanta.membership.Membership;
 import eu.sonetas.aurevanta.membership.MembershipRepository;
@@ -57,6 +58,12 @@ public class AuthenticationService {
 	@Transactional
 	public SignIn signIn(LoginRequest request) {
 		User user = authenticate(request);
+		// Only after the password has been checked. Refusing an unverified address before
+		// that would answer differently for a registered address than an unknown one, and
+		// turn sign-in into a way to ask who has an account.
+		if (!user.isEmailVerified()) {
+			throw new EmailNotVerifiedException();
+		}
 		List<Membership> held = this.memberships.findAllForUser(user.getId());
 		if (held.size() != 1) {
 			return new SignIn.ChooseOrganisation(user, held);

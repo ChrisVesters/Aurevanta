@@ -3,7 +3,12 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
-import { jsonResponse, mockFetch, renderRouted } from '../test/render';
+import {
+  UNVERIFIED_ACCOUNT,
+  jsonResponse,
+  mockFetch,
+  renderRouted
+} from '../test/render';
 
 describe('sign-up form', () => {
   const fetchMock = mockFetch();
@@ -22,7 +27,7 @@ describe('sign-up form', () => {
   }
 
   it('sends what the visitor typed', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(201, {}));
+    fetchMock.mockResolvedValue(jsonResponse(201, UNVERIFIED_ACCOUNT));
 
     renderRouted(<RegisterForm />);
     await fillAndSubmit();
@@ -88,6 +93,27 @@ describe('sign-up form', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /could not reach the server/i
     );
+  });
+
+  /**
+   * Signing up used to land on the dashboard. It cannot any more — the address has not
+   * been confirmed, and an unconfirmed one is refused a session — so the visitor is sent
+   * to their inbox and told why.
+   */
+  it('ends on a screen telling the visitor to confirm their address', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, UNVERIFIED_ACCOUNT));
+
+    renderRouted(<RegisterForm />);
+    await fillAndSubmit();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Confirm your email address' })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/ada@acme.test/)).toBeInTheDocument();
+    // The form is gone: there is nothing left to submit.
+    expect(
+      screen.queryByLabelText('Organisation name')
+    ).not.toBeInTheDocument();
   });
 
   it('re-enables the button after a failure so the visitor can retry', async () => {
@@ -246,6 +272,30 @@ describe('sign-in form', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Email or password is incorrect'
     );
+  });
+
+  /**
+   * The one refusal that is not about the credentials at all. Telling someone their email
+   * or password is wrong when both are right would leave them changing a password that
+   * was never the problem.
+   */
+  it('says the address needs confirming rather than blaming the credentials', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(403, {
+        code: 'email_not_verified',
+        detail: 'Confirm your email address before signing in'
+      })
+    );
+
+    renderRouted(<LoginForm />);
+    await fillAndSubmit();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /confirm your email address/i
+    );
+    expect(
+      screen.queryByText('Email or password is incorrect.')
+    ).not.toBeInTheDocument();
   });
 
   it('explains a network failure in plain terms', async () => {

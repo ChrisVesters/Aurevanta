@@ -5,8 +5,10 @@ import java.util.stream.Stream;
 
 import eu.sonetas.aurevanta.auth.problem.AuthProblemException;
 import eu.sonetas.aurevanta.auth.problem.EmailAlreadyRegisteredException;
+import eu.sonetas.aurevanta.auth.problem.EmailNotVerifiedException;
 import eu.sonetas.aurevanta.auth.problem.FieldProblem;
 import eu.sonetas.aurevanta.auth.problem.InvalidCredentialsException;
+import eu.sonetas.aurevanta.auth.problem.InvalidTokenException;
 import eu.sonetas.aurevanta.auth.problem.NotAMemberException;
 import eu.sonetas.aurevanta.auth.problem.OrganisationNameUnavailableException;
 import eu.sonetas.aurevanta.auth.problem.UnusableOrganisationNameException;
@@ -163,7 +165,9 @@ class AuthExceptionHandlerTests {
 				Arguments.of(new UnusableOrganisationNameException(), HttpStatus.BAD_REQUEST,
 						"organisation_name_unusable"),
 				Arguments.of(new InvalidCredentialsException(), HttpStatus.UNAUTHORIZED, "invalid_credentials"),
-				Arguments.of(new NotAMemberException(), HttpStatus.FORBIDDEN, "not_a_member"));
+				Arguments.of(new NotAMemberException(), HttpStatus.FORBIDDEN, "not_a_member"),
+				Arguments.of(new EmailNotVerifiedException(), HttpStatus.FORBIDDEN, "email_not_verified"),
+				Arguments.of(new InvalidTokenException(), HttpStatus.BAD_REQUEST, "invalid_token"));
 	}
 
 	/**

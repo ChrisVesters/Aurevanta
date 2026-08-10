@@ -228,6 +228,32 @@ describe('routing', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * The address the confirmation email actually sends people to. It had no route, so
+   * following the link landed on "page not found" and the account stayed unusable — the
+   * one journey the whole gate depends on.
+   */
+  it('serves the confirmation link the email sends people to', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(204));
+
+    renderRouted(<App />, { route: '/verify-email?token=abc123' });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Address confirmed' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Page not found' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('serves the same page without a token, for a link that no longer works', () => {
+    renderRouted(<App />, { route: '/verify-email' });
+
+    expect(
+      screen.getByRole('heading', { name: 'Ask for a new confirmation link' })
+    ).toBeInTheDocument();
+  });
+
   it('shows a not-found page for an unknown address', () => {
     renderRouted(<App />, { route: '/nowhere' });
 

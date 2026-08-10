@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -11,6 +13,9 @@ import javax.crypto.spec.SecretKeySpec;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import eu.sonetas.aurevanta.TestcontainersConfiguration;
 import eu.sonetas.aurevanta.auth.registration.RegistrationRequest;
+import eu.sonetas.aurevanta.auth.verification.VerifyEmailRequest;
+import eu.sonetas.aurevanta.mail.RecordingEmailSender;
+import eu.sonetas.aurevanta.mail.RecordingEmailSenderConfiguration;
 import eu.sonetas.aurevanta.auth.signin.LoginRequest;
 import eu.sonetas.aurevanta.membership.MembershipRepository;
 import eu.sonetas.aurevanta.tenant.TenantRepository;
@@ -42,7 +47,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Import(TestcontainersConfiguration.class)
+@Import({ TestcontainersConfiguration.class, RecordingEmailSenderConfiguration.class })
 @SpringBootTest
 @AutoConfigureMockMvc
 class AuthApiTests {
@@ -64,11 +69,15 @@ class AuthApiTests {
 	@Autowired
 	private TenantRepository tenants;
 
+	@Autowired
+	private RecordingEmailSender mail;
+
 	@BeforeEach
 	void clearAccounts() {
 		this.memberships.deleteAll();
 		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.mail.clear();
 	}
 
 	@Test
@@ -77,15 +86,16 @@ class AuthApiTests {
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
 				.content(registration("Acme Planning Co", "ada@acme.test")))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.tokenType").value("Bearer"))
-			.andExpect(jsonPath("$.accessToken").isNotEmpty())
-			.andExpect(jsonPath("$.expiresInSeconds").value(12 * 60 * 60))
-			.andExpect(jsonPath("$.account.email").value("ada@acme.test"))
-			.andExpect(jsonPath("$.account.displayName").value("Ada"))
-			.andExpect(jsonPath("$.account.role").value("OWNER"))
-			.andExpect(jsonPath("$.account.organisation.name").value("Acme Planning Co"))
-			.andExpect(jsonPath("$.account.organisation.slug").value("acme-planning-co"))
-			.andExpect(jsonPath("$.account.organisation.id").isNotEmpty());
+			.andExpect(jsonPath("$.email").value("ada@acme.test"))
+			.andExpect(jsonPath("$.displayName").value("Ada"))
+			.andExpect(jsonPath("$.role").value("OWNER"))
+			.andExpect(jsonPath("$.organisation.name").value("Acme Planning Co"))
+			.andExpect(jsonPath("$.organisation.slug").value("acme-planning-co"))
+			.andExpect(jsonPath("$.organisation.id").isNotEmpty())
+			// The address has not been proved yet, so there is nothing to sign in with.
+			.andExpect(jsonPath("$.emailVerified").value(false))
+			.andExpect(jsonPath("$.accessToken").doesNotExist())
+			.andExpect(jsonPath("$.tokenType").doesNotExist());
 	}
 
 	@Test
@@ -123,9 +133,9 @@ class AuthApiTests {
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.account.email").value("ada@acme.test"))
-			.andExpect(jsonPath("$.account.displayName").value("Ada"))
-			.andExpect(jsonPath("$.account.organisation.name").value("Acme"));
+			.andExpect(jsonPath("$.email").value("ada@acme.test"))
+			.andExpect(jsonPath("$.displayName").value("Ada"))
+			.andExpect(jsonPath("$.organisation.name").value("Acme"));
 
 		assertThat(this.users.findByEmailIgnoringCase("ada@acme.test")).isPresent();
 	}
@@ -133,6 +143,7 @@ class AuthApiTests {
 	@Test
 	void loginAcceptsAnAddressPastedWithSurroundingSpace() throws Exception {
 		register("Acme", "ada@acme.test");
+		confirmTheAddress();
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -151,6 +162,7 @@ class AuthApiTests {
 		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", padded));
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isCreated());
+		confirmTheAddress();
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -304,6 +316,7 @@ class AuthApiTests {
 	@Test
 	void loginSignsStraightInWhenTheAccountHoldsOneMembership() throws Exception {
 		register("Acme", "ada@acme.test");
+		confirmTheAddress();
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -348,12 +361,65 @@ class AuthApiTests {
 	@Test
 	void loginRejectsAWrongPassword() throws Exception {
 		register("Acme", "ada@acme.test");
+		confirmTheAddress();
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
 				.content(login("ada@acme.test", "not-the-password")))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("invalid_credentials"));
+	}
+
+	/**
+	 * The gate. An account exists, the password is right, and it still cannot be used.
+	 */
+	@Test
+	void loginRefusesAnAccountWhoseAddressWasNeverConfirmed() throws Exception {
+		register("Acme", "ada@acme.test");
+
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("ada@acme.test", PASSWORD)))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("email_not_verified"))
+			.andExpect(jsonPath("$.session").doesNotExist())
+			.andExpect(jsonPath("$.identity").doesNotExist());
+	}
+
+	/**
+	 * The distinct answer is only safe once the password has proved the caller holds the
+	 * account. A wrong password must stay indistinguishable from an address nobody has
+	 * registered, or sign-in becomes a way to ask who is signed up here.
+	 */
+	@Test
+	void loginHidesAnUnconfirmedAccountFromSomeoneWithTheWrongPassword() throws Exception {
+		register("Acme", "ada@acme.test");
+
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("ada@acme.test", "not-the-password")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("invalid_credentials"));
+
+		// Byte for byte what an address with no account at all is told.
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("nobody@acme.test", "not-the-password")))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("invalid_credentials"));
+	}
+
+	@Test
+	void loginSucceedsOnceTheAddressIsConfirmed() throws Exception {
+		register("Acme", "ada@acme.test");
+		confirmTheAddress();
+
+		this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(login("ada@acme.test", PASSWORD)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.outcome").value("SIGNED_IN"))
+			.andExpect(jsonPath("$.session.account.emailVerified").value(true));
 	}
 
 	@Test
@@ -367,7 +433,7 @@ class AuthApiTests {
 
 	@Test
 	void currentAccountIsReturnedForAValidToken() throws Exception {
-		String token = accessToken(register("Acme Planning Co", "ada@acme.test"));
+		String token = registerAndSignIn("Acme Planning Co", "ada@acme.test");
 
 		this.mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 			.andExpect(status().isOk())
@@ -416,7 +482,7 @@ class AuthApiTests {
 
 	@Test
 	void aTokenStopsWorkingOnceItsAccountIsGone() throws Exception {
-		String token = accessToken(register("Acme", "ada@acme.test"));
+		String token = registerAndSignIn("Acme", "ada@acme.test");
 		this.memberships.deleteAll();
 		this.users.deleteAll();
 
@@ -431,7 +497,7 @@ class AuthApiTests {
 	 */
 	@Test
 	void aTokenStopsWorkingOnceItsMembershipIsRevoked() throws Exception {
-		String token = accessToken(register("Acme", "ada@acme.test"));
+		String token = registerAndSignIn("Acme", "ada@acme.test");
 		this.memberships.deleteAll();
 
 		this.mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -454,12 +520,34 @@ class AuthApiTests {
 		return this.json.writeValueAsString(new LoginRequest(email, password));
 	}
 
-	private String accessToken(MvcResult result) throws Exception {
-		return body(result).get("accessToken").asString();
+	/**
+	 * Registers, follows the confirmation link, and signs in — the whole journey a new
+	 * account now has to make before it can hold a token.
+	 */
+	private String registerAndSignIn(String organisation, String email) throws Exception {
+		register(organisation, email);
+		confirmTheAddress();
+		return body(this.mvc
+			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(login(email, PASSWORD)))
+			.andExpect(status().isOk())
+			.andReturn()).get("session").get("accessToken").asString();
+	}
+
+	/** Follows the link out of the message registration just sent. */
+	private void confirmTheAddress() throws Exception {
+		String body = this.json.writeValueAsString(new VerifyEmailRequest(tokenFromLatestMail()));
+		this.mvc.perform(post("/api/auth/verify-email").contentType(MediaType.APPLICATION_JSON).content(body))
+			.andExpect(status().isNoContent());
+	}
+
+	private String tokenFromLatestMail() {
+		Matcher token = Pattern.compile("token=([A-Za-z0-9_-]+)").matcher(this.mail.lastMessage().body());
+		assertThat(token.find()).as("a confirmation link in the message body").isTrue();
+		return token.group(1);
 	}
 
 	private String organisationId(MvcResult result) throws Exception {
-		return body(result).get("account").get("organisation").get("id").asString();
+		return body(result).get("organisation").get("id").asString();
 	}
 
 	private JsonNode body(MvcResult result) throws Exception {

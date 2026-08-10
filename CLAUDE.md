@@ -103,6 +103,25 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   the page they originally asked for after signing in.
 - Actuator exposes only `health` and `info`.
 
+## The verification gate
+
+- **An unconfirmed address cannot obtain a token by any route.** Registering returns `201`
+  with the account and *no* session — it cannot hand one out, or the gate would be
+  skippable by signing up. Sign-in refuses with `email_not_verified`.
+- **The gate is checked only after the password is.** A wrong password on an unconfirmed
+  account still returns `invalid_credentials`, identical to an address nobody registered.
+  Checking verification first would turn sign-in into a way to ask who has an account.
+- `POST /api/auth/verify-email` redeems the link; `POST /api/auth/verify-email/resend` asks
+  for another. Both are unauthenticated — the person who needs them is exactly the person
+  who cannot sign in — and resend **always** answers `202`, sending nothing for an unknown
+  or already-confirmed address.
+- **Mail failure never fails registration.** The account is created either way; what is
+  lost is the link, which can be asked for again.
+- Tests that drive anything sending mail import `RecordingEmailSenderConfiguration`, which
+  replaces the whole port. Anything asserting that a request *survives* a broken mail
+  server must instead use `FailingEmailSenderConfiguration`, which keeps the real
+  asynchronous wrapper — the part that actually swallows the failure.
+
 ## Single-use tokens (emailed links)
 
 - **Not the same thing as an access token.** `security` mints stateless JWTs a client
@@ -145,8 +164,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   is the sender; `aurevanta.mail.base-url` is the origin links in mail are built against —
   it points at the *frontend*, and the backend cannot discover it behind a proxy, so it is
   stated rather than guessed. Build links with `MailProperties.link(path)`.
-- `compose.yaml` runs **Mailpit**: SMTP on 1025, and everything sent in dev is readable at
-  <http://localhost:8025> and delivered to nobody.
+- `compose.yaml` runs **Mailpit**: SMTP on **2525**, and everything sent in dev is readable
+  at <http://localhost:8025> and delivered to nobody. Not Mailpit's usual 1025, which is
+  contended — macOS lets one process hold IPv4 `127.0.0.1:1025` while Docker holds IPv6
+  `*:1025`, so nothing fails to start but a client resolving to IPv4 reaches the wrong
+  listener. `AUREVANTA_SMTP_PORT` moves the published port and `spring.mail.port` together.
 - Tests use `RecordingEmailSender`, which replaces the whole port — wrapper included — so
   assertions are immediate and nothing waits on a background thread. `SmtpEmailSenderTests`
   is the single exception, proving the adapter against a real SMTP server via GreenMail.

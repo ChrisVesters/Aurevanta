@@ -25,6 +25,18 @@ public class RecordingEmailSender implements EmailSender {
 		return List.copyOf(this.sent);
 	}
 
+	/** The bean is shared across a context, so each test starts from nothing. */
+	public void clear() {
+		this.sent.clear();
+	}
+
+	public EmailMessage lastMessage() {
+		if (this.sent.isEmpty()) {
+			throw new AssertionError("No message was sent");
+		}
+		return this.sent.getLast();
+	}
+
 	/** The single message sent, refusing to guess if there was not exactly one. */
 	public EmailMessage onlyMessage() {
 		if (this.sent.size() != 1) {

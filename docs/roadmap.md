@@ -60,6 +60,7 @@ its owner, JWT auth, tenant isolation enforced in the service layer.
 | Gap | Why it matters |
 |---|---|
 | A tenant can only ever have one user | No invitation flow exists. This blocks M1 and makes the product single-player. |
+| An organisation name is unique across the whole installation | `uq_tenants_slug` makes the second "Acme Consulting" to arrive unregisterable. Company names are not unique in reality, and nothing about this product makes them so. Scheduled as M1a. |
 | ~~Per-field validation errors carry English prose, not codes~~ | *Retired in M1 step 4:* each field error now carries the constraint that failed and its bounds, and the frontend translates that.  |
 | No password reset, no email verification | Anyone can register with an address they do not control. |
 | Landing page advertises unbuilt features | Fine while private; must not go public as-is. |
@@ -78,6 +79,55 @@ The smallest set that lets a second person join. Resist adding more here.
 
 **Deliberately excluded:** SSO, granular permissions, org settings beyond a name. None of
 them are needed to prove the core idea.
+
+---
+
+## M1a — Organisation names are not unique
+
+*A correction slotted after M1, not a split of it. Lettered to avoid renumbering M2–M11.*
+
+M0 gave `tenants.slug` a unique index and derived it from the organisation's name, which
+quietly made **the name itself unique across the entire installation**. Register "Acme
+Consulting" and every other Acme Consulting on earth is told the name is *unavailable* — as
+though the first to arrive owns it. There are thousands of them, and nothing about this
+product changes that. It is the one refusal in the system a user cannot act on: they cannot
+choose a different name, because it is their name.
+
+**The slug stops being an identity and becomes a convenience.** Two ways to go:
+
+| | |
+|---|---|
+| **Recommended: keep the slug unique, disambiguate on collision** | `acme-consulting`, then `acme-consulting-2`. Readable URLs survive, and the name the user typed is never altered — only the handle derived from it. |
+| Alternative: drop slugs, address organisations by id | Simpler and honest, but gives up readable URLs, which M10's shareable read-only link would want back. |
+
+**What it touches**
+
+- Drop the name pre-check in `RegistrationService` and retire `organisation_name_unavailable`
+  from the problem codes and the frontend catalogue.
+- `Slug.of` gains a uniqueness pass. A name of pure punctuation currently yields an empty
+  slug and its own refusal (`organisation_name_unusable`); with a suffixing scheme that can
+  fall back to a generated handle instead, retiring a second refusal a user cannot act on.
+- `registration_conflict` narrows to email only, since the slug can no longer collide.
+
+**The consequence worth deciding before building it**
+
+Once two organisations can share a name, **a person who belongs to both sees the same word
+twice** — in M1's organisation switcher (step 12) and in an invitation preview (step 10),
+neither of which has anything else to show. Allowing duplicates is not finished until
+something distinguishes them: the slug, the inviter's name, or a discriminator on the row.
+That is a design question, not a migration.
+
+**Why here rather than later.** Nothing routes by slug *yet*. The moment M2's plan-entry UI
+puts one in a URL, changing the scheme starts breaking links people have bookmarked and
+pasted to colleagues. The change is small today and gets steadily less so.
+
+### Decisions required before building it
+
+| Question | Recommendation |
+|---|---|
+| Suffix collisions, or abandon slugs? | **Suffix.** Readable handles are worth keeping and cost one retry loop. |
+| Can an organisation be renamed at all? | **Not yet** — out of scope here. But decide it now, because "does the slug follow the name?" has no good answer once links exist. |
+| What distinguishes two identically named organisations on screen? | **Unresolved, and it blocks steps 10 and 12 being *right* rather than merely working.** |
 
 ---
 
@@ -520,9 +570,13 @@ never the quality of the maths applied to it.
 
 ## What I would build next
 
-**M1 invitations, then M2's schema decisions, then straight at M3a.** The temptation will
-be to build satisfying CRUD screens for projects and tasks. Resist it: a beautiful task
-list that sums P50s is precisely the tool this product exists to replace.
+**M1 invitations, then M1a, then M2's schema decisions, then straight at M3a.** The
+temptation will be to build satisfying CRUD screens for projects and tasks. Resist it: a
+beautiful task list that sums P50s is precisely the tool this product exists to replace.
+
+M1a earns its place in that sequence only because it is cheap *now*: it is a small change
+that becomes a link-breaking one the moment M2 puts a slug in a URL. It is not more
+important than the engine — nothing is — it is just perishable.
 
 ### Blocked on a decision, not on engineering
 

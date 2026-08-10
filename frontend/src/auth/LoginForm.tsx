@@ -77,6 +77,16 @@ export function LoginForm() {
           }}
         />
       </p>
+      {/*
+        The way out of the gate. Someone refused with `email_not_verified` is told to check
+        their inbox, which is no help if the message never arrived — this is where they go.
+      */}
+      <p className="switch">
+        <Trans
+          i18nKey="auth.login.needLink"
+          components={{ verify: <Link to="/verify-email" /> }}
+        />
+      </p>
     </form>
   );
 }

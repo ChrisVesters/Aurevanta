@@ -20,6 +20,12 @@ export type Account = {
   userId: string;
   email: string;
   displayName: string;
+  /**
+   * Always true for an account holding a token — the gate refuses to issue one otherwise.
+   * Sent anyway so nothing has to assume it, and so relaxing the gate later cannot
+   * silently change what this client believes.
+   */
+  emailVerified: boolean;
   role: UserRole;
   organisation: Organisation;
 };
