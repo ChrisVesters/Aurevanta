@@ -91,7 +91,16 @@ export const en = {
       noAccount: 'New here? <register>Create an organisation</register>',
       needLink:
         'Never received your confirmation link? <verify>Ask for a new one</verify>',
-      forgotPassword: 'Forgotten your password? <reset>Choose a new one</reset>'
+      forgotPassword:
+        'Forgotten your password? <reset>Choose a new one</reset>',
+      // Offered in place when the gate refuses someone, so the address they just typed is
+      // not typed again on another page. Worded tighter than the standalone page's, which
+      // has room to talk about spam folders and this does not.
+      resend: {
+        submit: 'Send a new link',
+        submitting: 'Sending…',
+        requested: 'If that address needs confirming, a new link is on its way.'
+      }
     },
     verifyEmail: {
       confirming: 'Confirming your address…',

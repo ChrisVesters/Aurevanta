@@ -60,6 +60,19 @@ describe('VerifyEmailPage', () => {
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
   });
 
+  /**
+   * Shares the frame every other auth page uses. It did not, and was the one screen in
+   * the whole flow a visitor could land on with no way back to anywhere.
+   */
+  it('sits in the same frame as the rest of the auth pages', () => {
+    renderRouted(<VerifyEmailPage />, { route: '/verify-email' });
+
+    expect(screen.getByRole('link', { name: '← Aurevanta' })).toHaveAttribute(
+      'href',
+      '/'
+    );
+  });
+
   it('offers a new link when reached with no token at all', async () => {
     renderRouted(<VerifyEmailPage />, { route: '/verify-email' });
 

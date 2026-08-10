@@ -298,6 +298,128 @@ describe('sign-in form', () => {
     ).not.toBeInTheDocument();
   });
 
+  describe('when the gate refuses an unconfirmed address', () => {
+    const refusal = jsonResponse(403, {
+      code: 'email_not_verified',
+      detail: 'Confirm your email address before signing in'
+    });
+
+    async function beRefused() {
+      fetchMock.mockResolvedValue(refusal);
+      renderRouted(<LoginForm />);
+      await fillAndSubmit();
+      await screen.findByRole('alert');
+    }
+
+    /**
+     * The whole point of doing this here rather than on another page: the address has
+     * just been typed, and asking for it again is where people give up.
+     */
+    it('asks for a new link without making the visitor retype anything', async () => {
+      await beRefused();
+      fetchMock.mockResolvedValue(jsonResponse(202));
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Send a new link' })
+      );
+
+      await waitFor(() =>
+        expect(fetchMock).toHaveBeenLastCalledWith(
+          '/api/auth/verify-email/resend',
+          expect.objectContaining({ method: 'POST' })
+        )
+      );
+      const sent = fetchMock.mock.calls.at(-1)?.[1];
+      expect(JSON.parse(sent.body)).toEqual({ email: 'ada@acme.test' });
+    });
+
+    it('acknowledges without saying whether the address has an account', async () => {
+      await beRefused();
+      fetchMock.mockResolvedValue(jsonResponse(202));
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Send a new link' })
+      );
+
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        /a new link is on its way/i
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Send a new link' })
+      ).not.toBeInTheDocument();
+    });
+
+    /**
+     * The resend is now rate limited, so this refusal is reachable — and it must not
+     * replace the message explaining why a resend was being offered at all.
+     */
+    it('keeps explaining the gate when the resend itself is refused', async () => {
+      await beRefused();
+      fetchMock.mockResolvedValue(
+        jsonResponse(429, { code: 'too_many_requests' })
+      );
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Send a new link' })
+      );
+
+      await waitFor(() =>
+        expect(screen.getByText(/too many requests/i)).toBeInTheDocument()
+      );
+      expect(
+        screen.getByText(/confirm your email address/i)
+      ).toBeInTheDocument();
+      // Still offered, so a visitor who waits can try again without starting over.
+      expect(
+        screen.getByRole('button', { name: 'Send a new link' })
+      ).toBeInTheDocument();
+    });
+
+    /** Two ways to ask for the same thing, side by side, is a choice nobody needs. */
+    it('replaces the standing link rather than sitting beside it', async () => {
+      await beRefused();
+
+      expect(
+        screen.queryByRole('link', { name: 'Ask for a new one' })
+      ).not.toBeInTheDocument();
+    });
+
+    it('offers nothing of the sort for ordinary wrong credentials', async () => {
+      fetchMock.mockResolvedValue(
+        jsonResponse(401, { code: 'invalid_credentials' })
+      );
+      renderRouted(<LoginForm />);
+      await fillAndSubmit();
+      await screen.findByRole('alert');
+
+      expect(
+        screen.queryByRole('button', { name: 'Send a new link' })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Ask for a new one' })
+      ).toBeInTheDocument();
+    });
+
+    /** Trying again is a fresh attempt, so last time's acknowledgement must not linger. */
+    it('forgets the acknowledgement when the visitor signs in again', async () => {
+      await beRefused();
+      fetchMock.mockResolvedValue(jsonResponse(202));
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Send a new link' })
+      );
+      await screen.findByRole('status');
+
+      fetchMock.mockResolvedValue(refusal);
+      await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+      // Enabled, not merely present: it came back reading "Sending…" and refusing clicks,
+      // because finishing a send left that flag set where nothing was rendering it.
+      expect(
+        await screen.findByRole('button', { name: 'Send a new link' })
+      ).toBeEnabled();
+    });
+  });
+
   it('explains a network failure in plain terms', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
 

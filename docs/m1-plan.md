@@ -23,7 +23,7 @@
 | **C — Account lifecycle** | 5 | Email verification, and the sign-in gate ✅ *done* | 1, 2, 3 |
 | | 6 | Password reset ✅ *done* | 2, 3 |
 | | 7 | Rate limiting on mail-sending endpoints ✅ *done* | 5, 6 |
-| | 8 | Frontend: verification, reset, gate handling | 5, 6 |
+| | 8 | Frontend: verification, reset, gate handling ✅ *done* | 5, 6 |
 | **D — Team** | 9 | Invitations: schema and issuing | 1, 2, 3 |
 | | 10 | Invitations: preview, accept, revoke | 9 |
 | | 11 | Member management | 1 |
@@ -555,7 +555,7 @@ are unaffected.
   attacker no trouble at all. Whatever terminates TLS in front of this has to be trusted for
   a forwarded header before the per-source limit means anything in production.
 
-## Step 8 — Frontend: verification, reset and the gate
+## Step 8 — Frontend: verification, reset and the gate ✅ *done*
 
 - Routes `/verify-email`, `/forgot-password`, `/reset-password`, all public.
 - **Registration ends on a "check your email" screen**, not the dashboard — the biggest
@@ -573,10 +573,10 @@ working resend. Coverage stays at 100%.
 
 **Done when** the whole verification and recovery journey can be completed in the browser.
 
-### Status — nearly all of this landed with Steps 5 and 6
+### As built — spread across three steps
 
-Each half came forward with the step that made it reachable, on the same reasoning both
-times: an endpoint that emails a link is not finished until the link lands somewhere, and a
+Each piece came forward with the step that made it reachable, on the same reasoning every
+time: an endpoint that emails a link is not finished until the link lands somewhere, and a
 feature no user can reach is not worth a commit of its own.
 
 | | Where it landed |
@@ -584,18 +584,23 @@ feature no user can reach is not worth a commit of its own.
 | `/verify-email`, registration ending on "check your email" | Step 5 |
 | `email_not_verified` gets its own message, not the generic banner | Step 5 |
 | `/forgot-password`, `/reset-password`, the sign-in link to them | Step 6 |
+| The inline resend on the sign-in form | Step 8 |
 
-**What is left is one item: the inline resend on the sign-in form.** Someone refused by the
-gate currently gets the right message and a *link* to `/verify-email`, where they type their
-address again to ask for another link. The plan asks for the resend to be offered in place,
-without the retyping or the second page. That is a genuine improvement to the screen that
-rescues anyone whose confirmation mail went astray — but it is a refinement of a journey
-that already works end to end, not a missing piece of one.
+Three things worth knowing about the inline resend, which is all Step 8 itself had left:
 
-**Step 7 should therefore come first.** It is the only thing between here and the end of
-Phase C that is load-bearing: both `/api/auth/verify-email/resend` and
-`/api/auth/password-reset` are unauthenticated, send mail, and are now reachable from the
-browser by anybody — which is the vector decision 2 opened, currently wide open in `main`.
+- **`useFormFailure` now hands back the failure's `code`.** A form still must not choose
+  its own wording — that rule is what keeps a field's complaint off the banner — but
+  offering an *action* attached to one particular refusal means knowing which refusal
+  arrived. Branching on the code the hook already parsed is a smaller change than letting
+  forms near `describeFailure` again.
+- **The resend has failure state of its own**, a second `useFormFailure`. Sharing one would
+  mean a refused resend overwriting the very message that explains why a resend is on offer
+  — and, because the offer is conditional on that message, removing the button along with
+  it. Step 7 made this reachable rather than theoretical: the resend is rate limited, so
+  `too_many_requests` is a refusal a real visitor will meet.
+- **The standing "ask for a new one" link hides while the inline resend is showing.** Two
+  ways to ask for the same thing, side by side, is a choice nobody needs. It stays for
+  anyone who has not tried to sign in yet.
 
 ---
 

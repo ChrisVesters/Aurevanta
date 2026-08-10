@@ -8,6 +8,7 @@ import { textField } from '../auth/formValues';
 import { useFormFailure } from '../auth/useFormFailure';
 import { MAXIMUM_EMAIL_LENGTH } from '../auth/constants';
 import { describeFailure } from '../i18n/problems';
+import { AuthLayout } from './AuthLayout';
 
 /**
  * Where the link in a confirmation email lands.
@@ -70,17 +71,17 @@ export function VerifyEmailPage() {
 
   if (confirming) {
     return (
-      <main className="auth-screen">
+      <AuthLayout>
         <p className="loading" role="status">
           {t('auth.verifyEmail.confirming')}
         </p>
-      </main>
+      </AuthLayout>
     );
   }
 
   if (confirmed) {
     return (
-      <main className="auth-screen">
+      <AuthLayout>
         <h1>{t('auth.verifyEmail.confirmed.title')}</h1>
         <p className="lede">{t('auth.verifyEmail.confirmed.body')}</p>
         <p className="switch">
@@ -89,12 +90,12 @@ export function VerifyEmailPage() {
             components={{ signIn: <Link to="/login" /> }}
           />
         </p>
-      </main>
+      </AuthLayout>
     );
   }
 
   return (
-    <main className="auth-screen">
+    <AuthLayout>
       <h1>{t('auth.verifyEmail.needLink.title')}</h1>
 
       {/* Why they are here, when they arrived by following a link that did not work. */}
@@ -138,6 +139,6 @@ export function VerifyEmailPage() {
           </button>
         </form>
       )}
-    </main>
+    </AuthLayout>
   );
 }
