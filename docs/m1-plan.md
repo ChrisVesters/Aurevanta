@@ -546,6 +546,15 @@ are unaffected.
   Four existing classes now reset it in `@BeforeEach`; the alternative was configuring the
   limits away in tests, which would have meant nothing outside this step ever exercised them.
 
+**Sign-in was brought under the same roof afterwards**, though the step names only
+mail-sending endpoints. Leaving `/api/auth/login` unthrottled meant the sole cost of
+guessing a password was bcrypt's time — a price per attempt, not a bound on how many — and
+having just built the machinery it would have been odd to leave the one unauthenticated
+endpoint that guards credentials outside it. It counts failures rather than attempts, and
+the per-account limit sits five times the per-source one so that a single machine cannot
+fill it: a per-account limit is also a way to lock somebody out of their own account, and
+that ratio is what keeps it from becoming one.
+
 **Two things this does not do**, both worth knowing before deployment:
 
 - **Counts are per process.** Two instances mean twice the limit. Recorded in `CLAUDE.md`

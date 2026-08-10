@@ -23,6 +23,7 @@ import eu.sonetas.aurevanta.user.User;
 import eu.sonetas.aurevanta.user.UserRepository;
 import eu.sonetas.aurevanta.user.UserRole;
 import eu.sonetas.aurevanta.ratelimit.MailRateLimiter;
+import eu.sonetas.aurevanta.ratelimit.SignInRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -80,6 +81,9 @@ class AuthApiTests {
 	@Autowired
 	private MailRateLimiter rateLimiter;
 
+	@Autowired
+	private SignInRateLimiter signInRateLimiter;
+
 	@BeforeEach
 	void clearAccounts() {
 		this.memberships.deleteAll();
@@ -87,6 +91,7 @@ class AuthApiTests {
 		this.tenants.deleteAll();
 		this.mail.clear();
 		this.rateLimiter.clear();
+		this.signInRateLimiter.clear();
 	}
 
 	@Test

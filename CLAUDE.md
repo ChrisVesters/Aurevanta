@@ -182,6 +182,15 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **`getRemoteAddr()` is the source**, so behind a proxy or load balancer every request
   appears to come from one address and the per-source limit would throttle everybody
   together. Deploying behind one means trusting a forwarded header first.
+- **Sign-in is limited too, on *failures* only** (`SignInRateLimiter`). Guessing a password
+  otherwise costs only bcrypt's time, which is a price per attempt rather than a bound on
+  how many. A success clears the account's count, and reaching `email_not_verified` never
+  counts — the password was right, so it is not a guess.
+- **The per-account sign-in limit sits several times above the per-source one, and that
+  ratio is the design.** A per-account limit is also a way to lock somebody out of their own
+  account, so it must be beyond what any single source can reach; filling it takes several
+  sources acting together, which is the distributed case it exists for. Change one number
+  without the other and a defence becomes an attack.
 - **Tests that drive these endpoints must clear the limiter**, since one context is shared
   across cases — `MailRateLimiter.clear()` in `@BeforeEach`. Otherwise one test spends the
   allowance the next one needs, and the failure looks nothing like its cause.

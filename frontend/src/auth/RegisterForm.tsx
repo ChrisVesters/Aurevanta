@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router';
 import { useAuth } from './AuthContext';
 import { Field } from './Field';
 import { textField } from './formValues';
+import { ResendConfirmation } from './ResendConfirmation';
 import { useFormFailure } from './useFormFailure';
 import {
   MAXIMUM_EMAIL_LENGTH,
@@ -12,6 +13,9 @@ import {
   MAXIMUM_PASSWORD_LENGTH,
   MINIMUM_PASSWORD_LENGTH
 } from './constants';
+
+/** What the server answers when the address is taken. */
+const ALREADY_REGISTERED = 'email_already_registered';
 
 export function RegisterForm() {
   const { t } = useTranslation();
@@ -21,7 +25,8 @@ export function RegisterForm() {
   const [confirmationSentTo, setConfirmationSentTo] = useState<string | null>(
     null
   );
-  const { message, fieldErrors, report, clear } = useFormFailure([
+  const [attemptedEmail, setAttemptedEmail] = useState<string | null>(null);
+  const { message, code, fieldErrors, report, clear } = useFormFailure([
     'organisationName',
     'displayName',
     'email',
@@ -34,10 +39,12 @@ export function RegisterForm() {
     setSubmitting(true);
     clear();
     try {
+      const email = textField(form, 'email');
+      setAttemptedEmail(email);
       const account = await register({
         organisationName: textField(form, 'organisationName'),
         displayName: textField(form, 'displayName'),
-        email: textField(form, 'email'),
+        email,
         password: textField(form, 'password')
       });
       // Registering no longer signs anybody in, so nothing navigates: the account exists
@@ -57,6 +64,17 @@ export function RegisterForm() {
           {t('auth.register.checkEmail.body', { email: confirmationSentTo })}
         </p>
         <p className="lede">{t('auth.register.checkEmail.nothingYet')}</p>
+        {/*
+          Where a message that never arrives is first noticed. Without this the only way
+          on is to attempt a sign-in that is certain to be refused, and read the way out
+          of that refusal.
+        */}
+        <p className="switch">
+          <Trans
+            i18nKey="auth.register.checkEmail.needLink"
+            components={{ verify: <Link to="/verify-email" /> }}
+          />
+        </p>
         <p className="switch">
           <Trans
             i18nKey="auth.register.checkEmail.signIn"
@@ -76,6 +94,19 @@ export function RegisterForm() {
         <p className="form-error" role="alert">
           {message}
         </p>
+      )}
+
+      {/*
+        "That address is already registered" is true and useless on its own: the likeliest
+        person to see it is somebody whose confirmation link never arrived, trying again
+        because signing in does not work either. Offering the link here says nothing about
+        whether the account is confirmed — the message only ever goes to that address.
+      */}
+      {code === ALREADY_REGISTERED && attemptedEmail && (
+        <>
+          <p className="lede">{t('auth.register.alreadyRegistered')}</p>
+          <ResendConfirmation email={attemptedEmail} />
+        </>
       )}
 
       <Field

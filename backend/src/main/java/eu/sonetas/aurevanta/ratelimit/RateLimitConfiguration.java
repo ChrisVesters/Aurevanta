@@ -21,4 +21,15 @@ class RateLimitConfiguration {
 				new RateLimiter(properties.perAddress(), properties.addressWindow(), clock));
 	}
 
+	/**
+	 * Separate counts from the mail limiter's, not shared ones. Guessing at passwords and
+	 * asking for confirmation links are different things done by different people, and
+	 * one budget would let either exhaust the other.
+	 */
+	@Bean
+	SignInRateLimiter signInRateLimiter(RateLimitProperties properties, Clock clock) {
+		return new SignInRateLimiter(new RateLimiter(properties.signInPerIp(), properties.signInWindow(), clock),
+				new RateLimiter(properties.signInPerAccount(), properties.signInWindow(), clock));
+	}
+
 }

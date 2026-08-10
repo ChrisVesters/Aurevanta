@@ -116,6 +116,67 @@ describe('sign-up form', () => {
     ).not.toBeInTheDocument();
   });
 
+  /**
+   * The screen where a message that never arrives is first noticed. It told the visitor to
+   * check their spam folder and then offered them nothing to do about it — the way on was
+   * to attempt a sign-in certain to be refused, and read the escape out of that refusal.
+   */
+  it('offers a new link from the screen where a lost message is noticed', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(201, UNVERIFIED_ACCOUNT));
+
+    renderRouted(<RegisterForm />);
+    await fillAndSubmit();
+
+    expect(
+      await screen.findByRole('link', { name: 'Ask for a new link' })
+    ).toHaveAttribute('href', '/verify-email');
+  });
+
+  /**
+   * "That address is already registered" is true and, on its own, useless. The likeliest
+   * person to read it is somebody whose confirmation link never arrived, trying again
+   * because signing in does not work either — and the message left them nowhere to go.
+   */
+  it('offers a new link when the address turns out to be taken', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(409, { code: 'email_already_registered' })
+    );
+
+    renderRouted(<RegisterForm />);
+    await fillAndSubmit();
+    await screen.findByRole('alert');
+
+    fetchMock.mockResolvedValue(jsonResponse(202));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Send a new link' })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        '/api/auth/verify-email/resend',
+        expect.objectContaining({ method: 'POST' })
+      )
+    );
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)?.[1].body).email).toBe(
+      'ada@acme.test'
+    );
+  });
+
+  /** Any other refusal is not about a confirmation link, so it must not offer one. */
+  it('offers nothing of the sort for an unrelated failure', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(409, { code: 'organisation_name_unavailable' })
+    );
+
+    renderRouted(<RegisterForm />);
+    await fillAndSubmit();
+    await screen.findByRole('alert');
+
+    expect(
+      screen.queryByRole('button', { name: 'Send a new link' })
+    ).not.toBeInTheDocument();
+  });
+
   it('re-enables the button after a failure so the visitor can retry', async () => {
     fetchMock.mockResolvedValue(jsonResponse(409, { detail: 'Taken' }));
 

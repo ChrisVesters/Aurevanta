@@ -2,10 +2,10 @@ import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
-import { apiRequest } from '../api/client';
 import { useAuth } from './AuthContext';
 import { Field } from './Field';
 import { textField } from './formValues';
+import { ResendConfirmation } from './ResendConfirmation';
 import { useFormFailure } from './useFormFailure';
 import { MAXIMUM_EMAIL_LENGTH, MAXIMUM_PASSWORD_LENGTH } from './constants';
 
@@ -26,11 +26,6 @@ export function LoginForm() {
   // Deliberately the address as submitted rather than whatever the input holds now: the
   // message on screen is about that one.
   const [refusedAddress, setRefusedAddress] = useState<string | null>(null);
-  const [linkRequested, setLinkRequested] = useState(false);
-  const [sendingLink, setSendingLink] = useState(false);
-  // Its own failure state, so a resend that fails cannot overwrite the banner explaining
-  // why the visitor is being offered a resend at all.
-  const resendFailure = useFormFailure(['email']);
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,8 +33,6 @@ export function LoginForm() {
     const email = textField(form, 'email');
     setSubmitting(true);
     clear();
-    resendFailure.clear();
-    setLinkRequested(false);
     try {
       await login({ email, password: textField(form, 'password') });
     } catch (error) {
@@ -47,24 +40,6 @@ export function LoginForm() {
       setRefusedAddress(email);
       setSubmitting(false);
     }
-  }
-
-  async function sendAnotherLink() {
-    setSendingLink(true);
-    resendFailure.clear();
-    try {
-      await apiRequest<void>('/auth/verify-email/resend', {
-        method: 'POST',
-        body: { email: refusedAddress }
-      });
-      setLinkRequested(true);
-    } catch (error) {
-      resendFailure.report(error);
-    }
-    // Reset on both paths. On the success path the button is replaced by the
-    // acknowledgement and looks finished either way — but signing in again brings it back,
-    // and it would return still reading "Sending…" and still disabled.
-    setSendingLink(false);
   }
 
   const refusedByTheGate = code === NOT_VERIFIED;
@@ -84,32 +59,9 @@ export function LoginForm() {
         retype an address they have just typed is how a lost confirmation email turns into
         an abandoned account.
       */}
-      {refusedByTheGate &&
-        (linkRequested ? (
-          // As non-committal as the server's own answer, which is identical whether or not
-          // the address has an account.
-          <p className="lede" role="status">
-            {t('auth.login.resend.requested')}
-          </p>
-        ) : (
-          <>
-            {resendFailure.message && (
-              <p className="form-error" role="alert">
-                {resendFailure.message}
-              </p>
-            )}
-            <button
-              type="button"
-              className="secondary"
-              onClick={sendAnotherLink}
-              disabled={sendingLink}
-            >
-              {sendingLink
-                ? t('auth.login.resend.submitting')
-                : t('auth.login.resend.submit')}
-            </button>
-          </>
-        ))}
+      {refusedByTheGate && refusedAddress && (
+        <ResendConfirmation email={refusedAddress} />
+      )}
 
       <Field
         id="login-email"
@@ -119,7 +71,7 @@ export function LoginForm() {
         autoComplete="email"
         required
         maxLength={MAXIMUM_EMAIL_LENGTH}
-        error={fieldErrors.email ?? resendFailure.fieldErrors.email}
+        error={fieldErrors.email}
       />
       <Field
         id="login-password"

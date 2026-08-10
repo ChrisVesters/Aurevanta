@@ -73,6 +73,11 @@ export const en = {
       submit: 'Create organisation',
       submitting: 'Creating…',
       haveAccount: 'Already have an account? <signIn>Sign in</signIn>',
+      // Shown when the address is already taken. Says nothing about whether that account
+      // is confirmed — the server does not say, and it is not ours to guess — but the one
+      // remedy a stranger cannot misuse is a link sent to that address and nowhere else.
+      alreadyRegistered:
+        'If that is you and the confirmation link never arrived, ask for another:',
       // Where signing up now ends. The account exists but cannot be used until the
       // address is confirmed, so this screen has to say that plainly rather than imply
       // something went wrong.
@@ -81,6 +86,9 @@ export const en = {
         body: 'We have sent a link to {{email}}. Follow it to finish setting up your organisation — you cannot sign in until you do.',
         nothingYet:
           'It can take a minute to arrive. If it does not, check your spam folder.',
+        // This screen is where a lost message is first noticed, so it cannot be the one
+        // screen with nothing to do about it.
+        needLink: 'Still nothing? <verify>Ask for a new link</verify>',
         signIn: 'Already confirmed? <signIn>Sign in</signIn>'
       }
     },
@@ -91,16 +99,15 @@ export const en = {
       noAccount: 'New here? <register>Create an organisation</register>',
       needLink:
         'Never received your confirmation link? <verify>Ask for a new one</verify>',
-      forgotPassword:
-        'Forgotten your password? <reset>Choose a new one</reset>',
-      // Offered in place when the gate refuses someone, so the address they just typed is
-      // not typed again on another page. Worded tighter than the standalone page's, which
-      // has room to talk about spam folders and this does not.
-      resend: {
-        submit: 'Send a new link',
-        submitting: 'Sending…',
-        requested: 'If that address needs confirming, a new link is on its way.'
-      }
+      forgotPassword: 'Forgotten your password? <reset>Choose a new one</reset>'
+    },
+    // Shared, because the same offer belongs on more than one screen: after the gate
+    // refuses a sign-in, and after registering with an address that already exists.
+    // Worded tighter than the standalone page's, which has room to discuss spam folders.
+    resendConfirmation: {
+      submit: 'Send a new link',
+      submitting: 'Sending…',
+      requested: 'If that address needs confirming, a new link is on its way.'
     },
     verifyEmail: {
       confirming: 'Confirming your address…',

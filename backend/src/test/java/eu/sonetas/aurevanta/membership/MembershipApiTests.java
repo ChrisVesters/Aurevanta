@@ -10,6 +10,7 @@ import eu.sonetas.aurevanta.user.User;
 import eu.sonetas.aurevanta.user.UserRepository;
 import eu.sonetas.aurevanta.user.UserRole;
 import org.assertj.core.groups.Tuple;
+import eu.sonetas.aurevanta.ratelimit.SignInRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -78,8 +79,15 @@ class MembershipApiTests {
 
 	private User mallory;
 
+	/**
+	 * Shared across every case here, and failed sign-ins accumulate against one source.
+	 */
+	@Autowired
+	private SignInRateLimiter signInRateLimiter;
+
 	@BeforeEach
 	void seedTwoOrganisations() {
+		this.signInRateLimiter.clear();
 		this.memberships.deleteAll();
 		this.users.deleteAll();
 		this.tenants.deleteAll();

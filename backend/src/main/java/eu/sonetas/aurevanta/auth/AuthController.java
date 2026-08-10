@@ -3,6 +3,7 @@ package eu.sonetas.aurevanta.auth;
 import java.util.List;
 import java.util.UUID;
 
+import eu.sonetas.aurevanta.auth.problem.InvalidCredentialsException;
 import eu.sonetas.aurevanta.auth.problem.NotAMemberException;
 import eu.sonetas.aurevanta.auth.registration.RegistrationRequest;
 import eu.sonetas.aurevanta.auth.registration.RegistrationService;
@@ -14,6 +15,7 @@ import eu.sonetas.aurevanta.auth.signin.SignInResponse;
 import eu.sonetas.aurevanta.membership.Membership;
 import eu.sonetas.aurevanta.membership.MembershipService;
 import eu.sonetas.aurevanta.ratelimit.MailRateLimiter;
+import eu.sonetas.aurevanta.ratelimit.SignInRateLimiter;
 import eu.sonetas.aurevanta.security.AccessTokenService;
 import eu.sonetas.aurevanta.security.AuthenticatedUser;
 import eu.sonetas.aurevanta.user.User;
@@ -44,13 +46,17 @@ class AuthController {
 
 	private final MailRateLimiter rateLimiter;
 
+	private final SignInRateLimiter signInRateLimiter;
+
 	AuthController(RegistrationService registrationService, AuthenticationService authenticationService,
-			MembershipService memberships, AccessTokenService accessTokenService, MailRateLimiter rateLimiter) {
+			MembershipService memberships, AccessTokenService accessTokenService, MailRateLimiter rateLimiter,
+			SignInRateLimiter signInRateLimiter) {
 		this.registrationService = registrationService;
 		this.authenticationService = authenticationService;
 		this.memberships = memberships;
 		this.accessTokenService = accessTokenService;
 		this.rateLimiter = rateLimiter;
+		this.signInRateLimiter = signInRateLimiter;
 	}
 
 	/**
@@ -78,9 +84,34 @@ class AuthController {
 		return AccountResponse.of(this.registrationService.register(request));
 	}
 
+	/**
+	 * Throttled on <em>failures</em>, which is the only thing here worth slowing down.
+	 *
+	 * <p>
+	 * Without it the sole cost of guessing a password is how long bcrypt takes, which is
+	 * a price per attempt and not a bound on how many attempts there are. Counting
+	 * successes too would throttle somebody signing in from three devices, who is exactly
+	 * the person this protects.
+	 *
+	 * <p>
+	 * A wrong password on an unconfirmed account counts; {@code email_not_verified} does
+	 * not. Reaching that answer means the password was right, so it is not a guess — and
+	 * counting it would lock somebody out of the account they are trying to rescue.
+	 */
 	@PostMapping("/login")
-	SignInResponse login(@Valid @RequestBody LoginRequest request) {
-		return switch (this.authenticationService.signIn(request)) {
+	SignInResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest incoming) {
+		String source = incoming.getRemoteAddr();
+		this.signInRateLimiter.refuseIfExhausted(source, request.email());
+		SignIn outcome;
+		try {
+			outcome = this.authenticationService.signIn(request);
+		}
+		catch (InvalidCredentialsException ex) {
+			this.signInRateLimiter.recordFailure(source, request.email());
+			throw ex;
+		}
+		this.signInRateLimiter.succeeded(request.email());
+		return switch (outcome) {
 			case SignIn.IntoOrganisation(Membership membership) -> SignInResponse
 				.signedIn(AuthenticationResponse.of(membership, this.accessTokenService.issue(membership)));
 			case SignIn.ChooseOrganisation(User user, List<Membership> held) ->

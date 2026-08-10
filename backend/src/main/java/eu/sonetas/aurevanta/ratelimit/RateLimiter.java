@@ -86,6 +86,61 @@ public class RateLimiter {
 		return Optional.ofNullable(refusal[0]);
 	}
 
+	/**
+	 * Whether {@code key} is already over its limit, recording nothing either way.
+	 *
+	 * <p>
+	 * For the callers that count <em>failures</em> rather than attempts: a sign-in cannot
+	 * know whether it was a failure until the password has been checked, so asking and
+	 * recording have to be separate acts. Not atomic with the {@link #record} that
+	 * follows it, which costs a handful of extra attempts under a race and nothing else —
+	 * the point is to stop somebody making thousands, not to be exact about ten.
+	 * @return empty if another attempt may proceed, or how long until one could
+	 */
+	public Optional<Duration> refusalFor(String key) {
+		Instant now = Instant.now(this.clock);
+		Duration[] refusal = new Duration[1];
+		this.recent.computeIfPresent(key, (ignored, hits) -> {
+			dropExpired(hits, now);
+			if (hits.size() >= this.limit) {
+				refusal[0] = retryAfter(hits.peekFirst(), now);
+			}
+			return hits.isEmpty() ? null : hits;
+		});
+		return Optional.ofNullable(refusal[0]);
+	}
+
+	/**
+	 * Counts an attempt against {@code key} whether or not it is over the limit, so that
+	 * hammering away past a refusal keeps the refusal alive rather than letting it lapse
+	 * while the attempts continue.
+	 */
+	public void record(String key) {
+		Instant now = Instant.now(this.clock);
+		if (this.recent.size() > SWEEP_ABOVE) {
+			forgetExpired(now);
+		}
+		this.recent.compute(key, (ignored, hits) -> {
+			Deque<Instant> live = (hits != null) ? hits : new ArrayDeque<>();
+			dropExpired(live, now);
+			// Bounded by the limit: past that the count is already spent, and keeping
+			// every attempt would let one key grow without end.
+			if (live.size() < this.limit) {
+				live.addLast(now);
+			}
+			else {
+				live.removeFirst();
+				live.addLast(now);
+			}
+			return live;
+		});
+	}
+
+	/** Forgets one key, for a caller whose attempt turned out to be legitimate. */
+	public void forget(String key) {
+		this.recent.remove(key);
+	}
+
 	/** When the oldest attempt still counted leaves the window, and a slot frees up. */
 	private Duration retryAfter(Instant oldest, Instant now) {
 		Duration remaining = Duration.between(now, oldest.plus(this.window));

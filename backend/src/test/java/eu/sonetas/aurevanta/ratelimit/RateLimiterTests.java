@@ -159,6 +159,103 @@ class RateLimiterTests {
 		assertThat(this.limiter.tracked()).isGreaterThan(10_000);
 	}
 
+	/**
+	 * Asking and counting are separate acts for a caller that counts failures: a sign-in
+	 * cannot know it was a failure until the password has been checked, and asking must
+	 * not itself spend a slot.
+	 */
+	@Test
+	void answersWhetherAKeyIsSpentWithoutSpendingOne() {
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isEmpty();
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isEmpty();
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isEmpty();
+
+		// None of that counted, so the whole allowance is still there.
+		assertThat(this.limiter.claim("ada@acme.test")).isEmpty();
+		assertThat(this.limiter.claim("ada@acme.test")).isEmpty();
+		assertThat(this.limiter.claim("ada@acme.test")).isEmpty();
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isPresent();
+	}
+
+	@Test
+	void countsWhatItIsToldToCount() {
+		this.limiter.record("ada@acme.test");
+		this.limiter.record("ada@acme.test");
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isEmpty();
+
+		this.limiter.record("ada@acme.test");
+
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isPresent();
+	}
+
+	/**
+	 * Hammering away past a refusal has to keep the refusal alive. If attempts made while
+	 * already over the limit went uncounted, the window would drain on schedule while the
+	 * attempts never stopped, and the attacker would be handed a slot every few seconds.
+	 */
+	@Test
+	void keepsARefusalAliveWhileAttemptsContinue() {
+		for (int attempt = 0; attempt < 3; attempt++) {
+			this.limiter.record("ada@acme.test");
+		}
+
+		// Still refused, and carrying on regardless — as somebody working through a
+		// password list would.
+		this.clock.advanceBy(Duration.ofMinutes(14));
+		for (int attempt = 0; attempt < 3; attempt++) {
+			this.limiter.record("ada@acme.test");
+		}
+
+		// The original three have now aged out. Had the attempts made while already
+		// refused gone uncounted, the window would be empty and the guessing could
+		// resume.
+		this.clock.advanceBy(Duration.ofMinutes(2));
+
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isPresent();
+	}
+
+	/** Memory stays bounded even for a key nobody stops hitting. */
+	@Test
+	void remembersNoMoreThanTheLimitPerKey() {
+		for (int attempt = 0; attempt < 500; attempt++) {
+			this.limiter.record("ada@acme.test");
+		}
+
+		this.clock.advanceBy(WINDOW.plusSeconds(1));
+
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isEmpty();
+	}
+
+	/**
+	 * Counting failures accumulates keys exactly as claiming does — a source address per
+	 * attacker, an address per account guessed at — so it has to release them the same
+	 * way.
+	 */
+	@Test
+	void releasesKeysItWasToldToCountForToo() {
+		for (int key = 0; key < 10_001; key++) {
+			this.limiter.record("address-" + key + "@acme.test");
+		}
+		assertThat(this.limiter.tracked()).isGreaterThan(10_000);
+
+		this.clock.advanceBy(WINDOW.plusSeconds(1));
+		this.limiter.record("one-more@acme.test");
+
+		assertThat(this.limiter.tracked()).isEqualTo(1);
+	}
+
+	@Test
+	void forgetsOneKeyOnRequest() {
+		spend(3);
+		this.limiter.record("grace@acme.test");
+
+		this.limiter.forget("ada@acme.test");
+
+		assertThat(this.limiter.claim("ada@acme.test")).isEmpty();
+		// Somebody else's count is not theirs to clear.
+		assertThat(this.limiter.tracked()).isEqualTo(2);
+	}
+
 	@Test
 	void forgetsEverythingWhenCleared() {
 		spend(3);
