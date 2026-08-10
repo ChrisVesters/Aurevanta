@@ -75,6 +75,20 @@ describe('apiRequest', () => {
     ).resolves.toBeUndefined();
   });
 
+  /**
+   * 204 is not the only body-less success. Everything that answers 202 — asking for a
+   * reset link, asking for another confirmation link — sends nothing back, and treating
+   * that as JSON threw an error a form could only report as a network failure. The
+   * message said we could not reach the server about a request the server had accepted.
+   */
+  it('returns nothing for an accepted request that sends no body', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(202));
+
+    await expect(
+      apiRequest('/auth/password-reset', { method: 'POST' })
+    ).resolves.toBeUndefined();
+  });
+
   it('raises a problem document as an ApiError carrying its code', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse(409, {

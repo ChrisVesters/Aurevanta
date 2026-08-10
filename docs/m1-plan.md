@@ -21,7 +21,7 @@
 | | 3 | Single-use token infrastructure ✅ *done* | 1 |
 | | 4 | Per-field error codes ✅ *done* | — |
 | **C — Account lifecycle** | 5 | Email verification, and the sign-in gate ✅ *done* | 1, 2, 3 |
-| | 6 | Password reset | 2, 3 |
+| | 6 | Password reset ✅ *done* | 2, 3 |
 | | 7 | Rate limiting on mail-sending endpoints | 5, 6 |
 | | 8 | Frontend: verification, reset, gate handling | 5, 6 |
 | **D — Team** | 9 | Invitations: schema and issuing | 1, 2, 3 |
@@ -457,7 +457,7 @@ and sends nothing.
   must not be a dead end; the sign-in form links to the same page for anyone refused by the
   gate.
 
-## Step 6 — Password reset
+## Step 6 — Password reset ✅ *done*
 
 **Goal.** A way back in, which the hard gate makes essential rather than routine.
 
@@ -474,6 +474,40 @@ and sends nothing.
 tokens fail; the old password stops working and the new one works.
 
 **Done when** someone who never received a verification email can still reach their account.
+
+### As built — where it differs from the above
+
+Every bullet and every named test landed, in a new `auth.reset` subpackage. Five things a
+later step should know:
+
+- **"Consume any outstanding reset tokens" became `SingleUseTokenService.revokeAll`**, a
+  second conditional bulk update alongside `consume`. It is scoped by *purpose* as well as
+  by user: cancelling a confirmation link somebody is still waiting to use, because they
+  happened to reset their password, would be a new way to strand an account rather than a
+  tidy-up. Step 9 will want the same method when an invitation is superseded.
+- **Password bounds moved into `user.PasswordRules`.** Reset and registration both set a
+  credential, and the plan's `{token, password}` said nothing about what a password may be
+  — repeating `@Size(min = 12, max = 72)` would have let the two drift, and the weaker
+  endpoint would then decide the rule for everybody. `RegistrationRequest` was edited to
+  read the same constants; the values are unchanged, so the published `min`/`max` attributes
+  are too.
+- **Nothing ends a session that is already running.** A JWT is stateless and signed, so a
+  password change cannot withdraw one before it expires: somebody who resets because they
+  fear their account is compromised has not evicted whoever was in it. Closing that needs a
+  token version on `users` or a deny list, which is a decision for M2, not a bug in this
+  step.
+- **`EmailTemplates` gained a pluraliser**, because a reset link lasts a single hour and
+  "stops working after 1 hours" reads like a phishing message — which is exactly the wrong
+  impression for the one link in the system that hands over an account. `verifyEmail` uses
+  it too, so the two messages cannot phrase the same thing differently. The templates now
+  have direct tests (`EmailTemplatesTests`) rather than only being asserted through the
+  endpoints that send them.
+- **The frontend came with it after all**, so the rest of Step 8's password-reset work is
+  done here rather than deferred. The backend-only reading was defensible — nothing in the
+  running app could *send* a reset mail, so no journey was left dangling — but it shipped a
+  feature no user could reach, which is not worth a commit on its own. `/forgot-password`,
+  `/reset-password` and the "Forgotten your password?" link on the sign-in form landed
+  together. See Step 8 for what that leaves.
 
 ## Step 7 — Rate limiting on mail-sending endpoints
 
@@ -508,6 +542,30 @@ check-your-email and does not authenticate; sign-in surfaces `email_not_verified
 working resend. Coverage stays at 100%.
 
 **Done when** the whole verification and recovery journey can be completed in the browser.
+
+### Status — nearly all of this landed with Steps 5 and 6
+
+Each half came forward with the step that made it reachable, on the same reasoning both
+times: an endpoint that emails a link is not finished until the link lands somewhere, and a
+feature no user can reach is not worth a commit of its own.
+
+| | Where it landed |
+|---|---|
+| `/verify-email`, registration ending on "check your email" | Step 5 |
+| `email_not_verified` gets its own message, not the generic banner | Step 5 |
+| `/forgot-password`, `/reset-password`, the sign-in link to them | Step 6 |
+
+**What is left is one item: the inline resend on the sign-in form.** Someone refused by the
+gate currently gets the right message and a *link* to `/verify-email`, where they type their
+address again to ask for another link. The plan asks for the resend to be offered in place,
+without the retyping or the second page. That is a genuine improvement to the screen that
+rescues anyone whose confirmation mail went astray — but it is a refinement of a journey
+that already works end to end, not a missing piece of one.
+
+**Step 7 should therefore come first.** It is the only thing between here and the end of
+Phase C that is load-bearing: both `/api/auth/verify-email/resend` and
+`/api/auth/password-reset` are unauthenticated, send mail, and are now reachable from the
+browser by anybody — which is the vector decision 2 opened, currently wide open in `main`.
 
 ---
 

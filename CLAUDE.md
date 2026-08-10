@@ -96,6 +96,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `code`; `src/i18n/problems.ts` maps it to our own wording, falling back to a generic
   message rather than showing the backend's English. See the API note below for the one
   place this is still incomplete.
+- **A success may carry no body, and 204 is not the only one that does.** Every `202` this
+  API returns is empty, and `Response.json()` *rejects* on an empty body instead of
+  resolving to `undefined`. `apiRequest` therefore reads the text and parses only what is
+  there. Anything thrown that is not an `ApiError` reaches the visitor as "could not reach
+  the server", so a parse failure here is indistinguishable from the network being down —
+  which is exactly how it presented before it was fixed.
+- **The `fetch` double in `src/test/render.tsx` mirrors that**, rejecting from `json()` on
+  an empty body. It did not, once, and a mock more forgiving than the real thing is a test
+  suite that passes while the browser fails: every body-less `202` reported a network
+  failure for a request the server had accepted, and 138 green tests said nothing.
 - **Routing is React Router** (`react-router` v8, `BrowserRouter` in `main.tsx`).
   `/` is a public landing page, `/register` and `/login` sit behind `RedirectWhenSignedIn`,
   and `/app` sits behind `RequireAuth`. The forms never navigate themselves: they update
@@ -121,6 +131,30 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   replaces the whole port. Anything asserting that a request *survives* a broken mail
   server must instead use `FailingEmailSenderConfiguration`, which keeps the real
   asynchronous wrapper — the part that actually swallows the failure.
+
+## Password reset
+
+- **The gate's escape hatch, not a convenience.** An account whose confirmation mail never
+  arrived cannot sign in, so it cannot be recovered by signing in. `POST
+  /api/auth/password-reset` `{email}` is the only way back, and
+  `POST /api/auth/password-reset/confirm` `{token, password}` spends the link.
+- **A reset confirms the address as well**, stamping `email_verified_at` if it is unset —
+  following the link proves the mailbox exactly as a confirmation link does. `markEmailVerified`
+  keeps the *first* moment, so arriving by both routes does not rewrite history.
+- **Request always answers `202`**, for an unknown address as much as a registered one, and
+  unlike verification resend it does **not** skip an unconfirmed account: that account is
+  precisely the one that needs it. Unauthenticated and it sends mail, so Step 7's rate limit
+  applies to it.
+- **Redeeming one reset link spends every other one that account holds**
+  (`SingleUseTokenService.revokeAll`). Asking twice leaves two live links in an inbox, and
+  the one that was not used must not stay a way in after the owner has already recovered.
+  Purpose-scoped, so a reset does not cancel a confirmation link the same person still needs.
+- **Sessions already issued survive a password change.** Access tokens are stateless and
+  signed, so nothing can withdraw one before it expires. Closing that needs a token version
+  on the user or a deny list, and neither is in M1.
+- **`PasswordRules` in `user` states the bounds once.** Registration and reset both set a
+  credential; if they disagreed, whichever asked for less would decide the rule for everyone,
+  since anyone can reach the weaker endpoint.
 
 ## Single-use tokens (emailed links)
 

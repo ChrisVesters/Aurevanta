@@ -69,9 +69,14 @@ export async function apiRequest<T>(
   if (!response.ok) {
     throw new ApiError(response.status, await readProblem(response));
   }
-  return response.status === 204
-    ? (undefined as T)
-    : ((await response.json()) as T);
+  // A success can carry no body at all: 204 from redeeming a link, 202 from anything that
+  // only promises to do the work later. `Response.json()` rejects on an empty body rather
+  // than resolving to undefined, and that rejection is indistinguishable from a network
+  // failure by the time it reaches a form — which is how every body-less 202 came to tell
+  // the visitor we could not reach the server. Read the text and parse what is there,
+  // exactly as the failure path already does.
+  const text = await response.text();
+  return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
 /** A failure may carry no body at all — a 401 from the security filter chain does not. */

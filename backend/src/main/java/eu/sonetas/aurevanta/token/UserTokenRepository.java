@@ -41,6 +41,24 @@ public interface UserTokenRepository extends JpaRepository<UserToken, UUID> {
 			@Param("now") Instant now);
 
 	/**
+	 * Spends every token one user still holds for one purpose, whether or not anybody
+	 * asked for them.
+	 *
+	 * <p>
+	 * Expiry is deliberately <em>not</em> in the predicate: an expired token is already
+	 * unusable, and excluding it would only leave rows behind that say "outstanding" when
+	 * they are not.
+	 */
+	@Modifying(flushAutomatically = true)
+	@Query("""
+			update UserToken t set t.consumedAt = :now
+			where t.user = :user
+			  and t.purpose = :purpose
+			  and t.consumedAt is null
+			""")
+	int consumeAllFor(@Param("user") User user, @Param("purpose") TokenPurpose purpose, @Param("now") Instant now);
+
+	/**
 	 * The person a token belongs to. Only called once {@link #consume} has already
 	 * established that this caller spent it, so it never decides anything by itself.
 	 */

@@ -254,6 +254,77 @@ describe('routing', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * The address the reset email sends people to. Same lesson as the confirmation link:
+   * an endpoint that emails a link is not finished until the link lands somewhere.
+   */
+  it('serves the reset link the email sends people to', () => {
+    renderRouted(<App />, { route: '/reset-password?token=abc123' });
+
+    expect(
+      screen.getByRole('heading', { name: 'Choose a new password' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Page not found' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('serves the page that asks for a reset link', () => {
+    renderRouted(<App />, { route: '/forgot-password' });
+
+    expect(
+      screen.getByRole('heading', { name: 'Reset your password' })
+    ).toBeInTheDocument();
+  });
+
+  /** The entry point: without this the reset pages exist but nobody can reach them. */
+  it('lets someone who cannot sign in ask for a new password', async () => {
+    renderRouted(<App />, { route: '/login' });
+
+    await userEvent.click(
+      screen.getByRole('link', { name: 'Choose a new one' })
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Reset your password' })
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The whole recovery journey, as somebody locked out actually walks it: sign-in, ask
+   * for a link, follow it, choose a password, sign in again.
+   */
+  it('carries a locked-out visitor from sign-in to a new password', async () => {
+    renderRouted(<App />, { route: '/login' });
+    await userEvent.click(
+      screen.getByRole('link', { name: 'Choose a new one' })
+    );
+
+    fetchMock.mockResolvedValue(jsonResponse(202));
+    await userEvent.type(screen.getByLabelText('Email'), 'ada@acme.test');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Send a reset link' })
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /a link is on its way/i
+    );
+
+    // The link out of the email arrives as a fresh page load rather than a navigation.
+    fetchMock.mockResolvedValue(jsonResponse(204));
+    renderRouted(<App />, { route: '/reset-password?token=abc123' });
+    await userEvent.type(
+      screen.getAllByLabelText('Password')[0],
+      'a-brand-new-passphrase'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save new password' })
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Password changed' })
+    ).toBeInTheDocument();
+  });
+
   it('shows a not-found page for an unknown address', () => {
     renderRouted(<App />, { route: '/nowhere' });
 

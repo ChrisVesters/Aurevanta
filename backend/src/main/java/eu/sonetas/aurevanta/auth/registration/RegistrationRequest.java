@@ -1,5 +1,6 @@
 package eu.sonetas.aurevanta.auth.registration;
 
+import eu.sonetas.aurevanta.user.PasswordRules;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -11,8 +12,8 @@ import jakarta.validation.constraints.Size;
  * @param organisationName display name of the tenant being created
  * @param displayName how the registering user should be shown
  * @param email login identity, unique across the installation
- * @param password minimum 12 characters. The upper bound is bcrypt's: it hashes only the
- * first 72 bytes, so anything longer would be silently truncated.
+ * @param password bounded by {@link PasswordRules}, which password reset shares — the two
+ * places that set a credential must not be able to disagree about what one may be.
  */
 public record RegistrationRequest(
 
@@ -22,7 +23,7 @@ public record RegistrationRequest(
 
 		@NotBlank @Email @Size(max = 320) String email,
 
-		@NotBlank @Size(min = 12, max = 72) String password) {
+		@NotBlank @Size(min = PasswordRules.MINIMUM_LENGTH, max = PasswordRules.MAXIMUM_LENGTH) String password) {
 
 	/**
 	 * Strips surrounding whitespace before anything else sees it, validation included.

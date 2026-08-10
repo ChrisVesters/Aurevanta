@@ -90,7 +90,8 @@ export const en = {
       submitting: 'Signing in…',
       noAccount: 'New here? <register>Create an organisation</register>',
       needLink:
-        'Never received your confirmation link? <verify>Ask for a new one</verify>'
+        'Never received your confirmation link? <verify>Ask for a new one</verify>',
+      forgotPassword: 'Forgotten your password? <reset>Choose a new one</reset>'
     },
     verifyEmail: {
       confirming: 'Confirming your address…',
@@ -108,6 +109,36 @@ export const en = {
         // server does too — anything more precise would disclose who is registered.
         requested:
           'If that address needs confirming, a new link is on its way. It can take a minute to arrive, and it is worth checking your spam folder.'
+      }
+    },
+    forgotPassword: {
+      title: 'Reset your password',
+      body: 'Enter the address you registered with and we will send a link for choosing a new password.',
+      submit: 'Send a reset link',
+      submitting: 'Sending…',
+      // Says the same thing whether or not the address has an account, because the
+      // server does too — anything more precise would disclose who is registered.
+      requested:
+        'If that address has an account, a link is on its way. It expires in an hour, so use it while it is fresh — and check your spam folder if nothing arrives.',
+      signIn: 'Remembered it after all? <signIn>Sign in</signIn>'
+    },
+    resetPassword: {
+      title: 'Choose a new password',
+      body: 'Pick something you have not used anywhere else. This link works once.',
+      submit: 'Save new password',
+      submitting: 'Saving…',
+      // A link that has expired or been used is exactly when someone needs another, so
+      // no state of this page is a dead end.
+      needLink: 'Link no longer working? <forgot>Ask for a new one</forgot>',
+      done: {
+        title: 'Password changed',
+        body: 'Your address is confirmed as well, so you can sign in right away.',
+        signIn: '<signIn>Sign in</signIn> with your new password.'
+      },
+      noToken: {
+        title: 'That link is incomplete',
+        body: 'A reset link carries a token, and this one arrived without it — some mail clients break long links across lines.',
+        ask: '<forgot>Ask for a new link</forgot> and it will arrive in a moment.'
       }
     }
   },

@@ -77,6 +77,22 @@ public class SingleUseTokenService {
 	}
 
 	/**
+	 * Spends everything {@code user} still holds for {@code purpose}, so that nothing
+	 * issued earlier outlives whatever has just happened.
+	 *
+	 * <p>
+	 * Asking twice because the first message was slow leaves two live links in an inbox.
+	 * Once either one has been acted on the other is no longer something the account
+	 * holder needs, and leaving it working means a message read by somebody else later is
+	 * still a way in — after the owner has already recovered and would have no reason to
+	 * suspect it.
+	 */
+	@Transactional
+	public void revokeAll(User user, TokenPurpose purpose) {
+		this.tokens.consumeAllFor(user, purpose, Instant.now(this.clock));
+	}
+
+	/**
 	 * Hex-encoded SHA-256 of the raw token, which is the only form ever written down.
 	 * Unsalted on purpose: redemption has to find a row by hash, and the input is 32
 	 * random bytes rather than a guessable secret, so neither a salt nor a slow function

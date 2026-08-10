@@ -37,6 +37,30 @@ class UserTests {
 		assertThat(user.getEmailVerifiedAt()).isEqualTo(Instant.parse("2026-08-07T09:00:00Z"));
 	}
 
+	@Test
+	void takesANewCredential() {
+		User user = newUser();
+
+		user.changePassword("{bcrypt}$2a$10$adifferenthash");
+
+		assertThat(user.getPasswordHash()).isEqualTo("{bcrypt}$2a$10$adifferenthash");
+	}
+
+	/**
+	 * Recovering an account proves the address as surely as confirming it does, so a
+	 * reset stamps an address nobody had proved yet. Someone whose confirmation message
+	 * never arrived is otherwise locked out for good.
+	 */
+	@Test
+	void aResetCanBeWhatProvesTheAddress() {
+		User user = newUser();
+
+		user.changePassword("{bcrypt}$2a$10$adifferenthash");
+		user.markEmailVerified(Instant.parse("2026-08-07T09:00:00Z"));
+
+		assertThat(user.isEmailVerified()).isTrue();
+	}
+
 	/**
 	 * More than one route proves an address — a confirmation link, and from Step 6 a
 	 * password reset — so arriving twice is expected and must not rewrite when it

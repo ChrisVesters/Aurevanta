@@ -87,6 +87,16 @@ export function LoginForm() {
           components={{ verify: <Link to="/verify-email" /> }}
         />
       </p>
+      {/*
+        The other way out, and the only one for somebody who has lost their password —
+        which the gate also makes the way back in when a confirmation link never arrived.
+      */}
+      <p className="switch">
+        <Trans
+          i18nKey="auth.login.forgotPassword"
+          components={{ reset: <Link to="/forgot-password" /> }}
+        />
+      </p>
     </form>
   );
 }

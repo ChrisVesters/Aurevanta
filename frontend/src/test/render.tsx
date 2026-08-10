@@ -104,13 +104,26 @@ export function renderRouted(
   );
 }
 
-/** Builds a `fetch` response double; `body` of `undefined` produces an empty body. */
+/**
+ * Builds a `fetch` response double; `body` of `undefined` produces an empty body.
+ *
+ * `json()` rejects on an empty body rather than resolving to `undefined`, because that is
+ * what a real `Response` does. The earlier double resolved instead, which made a body-less
+ * `202` look fine here and report "could not reach the server" in a browser — so the
+ * faithfulness is the point, not a detail.
+ */
 export function jsonResponse(status: number, body?: unknown): Response {
+  const text = body === undefined ? '' : JSON.stringify(body);
   return {
     ok: status >= 200 && status < 300,
     status,
-    json: async () => body,
-    text: async () => (body === undefined ? '' : JSON.stringify(body))
+    json: async () => {
+      if (!text) {
+        throw new SyntaxError('Unexpected end of JSON input');
+      }
+      return JSON.parse(text) as unknown;
+    },
+    text: async () => text
   } as Response;
 }
 

@@ -81,6 +81,23 @@ public class User {
 	}
 
 	/**
+	 * Replaces the credential.
+	 *
+	 * <p>
+	 * Takes a hash, never a password: this class has no encoder and should not acquire
+	 * one, so there is no way to reach it that stores a password in the clear by
+	 * accident.
+	 *
+	 * <p>
+	 * Access tokens already issued survive this. They are stateless and signed, so
+	 * nothing can withdraw one before it expires — changing a password ends no session
+	 * that is already running.
+	 */
+	public void changePassword(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
+	/**
 	 * Records that the address has been proved, keeping the first time it happened.
 	 * Verification can be reached by more than one route — a confirmation link, and from
 	 * Step 6 a password reset — so arriving twice is expected and must not rewrite

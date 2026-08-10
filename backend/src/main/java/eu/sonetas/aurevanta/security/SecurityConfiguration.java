@@ -28,10 +28,10 @@ class SecurityConfiguration {
 			.sessionManagement((session) -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests((requests) -> requests
 				// Everything reachable before anyone can sign in — including the
-				// two confirmation endpoints, which exist precisely for people
-				// who cannot.
+				// confirmation and password-reset endpoints, which exist precisely
+				// for people who cannot.
 				.requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/verify-email",
-						"/api/auth/verify-email/resend")
+						"/api/auth/verify-email/resend", "/api/auth/password-reset", "/api/auth/password-reset/confirm")
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info")
 				.permitAll()

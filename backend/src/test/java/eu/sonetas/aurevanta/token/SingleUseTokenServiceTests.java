@@ -137,6 +137,49 @@ class SingleUseTokenServiceTests {
 	}
 
 	/**
+	 * Someone who asked twice has two live links in their inbox. Acting on either one
+	 * settles the matter, and a message read by anybody else afterwards must not still be
+	 * a way in.
+	 */
+	@Test
+	void spendsEverythingOutstandingForOnePurpose() {
+		SingleUseToken first = this.tokenService.issue(this.ada, TokenPurpose.PASSWORD_RESET, AN_HOUR);
+		SingleUseToken second = this.tokenService.issue(this.ada, TokenPurpose.PASSWORD_RESET, AN_HOUR);
+
+		this.tokenService.revokeAll(this.ada, TokenPurpose.PASSWORD_RESET);
+
+		assertThat(this.tokenService.consume(first.value(), TokenPurpose.PASSWORD_RESET)).isEmpty();
+		assertThat(this.tokenService.consume(second.value(), TokenPurpose.PASSWORD_RESET)).isEmpty();
+	}
+
+	/**
+	 * Purpose-by-purpose, or recovering a password would silently cancel a confirmation
+	 * link the same person is still waiting to use.
+	 */
+	@Test
+	void leavesTokensIssuedForSomethingElseAlone() {
+		SingleUseToken confirmation = this.tokenService.issue(this.ada, TokenPurpose.EMAIL_VERIFICATION, AN_HOUR);
+
+		this.tokenService.revokeAll(this.ada, TokenPurpose.PASSWORD_RESET);
+
+		assertThat(this.tokenService.consume(confirmation.value(), TokenPurpose.EMAIL_VERIFICATION).map(User::getId))
+			.contains(this.ada.getId());
+	}
+
+	/** One person's recovery must not cancel anybody else's. */
+	@Test
+	void leavesOtherPeoplesTokensAlone() {
+		User grace = this.users
+			.save(new User("grace@acme.test", "{bcrypt}$2a$10$hash", "Grace", Instant.parse("2026-08-06T08:00:00Z")));
+		SingleUseToken hers = this.tokenService.issue(grace, TokenPurpose.PASSWORD_RESET, AN_HOUR);
+
+		this.tokenService.revokeAll(this.ada, TokenPurpose.PASSWORD_RESET);
+
+		assertThat(this.tokenService.consume(hers.value(), TokenPurpose.PASSWORD_RESET).map(User::getId))
+			.contains(grace.getId());
+	}
+
+	/**
 	 * A token is meaningless without the person it authenticates, so the foreign key
 	 * cascades. Asserted because a missing {@code on delete cascade} would not show up
 	 * until something deleted an account and tripped a constraint instead.
