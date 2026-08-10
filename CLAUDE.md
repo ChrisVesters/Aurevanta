@@ -191,6 +191,14 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   account, so it must be beyond what any single source can reach; filling it takes several
   sources acting together, which is the distributed case it exists for. Change one number
   without the other and a defence becomes an attack.
+- **A refusal raised outside `eu.sonetas.aurevanta.auth` will not be handled.**
+  `AuthExceptionHandler` is scoped to that package, and `TooManyRequestsException` is thrown
+  from `ratelimit` — fine while every caller is an auth controller, which is true today and
+  stops being true in Step 9, when invitation resend lives under `/api/invitations`. The
+  refusal would then lose its `code` and its `Retry-After` and arrive as Boot's default
+  error. Widen the advice before putting the limiter behind a controller outside `auth`;
+  this is the same trap that turned `assignableTypes` into `basePackages` in Step 5, one
+  level up.
 - **Tests that drive these endpoints must clear the limiter**, since one context is shared
   across cases — `MailRateLimiter.clear()` in `@BeforeEach`. Otherwise one test spends the
   allowance the next one needs, and the failure looks nothing like its cause.

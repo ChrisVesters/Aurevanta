@@ -111,9 +111,17 @@ public class RateLimiter {
 	}
 
 	/**
-	 * Counts an attempt against {@code key} whether or not it is over the limit, so that
-	 * hammering away past a refusal keeps the refusal alive rather than letting it lapse
-	 * while the attempts continue.
+	 * Counts one attempt against {@code key}.
+	 *
+	 * <p>
+	 * Nothing is added once the limit is reached, which is what makes this a limit on the
+	 * <em>rate</em> rather than a ban that lengthens under fire. It matters most where a
+	 * key is somebody else's account: were refused attempts counted, anyone willing to
+	 * keep knocking could hold a stranger out of their own account indefinitely, and the
+	 * harder they knocked the longer it would last. A window that simply expires cannot
+	 * be used that way. Callers reinforce it by refusing before they record, so an
+	 * attempt already over the limit never reaches here at all — this branch is for two
+	 * attempts that pass the check together.
 	 */
 	public void record(String key) {
 		Instant now = Instant.now(this.clock);
@@ -123,13 +131,7 @@ public class RateLimiter {
 		this.recent.compute(key, (ignored, hits) -> {
 			Deque<Instant> live = (hits != null) ? hits : new ArrayDeque<>();
 			dropExpired(live, now);
-			// Bounded by the limit: past that the count is already spent, and keeping
-			// every attempt would let one key grow without end.
 			if (live.size() < this.limit) {
-				live.addLast(now);
-			}
-			else {
-				live.removeFirst();
 				live.addLast(now);
 			}
 			return live;

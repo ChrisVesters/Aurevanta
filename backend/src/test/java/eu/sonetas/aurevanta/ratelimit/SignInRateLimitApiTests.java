@@ -100,12 +100,13 @@ class SignInRateLimitApiTests {
 	}
 
 	/**
-	 * The refusal outlasts the guessing rather than draining while it continues. Attempts
-	 * made after the limit is reached still count, or the window would empty on schedule
-	 * and hand out a slot every few seconds to somebody who never stopped.
+	 * Once the budget is spent the password is not looked at, right or wrong. That is
+	 * what makes the limit worth having: an attacker who has run out cannot go on testing
+	 * candidates, and cannot learn that one of them was correct. It also means the
+	 * refusal costs no bcrypt, since nothing gets as far as checking.
 	 */
 	@Test
-	void staysRefusedWhileTheGuessingContinues() throws Exception {
+	void refusesEvenTheCorrectPasswordOnceTheBudgetIsSpent() throws Exception {
 		registerAndConfirm("ada@acme.test");
 		for (int guess = 0; guess < 6; guess++) {
 			signIn("ada@acme.test", WRONG_PASSWORD);

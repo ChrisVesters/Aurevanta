@@ -629,6 +629,14 @@ Three things worth knowing about the inline resend, which is all Step 8 itself h
 **Tests.** Owner can invite; member cannot (403); unverified owner cannot; duplicate live
 invitation rejected; existing member rejected; mail sent carrying the raw token.
 
+**Before writing the endpoint:** invitation sending and resend go behind `MailRateLimiter`
+like every other mail-sending endpoint — and `/api/invitations` sits outside
+`eu.sonetas.aurevanta.auth`, which is where `AuthExceptionHandler` is scoped. A `429` raised
+there would lose its `code` and its `Retry-After` and arrive as Boot's default error, so the
+advice has to be widened in the same commit. Step 5 hit this one level down and fixed it by
+replacing `assignableTypes` with `basePackages`; this is that lesson again, and it is silent
+when got wrong.
+
 **Done when** an owner can put a pending invitation in someone's inbox.
 
 ## Step 10 — Invitations: preview, accept, revoke

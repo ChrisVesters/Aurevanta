@@ -189,29 +189,31 @@ class RateLimiterTests {
 	}
 
 	/**
-	 * Hammering away past a refusal has to keep the refusal alive. If attempts made while
-	 * already over the limit went uncounted, the window would drain on schedule while the
-	 * attempts never stopped, and the attacker would be handed a slot every few seconds.
+	 * A refusal expires on its own schedule and cannot be extended by continuing to
+	 * knock.
+	 *
+	 * <p>
+	 * This is what keeps a per-account limit from becoming a way to lock somebody out of
+	 * their own account. If attempts made while already refused were counted, anyone
+	 * willing to keep sending could hold a stranger out for as long as they liked, and
+	 * the harder they pushed the longer it would last — the limit would have become the
+	 * attack it was added to prevent.
 	 */
 	@Test
-	void keepsARefusalAliveWhileAttemptsContinue() {
-		for (int attempt = 0; attempt < 3; attempt++) {
-			this.limiter.record("ada@acme.test");
+	void cannotBeHeldOpenByCarryingOnKnocking() {
+		spendByRecording(3);
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isPresent();
+
+		// Somebody working through a password list, refused every time and continuing.
+		for (int minute = 1; minute <= 14; minute++) {
+			this.clock.advanceBy(Duration.ofMinutes(1));
+			spendByRecording(5);
 		}
 
-		// Still refused, and carrying on regardless — as somebody working through a
-		// password list would.
-		this.clock.advanceBy(Duration.ofMinutes(14));
-		for (int attempt = 0; attempt < 3; attempt++) {
-			this.limiter.record("ada@acme.test");
-		}
-
-		// The original three have now aged out. Had the attempts made while already
-		// refused gone uncounted, the window would be empty and the guessing could
-		// resume.
+		// One window after the attempts that caused it, and not a moment later.
 		this.clock.advanceBy(Duration.ofMinutes(2));
 
-		assertThat(this.limiter.refusalFor("ada@acme.test")).isPresent();
+		assertThat(this.limiter.refusalFor("ada@acme.test")).isEmpty();
 	}
 
 	/** Memory stays bounded even for a key nobody stops hitting. */
@@ -269,6 +271,12 @@ class RateLimiterTests {
 	private void spend(int attempts) {
 		for (int attempt = 0; attempt < attempts; attempt++) {
 			this.limiter.claim("ada@acme.test");
+		}
+	}
+
+	private void spendByRecording(int attempts) {
+		for (int attempt = 0; attempt < attempts; attempt++) {
+			this.limiter.record("ada@acme.test");
 		}
 	}
 
