@@ -2,8 +2,24 @@ import { describe, expect, it } from 'vitest';
 import i18n from './config';
 import { describeFailure, describeFieldErrors } from './problems';
 import { ApiError, type FieldProblem } from '../api/client';
+import { en } from './en';
 
 const t = i18n.getFixedT('en');
+
+/** Every `code` the backend can put in a problem document, written out rather than
+ * derived, so that this file states the contract instead of agreeing with itself. */
+const BACKEND_CODES = [
+  'email_already_registered',
+  'organisation_name_unavailable',
+  'organisation_name_unusable',
+  'invalid_credentials',
+  'email_not_verified',
+  'invalid_token',
+  'not_a_member',
+  'too_many_requests',
+  'registration_conflict',
+  'validation_failed'
+];
 
 describe('describeFailure', () => {
   it('uses our wording for a code the catalogue knows', () => {
@@ -18,20 +34,23 @@ describe('describeFailure', () => {
   });
 
   it('translates every code the backend can send', () => {
-    const codes = [
-      'email_already_registered',
-      'organisation_name_unavailable',
-      'organisation_name_unusable',
-      'invalid_credentials',
-      'registration_conflict',
-      'validation_failed'
-    ];
-
-    for (const code of codes) {
+    for (const code of BACKEND_CODES) {
       const message = describeFailure(t, new ApiError(400, { code }));
       expect(message, code).not.toBe('Something went wrong. Please try again.');
       expect(message, code).not.toBe('');
     }
+  });
+
+  /**
+   * The list above is the contract, so it has to be the whole contract: checked against
+   * the catalogue in both directions, since a list that only had to be a subset would
+   * quietly stop covering anything added after it was written — which is exactly what it
+   * had done.
+   */
+  it('lists exactly the codes the catalogue has wording for', () => {
+    expect([...BACKEND_CODES].sort()).toEqual(
+      Object.keys(en.errors.codes).sort()
+    );
   });
 
   // A code we have no wording for must not leak the server's English prose.

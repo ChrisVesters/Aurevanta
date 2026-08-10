@@ -171,6 +171,11 @@ export const en = {
       invalid_token:
         'That link has expired or has already been used. Ask for a new one.',
       not_a_member: 'You do not belong to that organisation.',
+      // The server says how long to wait in a Retry-After header, which nothing here
+      // reads yet — so the wording stays vague rather than promising a time it does
+      // not know.
+      too_many_requests:
+        'Too many requests just now. Wait a few minutes and try again.',
       registration_conflict:
         'That email address or organisation name was just taken.',
       validation_failed: 'Some fields need attention.'

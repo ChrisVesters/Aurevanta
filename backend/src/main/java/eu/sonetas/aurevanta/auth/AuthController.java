@@ -13,9 +13,11 @@ import eu.sonetas.aurevanta.auth.signin.SignIn;
 import eu.sonetas.aurevanta.auth.signin.SignInResponse;
 import eu.sonetas.aurevanta.membership.Membership;
 import eu.sonetas.aurevanta.membership.MembershipService;
+import eu.sonetas.aurevanta.ratelimit.MailRateLimiter;
 import eu.sonetas.aurevanta.security.AccessTokenService;
 import eu.sonetas.aurevanta.security.AuthenticatedUser;
 import eu.sonetas.aurevanta.user.User;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -40,12 +42,15 @@ class AuthController {
 
 	private final AccessTokenService accessTokenService;
 
+	private final MailRateLimiter rateLimiter;
+
 	AuthController(RegistrationService registrationService, AuthenticationService authenticationService,
-			MembershipService memberships, AccessTokenService accessTokenService) {
+			MembershipService memberships, AccessTokenService accessTokenService, MailRateLimiter rateLimiter) {
 		this.registrationService = registrationService;
 		this.authenticationService = authenticationService;
 		this.memberships = memberships;
 		this.accessTokenService = accessTokenService;
+		this.rateLimiter = rateLimiter;
 	}
 
 	/**
@@ -57,10 +62,19 @@ class AuthController {
 	 * refused at sign-in, so handing out a session here would issue one to an account
 	 * that is not yet allowed to have it — and would make the gate something a client
 	 * could skip simply by registering.
+	 *
+	 * <p>
+	 * Rate limited like the other two, though it looks less exposed than they do: an
+	 * address can only be registered once, so nobody can be buried under confirmation
+	 * mail this way. What it can do is send <em>one</em> unsolicited message each to as
+	 * many addresses as somebody cares to type, which the per-source limit is what stops.
+	 * An endpoint that emails an address the caller chose belongs behind this whether or
+	 * not it can be made to email the same one twice.
 	 */
 	@PostMapping("/register")
 	@ResponseStatus(HttpStatus.CREATED)
-	AccountResponse register(@Valid @RequestBody RegistrationRequest request) {
+	AccountResponse register(@Valid @RequestBody RegistrationRequest request, HttpServletRequest incoming) {
+		this.rateLimiter.claim(incoming.getRemoteAddr(), request.email());
 		return AccountResponse.of(this.registrationService.register(request));
 	}
 

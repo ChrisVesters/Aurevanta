@@ -22,7 +22,7 @@
 | | 4 | Per-field error codes ✅ *done* | — |
 | **C — Account lifecycle** | 5 | Email verification, and the sign-in gate ✅ *done* | 1, 2, 3 |
 | | 6 | Password reset ✅ *done* | 2, 3 |
-| | 7 | Rate limiting on mail-sending endpoints | 5, 6 |
+| | 7 | Rate limiting on mail-sending endpoints ✅ *done* | 5, 6 |
 | | 8 | Frontend: verification, reset, gate handling | 5, 6 |
 | **D — Team** | 9 | Invitations: schema and issuing | 1, 2, 3 |
 | | 10 | Invitations: preview, accept, revoke | 9 |
@@ -509,7 +509,7 @@ later step should know:
   `/reset-password` and the "Forgotten your password?" link on the sign-in form landed
   together. See Step 8 for what that leaves.
 
-## Step 7 — Rate limiting on mail-sending endpoints
+## Step 7 — Rate limiting on mail-sending endpoints ✅ *done*
 
 **Goal.** Close the vector decision 2 opened. Placed here, immediately after the endpoints
 exist, so an unthrottled unauthenticated sender is never left in `main`.
@@ -524,6 +524,36 @@ exist, so an unthrottled unauthenticated sender is never left in `main`.
 are unaffected.
 
 **Done when** no unauthenticated endpoint can be made to send unbounded mail.
+
+### As built — where it differs from the above
+
+- **Registration is limited too**, which the bullet list did not name. It is a weaker vector
+  than the other two — an address can only be registered once, so nobody can be buried — but
+  it will send one unsolicited message to any address somebody types, and the step's own
+  "done when" says *no* unauthenticated endpoint. Only the per-source limit bites there; a
+  per-address one would be meaningless for something that can only fire once per address.
+- **One budget per recipient, shared by every endpoint**, rather than a bucket per endpoint.
+  Alternating between reset and resend would otherwise buy twice the allowance, and the
+  inbox on the receiving end cannot tell the two apart.
+- **The source is checked before the address.** If it were the other way round, one machine
+  flooding would burn through the budget of every address it named, and the refusals would
+  land on the victims instead of the sender.
+- **A sliding window, not a fixed one.** A window that resets on a boundary lets twice the
+  limit through either side of it, which for a limit whose whole purpose is to bound what
+  reaches an inbox is the case worth getting right.
+- **Tests had to gain a `clear()` call.** The limiter is one bean in a context shared across
+  a whole test class, so without it the fourth case in a class spends what the fifth needs.
+  Four existing classes now reset it in `@BeforeEach`; the alternative was configuring the
+  limits away in tests, which would have meant nothing outside this step ever exercised them.
+
+**Two things this does not do**, both worth knowing before deployment:
+
+- **Counts are per process.** Two instances mean twice the limit. Recorded in `CLAUDE.md`
+  as the plan asked.
+- **The source is `getRemoteAddr()`.** Behind a proxy or load balancer that is one address
+  for everybody, so the per-source limit would throttle all users together while giving an
+  attacker no trouble at all. Whatever terminates TLS in front of this has to be trusted for
+  a forwarded header before the per-source limit means anything in production.
 
 ## Step 8 — Frontend: verification, reset and the gate
 

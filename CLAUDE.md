@@ -156,6 +156,36 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   credential; if they disagreed, whichever asked for less would decide the rule for everyone,
   since anyone can reach the weaker endpoint.
 
+## Rate limiting the endpoints that send mail
+
+- **Two limits, because they stop different things.** Per *recipient* bounds what can be
+  dumped in one inbox; per *source* stops one client sending a single message each to a
+  great many addresses, which the per-recipient limit cannot see. Configured under
+  `aurevanta.rate-limit.*`; defaults are 3 per address and 20 per source, both over 15
+  minutes.
+- **Applies to `/api/auth/register` too**, not just reset and resend. An address can only be
+  registered once, so nobody can be buried this way — but one unsolicited message each to a
+  million strangers is still this application sending it. Anything that emails an address
+  the caller chose belongs behind the limit.
+- **Claimed before anything is looked up**, so it counts requests rather than messages. A
+  limit that only counted the addresses that turned out to have accounts would answer,
+  through its own refusals, the question the blanket `202` exists to refuse.
+- **One budget per recipient, shared across endpoints.** Per-endpoint budgets would hand an
+  attacker twice the allowance for alternating between reset and resend, and the person
+  being written to cannot tell which endpoint sent what.
+- **`429` carries `Retry-After`**, which is why it is the one failure with its own handler
+  returning a `ResponseEntity` rather than a bare `ProblemDetail`. A client told only "too
+  many" can do nothing but guess, and a bad guess is a retry loop.
+- **The counts live in this process and nowhere else.** A second instance has its own, so
+  the effective limit becomes the configured one times the number of instances — this is
+  wrong the moment anything is scaled out, and the fix is shared state, not a bigger number.
+- **`getRemoteAddr()` is the source**, so behind a proxy or load balancer every request
+  appears to come from one address and the per-source limit would throttle everybody
+  together. Deploying behind one means trusting a forwarded header first.
+- **Tests that drive these endpoints must clear the limiter**, since one context is shared
+  across cases — `MailRateLimiter.clear()` in `@BeforeEach`. Otherwise one test spends the
+  allowance the next one needs, and the failure looks nothing like its cause.
+
 ## Single-use tokens (emailed links)
 
 - **Not the same thing as an access token.** `security` mints stateless JWTs a client

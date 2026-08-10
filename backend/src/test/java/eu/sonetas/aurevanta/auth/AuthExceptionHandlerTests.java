@@ -1,5 +1,6 @@
 package eu.sonetas.aurevanta.auth;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -10,9 +11,11 @@ import eu.sonetas.aurevanta.auth.problem.FieldProblem;
 import eu.sonetas.aurevanta.auth.problem.InvalidCredentialsException;
 import eu.sonetas.aurevanta.auth.problem.InvalidTokenException;
 import eu.sonetas.aurevanta.auth.problem.NotAMemberException;
+import eu.sonetas.aurevanta.auth.problem.TooManyRequestsException;
 import eu.sonetas.aurevanta.auth.problem.OrganisationNameUnavailableException;
 import eu.sonetas.aurevanta.auth.problem.UnusableOrganisationNameException;
 import eu.sonetas.aurevanta.auth.registration.RegistrationRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,8 +23,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -157,6 +162,30 @@ class AuthExceptionHandlerTests {
 		assertThat(problem.getDetail()).isEqualTo(failure.getMessage());
 	}
 
+	/**
+	 * The one failure that answers with a header as well as a body, and so takes a branch
+	 * of its own. A client told "too many" and nothing else can only guess when to come
+	 * back, and a client that guesses badly retries against the limit in a loop.
+	 */
+	@Test
+	void tellsARefusedCallerWhenToComeBack() {
+		ResponseEntity<ProblemDetail> response = this.handler
+			.handleTooManyRequests(new TooManyRequestsException(Duration.ofSeconds(90)));
+
+		assertThat(response.getStatusCode().value()).isEqualTo(429);
+		assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("90");
+		assertThat(response.getBody().getProperties()).containsEntry("code", "too_many_requests");
+	}
+
+	/** Seconds, not milliseconds: the header is defined in whole seconds. */
+	@Test
+	void reportsTheWaitInSeconds() {
+		ResponseEntity<ProblemDetail> response = this.handler
+			.handleTooManyRequests(new TooManyRequestsException(Duration.ofMinutes(15)));
+
+		assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("900");
+	}
+
 	static Stream<Arguments> domainFailures() {
 		return Stream.of(
 				Arguments.of(new EmailAlreadyRegisteredException(), HttpStatus.CONFLICT, "email_already_registered"),
@@ -188,8 +217,11 @@ class AuthExceptionHandlerTests {
 
 	private MethodArgumentNotValidException methodArgumentNotValid(BeanPropertyBindingResult binding)
 			throws NoSuchMethodException {
+		// Any @Valid @RequestBody parameter would do; register's is simply a real one.
+		// Named by reflection, so it has to be kept in step with that method's signature.
 		MethodParameter parameter = new MethodParameter(
-				AuthController.class.getDeclaredMethod("register", RegistrationRequest.class), 0);
+				AuthController.class.getDeclaredMethod("register", RegistrationRequest.class, HttpServletRequest.class),
+				0);
 		return new MethodArgumentNotValidException(parameter, binding);
 	}
 

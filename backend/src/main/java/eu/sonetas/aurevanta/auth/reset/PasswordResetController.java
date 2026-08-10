@@ -1,5 +1,7 @@
 package eu.sonetas.aurevanta.auth.reset;
 
+import eu.sonetas.aurevanta.ratelimit.MailRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -19,8 +21,11 @@ class PasswordResetController {
 
 	private final PasswordResetService reset;
 
-	PasswordResetController(PasswordResetService reset) {
+	private final MailRateLimiter rateLimiter;
+
+	PasswordResetController(PasswordResetService reset, MailRateLimiter rateLimiter) {
 		this.reset = reset;
+		this.rateLimiter = rateLimiter;
 	}
 
 	/**
@@ -30,12 +35,15 @@ class PasswordResetController {
 	 * {@code 202} says only that the request was taken, which is the whole truth.
 	 *
 	 * <p>
-	 * Unauthenticated and it sends mail, so it is an email-bombing vector until Step 7
-	 * puts a rate limit in front of it.
+	 * Rate limited by source and by recipient, since it is unauthenticated and it sends
+	 * mail. The limit is claimed before anything is looked up, so it counts requests
+	 * rather than messages — a limit that only counted the addresses that turned out to
+	 * exist would answer the question the {@code 202} is there to refuse.
 	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.ACCEPTED)
-	void request(@Valid @RequestBody PasswordResetRequest request) {
+	void request(@Valid @RequestBody PasswordResetRequest request, HttpServletRequest incoming) {
+		this.rateLimiter.claim(incoming.getRemoteAddr(), request.email());
 		this.reset.request(request.email());
 	}
 

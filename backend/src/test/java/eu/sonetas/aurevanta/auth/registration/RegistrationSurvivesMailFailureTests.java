@@ -5,6 +5,7 @@ import eu.sonetas.aurevanta.mail.FailingEmailSenderConfiguration;
 import eu.sonetas.aurevanta.membership.MembershipRepository;
 import eu.sonetas.aurevanta.tenant.TenantRepository;
 import eu.sonetas.aurevanta.user.UserRepository;
+import eu.sonetas.aurevanta.ratelimit.MailRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.ObjectMapper;
@@ -49,11 +50,19 @@ class RegistrationSurvivesMailFailureTests {
 	@Autowired
 	private TenantRepository tenants;
 
+	/**
+	 * Shared across every case in this class, and every request here provokes mail, so
+	 * without this one case would spend the allowance the next one needs.
+	 */
+	@Autowired
+	private MailRateLimiter rateLimiter;
+
 	@BeforeEach
 	void clearAccounts() {
 		this.memberships.deleteAll();
 		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.rateLimiter.clear();
 	}
 
 	@Test

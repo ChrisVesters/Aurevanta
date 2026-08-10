@@ -7,13 +7,16 @@ import java.util.TreeMap;
 
 import eu.sonetas.aurevanta.auth.problem.AuthProblemException;
 import eu.sonetas.aurevanta.auth.problem.FieldProblem;
+import eu.sonetas.aurevanta.auth.problem.TooManyRequestsException;
 import jakarta.validation.ConstraintViolation;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -69,6 +72,23 @@ class AuthExceptionHandler {
 	@ExceptionHandler(AuthProblemException.class)
 	ProblemDetail handleAuthProblem(AuthProblemException ex) {
 		return problem(ex.getStatus(), ex.getTitle(), ex.getMessage(), ex.getCode());
+	}
+
+	/**
+	 * The one failure that needs a header as well as a body, so it is the one that cannot
+	 * go through the branch above. Spring picks the more specific handler, so this wins
+	 * for a rate-limit refusal and nothing else changes.
+	 *
+	 * <p>
+	 * {@code Retry-After} is what makes the refusal actionable: a client told only "too
+	 * many" can do nothing but guess, and a bad guess means retrying in a loop against
+	 * the very limit that was trying to calm things down.
+	 */
+	@ExceptionHandler(TooManyRequestsException.class)
+	ResponseEntity<ProblemDetail> handleTooManyRequests(TooManyRequestsException ex) {
+		return ResponseEntity.status(ex.getStatus())
+			.header(HttpHeaders.RETRY_AFTER, Long.toString(ex.getRetryAfter().toSeconds()))
+			.body(problem(ex.getStatus(), ex.getTitle(), ex.getMessage(), ex.getCode()));
 	}
 
 	/**

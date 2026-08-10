@@ -1,5 +1,7 @@
 package eu.sonetas.aurevanta.auth.verification;
 
+import eu.sonetas.aurevanta.ratelimit.MailRateLimiter;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -19,8 +21,11 @@ class VerificationController {
 
 	private final EmailVerificationService verification;
 
-	VerificationController(EmailVerificationService verification) {
+	private final MailRateLimiter rateLimiter;
+
+	VerificationController(EmailVerificationService verification, MailRateLimiter rateLimiter) {
 		this.verification = verification;
+		this.rateLimiter = rateLimiter;
 	}
 
 	@PostMapping
@@ -36,12 +41,14 @@ class VerificationController {
 	 * the whole truth: what happens next is decided without telling the caller.
 	 *
 	 * <p>
-	 * Unauthenticated and it sends mail, so it is an email-bombing vector until Step 7
-	 * puts a rate limit in front of it.
+	 * Rate limited by source and by recipient, since it is unauthenticated and it sends
+	 * mail. Claimed before the address is looked up, so the limit counts requests rather
+	 * than messages and cannot be used to tell a registered address from an unknown one.
 	 */
 	@PostMapping("/resend")
 	@ResponseStatus(HttpStatus.ACCEPTED)
-	void resend(@Valid @RequestBody ResendVerificationRequest request) {
+	void resend(@Valid @RequestBody ResendVerificationRequest request, HttpServletRequest incoming) {
+		this.rateLimiter.claim(incoming.getRemoteAddr(), request.email());
 		this.verification.resend(request.email());
 	}
 
