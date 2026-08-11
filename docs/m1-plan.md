@@ -26,7 +26,7 @@
 | | 8 | Frontend: verification, reset, gate handling ✅ *done* | 5, 6 |
 | **D — Team** | 9 | Invitations: schema and issuing ✅ *done* | 1, 2, 3 |
 | | 10 | Invitations: preview, accept, revoke ✅ *done* | 9 |
-| | 11 | Member management | 1 |
+| | 11 | Member management ✅ *done* | 1 |
 | | 12 | Frontend: members, acceptance, organisation switcher | 10, 11 |
 | **E — Close out** | 13 | Documentation and debt retirement | all |
 
@@ -768,7 +768,7 @@ Two states the product still cannot reach on its own, both checked anyway:
 - **`invalid_credentials` on accept**, for a token naming an account that has since been
   deleted. There is no account-deletion feature; the check is the same one `/auth/me` makes.
 
-## Step 11 — Member management
+## Step 11 — Member management ✅ *done*
 
 - `GET /api/members` — tenant-scoped list, any member.
 - `PATCH /api/members/{id}` `{role}` and `DELETE /api/members/{id}` — OWNER only.
@@ -787,10 +787,48 @@ membership and the identity intact.
 **Done when** an organisation can be administered without touching the database, and cannot
 be left ownerless.
 
+### As built — where it differs from the above
+
+Every bullet and every named test landed. Six things a later step should know:
+
+- **`POST /api/organisations` came with it**, as Step 1's "as built" note said it must. That
+  note is why: removing somebody's last membership is exactly what this step makes possible,
+  and without a way to start one under your own power the only route back would be waiting
+  for another person to invite you. It takes an *identity* token, since whoever needs it has
+  no organisation to be scoped to. **It has no screen yet** — see Step 12 below.
+- **The owner count is taken under a write lock.** An optimistic count is wrong for the one
+  invariant here that nothing can repair: two owners removing each other in the same moment
+  would each count two and each conclude one remains. The conditional-`UPDATE` trick the
+  tokens use does not apply — that makes a race on one row safe, and this is a race on a
+  count across several — so `lockOwners` does `select … for update` and the second
+  transaction waits and counts again.
+- **`countByTenantIdAndRole` is gone**, replaced by that locking query. Step 1 added it
+  for this step; keeping both would have left an unlocked count in easy reach of the next
+  person to need one.
+- **`MembershipService.requireOwner` is now shared with `invitation`**, which had its own
+  copy from Step 9. Who may administer an organisation is not a rule worth holding twice.
+  `MembershipService.join` likewise became the only place a membership is created, so
+  registering, accepting an invitation and starting an organisation cannot drift apart.
+- **`RegistrationService` shrank.** Deriving the handle, refusing an unusable or taken name
+  and writing the tenant with an owner beside it all moved to `OrganisationService`, which
+  is the whole of what registering and starting a second organisation have in common. One
+  ordering changed with it: the email is now checked before the organisation name, where it
+  used to be second. Nothing depends on which of two simultaneous complaints is reported.
+- **`tenant` now depends on `membership`**, which is a cycle at package level since
+  `Membership` names a `Tenant`. It is inherent rather than accidental: "an organisation
+  with an owner" cannot be created without something knowing about both, and putting the
+  orchestration anywhere else would only move the cycle. `OrganisationService` reaches
+  `membership` through its service, not its repository, so the direction at least stays
+  above the data layer.
+
 ## Step 12 — Frontend: members, acceptance and switching
 
 - `/invite/:token` — public; preview then accept, handling expired, revoked, and
   already-signed-in-as-someone-else with distinct messages.
+- **The zero-membership empty state gains a way to start an organisation**, calling
+  `POST /api/organisations`. Added in Step 11 with no screen behind it, and it is the only
+  way out of that state a person can take by themselves — the empty state currently says to
+  wait for an invitation and nothing more.
 - `/app/members` — list with roles, invite form, pending invitations with revoke and resend,
   role changes, removal with confirmation.
 - **Organisation switcher** in the dashboard header, now that a second membership is

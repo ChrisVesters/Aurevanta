@@ -23,6 +23,9 @@ import com.cvesters.aurevanta.TestcontainersConfiguration;
 import com.cvesters.aurevanta.auth.signin.LoginRequest;
 import com.cvesters.aurevanta.membership.Membership;
 import com.cvesters.aurevanta.membership.MembershipRepository;
+import com.cvesters.aurevanta.membership.MembershipService;
+import com.cvesters.aurevanta.problem.NotAMemberException;
+import com.cvesters.aurevanta.problem.NotAnOwnerException;
 import com.cvesters.aurevanta.ratelimit.SignInRateLimiter;
 import com.cvesters.aurevanta.tenant.Tenant;
 import com.cvesters.aurevanta.tenant.TenantRepository;
@@ -31,6 +34,7 @@ import com.cvesters.aurevanta.user.UserRepository;
 import com.cvesters.aurevanta.user.UserRole;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -65,6 +69,9 @@ class MembershipApiTests {
 
 	@Autowired
 	private MembershipRepository memberships;
+
+	@Autowired
+	private MembershipService membershipService;
 
 	@Autowired
 	private TenantRepository tenants;
@@ -261,12 +268,27 @@ class MembershipApiTests {
 		assertThat(this.memberships.findAllForUser(this.grace.getId()).getFirst().getLastAccessedAt()).isNotNull();
 	}
 
-	/** The count Step 11 leans on to stop an organisation being left with no owner. */
+	/**
+	 * The list Step 11 leans on to stop an organisation being left with no owner, which
+	 * is per organisation and so counts Ada in Acme but not in Umbrella. Driven through
+	 * the service because the query takes a write lock and needs a transaction around it;
+	 * what the lock is for is in {@code MemberApiTests}.
+	 */
 	@Test
-	void ownersAreCountedPerOrganisation() {
-		assertThat(this.memberships.countByTenantIdAndRole(this.umbrella.getId(), UserRole.OWNER)).isEqualTo(1);
-		assertThat(this.memberships.countByTenantIdAndRole(this.umbrella.getId(), UserRole.MEMBER)).isEqualTo(1);
-		assertThat(this.memberships.countByTenantIdAndRole(this.acme.getId(), UserRole.MEMBER)).isZero();
+	void ownersAreFoundPerOrganisation() {
+		assertThat(this.membershipService.requireOwner(this.ada.getId(), this.acme.getId()).getRole())
+			.isEqualTo(UserRole.OWNER);
+		assertThat(this.memberships.findAllInTenant(this.umbrella.getId())).extracting(Membership::getRole)
+			.containsExactlyInAnyOrder(UserRole.OWNER, UserRole.MEMBER);
+	}
+
+	/** Ada belongs to Umbrella, but not as somebody who may administer it. */
+	@Test
+	void belongingToAnOrganisationIsNotTheSameAsAdministeringIt() {
+		assertThatThrownBy(() -> this.membershipService.requireOwner(this.ada.getId(), this.umbrella.getId()))
+			.isInstanceOf(NotAnOwnerException.class);
+		assertThatThrownBy(() -> this.membershipService.requireOwner(this.mallory.getId(), this.acme.getId()))
+			.isInstanceOf(NotAMemberException.class);
 	}
 
 	@Test

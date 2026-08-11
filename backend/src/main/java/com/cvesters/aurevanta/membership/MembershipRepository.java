@@ -4,11 +4,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import com.cvesters.aurevanta.user.UserRole;
 
 public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 
@@ -60,9 +61,54 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 	boolean existsInTenantByEmailIgnoringCase(@Param("tenantId") UUID tenantId, @Param("email") String email);
 
 	/**
-	 * How many people hold a role in an organisation. Counting owners is what stops the
-	 * last one being demoted or removed, leaving nobody able to administer it.
+	 * Everyone in one organisation, by display name so the list does not reorder itself
+	 * between requests. User and tenant are fetched because both are read after the
+	 * transaction closes.
 	 */
-	long countByTenantIdAndRole(UUID tenantId, UserRole role);
+	@Query("""
+			select m from Membership m
+			join fetch m.user u
+			join fetch m.tenant
+			where m.tenant.id = :tenantId
+			order by u.displayName asc
+			""")
+	List<Membership> findAllInTenant(@Param("tenantId") UUID tenantId);
+
+	/**
+	 * One membership an owner named by identifier, looked up by identifier <em>and</em>
+	 * tenant together. That pairing is what keeps an identifier taken from a request from
+	 * selecting anybody outside the caller's own organisation.
+	 */
+	@Query("""
+			select m from Membership m
+			join fetch m.user
+			join fetch m.tenant
+			where m.id = :id and m.tenant.id = :tenantId
+			""")
+	Optional<Membership> findInTenant(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
+
+	/**
+	 * The owners of one organisation, locked for update.
+	 *
+	 * <p>
+	 * Counting them is what stops the last one being demoted or removed — and counting
+	 * without a lock would not, because the hazard is two owners acting at once. Each
+	 * would count two, each would conclude one remains, and the organisation would be
+	 * left with none. That is the one failure here nothing inside the product can repair,
+	 * so it is worth a lock rather than an optimistic check.
+	 *
+	 * <p>
+	 * A conditional {@code UPDATE} cannot serve instead, the way it can for spending a
+	 * token: that makes a race on <em>one row</em> safe, and this is a race on a count
+	 * across several. The second transaction has to wait and then count again, which is
+	 * what {@code for update} makes it do.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+			select m from Membership m
+			where m.tenant.id = :tenantId
+			  and m.role = com.cvesters.aurevanta.user.UserRole.OWNER
+			""")
+	List<Membership> lockOwners(@Param("tenantId") UUID tenantId);
 
 }

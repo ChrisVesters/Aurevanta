@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.cvesters.aurevanta.mail.EmailSender;
 import com.cvesters.aurevanta.mail.EmailTemplates;
 import com.cvesters.aurevanta.membership.Membership;
-import com.cvesters.aurevanta.membership.MembershipRepository;
+import com.cvesters.aurevanta.membership.MembershipService;
 import com.cvesters.aurevanta.problem.AlreadyAMemberException;
 import com.cvesters.aurevanta.problem.CredentialsRequiredException;
 import com.cvesters.aurevanta.problem.EmailNotVerifiedException;
@@ -24,8 +24,6 @@ import com.cvesters.aurevanta.problem.InvitationExpiredException;
 import com.cvesters.aurevanta.problem.InvitationForAnotherAddressException;
 import com.cvesters.aurevanta.problem.InvitationNotFoundException;
 import com.cvesters.aurevanta.problem.InvitationRevokedException;
-import com.cvesters.aurevanta.problem.NotAMemberException;
-import com.cvesters.aurevanta.problem.NotAnOwnerException;
 import com.cvesters.aurevanta.problem.SignInRequiredException;
 import com.cvesters.aurevanta.ratelimit.MailRateLimiter;
 import com.cvesters.aurevanta.token.LinkTokens;
@@ -48,7 +46,7 @@ public class InvitationService {
 
 	private final InvitationRepository invitations;
 
-	private final MembershipRepository memberships;
+	private final MembershipService memberships;
 
 	private final UserRepository users;
 
@@ -62,7 +60,7 @@ public class InvitationService {
 
 	private final Clock clock;
 
-	InvitationService(InvitationRepository invitations, MembershipRepository memberships, UserRepository users,
+	InvitationService(InvitationRepository invitations, MembershipService memberships, UserRepository users,
 			EmailSender email, EmailTemplates templates, MailRateLimiter rateLimiter, PasswordEncoder passwordEncoder,
 			Clock clock) {
 		this.invitations = invitations;
@@ -85,7 +83,7 @@ public class InvitationService {
 	@Transactional
 	public Invitation invite(UUID inviterId, UUID tenantId, String email, UserRole role) {
 		Membership inviter = requireSendingOwner(inviterId, tenantId);
-		if (this.memberships.existsInTenantByEmailIgnoringCase(tenantId, email)) {
+		if (this.memberships.hasMemberWithEmail(tenantId, email)) {
 			throw new AlreadyAMemberException();
 		}
 
@@ -124,7 +122,7 @@ public class InvitationService {
 	/** Everything still outstanding in the caller's organisation. */
 	@Transactional(readOnly = true)
 	public List<Invitation> pending(UUID callerId, UUID tenantId) {
-		requireOwner(callerId, tenantId);
+		this.memberships.requireOwner(callerId, tenantId);
 		return this.invitations.findPendingForTenant(tenantId);
 	}
 
@@ -136,7 +134,7 @@ public class InvitationService {
 	 */
 	@Transactional
 	public void revoke(UUID callerId, UUID tenantId, UUID invitationId) {
-		requireOwner(callerId, tenantId);
+		this.memberships.requireOwner(callerId, tenantId);
 		outstanding(invitationId, tenantId).revoke();
 	}
 
@@ -208,8 +206,7 @@ public class InvitationService {
 	public Membership accept(String rawToken, UUID callerId, AcceptInvitationRequest credentials) {
 		Invitation invitation = live(rawToken);
 		User identity = (callerId != null) ? signedInInvitee(callerId, invitation) : unclaimedAddress(invitation);
-		if (identity != null
-				&& this.memberships.findForUserInTenant(identity.getId(), invitation.getTenant().getId()).isPresent()) {
+		if (identity != null && this.memberships.hasMember(identity.getId(), invitation.getTenant().getId())) {
 			throw new AlreadyAMemberException();
 		}
 		if (identity == null && credentials == null) {
@@ -224,8 +221,7 @@ public class InvitationService {
 			throw new InvalidTokenException();
 		}
 		User user = (identity != null) ? identity : register(invitation, credentials, now);
-		Membership membership = this.memberships
-			.save(new Membership(user, invitation.getTenant(), invitation.getRole(), now));
+		Membership membership = this.memberships.join(user, invitation.getTenant(), invitation.getRole(), now);
 		// They are about to be handed a session for it, which is the choice sign-in would
 		// otherwise have recorded.
 		membership.recordAccess(now);
@@ -298,34 +294,24 @@ public class InvitationService {
 	}
 
 	/**
-	 * The caller's standing, read from the database rather than taken from the claims in
-	 * their token. Those claims were true when the token was issued, and an access token
-	 * lasts twelve hours: an owner demoted or removed in between would otherwise go on
-	 * administering an organisation they no longer belong to, for the rest of the day.
-	 * @throws NotAMemberException if the caller no longer belongs to that organisation
-	 * @throws NotAnOwnerException if they belong to it but may not administer it
-	 */
-	private Membership requireOwner(UUID callerId, UUID tenantId) {
-		Membership caller = this.memberships.findForUserInTenant(callerId, tenantId)
-			.orElseThrow(NotAMemberException::new);
-		if (caller.getRole() != UserRole.OWNER) {
-			throw new NotAnOwnerException();
-		}
-		return caller;
-	}
-
-	/**
-	 * The same, for the two operations that put a message in a stranger's inbox.
+	 * An owner of the caller's organisation, for the two operations here that put a
+	 * message in a stranger's inbox.
 	 *
 	 * <p>
-	 * Unreachable while the gate holds, since an unconfirmed account is refused a token —
-	 * which is the reason to state it here rather than trust the gate never to move.
-	 * Somebody who has not shown they can read their own inbox may not write to anybody
-	 * else's.
+	 * Who may administer an organisation is {@code MembershipService}'s rule, shared
+	 * rather than restated: it reads the membership back instead of trusting the role
+	 * pinned into a token twelve hours ago, and a second copy of that would be a second
+	 * chance for one of them to drift.
+	 *
+	 * <p>
+	 * The confirmation check on top is this package's own. Unreachable while the gate
+	 * holds, since an unconfirmed account is refused a token — which is the reason to
+	 * state it rather than trust the gate never to move. Somebody who has not shown they
+	 * can read their own inbox may not write to anybody else's.
 	 * @throws EmailNotVerifiedException if the caller's own address was never confirmed
 	 */
 	private Membership requireSendingOwner(UUID callerId, UUID tenantId) {
-		Membership caller = requireOwner(callerId, tenantId);
+		Membership caller = this.memberships.requireOwner(callerId, tenantId);
 		if (!caller.getUser().isEmailVerified()) {
 			throw new EmailNotVerifiedException();
 		}

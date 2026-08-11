@@ -71,6 +71,21 @@ public class Membership {
 		this.lastAccessedAt = at;
 	}
 
+	/**
+	 * Changes what this person may do here, and nowhere else — the role belongs to the
+	 * membership, so somebody demoted in one organisation keeps whatever they hold in
+	 * another.
+	 *
+	 * <p>
+	 * Says nothing about whether the change is allowed: an access token already issued
+	 * carries the old role until it expires, and the last owner of an organisation may
+	 * not be demoted at all. Both are decided by {@code MembershipService}, which can see
+	 * the other memberships this one cannot.
+	 */
+	public void changeRole(UserRole role) {
+		this.role = role;
+	}
+
 	public UUID getId() {
 		return id;
 	}

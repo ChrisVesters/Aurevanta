@@ -233,6 +233,37 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   minting a link would eventually be one strong way and one weak way. Anything putting a
   secret in an inbox goes through `LinkTokens.generate()` and `LinkTokens.hash()`.
 
+## Members, and administering an organisation
+
+- **`/api/members` and `/api/memberships` are the same table read the other way round.**
+  The first answers "who else is in this one", once an organisation has been chosen; the
+  second answers "which organisations am I in", before one has been. Only the second is
+  reachable with an identity token, which is why they are not one endpoint.
+- `GET /api/members` — any member, so colleagues can see who their colleagues are.
+  `PATCH /api/members/{id}` `{role}` and `DELETE /api/members/{id}` — **OWNER only**.
+- **An organisation always keeps at least one owner.** Demoting or removing the last one is
+  refused with `last_owner`, whoever asks — an owner may remove themselves only if another
+  remains. Everything else an owner gets wrong here, an owner can put right; an organisation
+  with nobody able to administer it cannot be repaired from inside the product at all.
+- **The owner count is taken under a write lock** (`MembershipRepository.lockOwners`). Two
+  owners removing each other at the same moment would each count two and each conclude one
+  remains. A conditional `UPDATE` cannot serve instead the way it can for spending a token:
+  that makes a race on *one row* safe, and this is a race on a count across several.
+- **Removal deletes the membership, never the identity.** Somebody removed keeps their
+  account, their password and every other organisation they belong to.
+- **`MembershipService.requireOwner` is the one rule every owner-only endpoint shares**,
+  here and in `invitation`. It re-reads the membership rather than trusting the role pinned
+  into a token up to twelve hours ago, so somebody demoted this morning stops administering
+  at once. Two copies of that check would be two chances for one to drift.
+- **`MembershipService.join` is the only place a membership is created** — registering,
+  accepting an invitation and starting an organisation all go through it.
+- **`POST /api/organisations` `{name}` is the way out of belonging to nothing**, and takes
+  an *identity* token for that reason: the caller who needs it has no organisation and so
+  no access token to offer. Losing your last membership became reachable the moment an owner
+  could remove people, and waiting to be invited is not something a person can do for
+  themselves. `OrganisationService` is shared with registration, so both apply one set of
+  rules about what an organisation may be called.
+
 ## Invitations
 
 - **An invitation is not a `user_tokens` row**, and cannot be: it is sent to an address

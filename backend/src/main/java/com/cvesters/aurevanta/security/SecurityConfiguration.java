@@ -44,11 +44,13 @@ class SecurityConfiguration {
 				.permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/invitations/*/accept")
 				.permitAll()
-				// The only two endpoints an identity token exists for: list the
-				// caller's organisations, and trade the token for one of them.
+				// What an identity token exists for: list the caller's organisations,
+				// trade the token for one of them, and — for somebody who has none to
+				// trade it for — start one. That last is the way out of belonging to
+				// nothing, which is a state an owner removing you can produce.
 				.requestMatchers(HttpMethod.GET, "/api/memberships")
 				.authenticated()
-				.requestMatchers(HttpMethod.POST, "/api/auth/tenants/*/token")
+				.requestMatchers(HttpMethod.POST, "/api/auth/tenants/*/token", "/api/organisations")
 				.authenticated()
 				// Everything else serves tenant-owned data, so it takes a token
 				// pinned to an organisation. Stated as a requirement rather than
