@@ -113,9 +113,21 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   failure for a request the server had accepted, and 138 green tests said nothing.
 - **Routing is React Router** (`react-router` v8, `BrowserRouter` in `main.tsx`).
   `/` is a public landing page, `/register` and `/login` sit behind `RedirectWhenSignedIn`,
-  and `/app` sits behind `RequireAuth`. The forms never navigate themselves: they update
-  the session and the guards move the visitor on, which is also what returns someone to
-  the page they originally asked for after signing in.
+  and everything under `/app` sits behind `RequireAuth`, inside a shared `AppLayout` that
+  owns the header and the organisation switcher. The forms never navigate themselves: they
+  update the session and the guards move the visitor on, which is also what returns someone
+  to the page they originally asked for after signing in.
+- **The pages an emailed link lands on are public and outside both guards** —
+  `/verify-email`, `/reset-password`, `/invite/:token`. The last is outside
+  `RedirectWhenSignedIn` as well, and deliberately: somebody already signed in is exactly
+  who accepts an invitation with the account they have.
+- **Only `AuthProvider` holds the token.** Anything that needs to call the API as the
+  signed-in caller goes through `request` on the auth context. A component that had to be
+  handed a token in order to ask for anything would be a component that could store it, log
+  it, or pass it somewhere it does not belong.
+- **A test double that answers every URL alike is a lying double.** A signed-in page
+  restores the session *and* loads the switcher's options; answering both with one payload
+  handed the switcher an account and crashed it. Mock by URL, not in bulk.
 - Actuator exposes only `health` and `info`.
 
 ## The verification gate

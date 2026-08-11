@@ -13,7 +13,14 @@
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  font: 18px/145% var(--sans);
+  /*
+    Unitless, and it has to be. A percentage in this shorthand computes to a length here
+    and then *inherits as that length*: 145% of 18px is 26.1px, which every descendant
+    took literally however big its own type was. A 56px heading inheriting 26.1px leading
+    is a heading whose second line sits on top of its first. A ratio inherits as a ratio,
+    so each element works it out against its own size.
+  */
+  font: 18px/1.45 var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);
@@ -67,6 +74,12 @@ h2 {
 
 h1 {
   font-size: 56px;
+  /*
+    Display type wants far tighter leading than body text: 1.45 at this size leaves lines
+    adrift from each other. Stated rather than inherited, so a heading that wraps is
+    spaced by the size it is set in.
+  */
+  line-height: 1.1;
   letter-spacing: -1.68px;
   margin: 32px 0;
   @media (max-width: 1024px) {

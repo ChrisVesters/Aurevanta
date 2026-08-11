@@ -10,7 +10,17 @@ export const en = {
     // not expected to change.
     name: 'Aurevanta',
     loading: 'Loading…',
-    signOut: 'Sign out'
+    signOut: 'Sign out',
+    nav: {
+      label: 'Sections',
+      overview: 'Overview',
+      members: 'Members'
+    },
+    switcher: {
+      // Labels a control that shows the organisation it would switch away from, so the
+      // name beside it is not itself an explanation of what the control does.
+      label: 'Organisation'
+    }
   },
   // Shared: a role is shown wherever an organisation is named, not on one screen.
   roles: {
@@ -161,7 +171,79 @@ export const en = {
   chooseOrganisation: {
     title: 'Choose an organisation',
     lede: 'You belong to more than one. Everything you plan is scoped to the one you pick, and you can switch later.',
-    none: 'You do not belong to an organisation yet. Ask someone who does to invite you, and the invitation will arrive by email.'
+    none: 'You do not belong to an organisation yet. Someone can invite you by email — or you can start one of your own.',
+    // The way out of this state that does not depend on anybody else acting.
+    start: {
+      title: 'Start an organisation',
+      body: 'You will own it, and can invite people once it exists.',
+      submit: 'Create organisation',
+      submitting: 'Creating…'
+    }
+  },
+  members: {
+    title: 'Members',
+    lede: 'Everyone who can see what {{organisation}} is planning.',
+    loading: 'Loading members…',
+    // Marks the reader's own row, so removing themselves is a deliberate act.
+    you: 'You',
+    roleLabel: 'Role for {{name}}',
+    remove: 'Remove',
+    // What the button is called for anybody reading the page through a screen reader,
+    // where a column of identical "Remove" buttons says nothing about what each removes.
+    removeNamed: 'Remove {{name}}',
+    removeConfirm: 'Remove {{name}} from this organisation?',
+    confirmRemove: 'Yes, remove',
+    cancel: 'Keep them',
+    removed:
+      '{{name}} is no longer in this organisation. Their account is untouched.',
+    invite: {
+      title: 'Invite someone',
+      lede: 'They will get a link by email. It works once and lasts a week.',
+      roleLabel: 'Role',
+      submit: 'Send invitation',
+      submitting: 'Sending…',
+      sent: 'An invitation is on its way to {{email}}.'
+    },
+    pending: {
+      title: 'Pending invitations',
+      none: 'Nobody is waiting on an invitation.',
+      expires: 'Expires {{date}}',
+      resend: 'Send again',
+      resendNamed: 'Send {{email}} a new link',
+      resent:
+        'A new link is on its way to {{email}}. The previous one has stopped working.',
+      revoke: 'Withdraw',
+      revokeNamed: 'Withdraw the invitation to {{email}}',
+      revoked: 'The invitation to {{email}} has been withdrawn.'
+    }
+  },
+  invite: {
+    loading: 'Checking your invitation…',
+    title: 'Join {{organisation}}',
+    lede: '{{inviter}} has invited you to join {{organisation}} on Aurevanta as {{role}}.',
+    // The address already has an account, so it has to be claimed by whoever holds it.
+    // Signing in returns here rather than going to the dashboard.
+    signIn: '<signIn>Sign in</signIn> to accept it as that person.',
+    signOut: 'Sign out and accept it as somebody else',
+    create: {
+      lede: 'Choose how you want to be known and a password, and you are in.',
+      submit: 'Join {{organisation}}',
+      submitting: 'Joining…'
+    },
+    accept: {
+      as: 'You are signed in as {{email}}.',
+      submit: 'Accept invitation',
+      submitting: 'Joining…'
+    },
+    unusable: {
+      title: 'This invitation cannot be used',
+      signIn: 'Already joined? <signIn>Sign in</signIn>.'
+    },
+    joined: {
+      title: 'You have joined {{organisation}}',
+      body: 'Everything you plan from here belongs to this organisation and is visible only to its members.',
+      open: '<app>Open Aurevanta</app> to get started.'
+    }
   },
   dashboard: {
     title: 'You’re set up',
@@ -187,6 +269,24 @@ export const en = {
       invalid_token:
         'That link has expired or has already been used. Ask for a new one.',
       not_a_member: 'You do not belong to that organisation.',
+      not_an_owner: 'Only an owner of this organisation can do that.',
+      last_owner:
+        'An organisation must always have at least one owner. Make somebody else an owner first.',
+      member_not_found: 'That person is no longer in this organisation.',
+      already_a_member: 'That address already belongs to this organisation.',
+      invitation_already_pending:
+        'That address has already been invited. Send them a new link instead.',
+      invitation_not_found: 'That invitation is no longer outstanding.',
+      // Told apart from a withdrawn one because the advice is opposite: one can be sent
+      // again, and the other was somebody's decision.
+      invitation_expired:
+        'This invitation has expired. Ask whoever invited you to send another.',
+      invitation_revoked: 'This invitation is no longer available.',
+      sign_in_required: 'That address already has an Aurevanta account.',
+      invitation_for_another_address:
+        'This invitation was sent to a different address.',
+      credentials_required:
+        'Choose how you want to be known and a password to finish setting up your account.',
       // The server says how long to wait in a Retry-After header, which nothing here
       // reads yet — so the wording stays vague rather than promising a time it does
       // not know.

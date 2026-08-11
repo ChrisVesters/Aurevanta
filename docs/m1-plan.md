@@ -27,7 +27,7 @@
 | **D — Team** | 9 | Invitations: schema and issuing ✅ *done* | 1, 2, 3 |
 | | 10 | Invitations: preview, accept, revoke ✅ *done* | 9 |
 | | 11 | Member management ✅ *done* | 1 |
-| | 12 | Frontend: members, acceptance, organisation switcher | 10, 11 |
+| | 12 | Frontend: members, acceptance, organisation switcher ✅ *done* | 10, 11 |
 | **E — Close out** | 13 | Documentation and debt retirement | all |
 
 Phases A and B are invisible to users. C and D are each a shippable release.
@@ -821,7 +821,7 @@ Every bullet and every named test landed. Six things a later step should know:
   `membership` through its service, not its repository, so the direction at least stays
   above the data layer.
 
-## Step 12 — Frontend: members, acceptance and switching
+## Step 12 — Frontend: members, acceptance and switching ✅ *done*
 
 - `/invite/:token` — public; preview then accept, handling expired, revoked, and
   already-signed-in-as-someone-else with distinct messages.
@@ -840,6 +840,44 @@ message; a member sees no owner controls; switching organisations re-scopes the 
 
 **Done when** the whole invitation journey works in the browser, for a new and an existing
 account.
+
+### As built — where it differs from the above
+
+Every bullet landed, including the create-an-organisation button Step 11 left without a
+screen. Seven things worth knowing:
+
+- **`AppLayout` is new, and the header moved into it.** Two signed-in pages both need it,
+  and the organisation switcher in particular has to live in exactly one place or switching
+  would mean something different depending on where you did it. `DashboardPage` is now the
+  page it always was, minus a header it should never have owned.
+- **Only `AuthProvider` holds the token.** Everything that calls the API as the signed-in
+  caller goes through a new `request` on the auth context. The alternative — exposing the
+  token so components could pass it to `apiRequest` — would put it in reach of anything
+  that imported the context.
+- **The switcher loads its own list and hides itself below two organisations.** The session
+  does not carry one: an access token names a single organisation, and what a person
+  belongs to changes underneath it. A control offering one choice reads as broken, and one
+  choice is what everybody has until an invitation has been accepted. If the list fails to
+  load, the header falls back to the organisation's name rather than taking the page down.
+- **Accepting ends on a screen, not a redirect.** `/invite/:token` is outside both guards,
+  so nothing would have moved the visitor on — and the codebase's rule is that forms do not
+  navigate themselves. Confirming what happened and offering a link is better than a silent
+  jump anyway.
+- **Signing in from the invitation comes back to the invitation**, by passing
+  `state={{ from }}` to `/login`. Otherwise "that address already has an account" would
+  mean going to find the email again.
+- **Removal asks inline rather than through `window.confirm`.** A browser modal is
+  untestable and unstyleable; the two-step prompt is neither. It is the one action on that
+  page that cannot be undone from it, since putting somebody back means inviting them again.
+- **A test double that answers every URL alike is a lying double.** `App.test.tsx` mocked
+  whole scenarios with one payload, which was fine while a page made one request. It now
+  handed the switcher an account and crashed the header — silently, since the assertions had
+  already passed. Those doubles answer by URL now, and `CLAUDE.md` records why.
+
+One thing this step does **not** do: nothing auto-signs-out when a token expires
+mid-session. A refused request reports whatever the server said and the page stays put. It
+was true before this step and no screen here made it worse, but a members page left open is
+where somebody will first notice.
 
 ---
 

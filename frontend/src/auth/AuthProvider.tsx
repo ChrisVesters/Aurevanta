@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { apiRequest } from '../api/client';
+import type { NewAccount } from '../members/types';
 import { AuthContext, type AuthStatus } from './AuthContext';
 import {
   clearStoredSession,
@@ -138,6 +139,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [acceptSession]
   );
 
+  const createOrganisation = useCallback(
+    async (name: string) => {
+      acceptSession(
+        await apiRequest<AuthenticationResponse>('/organisations', {
+          method: 'POST',
+          body: { name },
+          token: session.current?.token
+        })
+      );
+    },
+    [acceptSession]
+  );
+
+  const acceptInvitation = useCallback(
+    async (token: string, credentials: NewAccount | null) => {
+      const joined = await apiRequest<AuthenticationResponse>(
+        `/invitations/${token}/accept`,
+        {
+          method: 'POST',
+          // No body at all when there is nothing to send, rather than an empty one: the
+          // server tells the two apart, and a `{}` is a request to make an account.
+          body: credentials ?? undefined,
+          token: session.current?.token
+        }
+      );
+      acceptSession(joined);
+      return joined.account.organisation.name;
+    },
+    [acceptSession]
+  );
+
+  const request = useCallback(
+    <T,>(path: string, options: { method?: string; body?: unknown } = {}) =>
+      apiRequest<T>(path, { ...options, token: session.current?.token }),
+    []
+  );
+
   const value = useMemo(
     () => ({
       status,
@@ -146,9 +184,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       login,
       selectOrganisation,
+      createOrganisation,
+      acceptInvitation,
+      request,
       logout: forget
     }),
-    [status, account, memberships, register, login, selectOrganisation, forget]
+    [
+      status,
+      account,
+      memberships,
+      register,
+      login,
+      selectOrganisation,
+      createOrganisation,
+      acceptInvitation,
+      request,
+      forget
+    ]
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

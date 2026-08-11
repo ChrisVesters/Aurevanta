@@ -90,6 +90,70 @@ describe('ChooseOrganisationPage', () => {
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 
+  /**
+   * The only way out of this state a person can take by themselves. Being invited works
+   * too, but waiting for somebody else to act is not a way out — it is a hope.
+   */
+  it('lets somebody who belongs to nothing start an organisation', async () => {
+    await choosing([]);
+    await screen.findByLabelText('Organisation name');
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, AUTHENTICATION));
+    await userEvent.type(
+      screen.getByLabelText('Organisation name'),
+      'Nowhere Consulting'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Create organisation' })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        '/api/organisations',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ name: 'Nowhere Consulting' })
+        })
+      )
+    );
+    // A session for the organisation just made, so nothing else has to be chosen.
+    expect(readStoredSession()?.kind).toBe('access');
+  });
+
+  it('reports a name that is taken against the field it was typed in', async () => {
+    await choosing([]);
+    await screen.findByLabelText('Organisation name');
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, { code: 'organisation_name_unavailable' })
+    );
+    await userEvent.type(
+      screen.getByLabelText('Organisation name'),
+      'Acme Planning Co'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Create organisation' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That organisation name is already taken.'
+    );
+  });
+
+  /** Somebody with a choice already has a way forward; the form would only distract. */
+  it('does not offer to start one when there is already a choice', async () => {
+    await choosing([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Acme Planning Co' })
+      ).toBeInTheDocument()
+    );
+    expect(
+      screen.queryByLabelText('Organisation name')
+    ).not.toBeInTheDocument();
+  });
+
   it('lets the visitor sign out instead of choosing', async () => {
     await choosing([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
 

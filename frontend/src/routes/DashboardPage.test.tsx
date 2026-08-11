@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { DashboardPage } from './DashboardPage';
 import {
   ACCOUNT,
@@ -19,27 +19,18 @@ describe('DashboardPage', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('names the organisation the session is scoped to', async () => {
+  /**
+   * The header naming the organisation belongs to {@link AppLayout} now that a second
+   * page shares it; what is left here is the page itself.
+   */
+  it('names the organisation everything it plans will belong to', async () => {
     storeAccessToken();
     fetchMock.mockResolvedValue(jsonResponse(200, ACCOUNT));
 
     renderRouted(<DashboardPage />);
 
-    await waitFor(() =>
-      expect(screen.getByText('Acme Planning Co')).toBeInTheDocument()
-    );
-    expect(screen.getByText('Owner')).toBeInTheDocument();
-    expect(screen.getByText('Ada')).toBeInTheDocument();
-  });
-
-  it('describes a non-owner as a member', async () => {
-    storeAccessToken();
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, { ...ACCOUNT, role: 'MEMBER' })
-    );
-
-    renderRouted(<DashboardPage />);
-
-    await waitFor(() => expect(screen.getByText('Member')).toBeInTheDocument());
+    expect(
+      await screen.findByText(/Acme Planning Co is ready/)
+    ).toBeInTheDocument();
   });
 });

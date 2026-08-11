@@ -11,6 +11,7 @@ import type {
   Membership,
   SignInResponse
 } from '../auth/types';
+import type { Invitation, InvitationPreview, Member } from '../members/types';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
@@ -54,6 +55,42 @@ export const UMBRELLA_MEMBERSHIP: Membership = {
     slug: 'umbrella'
   },
   lastAccessedAt: null
+};
+
+/** The organisation as its own members see it: Ada owns it, Bob does not. */
+export const MEMBERS: Member[] = [
+  {
+    id: ACME_MEMBERSHIP.id,
+    userId: ACCOUNT.userId,
+    displayName: 'Ada',
+    email: 'ada@acme.test',
+    role: 'OWNER',
+    joinedAt: '2026-08-06T08:00:00Z'
+  },
+  {
+    id: '66666666-6666-6666-6666-666666666666',
+    userId: '77777777-7777-7777-7777-777777777777',
+    displayName: 'Bob',
+    email: 'bob@acme.test',
+    role: 'MEMBER',
+    joinedAt: '2026-08-06T09:00:00Z'
+  }
+];
+
+export const INVITATION: Invitation = {
+  id: '88888888-8888-8888-8888-888888888888',
+  email: 'dave@elsewhere.test',
+  role: 'MEMBER',
+  status: 'PENDING',
+  expiresAt: '2026-08-18T08:00:00Z',
+  createdAt: '2026-08-11T08:00:00Z'
+};
+
+/** Three fields and no more, exactly as the unauthenticated preview sends them. */
+export const INVITATION_PREVIEW: InvitationPreview = {
+  organisationName: 'Acme Planning Co',
+  invitedBy: 'Ada',
+  role: 'MEMBER'
 };
 
 export function identity(memberships: Membership[]): Identity {

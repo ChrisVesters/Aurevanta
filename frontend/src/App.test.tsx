@@ -5,6 +5,9 @@ import App from './App';
 import {
   ACCOUNT,
   ACME_MEMBERSHIP,
+  AUTHENTICATION,
+  INVITATION_PREVIEW,
+  MEMBERS,
   SIGNED_IN,
   UMBRELLA_MEMBERSHIP,
   jsonResponse,
@@ -17,9 +20,24 @@ import {
 describe('routing', () => {
   const fetchMock = mockFetch();
 
+  /**
+   * Answers by URL rather than in bulk: a signed-in page restores the session *and* asks
+   * which organisations the caller belongs to, for the switcher in its header. A double
+   * that answered both with the same payload would hand the switcher an account.
+   */
   function signedIn() {
     storeAccessToken();
-    fetchMock.mockResolvedValue(jsonResponse(200, ACCOUNT));
+    answering({
+      '/api/auth/me': jsonResponse(200, ACCOUNT),
+      '/api/memberships': jsonResponse(200, [ACME_MEMBERSHIP])
+    });
+  }
+
+  /** The same, for tests that sign in through the form rather than restoring a token. */
+  function answering(routes: Record<string, Response>) {
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(routes[url] ?? jsonResponse(404, null))
+    );
   }
 
   /** Authenticated, but holding an identity token with an organisation still to pick. */
@@ -175,7 +193,10 @@ describe('routing', () => {
   });
 
   it('moves the visitor to the dashboard once they sign in', async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, SIGNED_IN));
+    answering({
+      '/api/auth/login': jsonResponse(200, SIGNED_IN),
+      '/api/memberships': jsonResponse(200, [ACME_MEMBERSHIP])
+    });
 
     renderRouted(<App />, { route: '/login' });
     await userEvent.type(screen.getByLabelText('Email'), 'ada@acme.test');
@@ -201,7 +222,10 @@ describe('routing', () => {
       ).toBeInTheDocument()
     );
 
-    fetchMock.mockResolvedValue(jsonResponse(200, SIGNED_IN));
+    answering({
+      '/api/auth/login': jsonResponse(200, SIGNED_IN),
+      '/api/memberships': jsonResponse(200, [ACME_MEMBERSHIP])
+    });
     await userEvent.type(screen.getByLabelText('Email'), 'ada@acme.test');
     await userEvent.type(
       screen.getByLabelText('Password'),
@@ -323,6 +347,57 @@ describe('routing', () => {
     expect(
       await screen.findByRole('heading', { name: 'Password changed' })
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The whole invitation journey, at the address the emailed link actually points at:
+   * public, outside both guards, and ending in a session the dashboard will accept.
+   */
+  it('carries somebody with no account from an invitation link into the app', async () => {
+    answering({
+      '/api/invitations/a-link': jsonResponse(200, INVITATION_PREVIEW),
+      '/api/invitations/a-link/accept': jsonResponse(200, AUTHENTICATION),
+      '/api/memberships': jsonResponse(200, [ACME_MEMBERSHIP])
+    });
+
+    renderRouted(<App />, { route: '/invite/a-link' });
+    await screen.findByRole('heading', { name: 'Join Acme Planning Co' });
+    await userEvent.type(screen.getByLabelText('Your name'), 'Dave');
+    await userEvent.type(
+      screen.getByLabelText('Password'),
+      'a-long-enough-passphrase'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Join Acme Planning Co' })
+    );
+
+    await userEvent.click(
+      await screen.findByRole('link', { name: 'Open Aurevanta' })
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /you.re set up/i })
+    ).toBeInTheDocument();
+  });
+
+  /** Owner-only work reached through the header, not by knowing the URL. */
+  it('reaches member management from the signed-in header', async () => {
+    signedIn();
+    renderRouted(<App />, { route: '/app' });
+    await screen.findByRole('heading', { name: /you.re set up/i });
+
+    answering({
+      '/api/auth/me': jsonResponse(200, ACCOUNT),
+      '/api/memberships': jsonResponse(200, [ACME_MEMBERSHIP]),
+      '/api/members': jsonResponse(200, MEMBERS),
+      '/api/invitations': jsonResponse(200, [])
+    });
+    await userEvent.click(screen.getByRole('link', { name: 'Members' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Members' })
+    ).toBeInTheDocument();
+    expect(await screen.findByText('bob@acme.test')).toBeInTheDocument();
   });
 
   it('shows a not-found page for an unknown address', () => {

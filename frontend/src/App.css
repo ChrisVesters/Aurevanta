@@ -420,3 +420,247 @@ button.link {
     margin: 0;
   }
 }
+
+/* Members and invitations ------------------------------------------------- */
+
+/*
+  Present for screen readers and absent for everyone else. Used on labels for controls
+  whose visible text is the value they hold — the organisation switcher shows an
+  organisation's name, which says nothing about what changing it would do.
+*/
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.app-header {
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  nav {
+    display: flex;
+    gap: 18px;
+    font-size: 15px;
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      padding-bottom: 2px;
+      border-bottom: 2px solid transparent;
+
+      &:hover {
+        color: var(--accent);
+      }
+      &.active {
+        color: var(--text-h);
+        border-bottom-color: var(--accent);
+      }
+    }
+  }
+
+  select.organisation {
+    font: inherit;
+    font-size: 17px;
+    padding: 4px 8px;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.members {
+  margin: auto;
+  width: 100%;
+  max-width: 720px;
+  padding: 48px 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+
+  h1 {
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 19px;
+    margin: 0 0 4px;
+  }
+}
+
+/* Confirms an action took effect where the list itself cannot show it — a link sent. */
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.member-list,
+.invitation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .who {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 180px;
+  }
+
+  .name {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    color: var(--text-h);
+  }
+
+  .email {
+    font-size: 14px;
+  }
+
+  .you {
+    font-size: 13px;
+    color: var(--accent);
+  }
+
+  .role {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 13px;
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+
+  /*
+    Every control in a row is the same height and sits on the row's centre line, or
+    "aligned" is a coincidence of whichever one happens to be tallest. `button.secondary`
+    carries `align-self: flex-start` for the sign-in screen, where it stops the button
+    stretching across a column; here that pins it to the top of the row instead, and the
+    taller the row the further out it lands.
+  */
+  select,
+  button {
+    align-self: center;
+    box-sizing: border-box;
+    min-height: 38px;
+  }
+
+  select {
+    font: inherit;
+    font-size: 15px;
+    padding: 0 8px;
+    /* Fixed, so what follows it starts at the same place in every row. */
+    min-width: 116px;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+  }
+
+  .confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-self: center;
+    gap: 10px;
+    font-size: 14px;
+  }
+}
+
+/*
+  Removal cannot be undone from this screen — putting somebody back means inviting them
+  again — so the button that confirms it is the one control in the app that says so.
+*/
+button.danger {
+  font: inherit;
+  font-size: 15px;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 9px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+
+  &:focus-visible {
+    outline: 2px solid var(--danger);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    cursor: progress;
+    opacity: 0.6;
+  }
+}
+
+.pending {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.invite-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+
+  select {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+  }
+
+  button.primary {
+    align-self: flex-start;
+  }
+}

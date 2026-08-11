@@ -1,0 +1,191 @@
+import { describe, expect, it } from 'vitest';
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { Route, Routes } from 'react-router';
+import { AppLayout } from './AppLayout';
+import { readStoredSession } from '../auth/session';
+import {
+  ACCOUNT,
+  ACME_MEMBERSHIP,
+  AUTHENTICATION,
+  UMBRELLA_MEMBERSHIP,
+  jsonResponse,
+  mockFetch,
+  renderRouted,
+  storeAccessToken
+} from '../test/render';
+
+describe('AppLayout', () => {
+  const fetchMock = mockFetch();
+
+  /**
+   * Answers by URL: restoring the session and loading the switcher's options both fire on
+   * mount, and which lands first is React's business rather than ours.
+   */
+  async function signedIn(memberships: unknown[], account = ACCOUNT) {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/api/auth/me'
+          ? jsonResponse(200, account)
+          : jsonResponse(200, memberships)
+      )
+    );
+    renderRouted(
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/app" element={<p>Overview page</p>} />
+        </Route>
+      </Routes>,
+      { route: '/app' }
+    );
+    await screen.findByText('Overview page');
+  }
+
+  it('names the organisation the session is scoped to', async () => {
+    await signedIn([ACME_MEMBERSHIP]);
+
+    expect(screen.getByText('Acme Planning Co')).toBeInTheDocument();
+    expect(screen.getByText('Owner')).toBeInTheDocument();
+    expect(screen.getByText('Ada')).toBeInTheDocument();
+  });
+
+  it('describes a non-owner as a member', async () => {
+    await signedIn([ACME_MEMBERSHIP], { ...ACCOUNT, role: 'MEMBER' });
+
+    expect(screen.getByText('Member')).toBeInTheDocument();
+  });
+
+  it('offers a way between the pages inside the app', async () => {
+    await signedIn([ACME_MEMBERSHIP]);
+
+    expect(screen.getByRole('link', { name: 'Members' })).toHaveAttribute(
+      'href',
+      '/app/members'
+    );
+  });
+
+  it('signs out', async () => {
+    await signedIn([ACME_MEMBERSHIP]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    expect(readStoredSession()).toBeNull();
+  });
+
+  /**
+   * A control offering one choice reads as broken, and one choice is what everybody has
+   * until an invitation has been accepted.
+   */
+  it('offers no switcher to somebody who belongs to one organisation', async () => {
+    await signedIn([ACME_MEMBERSHIP]);
+
+    expect(screen.queryByLabelText('Organisation')).not.toBeInTheDocument();
+    expect(screen.getByText('Acme Planning Co')).toBeInTheDocument();
+  });
+
+  it('switches the session to another organisation', async () => {
+    await signedIn([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
+    const switcher = await screen.findByLabelText('Organisation');
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        ...AUTHENTICATION,
+        account: { ...ACCOUNT, ...UMBRELLA_MEMBERSHIP }
+      })
+    );
+    await userEvent.selectOptions(
+      switcher,
+      UMBRELLA_MEMBERSHIP.organisation.id
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/auth/tenants/${UMBRELLA_MEMBERSHIP.organisation.id}/token`,
+        expect.objectContaining({ method: 'POST' })
+      )
+    );
+    // The page below re-renders against the organisation just switched to.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Organisation')).toHaveValue(
+        UMBRELLA_MEMBERSHIP.organisation.id
+      )
+    );
+  });
+
+  it('says so when the exchange is refused', async () => {
+    await signedIn([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
+    const switcher = await screen.findByLabelText('Organisation');
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(403, { code: 'not_a_member' })
+    );
+    await userEvent.selectOptions(
+      switcher,
+      UMBRELLA_MEMBERSHIP.organisation.id
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'You do not belong to that organisation.'
+    );
+  });
+
+  /** A switcher that cannot load its options must not take the page down with it. */
+  it('falls back to the organisation’s name when the list cannot be loaded', async () => {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/api/auth/me'
+          ? jsonResponse(200, ACCOUNT)
+          : jsonResponse(500, null)
+      )
+    );
+    renderRouted(
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/app" element={<p>Overview page</p>} />
+        </Route>
+      </Routes>,
+      { route: '/app' }
+    );
+
+    expect(await screen.findByText('Overview page')).toBeInTheDocument();
+    expect(screen.getByText('Acme Planning Co')).toBeInTheDocument();
+  });
+
+  /** The guard that keeps a list arriving late from touching a header that has gone. */
+  it('drops a list that arrives after the header has been left', async () => {
+    storeAccessToken();
+    let deliver: (value: Response) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url === '/api/auth/me'
+        ? Promise.resolve(jsonResponse(200, ACCOUNT))
+        : new Promise<Response>((resolve) => {
+            deliver = resolve;
+          })
+    );
+    const { unmount } = renderRouted(
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/app" element={<p>Overview page</p>} />
+        </Route>
+      </Routes>,
+      { route: '/app' }
+    );
+    await screen.findByText('Overview page');
+
+    unmount();
+    deliver(jsonResponse(200, [ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]));
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Organisation')).toBeNull()
+    );
+  });
+
+  // Reached only if the guard above it is ever bypassed.
+  it('renders nothing without an account', () => {
+    const { container } = renderRouted(<AppLayout />, { route: '/app' });
+
+    expect(container).toBeEmptyDOMElement();
+  });
+});
