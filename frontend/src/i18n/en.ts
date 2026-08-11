@@ -14,7 +14,8 @@ export const en = {
     nav: {
       label: 'Sections',
       overview: 'Overview',
-      members: 'Members'
+      members: 'Members',
+      settings: 'Settings'
     },
     switcher: {
       // Labels a control that shows the organisation it would switch away from, so the
@@ -186,6 +187,18 @@ export const en = {
       submit: 'Create organisation',
       submitting: 'Creating…'
     }
+  },
+  settings: {
+    title: 'Organisation',
+    lede: 'What this organisation is called, and the address it answers to.',
+    ownersOnly: 'Only an owner of this organisation can change these.',
+    submit: 'Save changes',
+    submitting: 'Saving…',
+    saved: 'Saved.',
+    // Said before it saves rather than after, because after is too late: nothing
+    // redirects from a handle that has moved.
+    handleMoves:
+      'Changing the handle from {{from}} will stop any link anyone has to this organisation from working.'
   },
   members: {
     title: 'Members',

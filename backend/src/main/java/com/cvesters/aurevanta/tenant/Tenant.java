@@ -41,6 +41,28 @@ public class Tenant {
 		this.createdAt = createdAt;
 	}
 
+	/**
+	 * Changes what the organisation is called. Nothing is derived from the name, so this
+	 * is the whole of it — the handle is its own field and stays where it is.
+	 */
+	public void rename(String name) {
+		this.name = name;
+	}
+
+	/**
+	 * Changes the address the organisation answers to.
+	 *
+	 * <p>
+	 * <strong>Every link anyone holds to the old handle stops working.</strong> There is
+	 * no table of retired handles and nothing redirects; the decision was taken in M1a on
+	 * the grounds that nothing routes by handle yet, which is true until M2 puts one in a
+	 * URL and stops being true the moment it does. The screen that calls this says so
+	 * before it saves.
+	 */
+	public void changeSlug(String slug) {
+		this.slug = slug;
+	}
+
 	public UUID getId() {
 		return id;
 	}

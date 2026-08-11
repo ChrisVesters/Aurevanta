@@ -8,6 +8,7 @@ import { LandingPage } from './routes/LandingPage';
 import { InvitePage } from './routes/InvitePage';
 import { LoginPage } from './routes/LoginPage';
 import { MembersPage } from './routes/MembersPage';
+import { SettingsPage } from './routes/SettingsPage';
 import { NotFoundPage } from './routes/NotFoundPage';
 import { RegisterPage } from './routes/RegisterPage';
 import { ResetPasswordPage } from './routes/ResetPasswordPage';
@@ -46,6 +47,7 @@ function App() {
         <Route element={<AppLayout />}>
           <Route path="/app" element={<DashboardPage />} />
           <Route path="/app/members" element={<MembersPage />} />
+          <Route path="/app/settings" element={<SettingsPage />} />
         </Route>
       </Route>
 

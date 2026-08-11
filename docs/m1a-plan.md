@@ -40,7 +40,7 @@ changing either is a deliberate act rather than a side effect.
 |---|---|---|
 | 1 | The handle becomes a field ✅ *done* | — |
 | 2 | Each conflict reports what it actually is ✅ *done* | 1 |
-| 3 | Changing the name and the handle afterwards | 1 |
+| 3 | Changing the name and the handle afterwards ✅ *done* | 1 |
 | 4 | Two organisations, one name, on screen | 1 |
 | 5 | Close out | 1–4 |
 
@@ -315,7 +315,7 @@ the coverage, and it is deliberate rather than a gap.
 
 ---
 
-## Step 3 — Changing the name and the handle afterwards
+## Step 3 — Changing the name and the handle afterwards ✅ *done*
 
 **Goal.** An organisation is not stuck with what it was called on the day it was created.
 
@@ -344,6 +344,30 @@ A handle already taken is refused with a suggestion. The organisation another to
 untouched, with a second organisation in the fixture so leakage would fail.
 
 **Done when** an organisation can be renamed and re-addressed without touching the database.
+
+### As built — where it differs from the above
+
+- **Both fields are required, not optional.** The plan wrote `{name?, handle?}`. Jackson
+  cannot tell an absent field from one sent as null, so an optional name would have had to
+  decide which of "leave it" and "clear it" a null meant — and both readings are wrong for
+  a column that cannot be empty. `PATCH /api/members/{id}` already means "the parts you may
+  change are the parts you send", so this follows it.
+- **The tenant comes off the membership that proved the caller may change it.** Looking it
+  up separately would have added a not-found branch for a tenant that cannot be missing
+  once a membership in it has been found — a branch nothing could cover.
+- **Keeping your own handle is not taking somebody's.** The collision check skips the
+  caller's own, or renaming an organisation would be impossible without also moving its
+  address. It has its own test, because it is the kind of thing that works until the first
+  person renames without re-addressing.
+- **The form is a component of its own, mounted with an organisation rather than before
+  one.** `SettingsPage` initialised its handle field from a session that was still
+  restoring, so the field came up empty — for a real visitor, not only in a test. Splitting
+  the form out means it mounts once there is something to start from, which removes the
+  question rather than answering it with an effect that would then have to be careful not
+  to overwrite what had been typed since.
+- **The handle does not follow the name here**, unlike the two forms that create an
+  organisation. It already has an owner, and moving it because somebody fixed a typo above
+  it is the bug `useProposedSlug` exists to prevent.
 
 ---
 

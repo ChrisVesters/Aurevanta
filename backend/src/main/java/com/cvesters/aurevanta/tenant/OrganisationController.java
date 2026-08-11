@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,6 +49,21 @@ class OrganisationController {
 			@Valid @RequestBody CreateOrganisationRequest request) {
 		Membership owner = this.organisations.create(caller.userId(), request.name(), request.slug());
 		return AuthenticationResponse.of(owner, this.accessTokens.issue(owner));
+	}
+
+	/**
+	 * Renames the organisation the caller's token is scoped to, or moves its handle.
+	 *
+	 * <p>
+	 * Owners only, and the organisation is not named in the path: it comes from the
+	 * token, as it does everywhere else that touches tenant-owned data. There is nothing
+	 * here to point at somebody else's.
+	 */
+	@PatchMapping
+	OrganisationResponse update(@AuthenticationPrincipal AuthenticatedUser caller,
+			@Valid @RequestBody UpdateOrganisationRequest request) {
+		return OrganisationResponse
+			.of(this.organisations.update(caller.userId(), caller.tenantId(), request.name(), request.slug()));
 	}
 
 }

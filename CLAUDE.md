@@ -116,7 +116,9 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Routing is React Router** (`react-router` v8, `BrowserRouter` in `main.tsx`).
   `/` is a public landing page, `/register` and `/login` sit behind `RedirectWhenSignedIn`,
   and everything under `/app` sits behind `RequireAuth`, inside a shared `AppLayout` that
-  owns the header and the organisation switcher. The forms never navigate themselves: they
+  owns the header and the organisation switcher. `/app/members` and `/app/settings` are
+  owner-only: the nav entry is hidden and the page says so, with the server refusing either
+  way — what is on screen is a courtesy, not the boundary. The forms never navigate themselves: they
   update the session and the guards move the visitor on, which is also what returns someone
   to the page they originally asked for after signing in.
 - **The pages an emailed link lands on are public and outside both guards** —

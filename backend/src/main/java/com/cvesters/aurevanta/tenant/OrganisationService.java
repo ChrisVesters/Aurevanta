@@ -90,6 +90,34 @@ public class OrganisationService {
 	}
 
 	/**
+	 * Changes what an organisation is called and what it answers to.
+	 *
+	 * <p>
+	 * The organisation comes from the caller's own token and is never named in the
+	 * request, which is what stops this being a way to rename somebody else's. The tenant
+	 * comes off the membership that proved they may — one lookup, and no branch for a
+	 * tenant that cannot be missing once a membership in it has been found.
+	 *
+	 * <p>
+	 * A handle unchanged is not a handle taken, so the check skips the caller's own: they
+	 * already hold it, and refusing them for that would make changing a name impossible
+	 * without also changing an address.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws NotAnOwnerException if they belong to it but may not administer it
+	 * @throws SlugTakenException if somebody else already has the handle they asked for
+	 */
+	@Transactional
+	public Tenant update(UUID callerId, UUID tenantId, String name, String slug) {
+		Tenant organisation = this.memberships.requireOwner(callerId, tenantId).getTenant();
+		if (!organisation.getSlug().equals(slug) && this.tenants.existsBySlug(slug)) {
+			throw new SlugTakenException(nextFree(slug));
+		}
+		organisation.rename(name);
+		organisation.changeSlug(slug);
+		return organisation;
+	}
+
+	/**
 	 * The first handle counting on from this one that nobody holds.
 	 *
 	 * <p>

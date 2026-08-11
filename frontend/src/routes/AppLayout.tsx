@@ -35,6 +35,13 @@ export function AppLayout() {
             {t('app.nav.overview')}
           </NavLink>
           <NavLink to="/app/members">{t('app.nav.members')}</NavLink>
+          {/*
+            Hidden from a member rather than shown and refused, as the members page hides
+            its own controls. The server enforces the same rule regardless.
+          */}
+          {account.role === 'OWNER' && (
+            <NavLink to="/app/settings">{t('app.nav.settings')}</NavLink>
+          )}
         </nav>
         <div className="session">
           <span>{account.displayName}</span>
