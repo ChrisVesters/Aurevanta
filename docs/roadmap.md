@@ -2,7 +2,7 @@
 
 > **Status: proposal, as of 2026-08-06.** `product-concept.md` says *what* Aurevanta is
 > and why; this document says *in what order we build it, and what has to be decided
-> first*. Only M0 exists in code.
+> first*. M0 and M1 exist in code.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -59,15 +59,15 @@ its owner, JWT auth, tenant isolation enforced in the service layer.
 
 | Gap | Why it matters |
 |---|---|
-| A tenant can only ever have one user | No invitation flow exists. This blocks M1 and makes the product single-player. |
+| ~~A tenant can only ever have one user~~ | *Retired in M1 step 1:* identity is now separate from membership. `users` holds the person — one address, one password, one confirmed inbox — and a `memberships` row holds their standing in one organisation, so somebody consulting for two clients belongs to both with a different role in each. |
 | An organisation name is unique across the whole installation | `uq_tenants_slug` makes the second "Acme Consulting" to arrive unregisterable. Company names are not unique in reality, and nothing about this product makes them so. Scheduled as M1a. |
 | ~~Per-field validation errors carry English prose, not codes~~ | *Retired in M1 step 4:* each field error now carries the constraint that failed and its bounds, and the frontend translates that.  |
-| No password reset, no email verification | Anyone can register with an address they do not control. |
+| ~~No password reset, no email verification~~ | *Retired in M1 steps 5 and 6:* an unconfirmed address cannot obtain a token by any route, and reset is the way back for an account whose confirmation mail never arrived — which under a hard gate is the only way back. |
 | Landing page advertises unbuilt features | Fine while private; must not go public as-is. |
 
 ---
 
-## M1 — Make it a team product
+## M1 — Make it a team product ✅ *done*
 
 The smallest set that lets a second person join. Resist adding more here.
 
@@ -79,6 +79,25 @@ The smallest set that lets a second person join. Resist adding more here.
 
 **Deliberately excluded:** SSO, granular permissions, org settings beyond a name. None of
 them are needed to prove the core idea.
+
+**As built.** `m1-plan.md` carries the thirteen steps, what each decided, and where each
+departed from its own brief. Four things changed shape against the bullets above:
+
+- **Identity split from membership**, which those bullets did not ask for and the first step
+  did anyway. "Invitee registers against an existing tenant" quietly assumes an account
+  belongs to one organisation, and that is a wall the first consultant with two clients
+  walks into. Doing it before invitations existed is what made accepting one *add a
+  membership* rather than apologise.
+- **Email verification became a hard gate**, not a flag on a row. An unconfirmed address is
+  refused a token by every route, which turns password reset from a convenience into the
+  recovery path and makes mail delivery load-bearing — the cost that decision was worth
+  paying and is worth remembering.
+- **Rate limiting came with it.** Three endpoints send mail to an address the caller chose
+  and need no credentials to do it, which is the definition of an email-bombing vector.
+  Sign-in came under the same roof afterwards, on failures only.
+- **Starting an organisation became an endpoint of its own.** Member management can leave
+  somebody belonging to nothing, and "wait to be invited" is not a way out a person can take
+  by themselves.
 
 ---
 
@@ -102,8 +121,9 @@ choose a different name, because it is their name.
 
 **What it touches**
 
-- Drop the name pre-check in `RegistrationService` and retire `organisation_name_unavailable`
-  from the problem codes and the frontend catalogue.
+- Drop the name pre-check in `OrganisationService` — which registration and "start another
+  organisation" now share, so there is one place to drop it — and retire
+  `organisation_name_unavailable` from the problem codes and the frontend catalogue.
 - `Slug.of` gains a uniqueness pass. A name of pure punctuation currently yields an empty
   slug and its own refusal (`organisation_name_unusable`); with a suffixing scheme that can
   fall back to a generated handle instead, retiring a second refusal a user cannot act on.
@@ -112,10 +132,12 @@ choose a different name, because it is their name.
 **The consequence worth deciding before building it**
 
 Once two organisations can share a name, **a person who belongs to both sees the same word
-twice** — in M1's organisation switcher (step 12) and in an invitation preview (step 10),
-neither of which has anything else to show. Allowing duplicates is not finished until
-something distinguishes them: the slug, the inviter's name, or a discriminator on the row.
-That is a design question, not a migration.
+twice** — in M1's organisation switcher and in an invitation preview, both of which are now
+built and neither of which has anything else to show. The switcher lists names; the preview
+carries a name, an inviter and a role by design, because it is served to anybody holding the
+link. Allowing duplicates is not finished until something distinguishes them: the slug, the
+inviter's name, or a discriminator on the row. That is a design question, not a migration,
+and it is now a question about screens that exist.
 
 **Why here rather than later.** Nothing routes by slug *yet*. The moment M2's plan-entry UI
 puts one in a URL, changing the scheme starts breaking links people have bookmarked and
@@ -127,7 +149,7 @@ pasted to colleagues. The change is small today and gets steadily less so.
 |---|---|
 | Suffix collisions, or abandon slugs? | **Suffix.** Readable handles are worth keeping and cost one retry loop. |
 | Can an organisation be renamed at all? | **Not yet** — out of scope here. But decide it now, because "does the slug follow the name?" has no good answer once links exist. |
-| What distinguishes two identically named organisations on screen? | **Unresolved, and it blocks steps 10 and 12 being *right* rather than merely working.** |
+| What distinguishes two identically named organisations on screen? | **Unresolved.** M1's switcher and invitation preview are built and show a bare name, so this is now a change to working screens rather than a constraint on unwritten ones. |
 
 ---
 

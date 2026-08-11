@@ -28,7 +28,7 @@
 | | 10 | Invitations: preview, accept, revoke ✅ *done* | 9 |
 | | 11 | Member management ✅ *done* | 1 |
 | | 12 | Frontend: members, acceptance, organisation switcher ✅ *done* | 10, 11 |
-| **E — Close out** | 13 | Documentation and debt retirement | all |
+| **E — Close out** | 13 | Documentation and debt retirement ✅ *done* | all |
 
 Phases A and B are invisible to users. C and D are each a shippable release.
 
@@ -926,7 +926,7 @@ Three things the review found and deliberately left:
 
 # Phase E — Close out
 
-## Step 13 — Documentation and debt retirement
+## Step 13 — Documentation and debt retirement ✅ *done*
 
 - `CLAUDE.md`: mail configuration, the two token types and what each permits, single-use
   token conventions, the identity-versus-membership model, and the per-instance
@@ -935,6 +935,37 @@ Three things the review found and deliberately left:
   field errors, missing reset and verification. Leave the landing-page row.
 - `roadmap.md`: replace the "one account, one organisation" constraint with the model that
   replaced it, since decision 3 reversed it.
+
+### As built
+
+`CLAUDE.md` was written as the work went rather than at the end, so this step was mostly an
+audit of it: every item the bullets name was already there, and what needed doing was the
+places it had gone quietly out of date.
+
+- **The identity token's reach was wrong.** It still listed two endpoints; Step 11 gave it a
+  third, and being able to start an organisation is the whole escape hatch from belonging to
+  nothing. Now stated as three, with the rule that guards them — endpoints require
+  `SCOPE_TENANT` rather than forbidding `SCOPE_IDENTITY`, so a third kind of token has to be
+  granted access deliberately instead of inheriting it.
+- **"Claimed before anything is looked up" had acquired an exception** without saying so.
+  Invitation resend claims after its lookup, for a reason the invitations section gives; the
+  rate-limiting section now points at it rather than contradicting it.
+- **One forward reference to "Step 7"** outlived the step it pointed at.
+
+`roadmap.md` needed more than striking rows. Two of the three named rows went (one-user
+tenants, no reset or verification); the third had already gone in Step 4. Beyond that:
+
+- **M1 is marked done with what actually shipped**, which is four things the milestone's own
+  bullets did not ask for: the identity/membership split, verification as a hard gate rather
+  than a flag, the rate limiting that gate made compulsory, and an endpoint for starting an
+  organisation.
+- **M1a is no longer written in the future tense about M1.** It said duplicate organisation
+  names "block steps 10 and 12 being right"; those screens exist now, so it is a change to
+  working screens rather than a constraint on unwritten ones. It also named
+  `RegistrationService` as the place to drop the name pre-check, which moved to
+  `OrganisationService` in Step 11 — the one place registration and starting a second
+  organisation now share.
+- The header still said **"Only M0 exists in code."**
 
 ---
 

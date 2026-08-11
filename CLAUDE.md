@@ -160,7 +160,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   keeps the *first* moment, so arriving by both routes does not rewrite history.
 - **Request always answers `202`**, for an unknown address as much as a registered one, and
   unlike verification resend it does **not** skip an unconfirmed account: that account is
-  precisely the one that needs it. Unauthenticated and it sends mail, so Step 7's rate limit
+  precisely the one that needs it. Unauthenticated and it sends mail, so the rate limit
   applies to it.
 - **Redeeming one reset link spends every other one that account holds**
   (`SingleUseTokenService.revokeAll`). Asking twice leaves two live links in an inbox, and
@@ -186,7 +186,9 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   the caller chose belongs behind the limit.
 - **Claimed before anything is looked up**, so it counts requests rather than messages. A
   limit that only counted the addresses that turned out to have accounts would answer,
-  through its own refusals, the question the blanket `202` exists to refuse.
+  through its own refusals, the question the blanket `202` exists to refuse. Invitation
+  resend is the one exception and says why: its recipient comes from a row the caller can
+  already list, not from anything they typed, so there is no enumeration to prevent.
 - **One budget per recipient, shared across endpoints.** Per-endpoint budgets would hand an
   attacker twice the allowance for alternating between reset and resend, and the person
   being written to cannot tell which endpoint sent what.
@@ -388,9 +390,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   - **access** — pins `tenant_id` and `role`; grants `SCOPE_TENANT` plus `ROLE_<role>`,
     and is the only kind any tenant-scoped endpoint accepts.
   - **identity** — names the person and no organisation; grants only `SCOPE_IDENTITY`,
-    which reaches `GET /api/memberships` and `POST /api/auth/tenants/{tenantId}/token`
-    and nothing else. Issued when sign-in cannot pick an organisation: several to choose
-    between, or none at all.
+    which reaches exactly three things and nothing else: `GET /api/memberships` to see
+    what there is, `POST /api/auth/tenants/{tenantId}/token` to choose one, and
+    `POST /api/organisations` to start one when there is nothing to choose. Issued when
+    sign-in cannot pick an organisation: several to choose between, or none at all.
+
+  Endpoints are guarded on `SCOPE_TENANT`, never on the absence of `SCOPE_IDENTITY`, so a
+  third kind of token would have to be granted access deliberately rather than inherit it.
+  The handful of endpoints that are `permitAll` — confirming an address, resetting a
+  password, previewing and accepting an invitation — are reached by people who have no
+  token to present, which is the whole reason those endpoints exist.
 
   `spring-boot-starter-oauth2-resource-server` verifies the signature;
   `AuthenticatedUserJwtConverter` branches on the kind to build the `AuthenticatedUser`
