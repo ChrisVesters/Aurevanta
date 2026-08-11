@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
 
-import com.cvesters.aurevanta.auth.problem.TooManyRequestsException;
+import com.cvesters.aurevanta.problem.TooManyRequestsException;
 
 /**
  * Bounds how much mail the endpoints that need no credentials can be made to send.

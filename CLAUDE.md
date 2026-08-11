@@ -15,16 +15,21 @@ milestone into implementation steps.
 ## Layout
 
 - `backend/` — Spring Boot 4.1 REST API (Java 25, Maven), PostgreSQL 18 + Flyway.
-  Package root `eu.sonetas.aurevanta`.
+  Package root `com.cvesters.aurevanta`.
 - `frontend/` — React 19 + TypeScript SPA built with Vite 8.
 
 **Backend packages are by feature, not by layer** — `tenant`, `user`, `membership`,
-`security` each hold their own entity, repository, service and web types. `auth` is large
-enough to be split a second time, by use case: `auth.registration`, `auth.signin`, and
-`auth.problem` for the failure vocabulary every use case reports through. The controller
-and the response shapes all its endpoints share stay in `auth` itself. A new auth use case
-— verifying an address, resetting a password — is a new subpackage, not more files at the
-root.
+`invitation`, `security` each hold their own entity, repository, service and web types.
+`auth` is large enough to be split a second time, by use case: `auth.registration`,
+`auth.signin`, `auth.verification`, `auth.reset`. The controller and the response shapes
+all its endpoints share stay in `auth` itself. A new auth use case — verifying an address,
+resetting a password — is a new subpackage, not more files at the root.
+
+**`problem` is the exception**, and sits beside the features rather than in one: it holds
+every failure the API can report and the single advice that renders them. It started under
+`auth`, which stopped being true once `ratelimit` refused on behalf of whatever it guards
+and invitations began reporting failures of their own. Every `code` this API publishes can
+be read in that one directory.
 
 ## Commands
 
@@ -191,14 +196,14 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   account, so it must be beyond what any single source can reach; filling it takes several
   sources acting together, which is the distributed case it exists for. Change one number
   without the other and a defence becomes an attack.
-- **A refusal raised outside `eu.sonetas.aurevanta.auth` will not be handled.**
-  `AuthExceptionHandler` is scoped to that package, and `TooManyRequestsException` is thrown
-  from `ratelimit` — fine while every caller is an auth controller, which is true today and
-  stops being true in Step 9, when invitation resend lives under `/api/invitations`. The
-  refusal would then lose its `code` and its `Retry-After` and arrive as Boot's default
-  error. Widen the advice before putting the limiter behind a controller outside `auth`;
-  this is the same trap that turned `assignableTypes` into `basePackages` in Step 5, one
-  level up.
+- **The advice that renders a refusal names no package, and must not start to.**
+  `ApiExceptionHandler` covers every controller. It was scoped to one class, then to
+  `auth`, and each time a controller appeared outside that scope its refusals lost their
+  `code` and their `Retry-After` and arrived as Boot's default error — silently, since a
+  problem document is still a problem document. Invitations were the third occasion.
+  Worse, a scope written as a package *string* goes stale without failing to compile:
+  one did, when the root package was renamed, and every problem document in the
+  application quietly became Boot's default while the build stayed green.
 - **Tests that drive these endpoints must clear the limiter**, since one context is shared
   across cases — `MailRateLimiter.clear()` in `@BeforeEach`. Otherwise one test spends the
   allowance the next one needs, and the failure looks nothing like its cause.
@@ -223,6 +228,39 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - Adding a purpose is a `TokenPurpose` constant. Redemption checks it, so a weaker token
   (proving someone reads an inbox) can never be spent as a stronger one (taking the account
   over).
+- **`LinkTokens` states how a token is made and hashed, once.** `user_tokens` is not the
+  only table holding one — invitations have a `token_hash` of their own — and two ways of
+  minting a link would eventually be one strong way and one weak way. Anything putting a
+  secret in an inbox goes through `LinkTokens.generate()` and `LinkTokens.hash()`.
+
+## Invitations
+
+- **An invitation is not a `user_tokens` row**, and cannot be: it is sent to an address
+  that may hold no account, while `user_tokens.user_id` is not null. It shares the token
+  mechanism (`LinkTokens`) and nothing else.
+- `POST /api/invitations` `{email, role}` — **OWNER only**, and the organisation comes from
+  the caller's access token, never the request.
+- **The inviter's standing is re-read, not taken from their token.** An access token pins
+  the role held when it was issued and lasts twelve hours, so an owner demoted or removed
+  this morning would otherwise go on inviting people all day. `not_a_member` and
+  `not_an_owner` are separate codes; both are safe, since somebody already inside an
+  organisation learns nothing from which one they get.
+- **The sender's own address must be confirmed.** Unreachable under the gate — an
+  unconfirmed account holds no token — but somebody who has not shown they can read their
+  own inbox should not be writing to a stranger's, and that rule belongs where it is
+  enforced rather than resting on a gate somewhere else.
+- **One live invitation per address per organisation**, held by a partial unique index on
+  `(tenant_id, lower(email)) where status = 'PENDING'`. A second live one is refused with
+  `invitation_already_pending`; an **expired** one is renewed in place instead, because it
+  still occupies that slot while no longer being a way in — inserting alongside it would
+  trip the constraint over a link that has already stopped working.
+- **"Already a member" is scoped to this organisation.** An owner can list their own
+  members anyway, so telling them one is already there discloses nothing; whether the
+  address holds an account elsewhere is not something an invitation may be used to ask.
+- **Behind `MailRateLimiter` like everything else that sends mail.** Needing credentials is
+  not what makes an endpoint safe here: the inbox belongs to a stranger either way, and it
+  cannot tell an invitation from a confirmation link — which is why they share one budget
+  per recipient.
 
 ## Outbound mail
 
@@ -265,8 +303,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   (`user_id` + `tenant_id` + `role`, unique together) is what grants standing in one
   organisation, so one address can belong to several with a different role in each.
 - Registering (`POST /api/auth/register`) creates a `tenants` row, a `users` row and an
-  `OWNER` membership in one transaction, and returns an access token. There is no
-  invitation flow yet — additional members are the next piece of work.
+  `OWNER` membership in one transaction, and returns the account without a token. An
+  organisation gains further members by invitation.
 - Authentication is a **stateless HMAC-signed JWT** presented as `Authorization: Bearer`,
   in **two kinds**, told apart by the `token_type` claim (required, never defaulted):
   - **access** — pins `tenant_id` and `role`; grants `SCOPE_TENANT` plus `ROLE_<role>`,
@@ -287,7 +325,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   key. Set it (32+ chars, e.g. `AUREVANTA_SECURITY_JWT_SECRET`) anywhere tokens must
   survive a restart or be accepted by more than one instance.
 - Failures are RFC 9457 problem documents carrying a stable `code` (for example
-  `email_already_registered`); `AuthExceptionHandler` is ordered ahead of Boot's own
+  `email_already_registered`); `ApiExceptionHandler` is ordered ahead of Boot's own
   problem-detail advice so per-field validation messages survive.
 - **A new failure needs a `code`, not just a message.** The frontend translates the code
   and ignores the prose.
@@ -295,7 +333,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `errors: { password: { code: "size", min: 12, max: 72 } }`. The code names the
   *constraint*, so one catalogue entry per rule serves every form and the bounds come from
   the server rather than being repeated in the frontend. Adding a constraint to a request
-  object means adding it to `AuthExceptionHandler.CONSTRAINT_CODES` and to
+  object means adding it to `ApiExceptionHandler.CONSTRAINT_CODES` and to
   `errors.validation` in `en.ts`; an unmapped one degrades to `invalid` rather than leaking
   its name. Only the constraint's *numeric* attributes go out — a regular expression or a
   message template is implementation detail, not something to render.

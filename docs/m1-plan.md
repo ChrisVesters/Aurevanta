@@ -24,7 +24,7 @@
 | | 6 | Password reset ✅ *done* | 2, 3 |
 | | 7 | Rate limiting on mail-sending endpoints ✅ *done* | 5, 6 |
 | | 8 | Frontend: verification, reset, gate handling ✅ *done* | 5, 6 |
-| **D — Team** | 9 | Invitations: schema and issuing | 1, 2, 3 |
+| **D — Team** | 9 | Invitations: schema and issuing ✅ *done* | 1, 2, 3 |
 | | 10 | Invitations: preview, accept, revoke | 9 |
 | | 11 | Member management | 1 |
 | | 12 | Frontend: members, acceptance, organisation switcher | 10, 11 |
@@ -615,7 +615,7 @@ Three things worth knowing about the inline resend, which is all Step 8 itself h
 
 # Phase D — Team
 
-## Step 9 — Invitations: schema and issuing
+## Step 9 — Invitations: schema and issuing ✅ *done*
 
 - Migration `V6__invitations.sql`: `invitations` (id, tenant_id, email, role, invited_by,
   token_hash, status, expires_at, created_at, accepted_at). Partial unique index on
@@ -638,6 +638,60 @@ replacing `assignableTypes` with `basePackages`; this is that lesson again, and 
 when got wrong.
 
 **Done when** an owner can put a pending invitation in someone's inbox.
+
+### As built — where it differs from the above
+
+Every bullet and every named test landed, in a new `invitation` package. Seven things a
+later step should know:
+
+- **The advice was not widened — it stopped naming a scope at all.** The warning above was
+  right about the consequence and too modest about the cause. Each previous widening
+  replaced one *string* with a longer one, and a package name written as a string does not
+  fail to compile when it goes stale: the "Fix package name" commit renamed the root and
+  left `basePackages = "eu.sonetas.aurevanta.auth"` behind, after which the advice matched
+  no controller and **every problem document in the application silently became Boot's
+  default**. Seventeen tests were failing on `main` before this step began. A bare
+  `@RestControllerAdvice` covers every controller and has nothing left to keep in step.
+- **`auth.problem` moved to a root `problem` package**, `AuthProblemException` becoming
+  `ApiProblemException` and `AuthExceptionHandler` becoming `ApiExceptionHandler`. An
+  application-wide advice living inside `auth` is a lie about what it does, and the
+  dependency was already inverted before this step — `ratelimit` imported its refusal from
+  `auth.problem`, and `invitation` would have too. Every `code` this API publishes is now
+  readable in one directory. Pure import churn across nineteen files; no behaviour beyond
+  the fix above.
+- **Ownership is enforced in the service, not the filter chain.** `SecurityConfiguration`
+  already requires an access token for anything under `/api/invitations`, but the role in
+  that token was pinned twelve hours ago. The service re-reads the membership, so somebody
+  demoted or removed since cannot keep inviting for the rest of the day — and the refusal
+  gets a `code`, which `hasRole` in the filter chain would not have given it. Two
+  enforcement points that could drift would be worse than one that is right, so there is
+  only the one.
+- **An expired invitation is renewed in place rather than blocking the next one.** The
+  partial unique index counts a `PENDING` row as occupying the slot whether or not it has
+  timed out, so "reject a live invitation" and "reject any invitation" are different rules
+  and only the first is wanted — the second would make an address permanently un-invitable
+  once its first invitation lapsed. `Invitation.renew` restates the role and the inviter,
+  since whoever is asking now may not be who asked last.
+- **Token generation and hashing moved to `token.LinkTokens`**, as Step 3 said Step 9
+  should. `SingleUseTokenService` now calls it too, so there is one definition of what a
+  link's secret is rather than a second one that happens to agree today.
+- **`@NotNull` needed a code**, since `role` is the first field that can be absent without
+  being blank. `not_null` joins `CONSTRAINT_CODES`, the precedence list beside `not_blank`,
+  and `errors.validation` in the catalogue — the only frontend change in this step. The
+  invite form itself is Step 12's.
+- **`EmailNotVerifiedException` is reused for an unconfirmed inviter.** Its detail still
+  says "before signing in", which is wrong prose for this context and harmless: the client
+  translates the code and never renders the detail. Splitting it would mean a second code
+  for the same fact about the same caller.
+
+Two things this step does **not** do, both for Step 10:
+
+- **Nothing can accept an invitation yet**, so `ACCEPTED` and `REVOKED` exist as constants
+  and nothing sets them. They are not speculative: the partial index is scoped to
+  `PENDING`, so the distinction is load-bearing from the first row written.
+- **There is no list, revoke or resend**, which means an owner who invites the wrong
+  address must wait seven days for it to lapse. Acceptable only because Phase D ships as
+  one release.
 
 ## Step 10 — Invitations: preview, accept, revoke
 
@@ -727,6 +781,10 @@ Version numbers are assigned here so two steps cannot claim the same one.
 | `V4__user_tokens.sql` | 3 | `user_tokens` |
 | `V5__users_email_verified.sql` | 5 | `users.email_verified_at` |
 | `V6__invitations.sql` | 9 | `invitations` |
+
+Step 9 also records what a *scope written as a string* costs: the exception advice named
+its own package, the package was renamed, and nothing failed to compile. Prefer a selector
+the compiler checks, or no selector at all.
 
 ---
 

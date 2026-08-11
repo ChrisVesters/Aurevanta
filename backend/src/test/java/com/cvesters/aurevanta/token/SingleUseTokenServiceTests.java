@@ -31,7 +31,6 @@ import com.cvesters.aurevanta.user.User;
 import com.cvesters.aurevanta.user.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 /**
@@ -197,17 +196,6 @@ class SingleUseTokenServiceTests {
 		this.users.delete(this.ada);
 
 		assertThat(this.tokens.findAll()).isEmpty();
-	}
-
-	/**
-	 * SHA-256 is mandatory on every Java platform, so this cannot happen in production —
-	 * but a hash that quietly became something else would make every token already issued
-	 * unredeemable, so it fails loudly rather than being assumed away.
-	 */
-	@Test
-	void refusesToCarryOnIfTheHashAlgorithmIsMissing() {
-		assertThatThrownBy(() -> SingleUseTokenService.digest("SHA-000")).isInstanceOf(IllegalStateException.class)
-			.hasMessageContaining("SHA-000");
 	}
 
 	/**

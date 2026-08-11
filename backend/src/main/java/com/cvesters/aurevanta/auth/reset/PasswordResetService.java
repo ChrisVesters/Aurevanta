@@ -8,7 +8,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.cvesters.aurevanta.auth.problem.InvalidTokenException;
+import com.cvesters.aurevanta.problem.InvalidTokenException;
 import com.cvesters.aurevanta.mail.EmailSender;
 import com.cvesters.aurevanta.mail.EmailTemplates;
 import com.cvesters.aurevanta.token.SingleUseToken;

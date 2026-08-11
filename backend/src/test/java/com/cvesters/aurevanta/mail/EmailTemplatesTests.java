@@ -42,6 +42,24 @@ class EmailTemplatesTests {
 	}
 
 	/**
+	 * The one message that goes to somebody who may never have heard of this application,
+	 * so who is asking and what they are being asked to join have to survive any rewrite
+	 * of the prose around them. Without both, it is indistinguishable from phishing.
+	 */
+	@Test
+	void namesTheInviterAndTheOrganisationInAnInvitation() {
+		EmailMessage message = this.templates.invitation("dave@elsewhere.test", "Acme Planning Co", "Ada",
+				"a-raw-token", Duration.ofDays(7));
+
+		assertThat(message.to()).isEqualTo("dave@elsewhere.test");
+		assertThat(message.subject()).contains("Ada").contains("Acme Planning Co");
+		assertThat(message.body()).contains("Ada")
+			.contains("Acme Planning Co")
+			.contains("https://app.acme.test/invite/a-raw-token")
+			.contains("stops working after 7 days");
+	}
+
+	/**
 	 * A reset link lasts a single hour, so the singular is the ordinary case and the
 	 * plural the exception — the opposite way round from most pluralisation, and the
 	 * reason it is worth stating rather than assuming.

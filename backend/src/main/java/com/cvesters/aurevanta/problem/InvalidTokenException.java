@@ -1,4 +1,4 @@
-package com.cvesters.aurevanta.auth.problem;
+package com.cvesters.aurevanta.problem;
 
 import org.springframework.http.HttpStatus;
 
@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatus;
  * confirm which tokens exist. What a client should offer instead is a new link, which
  * costs nothing to ask for.
  */
-public class InvalidTokenException extends AuthProblemException {
+public class InvalidTokenException extends ApiProblemException {
 
 	public InvalidTokenException() {
 		super(HttpStatus.BAD_REQUEST, "Link no longer works", "invalid_token",

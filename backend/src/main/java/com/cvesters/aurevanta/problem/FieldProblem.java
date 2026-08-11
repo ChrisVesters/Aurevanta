@@ -1,4 +1,4 @@
-package com.cvesters.aurevanta.auth.problem;
+package com.cvesters.aurevanta.problem;
 
 import java.util.Map;
 

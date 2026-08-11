@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
 
-import com.cvesters.aurevanta.auth.problem.TooManyRequestsException;
+import com.cvesters.aurevanta.problem.TooManyRequestsException;
 
 /**
  * Bounds how fast passwords can be guessed.

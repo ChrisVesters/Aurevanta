@@ -202,6 +202,9 @@ export const en = {
     // — the server sends no prose, so there is nothing else to show.
     validation: {
       not_blank: 'This cannot be empty.',
+      // `not_blank` is for text somebody types; this is for a value they pick, where
+      // "cannot be empty" would describe a box there is nothing to type into.
+      not_null: 'Choose one of the options.',
       size: 'Use between {{min}} and {{max}} characters.',
       // A constraint that only bounds length above; `size` would say "between 0 and 200".
       max_size: 'Use no more than {{max}} characters.',

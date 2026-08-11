@@ -8,9 +8,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.cvesters.aurevanta.auth.problem.EmailAlreadyRegisteredException;
-import com.cvesters.aurevanta.auth.problem.OrganisationNameUnavailableException;
-import com.cvesters.aurevanta.auth.problem.UnusableOrganisationNameException;
+import com.cvesters.aurevanta.problem.EmailAlreadyRegisteredException;
+import com.cvesters.aurevanta.problem.OrganisationNameUnavailableException;
+import com.cvesters.aurevanta.problem.UnusableOrganisationNameException;
 import com.cvesters.aurevanta.auth.verification.EmailVerificationService;
 import com.cvesters.aurevanta.membership.Membership;
 import com.cvesters.aurevanta.membership.MembershipRepository;

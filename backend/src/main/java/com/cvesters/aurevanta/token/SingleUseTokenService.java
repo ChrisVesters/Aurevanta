@@ -1,14 +1,8 @@
 package com.cvesters.aurevanta.token;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -17,7 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.cvesters.aurevanta.user.User;
 
 /**
- * Issues and redeems the tokens behind emailed links, for every purpose that needs one.
+ * Issues and redeems the emailed links that belong to an account.
+ *
+ * <p>
+ * An invitation is the one emailed link that does not come from here: it is sent to
+ * somebody who may hold no account, and every row in this table names one. It shares how
+ * a token is made and stored — see {@link LinkTokens} — and nothing else.
  *
  * <p>
  * The guarantee is that a token works exactly once: {@link #consume} either returns the
@@ -29,16 +28,9 @@ import com.cvesters.aurevanta.user.User;
 @Service
 public class SingleUseTokenService {
 
-	/** 256 bits, so a token cannot be found by guessing however long anyone tries. */
-	private static final int TOKEN_BYTES = 32;
-
-	private static final String HASH_ALGORITHM = "SHA-256";
-
 	private final UserTokenRepository tokens;
 
 	private final Clock clock;
-
-	private final SecureRandom random = new SecureRandom();
 
 	SingleUseTokenService(UserTokenRepository tokens, Clock clock) {
 		this.tokens = tokens;
@@ -51,14 +43,10 @@ public class SingleUseTokenService {
 	 */
 	@Transactional
 	public SingleUseToken issue(User user, TokenPurpose purpose, Duration ttl) {
-		byte[] bytes = new byte[TOKEN_BYTES];
-		this.random.nextBytes(bytes);
-		// URL-safe and unpadded, because this ends up in a link somebody clicks.
-		String value = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-
+		String value = LinkTokens.generate();
 		Instant now = Instant.now(this.clock);
 		Instant expiresAt = now.plus(ttl);
-		this.tokens.save(new UserToken(user, purpose, hash(value), expiresAt, now));
+		this.tokens.save(new UserToken(user, purpose, LinkTokens.hash(value), expiresAt, now));
 		return new SingleUseToken(value, expiresAt);
 	}
 
@@ -69,7 +57,7 @@ public class SingleUseTokenService {
 	 */
 	@Transactional
 	public Optional<User> consume(String rawToken, TokenPurpose purpose) {
-		String tokenHash = hash(rawToken);
+		String tokenHash = LinkTokens.hash(rawToken);
 		if (this.tokens.consume(tokenHash, purpose, Instant.now(this.clock)) == 0) {
 			return Optional.empty();
 		}
@@ -90,31 +78,6 @@ public class SingleUseTokenService {
 	@Transactional
 	public void revokeAll(User user, TokenPurpose purpose) {
 		this.tokens.consumeAllFor(user, purpose, Instant.now(this.clock));
-	}
-
-	/**
-	 * Hex-encoded SHA-256 of the raw token, which is the only form ever written down.
-	 * Unsalted on purpose: redemption has to find a row by hash, and the input is 32
-	 * random bytes rather than a guessable secret, so neither a salt nor a slow function
-	 * buys anything here.
-	 */
-	private static String hash(String rawToken) {
-		return HexFormat.of().formatHex(digest(HASH_ALGORITHM).digest(rawToken.getBytes(StandardCharsets.UTF_8)));
-	}
-
-	/**
-	 * The algorithm is a parameter so that the failure below is reachable from a test.
-	 * Every Java platform is required to provide SHA-256, so in production this never
-	 * throws — but a hash that silently became something else would make every previously
-	 * issued token unredeemable, which is worth failing loudly over rather than assuming.
-	 */
-	static MessageDigest digest(String algorithm) {
-		try {
-			return MessageDigest.getInstance(algorithm);
-		}
-		catch (NoSuchAlgorithmException ex) {
-			throw new IllegalStateException(algorithm + " is not available", ex);
-		}
 	}
 
 }

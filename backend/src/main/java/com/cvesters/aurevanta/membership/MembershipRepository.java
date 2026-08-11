@@ -41,6 +41,25 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 	Optional<Membership> findForUserInTenant(@Param("userId") UUID userId, @Param("tenantId") UUID tenantId);
 
 	/**
+	 * Whether an address already belongs to one organisation.
+	 *
+	 * <p>
+	 * Scoped by tenant, and that scoping is the point rather than an optimisation: an
+	 * owner inviting somebody may be told that address is already in <em>their</em>
+	 * organisation, because they can list its members anyway. Whether it holds an account
+	 * elsewhere is not something an invitation may be used to ask.
+	 *
+	 * <p>
+	 * Matched on {@code lower(email)} to agree with {@code uq_users_email}, so an
+	 * invitation cannot get past this by differing in case from the member it duplicates.
+	 */
+	@Query("""
+			select count(m) > 0 from Membership m
+			where m.tenant.id = :tenantId and lower(m.user.email) = lower(:email)
+			""")
+	boolean existsInTenantByEmailIgnoringCase(@Param("tenantId") UUID tenantId, @Param("email") String email);
+
+	/**
 	 * How many people hold a role in an organisation. Counting owners is what stops the
 	 * last one being demoted or removed, leaving nobody able to administer it.
 	 */

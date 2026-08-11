@@ -1,4 +1,4 @@
-package com.cvesters.aurevanta.auth.problem;
+package com.cvesters.aurevanta.problem;
 
 import java.time.Duration;
 
@@ -13,7 +13,7 @@ import org.springframework.http.HttpStatus;
  * client that guesses badly retries in a loop — turning a limit meant to reduce traffic
  * into a reason for more of it.
  */
-public class TooManyRequestsException extends AuthProblemException {
+public class TooManyRequestsException extends ApiProblemException {
 
 	private final Duration retryAfter;
 

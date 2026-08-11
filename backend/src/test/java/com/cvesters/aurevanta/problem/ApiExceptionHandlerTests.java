@@ -1,10 +1,9 @@
-package com.cvesters.aurevanta.auth;
+package com.cvesters.aurevanta.problem;
 
 import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,19 +19,21 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
-import com.cvesters.aurevanta.auth.AuthController;
-import com.cvesters.aurevanta.auth.AuthExceptionHandler;
-import com.cvesters.aurevanta.auth.problem.AuthProblemException;
-import com.cvesters.aurevanta.auth.problem.EmailAlreadyRegisteredException;
-import com.cvesters.aurevanta.auth.problem.EmailNotVerifiedException;
-import com.cvesters.aurevanta.auth.problem.FieldProblem;
-import com.cvesters.aurevanta.auth.problem.InvalidCredentialsException;
-import com.cvesters.aurevanta.auth.problem.InvalidTokenException;
-import com.cvesters.aurevanta.auth.problem.NotAMemberException;
-import com.cvesters.aurevanta.auth.problem.OrganisationNameUnavailableException;
-import com.cvesters.aurevanta.auth.problem.TooManyRequestsException;
-import com.cvesters.aurevanta.auth.problem.UnusableOrganisationNameException;
+import com.cvesters.aurevanta.problem.AlreadyAMemberException;
+import com.cvesters.aurevanta.problem.ApiProblemException;
+import com.cvesters.aurevanta.problem.EmailAlreadyRegisteredException;
+import com.cvesters.aurevanta.problem.EmailNotVerifiedException;
+import com.cvesters.aurevanta.problem.FieldProblem;
+import com.cvesters.aurevanta.problem.InvalidCredentialsException;
+import com.cvesters.aurevanta.problem.InvalidTokenException;
+import com.cvesters.aurevanta.problem.InvitationAlreadyPendingException;
+import com.cvesters.aurevanta.problem.NotAMemberException;
+import com.cvesters.aurevanta.problem.NotAnOwnerException;
+import com.cvesters.aurevanta.problem.OrganisationNameUnavailableException;
+import com.cvesters.aurevanta.problem.TooManyRequestsException;
+import com.cvesters.aurevanta.problem.UnusableOrganisationNameException;
 import com.cvesters.aurevanta.auth.registration.RegistrationRequest;
+import jakarta.validation.Valid;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,9 +42,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * request cannot readily produce — a constraint violation from two racing registrations,
  * and a field that fails more than one constraint at once.
  */
-class AuthExceptionHandlerTests {
+class ApiExceptionHandlerTests {
 
-	private final AuthExceptionHandler handler = new AuthExceptionHandler();
+	private final ApiExceptionHandler handler = new ApiExceptionHandler();
 
 	@Test
 	void reportsAConstraintViolationAsAConflict() {
@@ -155,9 +156,9 @@ class AuthExceptionHandlerTests {
 	 */
 	@ParameterizedTest
 	@MethodSource("domainFailures")
-	void reportsADomainFailureFromWhatTheExceptionDeclares(AuthProblemException failure, HttpStatus status,
+	void reportsADomainFailureFromWhatTheExceptionDeclares(ApiProblemException failure, HttpStatus status,
 			String code) {
-		ProblemDetail problem = this.handler.handleAuthProblem(failure);
+		ProblemDetail problem = this.handler.handleProblem(failure);
 
 		assertThat(problem.getStatus()).isEqualTo(status.value());
 		assertThat(problem.getProperties()).containsEntry("code", code);
@@ -199,7 +200,10 @@ class AuthExceptionHandlerTests {
 				Arguments.of(new InvalidCredentialsException(), HttpStatus.UNAUTHORIZED, "invalid_credentials"),
 				Arguments.of(new NotAMemberException(), HttpStatus.FORBIDDEN, "not_a_member"),
 				Arguments.of(new EmailNotVerifiedException(), HttpStatus.FORBIDDEN, "email_not_verified"),
-				Arguments.of(new InvalidTokenException(), HttpStatus.BAD_REQUEST, "invalid_token"));
+				Arguments.of(new InvalidTokenException(), HttpStatus.BAD_REQUEST, "invalid_token"),
+				Arguments.of(new NotAnOwnerException(), HttpStatus.FORBIDDEN, "not_an_owner"),
+				Arguments.of(new AlreadyAMemberException(), HttpStatus.CONFLICT, "already_a_member"), Arguments
+					.of(new InvitationAlreadyPendingException(), HttpStatus.CONFLICT, "invitation_already_pending"));
 	}
 
 	/**
@@ -220,12 +224,18 @@ class AuthExceptionHandlerTests {
 
 	private MethodArgumentNotValidException methodArgumentNotValid(BeanPropertyBindingResult binding)
 			throws NoSuchMethodException {
-		// Any @Valid @RequestBody parameter would do; register's is simply a real one.
-		// Named by reflection, so it has to be kept in step with that method's signature.
+		// The exception needs a validated parameter to have come from, and any one will
+		// do — it is never read for anything but the type. A stub rather than a real
+		// controller method, which would have to be kept in step with a signature that
+		// has nothing to do with what is being tested, in a package this one cannot see.
 		MethodParameter parameter = new MethodParameter(
-				AuthController.class.getDeclaredMethod("register", RegistrationRequest.class, HttpServletRequest.class),
+				ApiExceptionHandlerTests.class.getDeclaredMethod("aValidatedRequestBody", RegistrationRequest.class),
 				0);
 		return new MethodArgumentNotValidException(parameter, binding);
+	}
+
+	@SuppressWarnings("unused")
+	private void aValidatedRequestBody(@Valid RegistrationRequest request) {
 	}
 
 }

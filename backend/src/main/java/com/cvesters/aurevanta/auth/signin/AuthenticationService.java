@@ -9,8 +9,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.cvesters.aurevanta.auth.problem.EmailNotVerifiedException;
-import com.cvesters.aurevanta.auth.problem.InvalidCredentialsException;
+import com.cvesters.aurevanta.problem.EmailNotVerifiedException;
+import com.cvesters.aurevanta.problem.InvalidCredentialsException;
 import com.cvesters.aurevanta.membership.Membership;
 import com.cvesters.aurevanta.membership.MembershipRepository;
 import com.cvesters.aurevanta.user.User;

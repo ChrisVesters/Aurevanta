@@ -143,6 +143,7 @@ describe('describeFieldErrors', () => {
   it('renders every constraint code the backend can send', () => {
     const problems: FieldProblem[] = [
       { code: 'not_blank' },
+      { code: 'not_null' },
       { code: 'size', min: 12, max: 72 },
       { code: 'max_size', min: 0, max: 200 },
       { code: 'email' },

@@ -1,16 +1,22 @@
-package com.cvesters.aurevanta.auth.problem;
+package com.cvesters.aurevanta.problem;
 
 import org.springframework.http.HttpStatus;
 
 /**
- * A registration or sign-in failure the API reports as an RFC 9457 problem document.
+ * A failure the API reports as an RFC 9457 problem document.
  *
  * <p>
  * Each subclass carries its own status, title and machine-readable code, so adding a
  * failure is one new class rather than a class plus another branch in
- * {@link AuthExceptionHandler}.
+ * {@link ApiExceptionHandler}.
+ *
+ * <p>
+ * This package sits beside the features rather than inside one because the vocabulary is
+ * shared: {@code ratelimit} refuses on behalf of whatever it guards, and invitations
+ * report failures of their own. Every {@code code} this API can publish is declared here,
+ * so the whole contract can be read in one directory.
  */
-public abstract class AuthProblemException extends RuntimeException {
+public abstract class ApiProblemException extends RuntimeException {
 
 	private final HttpStatus status;
 
@@ -18,7 +24,7 @@ public abstract class AuthProblemException extends RuntimeException {
 
 	private final String code;
 
-	protected AuthProblemException(HttpStatus status, String title, String code, String detail) {
+	protected ApiProblemException(HttpStatus status, String title, String code, String detail) {
 		super(detail);
 		this.status = status;
 		this.title = title;

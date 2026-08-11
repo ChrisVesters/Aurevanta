@@ -1,9 +1,9 @@
-package com.cvesters.aurevanta.auth.problem;
+package com.cvesters.aurevanta.problem;
 
 import org.springframework.http.HttpStatus;
 
 /** Raised when an organisation name holds no character a handle can be built from. */
-public class UnusableOrganisationNameException extends AuthProblemException {
+public class UnusableOrganisationNameException extends ApiProblemException {
 
 	public UnusableOrganisationNameException() {
 		super(HttpStatus.BAD_REQUEST, "Invalid organisation name", "organisation_name_unusable",

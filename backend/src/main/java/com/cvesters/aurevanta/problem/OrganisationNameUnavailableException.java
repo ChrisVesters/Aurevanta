@@ -1,4 +1,4 @@
-package com.cvesters.aurevanta.auth.problem;
+package com.cvesters.aurevanta.problem;
 
 import org.springframework.http.HttpStatus;
 
@@ -7,7 +7,7 @@ import org.springframework.http.HttpStatus;
  * Names that differ only by punctuation or accents collide here, because both reduce to
  * the same handle.
  */
-public class OrganisationNameUnavailableException extends AuthProblemException {
+public class OrganisationNameUnavailableException extends ApiProblemException {
 
 	public OrganisationNameUnavailableException() {
 		super(HttpStatus.CONFLICT, "Organisation name unavailable", "organisation_name_unavailable",

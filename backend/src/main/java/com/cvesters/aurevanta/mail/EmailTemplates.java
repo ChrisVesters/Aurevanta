@@ -73,6 +73,34 @@ public class EmailTemplates {
 	}
 
 	/**
+	 * Asks somebody to join an organisation.
+	 *
+	 * <p>
+	 * The one message here that goes to a stranger: the recipient may never have heard of
+	 * this application, so it names who is asking and what they are being asked to join
+	 * before it names us. Without that it reads like the phishing it would otherwise be
+	 * indistinguishable from.
+	 * @param rawToken goes into the link, so it is the one thing here that must not be
+	 * logged or stored
+	 */
+	public EmailMessage invitation(String recipient, String organisationName, String inviterName, String rawToken,
+			Duration validFor) {
+		String link = this.properties.link("/invite/" + rawToken);
+		String body = """
+				Hello,
+
+				%s has invited you to join %s on Aurevanta, where teams plan work using
+				estimates that admit what they do not know.
+
+				%s
+
+				The link works once and stops working after %s. If you were not expecting
+				this, you can ignore this message — nothing has been set up in your name.
+				""".formatted(inviterName, organisationName, link, quantity(validFor.toDays(), "day"));
+		return new EmailMessage(recipient, inviterName + " invited you to " + organisationName + " on Aurevanta", body);
+	}
+
+	/**
 	 * "3 days", "1 hour". A reset link lasts a single hour, so the singular is the common
 	 * case rather than an edge one — and "1 hours" in a message asking somebody to trust
 	 * a link is exactly the sort of thing that makes them not.

@@ -1,4 +1,4 @@
-package com.cvesters.aurevanta.auth;
+package com.cvesters.aurevanta.problem;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,26 +19,28 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.cvesters.aurevanta.auth.problem.AuthProblemException;
-import com.cvesters.aurevanta.auth.problem.FieldProblem;
-import com.cvesters.aurevanta.auth.problem.TooManyRequestsException;
-
 /**
- * Turns registration and login failures into RFC 9457 problem responses. Each carries a
- * stable {@code code} so the client can react, and translate, without parsing prose.
+ * Turns a failure anywhere in this application into an RFC 9457 problem response. Each
+ * carries a stable {@code code} so the client can react, and translate, without parsing
+ * prose.
  *
  * <p>
  * Ordered ahead of Boot's own problem-detail advice, which would otherwise answer
  * validation failures first and drop the per-field detail the sign-up form needs.
  *
  * <p>
- * Scoped by package rather than by class, so every controller serving {@code /api/auth}
- * is covered — including ones in subpackages, which a selector naming a single class
- * would have silently left answering Boot's default problem documents instead.
+ * Deliberately unscoped: it covers every controller, not a named package. It began as a
+ * selector naming a single class, was widened to a package when a second controller
+ * appeared under {@code auth}, and would have had to be widened again the moment
+ * invitations arrived outside it — a {@code 429} raised there losing its {@code code} and
+ * its {@code Retry-After} and arriving as Boot's default error. Each of those selectors
+ * was also a package name written as a string, which is a thing that can go quietly
+ * stale: one did, when the root package was renamed, and every problem document in the
+ * application silently became Boot's default. There is nothing to keep in step now.
  */
-@RestControllerAdvice(basePackages = "eu.sonetas.aurevanta.auth")
+@RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
-class AuthExceptionHandler {
+class ApiExceptionHandler {
 
 	/**
 	 * Constraint names as Bean Validation spells them, mapped to the codes this API
@@ -46,8 +48,8 @@ class AuthExceptionHandler {
 	 * contract: they should stay put even if a constraint is renamed, and read like the
 	 * other codes in this application.
 	 */
-	private static final Map<String, String> CONSTRAINT_CODES = Map.of("NotBlank", "not_blank", "Size", "size", "Email",
-			"email");
+	private static final Map<String, String> CONSTRAINT_CODES = Map.of("NotBlank", "not_blank", "NotNull", "not_null",
+			"Size", "size", "Email", "email");
 
 	/** What an unmapped constraint becomes, so a new one degrades rather than leaks. */
 	private static final String UNKNOWN_CONSTRAINT = "invalid";
@@ -67,11 +69,11 @@ class AuthExceptionHandler {
 	 * about shape only start to mean something once there is something to shape. Anything
 	 * unlisted ranks last, so a mapped constraint always beats a generic {@code invalid}.
 	 */
-	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "size", "max_size", "email");
+	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "not_null", "size", "max_size", "email");
 
 	/** Every domain failure describes itself, so one branch covers all of them. */
-	@ExceptionHandler(AuthProblemException.class)
-	ProblemDetail handleAuthProblem(AuthProblemException ex) {
+	@ExceptionHandler(ApiProblemException.class)
+	ProblemDetail handleProblem(ApiProblemException ex) {
 		return problem(ex.getStatus(), ex.getTitle(), ex.getMessage(), ex.getCode());
 	}
 
@@ -101,7 +103,7 @@ class AuthExceptionHandler {
 	ProblemDetail handleInvalidRequest(MethodArgumentNotValidException ex) {
 		Map<String, FieldProblem> errors = new LinkedHashMap<>();
 		for (FieldError error : ex.getBindingResult().getFieldErrors()) {
-			errors.merge(error.getField(), fieldProblem(error), AuthExceptionHandler::moreTelling);
+			errors.merge(error.getField(), fieldProblem(error), ApiExceptionHandler::moreTelling);
 		}
 		ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Invalid request", "Some fields need attention",
 				"validation_failed");
