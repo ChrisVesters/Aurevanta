@@ -46,36 +46,52 @@ class ApiExceptionHandlerTests {
 
 	private final ApiExceptionHandler handler = new ApiExceptionHandler();
 
-	@Test
-	void reportsAConstraintViolationAsAConflict() {
-		ProblemDetail problem = this.handler.handleConflict(new DataIntegrityViolationException("uq_users_email"));
+	/**
+	 * Every one of these is a race that got past a pre-check. Each answers with the code
+	 * that pre-check would have used, so a caller cannot tell the two apart — which is
+	 * right, because there is nothing they could do with the difference.
+	 */
+	@ParameterizedTest
+	@MethodSource("racedConstraints")
+	void reportsARaceAsWhateverTheCheckWouldHaveSaid(String constraint, String code) {
+		ProblemDetail problem = this.handler.handleConflict(violating(constraint));
 
 		assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
-		assertThat(problem.getProperties()).containsEntry("code", "registration_conflict");
+		assertThat(problem.getProperties()).containsEntry("code", code);
 		// The underlying message can name database objects, so it must not be echoed
 		// back.
-		assertThat(problem.getDetail()).doesNotContain("uq_users_email");
+		assertThat(problem.getDetail()).doesNotContain(constraint);
+	}
+
+	static Stream<Arguments> racedConstraints() {
+		return Stream.of(Arguments.of(ApiExceptionHandler.UNIQUE_SLUG_INDEX, "slug_taken"),
+				Arguments.of(ApiExceptionHandler.UNIQUE_EMAIL_INDEX, "email_already_registered"),
+				Arguments.of(ApiExceptionHandler.UNIQUE_PENDING_INVITATION_INDEX, "invitation_already_pending"));
 	}
 
 	/**
-	 * A handle taken in the moment between the check and the write is still a handle
-	 * taken. Telling somebody "something conflicted" about a field they typed would be a
-	 * refusal they could not act on, which is the thing M1a exists to remove.
+	 * The one that lost its race cannot say what would have been free instead: the
+	 * transaction that would have gone and looked is already spent.
 	 */
 	@Test
-	void readsAHandleTakenInARaceOutOfTheConstraintThatCaughtIt() {
-		ProblemDetail problem = this.handler.handleConflict(violating(ApiExceptionHandler.UNIQUE_SLUG_INDEX));
-
-		assertThat(problem.getProperties()).containsEntry("code", "slug_taken")
-			// Nothing left to ask the database: the transaction that would have looked is
-			// already lost. Asking again is what the caller does next.
+	void offersNoAlternativeToAHandleLostInARace() {
+		assertThat(this.handler.handleConflict(violating(ApiExceptionHandler.UNIQUE_SLUG_INDEX)).getProperties())
 			.doesNotContainKey("suggested");
 	}
 
+	/**
+	 * A constraint nobody mapped gets an answer that names no field. It used to name two
+	 * — an email address or an organisation name — which was true while a registration
+	 * was the only thing that could arrive here, and wrong from the moment this advice
+	 * covered every controller.
+	 */
 	@Test
-	void leavesAnyOtherConstraintToTheGenericAnswer() {
-		assertThat(this.handler.handleConflict(violating("uq_users_email")).getProperties()).containsEntry("code",
-				"registration_conflict");
+	void admitsItDoesNotKnowRatherThanGuessing() {
+		ProblemDetail problem = this.handler.handleConflict(violating("uq_memberships_user_tenant"));
+
+		assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+		assertThat(problem.getProperties()).containsEntry("code", "conflict");
+		assertThat(problem.getDetail()).doesNotContain("email").doesNotContain("organisation");
 	}
 
 	/**
@@ -90,7 +106,7 @@ class ApiExceptionHandlerTests {
 				new SQLException());
 
 		assertThat(ApiExceptionHandler.violated(silent, ApiExceptionHandler.UNIQUE_SLUG_INDEX)).isFalse();
-		assertThat(this.handler.handleConflict(silent).getProperties()).containsEntry("code", "registration_conflict");
+		assertThat(this.handler.handleConflict(silent).getProperties()).containsEntry("code", "conflict");
 	}
 
 	private static DataIntegrityViolationException violating(String constraint) {

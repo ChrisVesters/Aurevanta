@@ -39,7 +39,7 @@ changing either is a deliberate act rather than a side effect.
 | Step | | Depends on |
 |---|---|---|
 | 1 | The handle becomes a field ✅ *done* | — |
-| 2 | Each conflict reports what it actually is | 1 |
+| 2 | Each conflict reports what it actually is ✅ *done* | 1 |
 | 3 | Changing the name and the handle afterwards | 1 |
 | 4 | Two organisations, one name, on screen | 1 |
 | 5 | Close out | 1–4 |
@@ -264,7 +264,7 @@ refused is a handle they typed.
 
 ---
 
-## Step 2 — Each conflict reports what it actually is
+## Step 2 — Each conflict reports what it actually is ✅ *done*
 
 **Goal.** Retire the last refusal that describes the wrong thing.
 
@@ -289,6 +289,29 @@ catch-all reports the neutral code and still does not echo the violation's own m
 can name database objects.
 
 **Done when** no problem document describes a constraint the caller did not touch.
+
+### As built — where it differs from the above
+
+- **Nothing was caught in a service.** The plan had `RegistrationService` and
+  `InvitationService.write` each catching their own constraint violation and rethrowing.
+  Step 1 had already moved that job into `ApiExceptionHandler` — for a reason that applies
+  just as well here — so doing it the planned way would have left two mechanisms for one
+  thing, and put a `saveAndFlush` in each service to make the violation land somewhere
+  catchable. All three constraints are entries in one map instead.
+- **`registration_conflict` is retired rather than narrowed.** The plan says it "narrows to
+  email only"; in fact `uq_users_email` now answers with `email_already_registered`, the
+  code its own pre-check produces, which leaves the old code with nothing to describe. What
+  replaces it is `conflict` — deliberately naming no field, because a refusal that guesses
+  at what the caller was doing is worse than one that admits it does not know.
+- **`ConstraintNamesTests` grew without being touched.** It walks
+  `ApiExceptionHandler.KNOWN_CONSTRAINTS`, which is now the map's key set, so adding a
+  constraint to the map is what adds it to the test. That is the shape step 1 was aiming
+  for and this step is the first evidence it works.
+
+Worth knowing: **every entry in that map is a race nothing can provoke on demand**, so the
+end-to-end suites never exercise them. The unit tests construct the violation directly and
+`ConstraintNamesTests` pins the names to real indexes — between them that is the whole of
+the coverage, and it is deliberate rather than a gap.
 
 ---
 

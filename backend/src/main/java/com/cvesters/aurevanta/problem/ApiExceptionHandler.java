@@ -3,7 +3,9 @@ package com.cvesters.aurevanta.problem;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 
 import jakarta.validation.ConstraintViolation;
 
@@ -54,14 +56,28 @@ class ApiExceptionHandler {
 	/** What an unmapped constraint becomes, so a new one degrades rather than leaks. */
 	private static final String UNKNOWN_CONSTRAINT = "invalid";
 
+	static final String UNIQUE_SLUG_INDEX = "uq_tenants_slug";
+
+	static final String UNIQUE_EMAIL_INDEX = "uq_users_email";
+
+	static final String UNIQUE_PENDING_INVITATION_INDEX = "uq_invitations_pending";
+
 	/**
-	 * Unique indexes whose violation has a better answer than "something conflicted".
+	 * Unique indexes whose violation has a better answer than "something conflicted", and
+	 * the answer each one has.
 	 *
 	 * <p>
-	 * A pre-check produces the readable refusal for the ordinary case; this is for the
-	 * pair who get past that check in the same instant and meet the index instead. Named
-	 * here because this is the one place that turns a failure into an answer, and because
-	 * a second place that read constraint names would be a second place to forget one.
+	 * Every entry here is a race. Each of these has a pre-check that produces the
+	 * readable refusal in the ordinary case; this is for the pair who get past that check
+	 * in the same instant and meet the index instead. **They answer with the same code
+	 * the pre-check would have used**, so a caller cannot tell the race from the ordinary
+	 * case — which is right, because there is nothing they could usefully do with the
+	 * difference.
+	 *
+	 * <p>
+	 * Named here rather than beside each pre-check because this is the one place that
+	 * turns a failure into an answer, and a second place that read constraint names would
+	 * be a second place to forget one.
 	 *
 	 * <p>
 	 * These names belong to migrations rather than to this class, and nothing else would
@@ -69,12 +85,14 @@ class ApiExceptionHandler {
 	 * refusal into a generic one. {@code ConstraintNamesTests} is what fails when they
 	 * stop agreeing.
 	 */
-	static final String UNIQUE_SLUG_INDEX = "uq_tenants_slug";
+	private static final Map<String, Supplier<ApiProblemException>> CONSTRAINT_CONFLICTS = Map.of(UNIQUE_SLUG_INDEX,
+			() -> new SlugTakenException(null), UNIQUE_EMAIL_INDEX, EmailAlreadyRegisteredException::new,
+			UNIQUE_PENDING_INVITATION_INDEX, InvitationAlreadyPendingException::new);
 
 	/**
 	 * Every index name this advice reads, for the test that pins them to the database.
 	 */
-	static final List<String> KNOWN_CONSTRAINTS = List.of(UNIQUE_SLUG_INDEX);
+	static final Set<String> KNOWN_CONSTRAINTS = CONSTRAINT_CONFLICTS.keySet();
 
 	/**
 	 * Which complaint wins when one field breaks several rules at once.
@@ -221,9 +239,16 @@ class ApiExceptionHandler {
 	 * Reported as whatever the pre-check would have said, where the index is one this
 	 * advice knows — a handle taken in the moment between the check and the write is
 	 * still a handle taken, and telling somebody "something conflicted" about a field
-	 * they typed would be a refusal they could not act on. What it cannot do is name a
-	 * free alternative: the transaction is already lost, so there is nothing left to ask
-	 * the database.
+	 * they typed would be a refusal they could not act on. What none of them can do is
+	 * offer an alternative: the transaction is already lost, so there is nothing left to
+	 * ask the database for.
+	 *
+	 * <p>
+	 * Anything else falls through to a neutral answer that names no field. It used to
+	 * name two — an email address or an organisation name — which was true when a
+	 * registration was the only thing that could arrive here, and became wrong the moment
+	 * this advice covered every controller. A refusal that guesses at what the caller was
+	 * doing is worse than one that admits it does not know.
 	 *
 	 * <p>
 	 * The violation's own message can name database objects, so it is read for a
@@ -231,11 +256,13 @@ class ApiExceptionHandler {
 	 */
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	ProblemDetail handleConflict(DataIntegrityViolationException ex) {
-		if (violated(ex, UNIQUE_SLUG_INDEX)) {
-			return handleSlugTaken(new SlugTakenException(null));
-		}
-		return problem(HttpStatus.CONFLICT, "Already registered",
-				"That email address or organisation name was just taken", "registration_conflict");
+		return CONSTRAINT_CONFLICTS.entrySet()
+			.stream()
+			.filter((conflict) -> violated(ex, conflict.getKey()))
+			.findFirst()
+			.map((conflict) -> handleProblem(conflict.getValue().get()))
+			.orElseGet(() -> problem(HttpStatus.CONFLICT, "Conflict",
+					"Something else changed at the same moment. Try again", "conflict"));
 	}
 
 	/**

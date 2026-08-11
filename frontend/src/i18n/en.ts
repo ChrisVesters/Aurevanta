@@ -300,8 +300,11 @@ export const en = {
       // not know.
       too_many_requests:
         'Too many requests just now. Wait a few minutes and try again.',
-      registration_conflict:
-        'That email address or organisation name was just taken.',
+      // Two writers racing on something the server has no better name for. It used to
+      // say "that email address or organisation name was just taken", which was true
+      // while registering was the only thing that could produce it and became a guess
+      // once every endpoint could.
+      conflict: 'Something else changed at the same moment. Try that again.',
       validation_failed: 'Some fields need attention.'
     },
     // Keyed by the constraint the backend says a field failed, not by the field's name:

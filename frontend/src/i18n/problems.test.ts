@@ -27,7 +27,7 @@ const BACKEND_CODES = [
   'invitation_for_another_address',
   'credentials_required',
   'too_many_requests',
-  'registration_conflict',
+  'conflict',
   'validation_failed'
 ];
 
