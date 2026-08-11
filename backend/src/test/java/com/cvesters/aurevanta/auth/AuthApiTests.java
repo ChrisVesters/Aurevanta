@@ -99,7 +99,7 @@ class AuthApiTests {
 	void registrationCreatesAnOrganisationOwnedByTheRegisteringUser() throws Exception {
 		this.mvc
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-				.content(registration("Acme Planning Co", "ada@acme.test")))
+				.content(registration("Acme Planning Co", "acme-planning-co", "ada@acme.test")))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.email").value("ada@acme.test"))
 			.andExpect(jsonPath("$.displayName").value("Ada"))
@@ -115,7 +115,7 @@ class AuthApiTests {
 
 	@Test
 	void registrationStoresThePasswordOnlyAsAHash() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 
 		User stored = this.users.findByEmailIgnoringCase("ada@acme.test").orElseThrow();
 
@@ -125,7 +125,7 @@ class AuthApiTests {
 	/** The account is the identity; the organisation and role hang off a membership. */
 	@Test
 	void registrationRecordsTheOwnerAsAMemberOfTheOrganisationItCreated() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 
 		User stored = this.users.findByEmailIgnoringCase("ada@acme.test").orElseThrow();
 
@@ -143,8 +143,8 @@ class AuthApiTests {
 	 */
 	@Test
 	void registrationAcceptsAnAddressPastedWithSurroundingSpace() throws Exception {
-		String body = this.json
-			.writeValueAsString(new RegistrationRequest("  Acme  ", "  Ada  ", "  ada@acme.test  ", PASSWORD));
+		String body = this.json.writeValueAsString(
+				new RegistrationRequest("  Acme  ", "  acme  ", "  Ada  ", "  ada@acme.test  ", PASSWORD));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isCreated())
@@ -157,7 +157,7 @@ class AuthApiTests {
 
 	@Test
 	void loginAcceptsAnAddressPastedWithSurroundingSpace() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 		confirmTheAddress();
 
 		this.mvc
@@ -174,7 +174,8 @@ class AuthApiTests {
 	@Test
 	void registrationKeepsAPasswordExactlyAsItWasTyped() throws Exception {
 		String padded = "  a passphrase with spaces  ";
-		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", padded));
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", padded));
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isCreated());
 		confirmTheAddress();
@@ -191,41 +192,73 @@ class AuthApiTests {
 
 	@Test
 	void eachRegistrationGetsItsOwnTenant() throws Exception {
-		String first = organisationId(register("Acme", "ada@acme.test"));
-		String second = organisationId(register("Umbrella", "grace@umbrella.test"));
+		String first = organisationId(register("Acme", "acme", "ada@acme.test"));
+		String second = organisationId(register("Umbrella", "umbrella", "grace@umbrella.test"));
 
 		assertThat(first).isNotEqualTo(second);
 	}
 
 	@Test
 	void registrationRejectsAnEmailThatDiffersOnlyByCase() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 
 		this.mvc
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-				.content(registration("Umbrella", "ADA@Acme.test")))
+				.content(registration("Umbrella", "umbrella", "ADA@Acme.test")))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("email_already_registered"));
 	}
 
+	/**
+	 * The whole point of M1a. There are thousands of Acme Consultings and nothing about
+	 * this product makes the first to arrive the owner of the name.
+	 */
 	@Test
-	void registrationRejectsAnOrganisationNameAlreadyInUse() throws Exception {
-		register("Acme Planning Co", "ada@acme.test");
+	void registrationAcceptsAnOrganisationNameSomebodyElseAlreadyUses() throws Exception {
+		register("Acme Planning Co", "acme-planning-co", "ada@acme.test");
 
 		this.mvc
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-				.content(registration("acme planning co.", "grace@acme.test")))
+				.content(registration("Acme Planning Co", "acme-planning-co-2", "grace@acme.test")))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.organisation.name").value("Acme Planning Co"))
+			.andExpect(jsonPath("$.organisation.slug").value("acme-planning-co-2"));
+	}
+
+	/** The handle is refused, and the refusal arrives holding a way past itself. */
+	@Test
+	void registrationRefusesAHandleSomebodyElseHasAndOffersOneTheyDoNot() throws Exception {
+		register("Acme Planning Co", "acme-planning-co", "ada@acme.test");
+
+		this.mvc
+			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+				.content(registration("Acme Planning Co", "acme-planning-co", "grace@acme.test")))
 			.andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("organisation_name_unavailable"));
+			.andExpect(jsonPath("$.code").value("slug_taken"))
+			.andExpect(jsonPath("$.suggested").value("acme-planning-co-2"));
+	}
+
+	/**
+	 * A name with nothing to build a handle from used to be refused outright. Nothing is
+	 * derived from it any more, so it is simply a name.
+	 */
+	@Test
+	void registrationAcceptsAnOrganisationNameNoHandleCouldBeBuiltFrom() throws Exception {
+		this.mvc
+			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
+				.content(registration("!!! ???", "acme", "ada@acme.test")))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.organisation.name").value("!!! ???"))
+			.andExpect(jsonPath("$.organisation.slug").value("acme"));
 	}
 
 	@Test
-	void registrationRejectsAnOrganisationNameWithNothingToBuildAHandleFrom() throws Exception {
+	void registrationRejectsAHandleThatIsNotTheShapeAHandleMustBe() throws Exception {
 		this.mvc
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-				.content(registration("!!! ???", "ada@acme.test")))
+				.content(registration("Acme", "Acme Planning Co", "ada@acme.test")))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("organisation_name_unusable"));
+			.andExpect(jsonPath("$.errors.organisationSlug.code").value("pattern"));
 	}
 
 	/**
@@ -234,7 +267,8 @@ class AuthApiTests {
 	 */
 	@Test
 	void registrationRejectsAShortPasswordWithTheConstraintAndItsBounds() throws Exception {
-		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", "short"));
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", "short"));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isBadRequest())
@@ -252,7 +286,7 @@ class AuthApiTests {
 	 */
 	@Test
 	void registrationGivesAnEmptyPasswordTheSameAnswerEveryTime() throws Exception {
-		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "ada@acme.test", ""));
+		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", ""));
 
 		for (int attempt = 0; attempt < 12; attempt++) {
 			this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -269,7 +303,8 @@ class AuthApiTests {
 	@Test
 	void registrationReportsALengthCeilingWithoutInventingAFloor() throws Exception {
 		String tooLong = "x".repeat(201);
-		String body = this.json.writeValueAsString(new RegistrationRequest(tooLong, "Ada", "ada@acme.test", PASSWORD));
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest(tooLong, "acme", "Ada", "ada@acme.test", PASSWORD));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isBadRequest())
@@ -280,7 +315,8 @@ class AuthApiTests {
 
 	@Test
 	void registrationRejectsAMalformedEmailByConstraint() throws Exception {
-		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "not-an-address", PASSWORD));
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest("Acme", "acme", "Ada", "not-an-address", PASSWORD));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isBadRequest())
@@ -289,7 +325,8 @@ class AuthApiTests {
 
 	@Test
 	void registrationRejectsAMissingFieldByConstraint() throws Exception {
-		String body = this.json.writeValueAsString(new RegistrationRequest("  ", "Ada", "ada@acme.test", PASSWORD));
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest("  ", "acme", "Ada", "ada@acme.test", PASSWORD));
 
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isBadRequest())
@@ -304,7 +341,8 @@ class AuthApiTests {
 	 */
 	@Test
 	void registrationSendsNoServerProseOrImplementationDetailWithAFieldError() throws Exception {
-		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", "not-an-address", "short"));
+		String body = this.json
+			.writeValueAsString(new RegistrationRequest("Acme", "acme", "Ada", "not-an-address", "short"));
 
 		String response = this.mvc
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -330,7 +368,7 @@ class AuthApiTests {
 	 */
 	@Test
 	void loginSignsStraightInWhenTheAccountHoldsOneMembership() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 		confirmTheAddress();
 
 		this.mvc
@@ -375,7 +413,7 @@ class AuthApiTests {
 
 	@Test
 	void loginRejectsAWrongPassword() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 		confirmTheAddress();
 
 		this.mvc
@@ -390,7 +428,7 @@ class AuthApiTests {
 	 */
 	@Test
 	void loginRefusesAnAccountWhoseAddressWasNeverConfirmed() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -408,7 +446,7 @@ class AuthApiTests {
 	 */
 	@Test
 	void loginHidesAnUnconfirmedAccountFromSomeoneWithTheWrongPassword() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 
 		this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
@@ -426,7 +464,7 @@ class AuthApiTests {
 
 	@Test
 	void loginSucceedsOnceTheAddressIsConfirmed() throws Exception {
-		register("Acme", "ada@acme.test");
+		register("Acme", "acme", "ada@acme.test");
 		confirmTheAddress();
 
 		this.mvc
@@ -448,7 +486,7 @@ class AuthApiTests {
 
 	@Test
 	void currentAccountIsReturnedForAValidToken() throws Exception {
-		String token = registerAndSignIn("Acme Planning Co", "ada@acme.test");
+		String token = registerAndSignIn("Acme Planning Co", "acme-planning-co", "ada@acme.test");
 
 		this.mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 			.andExpect(status().isOk())
@@ -497,7 +535,7 @@ class AuthApiTests {
 
 	@Test
 	void aTokenStopsWorkingOnceItsAccountIsGone() throws Exception {
-		String token = registerAndSignIn("Acme", "ada@acme.test");
+		String token = registerAndSignIn("Acme", "acme", "ada@acme.test");
 		this.memberships.deleteAll();
 		this.users.deleteAll();
 
@@ -512,23 +550,28 @@ class AuthApiTests {
 	 */
 	@Test
 	void aTokenStopsWorkingOnceItsMembershipIsRevoked() throws Exception {
-		String token = registerAndSignIn("Acme", "ada@acme.test");
+		String token = registerAndSignIn("Acme", "acme", "ada@acme.test");
 		this.memberships.deleteAll();
 
 		this.mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
 			.andExpect(status().isUnauthorized());
 	}
 
-	private MvcResult register(String organisation, String email) throws Exception {
+	private MvcResult register(String organisation, String slug, String email) throws Exception {
 		return this.mvc
 			.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-				.content(registration(organisation, email)))
+				.content(registration(organisation, slug, email)))
 			.andExpect(status().isCreated())
 			.andReturn();
 	}
 
-	private String registration(String organisation, String email) throws Exception {
-		return this.json.writeValueAsString(new RegistrationRequest(organisation, "Ada", email, PASSWORD));
+	/**
+	 * Name and handle are passed separately because they are no longer derived from one
+	 * another: the caller chooses the handle, and a test that let one stand for both
+	 * could not express the case this milestone exists for.
+	 */
+	private String registration(String organisation, String slug, String email) throws Exception {
+		return this.json.writeValueAsString(new RegistrationRequest(organisation, slug, "Ada", email, PASSWORD));
 	}
 
 	private String login(String email, String password) throws Exception {
@@ -539,8 +582,8 @@ class AuthApiTests {
 	 * Registers, follows the confirmation link, and signs in — the whole journey a new
 	 * account now has to make before it can hold a token.
 	 */
-	private String registerAndSignIn(String organisation, String email) throws Exception {
-		register(organisation, email);
+	private String registerAndSignIn(String organisation, String slug, String email) throws Exception {
+		register(organisation, slug, email);
 		confirmTheAddress();
 		return body(this.mvc
 			.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON).content(login(email, PASSWORD)))

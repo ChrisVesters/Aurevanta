@@ -140,11 +140,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const createOrganisation = useCallback(
-    async (name: string) => {
+    async (name: string, slug: string) => {
       acceptSession(
         await apiRequest<AuthenticationResponse>('/organisations', {
           method: 'POST',
-          body: { name },
+          body: { name, slug },
           token: session.current?.token
         })
       );

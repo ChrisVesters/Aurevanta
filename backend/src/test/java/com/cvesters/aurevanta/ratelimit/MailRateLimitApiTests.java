@@ -217,12 +217,13 @@ class MailRateLimitApiTests {
 
 	private ResultActions register(String organisation, String email) throws Exception {
 		return this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
-			.content(this.json.writeValueAsString(new RegistrationRequest(organisation, "Ada", email, PASSWORD))));
+			.content(this.json
+				.writeValueAsString(new RegistrationRequest(organisation, organisation, "Ada", email, PASSWORD))));
 	}
 
 	/** Registers an account so a reset has somebody to find, then forgets the mail. */
 	private void registerAndConfirmNothing(String email) throws Exception {
-		register("Acme", email).andExpect(status().isCreated());
+		register("acme", email).andExpect(status().isCreated());
 		this.mail.clear();
 	}
 

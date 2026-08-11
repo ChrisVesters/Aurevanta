@@ -60,6 +60,8 @@ export type SignInResponse =
 
 export type RegistrationRequest = {
   organisationName: string;
+  /** Chosen rather than derived; the form proposes one and the person accepts or changes it. */
+  organisationSlug: string;
   displayName: string;
   email: string;
   password: string;

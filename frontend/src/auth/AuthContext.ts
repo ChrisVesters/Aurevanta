@@ -34,7 +34,7 @@ export type AuthContextValue = {
    * The way out of belonging to nothing, which is why it is reachable while holding an
    * identity token: somebody in that state has no organisation for a session to name.
    */
-  createOrganisation: (name: string) => Promise<void>;
+  createOrganisation: (name: string, slug: string) => Promise<void>;
   /**
    * Redeems an invitation and takes up the session it hands back.
    *

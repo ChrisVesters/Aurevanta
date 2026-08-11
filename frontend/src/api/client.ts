@@ -12,6 +12,13 @@ type ProblemDetail = {
   code?: string;
   /** Field name to complaint, present when `code` is `validation_failed`. */
   errors?: Record<string, FieldProblem>;
+  /**
+   * A free alternative to something the caller asked for and cannot have — an
+   * organisation handle somebody else holds. This is what the API offers in place of an
+   * endpoint for asking what is available, which anybody could walk to enumerate what
+   * exists. Absent rather than empty when there is none to give.
+   */
+  suggested?: string;
 };
 
 /**
@@ -32,6 +39,8 @@ export class ApiError extends Error {
   readonly code: string | undefined;
   /** Per-field complaints, so a form can put each one next to its input. */
   readonly fieldErrors: Record<string, FieldProblem>;
+  /** A free alternative to what was refused, where the refusal has one to offer. */
+  readonly suggested: string | undefined;
 
   constructor(status: number, problem: ProblemDetail | null) {
     super(problem?.detail ?? problem?.title ?? `Request failed (${status})`);
@@ -39,6 +48,7 @@ export class ApiError extends Error {
     this.status = status;
     this.code = problem?.code;
     this.fieldErrors = problem?.errors ?? {};
+    this.suggested = problem?.suggested;
   }
 }
 

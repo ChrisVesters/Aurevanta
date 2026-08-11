@@ -1,5 +1,6 @@
 package com.cvesters.aurevanta.problem;
 
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -29,9 +30,8 @@ import com.cvesters.aurevanta.problem.InvalidTokenException;
 import com.cvesters.aurevanta.problem.InvitationAlreadyPendingException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.NotAnOwnerException;
-import com.cvesters.aurevanta.problem.OrganisationNameUnavailableException;
+import com.cvesters.aurevanta.problem.SlugTakenException;
 import com.cvesters.aurevanta.problem.TooManyRequestsException;
-import com.cvesters.aurevanta.problem.UnusableOrganisationNameException;
 import com.cvesters.aurevanta.auth.registration.RegistrationRequest;
 import jakarta.validation.Valid;
 
@@ -55,6 +55,47 @@ class ApiExceptionHandlerTests {
 		// The underlying message can name database objects, so it must not be echoed
 		// back.
 		assertThat(problem.getDetail()).doesNotContain("uq_users_email");
+	}
+
+	/**
+	 * A handle taken in the moment between the check and the write is still a handle
+	 * taken. Telling somebody "something conflicted" about a field they typed would be a
+	 * refusal they could not act on, which is the thing M1a exists to remove.
+	 */
+	@Test
+	void readsAHandleTakenInARaceOutOfTheConstraintThatCaughtIt() {
+		ProblemDetail problem = this.handler.handleConflict(violating(ApiExceptionHandler.UNIQUE_SLUG_INDEX));
+
+		assertThat(problem.getProperties()).containsEntry("code", "slug_taken")
+			// Nothing left to ask the database: the transaction that would have looked is
+			// already lost. Asking again is what the caller does next.
+			.doesNotContainKey("suggested");
+	}
+
+	@Test
+	void leavesAnyOtherConstraintToTheGenericAnswer() {
+		assertThat(this.handler.handleConflict(violating("uq_users_email")).getProperties()).containsEntry("code",
+				"registration_conflict");
+	}
+
+	/**
+	 * A driver that said nothing at all is still a violation, and reading a name out of
+	 * nothing must not be how this advice falls over. The cause carries no message, which
+	 * is the shape that reaches the null check — an exception whose own message is a
+	 * string never does.
+	 */
+	@Test
+	void survivesAViolationThatSaysNothingAtAll() {
+		DataIntegrityViolationException silent = new DataIntegrityViolationException("could not execute statement",
+				new SQLException());
+
+		assertThat(ApiExceptionHandler.violated(silent, ApiExceptionHandler.UNIQUE_SLUG_INDEX)).isFalse();
+		assertThat(this.handler.handleConflict(silent).getProperties()).containsEntry("code", "registration_conflict");
+	}
+
+	private static DataIntegrityViolationException violating(String constraint) {
+		return new DataIntegrityViolationException("could not execute statement",
+				new SQLException("duplicate key value violates unique constraint \"" + constraint + "\""));
 	}
 
 	/**
@@ -101,14 +142,14 @@ class ApiExceptionHandlerTests {
 	}
 
 	private static BeanPropertyBindingResult binding() {
-		return new BeanPropertyBindingResult(new RegistrationRequest("Acme", "Ada", "ada@acme.test", ""),
+		return new BeanPropertyBindingResult(new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", ""),
 				"registrationRequest");
 	}
 
 	@Test
 	void reportsEveryFailingField() throws Exception {
 		BeanPropertyBindingResult binding = new BeanPropertyBindingResult(
-				new RegistrationRequest("", "Ada", "nope", "short"), "registrationRequest");
+				new RegistrationRequest("", "acme", "Ada", "nope", "short"), "registrationRequest");
 		binding.addError(constraintFailure("organisationName", "NotBlank"));
 		binding.addError(constraintFailure("email", "Email"));
 
@@ -125,7 +166,7 @@ class ApiExceptionHandlerTests {
 	@Test
 	void reportsAnUnmappedConstraintAsGenericallyInvalid() throws Exception {
 		BeanPropertyBindingResult binding = new BeanPropertyBindingResult(
-				new RegistrationRequest("Acme", "Ada", "ada@acme.test", "a-long-enough-passphrase"),
+				new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", "a-long-enough-passphrase"),
 				"registrationRequest");
 		binding.addError(constraintFailure("password", "DecimalMin"));
 
@@ -140,7 +181,7 @@ class ApiExceptionHandlerTests {
 	@Test
 	void reportsAFailureThatNamesNoConstraintAsGenericallyInvalid() throws Exception {
 		BeanPropertyBindingResult binding = new BeanPropertyBindingResult(
-				new RegistrationRequest("Acme", "Ada", "ada@acme.test", "a-long-enough-passphrase"),
+				new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", "a-long-enough-passphrase"),
 				"registrationRequest");
 		binding.addError(new FieldError("registrationRequest", "password", "could not be bound"));
 
@@ -190,13 +231,33 @@ class ApiExceptionHandlerTests {
 		assertThat(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER)).isEqualTo("900");
 	}
 
+	/**
+	 * The alternative is what this refusal is for: it is what the API offers instead of
+	 * an endpoint anybody could walk to ask which handles are taken.
+	 */
+	@Test
+	void offersAWayPastAHandleSomebodyElseHas() {
+		ProblemDetail problem = this.handler.handleSlugTaken(new SlugTakenException("acme-2"));
+
+		assertThat(problem.getStatus()).isEqualTo(HttpStatus.CONFLICT.value());
+		assertThat(problem.getProperties()).containsEntry("code", "slug_taken").containsEntry("suggested", "acme-2");
+	}
+
+	/**
+	 * The race that gets past the check and meets the unique index instead has no
+	 * alternative to give — the transaction is spent. Absent rather than empty, so a
+	 * client can tell "here is another" from "try something else".
+	 */
+	@Test
+	void sendsNoAlternativeWhenItHasNoneToSend() {
+		ProblemDetail problem = this.handler.handleSlugTaken(new SlugTakenException(null));
+
+		assertThat(problem.getProperties()).containsEntry("code", "slug_taken").doesNotContainKey("suggested");
+	}
+
 	static Stream<Arguments> domainFailures() {
 		return Stream.of(
 				Arguments.of(new EmailAlreadyRegisteredException(), HttpStatus.CONFLICT, "email_already_registered"),
-				Arguments.of(new OrganisationNameUnavailableException(), HttpStatus.CONFLICT,
-						"organisation_name_unavailable"),
-				Arguments.of(new UnusableOrganisationNameException(), HttpStatus.BAD_REQUEST,
-						"organisation_name_unusable"),
 				Arguments.of(new InvalidCredentialsException(), HttpStatus.UNAUTHORIZED, "invalid_credentials"),
 				Arguments.of(new NotAMemberException(), HttpStatus.FORBIDDEN, "not_a_member"),
 				Arguments.of(new EmailNotVerifiedException(), HttpStatus.FORBIDDEN, "email_not_verified"),

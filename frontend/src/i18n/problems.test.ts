@@ -10,8 +10,7 @@ const t = i18n.getFixedT('en');
  * derived, so that this file states the contract instead of agreeing with itself. */
 const BACKEND_CODES = [
   'email_already_registered',
-  'organisation_name_unavailable',
-  'organisation_name_unusable',
+  'slug_taken',
   'invalid_credentials',
   'email_not_verified',
   'invalid_token',
@@ -158,6 +157,7 @@ describe('describeFieldErrors', () => {
       { code: 'size', min: 12, max: 72 },
       { code: 'max_size', min: 0, max: 200 },
       { code: 'email' },
+      { code: 'pattern' },
       { code: 'invalid' }
     ];
 

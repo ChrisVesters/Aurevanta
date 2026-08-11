@@ -41,6 +41,7 @@ function Probe() {
         onClick={() =>
           void register({
             organisationName: 'Acme',
+            organisationSlug: 'acme',
             displayName: 'Ada',
             email: 'ada@acme.test',
             password: 'a-long-enough-passphrase'

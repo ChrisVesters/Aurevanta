@@ -49,10 +49,32 @@ class ApiExceptionHandler {
 	 * other codes in this application.
 	 */
 	private static final Map<String, String> CONSTRAINT_CODES = Map.of("NotBlank", "not_blank", "NotNull", "not_null",
-			"Size", "size", "Email", "email");
+			"Size", "size", "Email", "email", "Pattern", "pattern");
 
 	/** What an unmapped constraint becomes, so a new one degrades rather than leaks. */
 	private static final String UNKNOWN_CONSTRAINT = "invalid";
+
+	/**
+	 * Unique indexes whose violation has a better answer than "something conflicted".
+	 *
+	 * <p>
+	 * A pre-check produces the readable refusal for the ordinary case; this is for the
+	 * pair who get past that check in the same instant and meet the index instead. Named
+	 * here because this is the one place that turns a failure into an answer, and because
+	 * a second place that read constraint names would be a second place to forget one.
+	 *
+	 * <p>
+	 * These names belong to migrations rather than to this class, and nothing else would
+	 * notice them drifting apart — renaming an index would quietly turn a specific
+	 * refusal into a generic one. {@code ConstraintNamesTests} is what fails when they
+	 * stop agreeing.
+	 */
+	static final String UNIQUE_SLUG_INDEX = "uq_tenants_slug";
+
+	/**
+	 * Every index name this advice reads, for the test that pins them to the database.
+	 */
+	static final List<String> KNOWN_CONSTRAINTS = List.of(UNIQUE_SLUG_INDEX);
 
 	/**
 	 * Which complaint wins when one field breaks several rules at once.
@@ -69,7 +91,8 @@ class ApiExceptionHandler {
 	 * about shape only start to mean something once there is something to shape. Anything
 	 * unlisted ranks last, so a mapped constraint always beats a generic {@code invalid}.
 	 */
-	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "not_null", "size", "max_size", "email");
+	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "not_null", "size", "max_size", "email",
+			"pattern");
 
 	/** Every domain failure describes itself, so one branch covers all of them. */
 	@ExceptionHandler(ApiProblemException.class)
@@ -92,6 +115,26 @@ class ApiExceptionHandler {
 		return ResponseEntity.status(ex.getStatus())
 			.header(HttpHeaders.RETRY_AFTER, Long.toString(ex.getRetryAfter().toSeconds()))
 			.body(problem(ex.getStatus(), ex.getTitle(), ex.getMessage(), ex.getCode()));
+	}
+
+	/**
+	 * The other failure that answers with more than a code, and so takes a branch of its
+	 * own.
+	 *
+	 * <p>
+	 * A refusal that names a free alternative is what this API offers instead of an
+	 * endpoint for asking whether a handle is free — which would be a surface anybody
+	 * could walk to enumerate the organisations that exist. The one caller that cannot
+	 * offer an alternative sends none rather than an empty one, so a client can tell
+	 * "here is another" from "try something else".
+	 */
+	@ExceptionHandler(SlugTakenException.class)
+	ProblemDetail handleSlugTaken(SlugTakenException ex) {
+		ProblemDetail problem = problem(ex.getStatus(), ex.getTitle(), ex.getMessage(), ex.getCode());
+		if (ex.getSuggested() != null) {
+			problem.setProperty("suggested", ex.getSuggested());
+		}
+		return problem;
 	}
 
 	/**
@@ -172,15 +215,35 @@ class ApiExceptionHandler {
 	}
 
 	/**
-	 * Two registrations racing on the same email or organisation name: one wins, the
-	 * other trips a unique constraint and is reported the same way the pre-check would
-	 * have reported it. The violation's own message can name database objects, so it is
-	 * deliberately not echoed back.
+	 * Two writers racing on the same unique index: one wins, and the other arrives here.
+	 *
+	 * <p>
+	 * Reported as whatever the pre-check would have said, where the index is one this
+	 * advice knows — a handle taken in the moment between the check and the write is
+	 * still a handle taken, and telling somebody "something conflicted" about a field
+	 * they typed would be a refusal they could not act on. What it cannot do is name a
+	 * free alternative: the transaction is already lost, so there is nothing left to ask
+	 * the database.
+	 *
+	 * <p>
+	 * The violation's own message can name database objects, so it is read for a
+	 * constraint name and never echoed back.
 	 */
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	ProblemDetail handleConflict(DataIntegrityViolationException ex) {
+		if (violated(ex, UNIQUE_SLUG_INDEX)) {
+			return handleSlugTaken(new SlugTakenException(null));
+		}
 		return problem(HttpStatus.CONFLICT, "Already registered",
 				"That email address or organisation name was just taken", "registration_conflict");
+	}
+
+	/**
+	 * Package-visible so the mapping is testable without provoking a race to reach it.
+	 */
+	static boolean violated(DataIntegrityViolationException ex, String constraint) {
+		String reported = ex.getMostSpecificCause().getMessage();
+		return (reported != null) && reported.contains(constraint);
 	}
 
 	private static ProblemDetail problem(HttpStatus status, String title, String detail, String code) {

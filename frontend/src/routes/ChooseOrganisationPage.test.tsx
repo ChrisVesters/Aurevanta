@@ -112,7 +112,10 @@ describe('ChooseOrganisationPage', () => {
         '/api/organisations',
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ name: 'Nowhere Consulting' })
+          body: JSON.stringify({
+            name: 'Nowhere Consulting',
+            slug: 'nowhere-consulting'
+          })
         })
       )
     );
@@ -120,12 +123,16 @@ describe('ChooseOrganisationPage', () => {
     expect(readStoredSession()?.kind).toBe('access');
   });
 
-  it('reports a name that is taken against the field it was typed in', async () => {
+  /**
+   * The name is not the thing that has to be unique any more. The handle is, and a
+   * refusal about it arrives holding a free one.
+   */
+  it('takes up the free handle a refusal offers', async () => {
     await choosing([]);
     await screen.findByLabelText('Organisation name');
 
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(409, { code: 'organisation_name_unavailable' })
+      jsonResponse(409, { code: 'slug_taken', suggested: 'acme-planning-co-2' })
     );
     await userEvent.type(
       screen.getByLabelText('Organisation name'),
@@ -135,9 +142,39 @@ describe('ChooseOrganisationPage', () => {
       screen.getByRole('button', { name: 'Create organisation' })
     );
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'That organisation name is already taken.'
+    expect(await screen.findByLabelText('Handle')).toHaveValue(
+      'acme-planning-co-2'
     );
+    // Said once, beside the field it is about — not in the banner as well.
+    expect(await screen.findAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /already has that handle/i
+    );
+  });
+
+  /**
+   * A refusal that is not about the handle has nothing to put beside the field and no
+   * alternative to offer, so it goes in the banner and leaves what was typed alone.
+   */
+  it('reports any other refusal in the banner, leaving the handle alone', async () => {
+    await choosing([]);
+    await screen.findByLabelText('Organisation name');
+    await userEvent.type(
+      screen.getByLabelText('Organisation name'),
+      'Nowhere Consulting'
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(401, { code: 'invalid_credentials' })
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Create organisation' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Email or password is incorrect.'
+    );
+    expect(screen.getByLabelText('Handle')).toHaveValue('nowhere-consulting');
   });
 
   /** Somebody with a choice already has a way forward; the form would only distract. */

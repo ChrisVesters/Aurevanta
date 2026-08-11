@@ -1,9 +1,11 @@
 package com.cvesters.aurevanta.auth.registration;
 
+import com.cvesters.aurevanta.tenant.Slug;
 import com.cvesters.aurevanta.user.PasswordRules;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -11,6 +13,8 @@ import jakarta.validation.constraints.Size;
  * "create a workspace" stage afterwards.
  *
  * @param organisationName display name of the tenant being created
+ * @param organisationSlug the handle it will answer to, chosen rather than derived — see
+ * {@code CreateOrganisationRequest}, which asks for the same pair
  * @param displayName how the registering user should be shown
  * @param email login identity, unique across the installation
  * @param password bounded by {@link PasswordRules}, which password reset shares — the two
@@ -19,6 +23,9 @@ import jakarta.validation.constraints.Size;
 public record RegistrationRequest(
 
 		@NotBlank @Size(max = 200) String organisationName,
+
+		@NotBlank @Pattern(regexp = Slug.PATTERN) @Size(min = Slug.MIN_LENGTH,
+				max = Slug.MAX_LENGTH) String organisationSlug,
 
 		@NotBlank @Size(max = 200) String displayName,
 
@@ -39,6 +46,7 @@ public record RegistrationRequest(
 	 */
 	public RegistrationRequest {
 		organisationName = stripped(organisationName);
+		organisationSlug = stripped(organisationSlug);
 		displayName = stripped(displayName);
 		email = stripped(email);
 	}

@@ -15,7 +15,8 @@ class RegistrationRequestTests {
 
 	@Test
 	void stripsTheTextItWillStore() {
-		RegistrationRequest request = new RegistrationRequest("  Acme  ", "  Ada  ", "  ada@acme.test  ", "secret");
+		RegistrationRequest request = new RegistrationRequest("  Acme  ", "  acme  ", "  Ada  ", "  ada@acme.test  ",
+				"secret");
 
 		assertThat(request.organisationName()).isEqualTo("Acme");
 		assertThat(request.displayName()).isEqualTo("Ada");
@@ -28,14 +29,14 @@ class RegistrationRequestTests {
 	 */
 	@Test
 	void leavesThePasswordExactlyAsItWasTyped() {
-		assertThat(new RegistrationRequest("Acme", "Ada", "ada@acme.test", "  pass phrase  ").password())
+		assertThat(new RegistrationRequest("Acme", "acme", "Ada", "ada@acme.test", "  pass phrase  ").password())
 			.isEqualTo("  pass phrase  ");
 	}
 
 	/** A missing field has to survive as far as validation, which is what reports it. */
 	@Test
 	void toleratesMissingValues() {
-		RegistrationRequest request = new RegistrationRequest(null, null, null, null);
+		RegistrationRequest request = new RegistrationRequest(null, null, null, null, null);
 
 		assertThat(request.organisationName()).isNull();
 		assertThat(request.displayName()).isNull();

@@ -35,10 +35,60 @@ describe('sign-up form', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       organisationName: 'Acme',
+      // Proposed from the name as it was typed, and sent because accepting a proposal is
+      // a choice — there is no path where the server picks one instead.
+      organisationSlug: 'acme',
       displayName: 'Ada',
       email: 'ada@acme.test',
       password: 'a-long-enough-passphrase'
     });
+  });
+
+  it('proposes a handle from the organisation name as it is typed', async () => {
+    renderRouted(<RegisterForm />);
+
+    await userEvent.type(
+      screen.getByLabelText('Organisation name'),
+      'Acme Planning Co'
+    );
+
+    expect(screen.getByLabelText('Handle')).toHaveValue('acme-planning-co');
+  });
+
+  /**
+   * A field that kept following would silently undo a handle its owner had just chosen,
+   * one keystroke into the name above it.
+   */
+  it('stops following the name once the handle has been edited', async () => {
+    renderRouted(<RegisterForm />);
+    await userEvent.type(screen.getByLabelText('Organisation name'), 'Acme');
+
+    await userEvent.clear(screen.getByLabelText('Handle'));
+    await userEvent.type(screen.getByLabelText('Handle'), 'acme-eu');
+    await userEvent.type(screen.getByLabelText('Organisation name'), ' Ltd');
+
+    expect(screen.getByLabelText('Handle')).toHaveValue('acme-eu');
+  });
+
+  /**
+   * The refusal M0 got wrong, aimed at the right thing — and arriving holding the way
+   * past itself, which is what the API offers instead of an endpoint for asking what is
+   * free.
+   */
+  it('takes up the free handle a refusal offers', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(409, { code: 'slug_taken', suggested: 'acme-2' })
+    );
+
+    renderRouted(<RegisterForm />);
+    await fillAndSubmit();
+
+    expect(await screen.findByLabelText('Handle')).toHaveValue('acme-2');
+    // Said once, beside the field it is about — not in the banner as well.
+    expect(await screen.findAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /already has that handle/i
+    );
   });
 
   it('places a field complaint against its own input', async () => {

@@ -67,7 +67,8 @@ public class RegistrationService {
 		Instant now = Instant.now(this.clock);
 		User user = this.users
 			.save(new User(email, this.passwordEncoder.encode(request.password()), request.displayName(), now));
-		Membership owner = this.organisations.createFor(user, request.organisationName(), now);
+		Membership owner = this.organisations.createFor(user, request.organisationName(), request.organisationSlug(),
+				now);
 
 		// The account exists but cannot be used until this link is followed. Sending
 		// cannot fail registration — delivery problems are logged, not thrown — and the

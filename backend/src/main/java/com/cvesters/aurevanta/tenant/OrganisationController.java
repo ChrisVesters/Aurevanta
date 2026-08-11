@@ -46,7 +46,7 @@ class OrganisationController {
 	@ResponseStatus(HttpStatus.CREATED)
 	AuthenticationResponse create(@AuthenticationPrincipal AuthenticatedUser caller,
 			@Valid @RequestBody CreateOrganisationRequest request) {
-		Membership owner = this.organisations.create(caller.userId(), request.name());
+		Membership owner = this.organisations.create(caller.userId(), request.name(), request.slug());
 		return AuthenticationResponse.of(owner, this.accessTokens.issue(owner));
 	}
 

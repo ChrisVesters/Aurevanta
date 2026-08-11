@@ -268,7 +268,7 @@ class PasswordResetApiTests {
 	}
 
 	private void register(String email) throws Exception {
-		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "Ada", email, OLD_PASSWORD));
+		String body = this.json.writeValueAsString(new RegistrationRequest("Acme", "acme", "Ada", email, OLD_PASSWORD));
 		this.mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
 			.andExpect(status().isCreated());
 	}

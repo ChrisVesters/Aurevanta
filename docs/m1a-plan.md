@@ -38,7 +38,7 @@ changing either is a deliberate act rather than a side effect.
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | The handle becomes a field | — |
+| 1 | The handle becomes a field ✅ *done* | — |
 | 2 | Each conflict reports what it actually is | 1 |
 | 3 | Changing the name and the handle afterwards | 1 |
 | 4 | Two organisations, one name, on screen | 1 |
@@ -164,7 +164,7 @@ so it costs no query and no endpoint.
 
 ---
 
-## Step 1 — The handle becomes a field
+## Step 1 — The handle becomes a field ✅ *done*
 
 **Goal.** Two organisations may share a name. Whoever creates one chooses its address, and is
 refused only when they chose something somebody else already has.
@@ -229,6 +229,38 @@ nothing.
 
 **Done when** two people can register "Acme Consulting", and the only thing either is ever
 refused is a handle they typed.
+
+### As built — where it differs from the above
+
+- **The wire word is `slug`, not `handle`.** The API already publishes
+  `organisation.slug`, and a request field called `handle` would have named the same value
+  twice for anybody writing a client. "Handle" survives where it reads better than it
+  stores: the UI label, this plan, and `roadmap.md`. The refusal is `slug_taken`.
+- **The service never catches the race; the advice reads it.** Catching the constraint
+  violation inside `OrganisationService` needed a `saveAndFlush` to make the violation land
+  somewhere catchable, and left a branch only two colliding writers could reach — so
+  nothing could cover it. Mapping the violated index to a refusal moved into
+  `ApiExceptionHandler`, which is the one place that already turns failures into answers,
+  and which step 2 was going to extend the same way regardless. It reads the constraint
+  name out of the exception, so both branches are a plain unit test away.
+- **`ConstraintNamesTests` is what the risk section asked for.** It asserts every index
+  name the advice reads still exists in the database. Renaming an index without following
+  it would otherwise turn a specific, actionable refusal into a generic one with the whole
+  suite still green; this is the test that fails instead. Step 2 adds names to the list it
+  walks.
+- **`Slug.base` lost a branch it could never take.** Guarding against an empty result was
+  dead code: the pattern guarantees a leading letter or digit, so stripping a trailing
+  count always leaves something.
+- **The banner is suppressed while the handle field is speaking.** `useFormFailure` could
+  not know to do it — a handle already taken is not a validation failure and never appears
+  in `errors` — so the refusal was rendered twice, once beside the field and once in the
+  banner. A test caught it. `SLUG_TAKEN` is exported from `SlugField` for exactly that,
+  and the tests now assert the message is said once.
+- **`useProposedSlug` is shared by both forms**, because "follows the name until its owner
+  takes it over" is easy to get subtly wrong and invisible when you do: a field that kept
+  following would silently undo a handle somebody had just chosen, one keystroke into the
+  name above it. Taking over is one-way, so going back to fix a typo in the name does not
+  move it either.
 
 ---
 

@@ -2,11 +2,14 @@ import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
+import { ApiError } from '../api/client';
 import { useAuth } from './AuthContext';
 import { Field } from './Field';
 import { textField } from './formValues';
 import { ResendConfirmation } from './ResendConfirmation';
 import { useFormFailure } from './useFormFailure';
+import { SLUG_TAKEN, SlugField } from '../tenant/SlugField';
+import { useProposedSlug } from '../tenant/useProposedSlug';
 import {
   MAXIMUM_EMAIL_LENGTH,
   MAXIMUM_NAME_LENGTH,
@@ -28,10 +31,12 @@ export function RegisterForm() {
   const [attemptedEmail, setAttemptedEmail] = useState<string | null>(null);
   const { message, code, fieldErrors, report, clear } = useFormFailure([
     'organisationName',
+    'organisationSlug',
     'displayName',
     'email',
     'password'
   ]);
+  const handle = useProposedSlug();
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,6 +48,7 @@ export function RegisterForm() {
       setAttemptedEmail(email);
       const account = await register({
         organisationName: textField(form, 'organisationName'),
+        organisationSlug: handle.slug,
         displayName: textField(form, 'displayName'),
         email,
         password: textField(form, 'password')
@@ -52,6 +58,12 @@ export function RegisterForm() {
       setConfirmationSentTo(account.email);
     } catch (error) {
       report(error);
+      // A refused handle arrives holding a free one. Taking it up is what the visitor
+      // would otherwise do by hand, and it also marks the field as theirs — so a later
+      // edit to the name above cannot quietly undo it.
+      if (error instanceof ApiError && error.suggested) {
+        handle.choose(error.suggested);
+      }
       setSubmitting(false);
     }
   }
@@ -90,7 +102,8 @@ export function RegisterForm() {
       <h1>{t('auth.register.title')}</h1>
       <p className="lede">{t('auth.register.lede')}</p>
 
-      {message && (
+      {/* Quiet while the handle field is saying it; see SLUG_TAKEN. */}
+      {message && code !== SLUG_TAKEN && (
         <p className="form-error" role="alert">
           {message}
         </p>
@@ -118,6 +131,14 @@ export function RegisterForm() {
         maxLength={MAXIMUM_NAME_LENGTH}
         error={fieldErrors.organisationName}
         hint={t('auth.fields.organisationName.hint')}
+        onChange={(event) => handle.followName(event.target.value)}
+      />
+      <SlugField
+        id="organisationSlug"
+        value={handle.slug}
+        onChange={handle.choose}
+        error={fieldErrors.organisationSlug}
+        taken={code === SLUG_TAKEN}
       />
       <Field
         id="displayName"

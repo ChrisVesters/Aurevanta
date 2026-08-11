@@ -84,7 +84,7 @@ class OrganisationApiTests {
 
 	@Test
 	void somebodyWhoBelongsToNothingCanStartAnOrganisation() throws Exception {
-		create(identityToken(), "Nowhere Consulting").andExpect(status().isCreated())
+		create(identityToken(), "Nowhere Consulting", "nowhere-consulting").andExpect(status().isCreated())
 			// A session for it straight away, so the caller is working in the thing they
 			// just made rather than having to trade a token for it.
 			.andExpect(jsonPath("$.accessToken").isNotEmpty())
@@ -101,7 +101,7 @@ class OrganisationApiTests {
 	/** So a later sign-in offers the one they were most recently working in. */
 	@Test
 	void startingOneCountsAsChoosingIt() throws Exception {
-		create(identityToken(), "Nowhere Consulting").andExpect(status().isCreated());
+		create(identityToken(), "Nowhere Consulting", "nowhere-consulting").andExpect(status().isCreated());
 
 		assertThat(this.memberships.findAllForUser(this.mallory.getId()).getFirst().getLastAccessedAt()).isNotNull();
 	}
@@ -115,7 +115,8 @@ class OrganisationApiTests {
 		Tenant acme = this.tenants.save(new Tenant("Acme Planning Co", "acme-planning-co", CREATED_AT));
 		Membership existing = this.memberships.save(new Membership(this.mallory, acme, UserRole.MEMBER, CREATED_AT));
 
-		create(this.accessTokens.issue(existing).value(), "Nowhere Consulting").andExpect(status().isCreated())
+		create(this.accessTokens.issue(existing).value(), "Nowhere Consulting", "nowhere-consulting")
+			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.account.organisation.slug").value("nowhere-consulting"))
 			.andExpect(jsonPath("$.account.role").value("OWNER"));
 
@@ -126,21 +127,66 @@ class OrganisationApiTests {
 					Tuple.tuple("nowhere-consulting", UserRole.OWNER));
 	}
 
-	/** The same rules registration applies, because it is the same code applying them. */
+	/** The whole point of M1a: the name is not the thing that has to be unique. */
 	@Test
-	void refusesANameAlreadyTaken() throws Exception {
+	void acceptsANameSomebodyElseAlreadyUses() throws Exception {
 		this.tenants.save(new Tenant("Nowhere Consulting", "nowhere-consulting", CREATED_AT));
 
-		create(identityToken(), "Nowhere  Consulting!").andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("organisation_name_unavailable"));
+		create(identityToken(), "Nowhere Consulting", "nowhere-consulting-2").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.account.organisation.name").value("Nowhere Consulting"))
+			.andExpect(jsonPath("$.account.organisation.slug").value("nowhere-consulting-2"));
+	}
+
+	/**
+	 * The refusal M0 got wrong, aimed at the right thing — and carrying a way past
+	 * itself, which is what this API offers instead of an endpoint for asking what is
+	 * free.
+	 */
+	@Test
+	void refusesAHandleSomebodyElseHasAndOffersOneTheyDoNot() throws Exception {
+		this.tenants.save(new Tenant("Nowhere Consulting", "nowhere-consulting", CREATED_AT));
+
+		create(identityToken(), "Nowhere Consulting", "nowhere-consulting").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("slug_taken"))
+			.andExpect(jsonPath("$.suggested").value("nowhere-consulting-2"));
+
+		assertThat(this.tenants.findAll()).hasSize(1);
+	}
+
+	/** Somebody already counting is offered the next number, not a number of numbers. */
+	@Test
+	void countsOnFromAHandleThatIsAlreadyCounting() throws Exception {
+		this.tenants.save(new Tenant("Nowhere", "nowhere", CREATED_AT));
+		this.tenants.save(new Tenant("Nowhere", "nowhere-2", CREATED_AT));
+
+		create(identityToken(), "Nowhere", "nowhere-2").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.suggested").value("nowhere-3"));
+	}
+
+	/** Nothing is derived from the name any more, so it is simply a name. */
+	@Test
+	void acceptsANameNoHandleCouldBeBuiltFrom() throws Exception {
+		create(identityToken(), "!!! ???", "nowhere-consulting").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.account.organisation.name").value("!!! ???"))
+			.andExpect(jsonPath("$.account.organisation.slug").value("nowhere-consulting"));
 	}
 
 	@Test
-	void refusesANameNoHandleCanBeBuiltFrom() throws Exception {
-		create(identityToken(), "!!! ???").andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("organisation_name_unusable"));
+	void rejectsAHandleThatIsNotTheShapeAHandleMustBe() throws Exception {
+		create(identityToken(), "Nowhere Consulting", "Nowhere Consulting").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.slug.code").value("pattern"));
 
 		assertThat(this.tenants.findAll()).isEmpty();
+	}
+
+	@Test
+	void rejectsARequestThatNamesNoHandle() throws Exception {
+		this.mvc
+			.perform(post("/api/organisations").header(HttpHeaders.AUTHORIZATION, "Bearer " + identityToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"name\":\"Nowhere Consulting\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.slug.code").value("not_blank"));
 	}
 
 	/**
@@ -148,7 +194,7 @@ class OrganisationApiTests {
 	 */
 	@Test
 	void rejectsARequestThatNamesNothing() throws Exception {
-		create(identityToken(), "   ").andExpect(status().isBadRequest())
+		create(identityToken(), "   ", "nowhere-consulting").andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.name.code").value("not_blank"));
 	}
 
@@ -169,7 +215,8 @@ class OrganisationApiTests {
 	void requiresAToken() throws Exception {
 		this.mvc
 			.perform(post("/api/organisations").contentType(MediaType.APPLICATION_JSON)
-				.content(this.json.writeValueAsString(new CreateOrganisationRequest("Nowhere Consulting"))))
+				.content(this.json
+					.writeValueAsString(new CreateOrganisationRequest("Nowhere Consulting", "nowhere-consulting"))))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -181,7 +228,7 @@ class OrganisationApiTests {
 		String stale = identityToken();
 		this.users.delete(this.mallory);
 
-		create(stale, "Nowhere Consulting").andExpect(status().isUnauthorized())
+		create(stale, "Nowhere Consulting", "nowhere-consulting").andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("invalid_credentials"));
 	}
 
@@ -195,10 +242,14 @@ class OrganisationApiTests {
 		return this.accessTokens.issueIdentityToken(this.mallory).value();
 	}
 
-	private ResultActions create(String bearer, String name) throws Exception {
+	/**
+	 * Name and handle are passed separately because they are no longer derived from one
+	 * another — which is the whole of what this milestone changed.
+	 */
+	private ResultActions create(String bearer, String name, String slug) throws Exception {
 		return this.mvc.perform(post("/api/organisations").header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer)
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(this.json.writeValueAsString(new CreateOrganisationRequest(name))));
+			.content(this.json.writeValueAsString(new CreateOrganisationRequest(name, slug))));
 	}
 
 }

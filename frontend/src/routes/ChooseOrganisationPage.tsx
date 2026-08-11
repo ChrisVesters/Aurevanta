@@ -7,6 +7,9 @@ import { MAXIMUM_NAME_LENGTH } from '../auth/constants';
 import { textField } from '../auth/formValues';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
+import { ApiError } from '../api/client';
+import { SLUG_TAKEN, SlugField } from '../tenant/SlugField';
+import { useProposedSlug } from '../tenant/useProposedSlug';
 
 /**
  * Shown to someone who has authenticated but is not acting for an organisation: either
@@ -26,10 +29,12 @@ export function ChooseOrganisationPage() {
   const [creating, setCreating] = useState(false);
   const {
     message: formMessage,
+    code,
     fieldErrors,
     report,
     clear
-  } = useFormFailure(['name']);
+  } = useFormFailure(['name', 'slug']);
+  const handle = useProposedSlug();
 
   async function choose(organisationId: string) {
     setSelecting(true);
@@ -48,9 +53,14 @@ export function ChooseOrganisationPage() {
     setCreating(true);
     clear();
     try {
-      await createOrganisation(textField(values, 'name'));
+      await createOrganisation(textField(values, 'name'), handle.slug);
     } catch (error) {
       report(error);
+      // The refusal arrives holding a free handle; taking it up is what the visitor
+      // would otherwise do by hand.
+      if (error instanceof ApiError && error.suggested) {
+        handle.choose(error.suggested);
+      }
       setCreating(false);
     }
   }
@@ -77,7 +87,8 @@ export function ChooseOrganisationPage() {
             <h2>{t('chooseOrganisation.start.title')}</h2>
             <p className="lede">{t('chooseOrganisation.start.body')}</p>
 
-            {formMessage && (
+            {/* Quiet while the handle field is saying it; see SLUG_TAKEN. */}
+            {formMessage && code !== SLUG_TAKEN && (
               <p className="form-error" role="alert">
                 {formMessage}
               </p>
@@ -91,6 +102,14 @@ export function ChooseOrganisationPage() {
               required
               maxLength={MAXIMUM_NAME_LENGTH}
               error={fieldErrors.name}
+              onChange={(event) => handle.followName(event.target.value)}
+            />
+            <SlugField
+              id="slug"
+              value={handle.slug}
+              onChange={handle.choose}
+              error={fieldErrors.slug}
+              taken={code === SLUG_TAKEN}
             />
 
             <button type="submit" className="primary" disabled={creating}>

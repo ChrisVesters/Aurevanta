@@ -70,6 +70,13 @@ export const en = {
         label: 'Organisation name',
         hint: "Everyone you invite later shares this organisation's plans."
       },
+      slug: {
+        label: 'Handle',
+        hint: 'Lowercase letters, numbers and hyphens. Yours to change later.',
+        // A handle is an address, not a name — which is why this refusal is one somebody
+        // can act on, and why the field is already holding the way past it.
+        taken: 'Somebody already has that handle. We have suggested another.'
+      },
       displayName: { label: 'Your name' },
       email: { label: 'Email' },
       password: {
@@ -263,9 +270,7 @@ export const en = {
     // shown to the user is ours rather than whatever prose the server happened to send.
     codes: {
       email_already_registered: 'That email address is already registered.',
-      organisation_name_unavailable: 'That organisation name is already taken.',
-      organisation_name_unusable:
-        'Organisation name must contain at least one letter or digit.',
+      slug_taken: 'Somebody already has that handle. Choose another.',
       invalid_credentials: 'Email or password is incorrect.',
       email_not_verified:
         'Confirm your email address before signing in. Check your inbox for the link we sent when you registered.',
@@ -312,6 +317,9 @@ export const en = {
       // A constraint that only bounds length above; `size` would say "between 0 and 200".
       max_size: 'Use no more than {{max}} characters.',
       email: 'Enter a valid email address.',
+      // The server keeps the expression to itself, so this has to say the rule in its own
+      // words rather than interpolate one.
+      pattern: 'Use lowercase letters, numbers and hyphens.',
       invalid: 'Check this and try again.'
     },
     network: 'Could not reach the server. Check your connection and try again.',
