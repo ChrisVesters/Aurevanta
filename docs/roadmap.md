@@ -104,6 +104,7 @@ departed from its own brief. Four things changed shape against the bullets above
 ## M1a — Organisation names are not unique
 
 *A correction slotted after M1, not a split of it. Lettered to avoid renumbering M2–M11.*
+`m1a-plan.md` breaks it into four steps and answers the decisions below.
 
 M0 gave `tenants.slug` a unique index and derived it from the organisation's name, which
 quietly made **the name itself unique across the entire installation**. Register "Acme
@@ -143,13 +144,32 @@ and it is now a question about screens that exist.
 puts one in a URL, changing the scheme starts breaking links people have bookmarked and
 pasted to colleagues. The change is small today and gets steadily less so.
 
-### Decisions required before building it
+### Decisions taken
 
-| Question | Recommendation |
+Settled before building; `m1a-plan.md` carries the reasoning. **The first one changes what
+this milestone is**, and the two questions below it dissolve into it rather than being
+answered on their own terms.
+
+| Question | Decision |
 |---|---|
-| Suffix collisions, or abandon slugs? | **Suffix.** Readable handles are worth keeping and cost one retry loop. |
-| Can an organisation be renamed at all? | **Not yet** — out of scope here. But decide it now, because "does the slug follow the name?" has no good answer once links exist. |
-| What distinguishes two identically named organisations on screen? | **Unresolved.** M1's switcher and invitation preview are built and show a bare name, so this is now a change to working screens rather than a constraint on unwritten ones. |
+| Suffix collisions, or abandon slugs? | **Neither, quite: the handle becomes a required field the organisation owns**, proposed from its name. Suffixing survives only as the *suggestion* offered when a chosen handle is taken. |
+| Can an organisation be renamed at all? | **Yes, name and handle both**, on an owner-only settings screen. "Does the slug follow the name?" stops being a question once they are separate fields: neither follows the other. |
+| What distinguishes two identically named organisations on screen? | **The handle, shown only where the caller's own list repeats a name.** A display rule over data already on the wire, so no query and no endpoint. |
+
+**Why a field rather than a silent suffix.** M0's refusal was unactionable because it was
+aimed at the wrong thing: *"that organisation name is taken"* leaves a person nothing to do,
+because it is their name. *"That handle is taken"* leaves them everything to do — a handle is
+an address, not a name, and picking another costs nothing. So the refusal survives and stops
+being a wall.
+
+**The handle is required**, so there is no path where the server picks one and the caller is
+left holding the consequence: every refusal is against something somebody typed. The form
+proposes a handle as the name is typed and accepting it costs a keystroke fewer than changing
+it, so the common case is free and the person has still chosen.
+
+**Deferred to M2, deliberately, and recorded there:** reserved handles, and whether a changed
+handle leaves a redirect behind. Both are free to defer only while nothing routes by handle,
+and M2 is the step that ends that.
 
 ---
 
@@ -157,6 +177,20 @@ pasted to colleagues. The change is small today and gets steadily less so.
 
 The first migration that carries real domain data. Getting this wrong is the most
 expensive mistake available, because M3–M9 all read from it.
+
+**Two things M1a deferred come due here**, because this is the step that first puts an
+organisation handle in a URL and so ends the grace period both were granted:
+
+- **Reserved handles.** Nothing stops an organisation calling itself `api` or `admin` today,
+  because a handle addresses nothing. Decide before routing exists whether to reserve a list
+  or to namespace handles under a prefix (`/o/<handle>/…`) so they can never collide with an
+  application route. Reserving one back afterwards means migrating an organisation somebody
+  has already linked to.
+- **Redirects for retired handles.** M1a lets an owner change a handle and lets every link to
+  the old one die, on the grounds that there are no links yet. From here there are. Adding a
+  retired-handle table later is a table and a lookup; not adding it is silent breakage that
+  nobody reports, because the person who follows a dead link is not the person who changed
+  the handle.
 
 - **Projects** (or plans) — a named container per tenant.
 - **Work items** — the unit that carries an estimate.

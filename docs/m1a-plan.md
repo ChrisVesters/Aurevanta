@@ -1,0 +1,367 @@
+# M1a — Organisation names are not unique: implementation plan
+
+> **Scope.** `roadmap.md` M1a: stop `tenants.slug` making an organisation's *name* unique
+> across the installation. Explicitly excluded: reserved handles, and any change to how
+> tenants are addressed in URLs — nothing routes by handle yet, which is the whole reason
+> this is cheap now.
+>
+> **How to read this.** Decisions first; the first one changes what the milestone *is*. Then
+> five steps, each a reviewable commit that leaves the build green: `./mvnw test` (format
+> gate, 100% branch coverage) and, where the frontend is touched,
+> `npm run lint && npm run build && npm run test`.
+
+---
+
+## What changed about this milestone
+
+The roadmap framed M1a as *"keep the slug unique, disambiguate on collision"* — the
+application quietly appends a number and nobody is refused. That fixes the symptom.
+
+**The decision taken instead is that the handle becomes a required field the organisation
+owns**, proposed from its name and with a suffixed alternative offered when the proposal is
+taken. This is a better answer to the problem M1a exists for, and it is worth being explicit
+about why:
+
+M0's refusal was unactionable because it was aimed at the wrong thing. *"That organisation
+name is already taken"* leaves a person nothing to do — it is their name. **"That handle is
+already taken" leaves them everything to do**, because a handle is not their name; it is an
+address, and picking a different address costs nothing. The refusal survives, and stops
+being a wall.
+
+It also dissolves the question the roadmap flagged as needing an answer first — *does the
+slug follow the name?* Once the two are separate fields, neither follows the other, and
+changing either is a deliberate act rather than a side effect.
+
+---
+
+## At a glance
+
+| Step | | Depends on |
+|---|---|---|
+| 1 | The handle becomes a field | — |
+| 2 | Each conflict reports what it actually is | 1 |
+| 3 | Changing the name and the handle afterwards | 1 |
+| 4 | Two organisations, one name, on screen | 1 |
+| 5 | Close out | 1–4 |
+
+Step 1 is the milestone. Steps 2 and 4 are consequences it leaves behind; step 3 is the one
+addition, and the one to strike if the milestone needs trimming.
+
+---
+
+## Decisions
+
+| # | Question | Decision |
+|---|---|---|
+| 1 | Derived handle, or a field? | **A field**, defaulted from the name and freely changed. |
+| 2 | What if the caller chooses nothing? | **They cannot.** The handle is required; the form proposes one from the name, and accepting it is a choice. |
+| 3 | How is a collision surfaced? | **On submit**, with the next free handle carried in the refusal. No availability endpoint. |
+| 4 | Reserved handles? | **Not yet** — decided when M2 puts handles in URLs. |
+| 5 | Can the handle change later? | **Yes, and the old one stops working.** |
+| 6 | Telling two identically named organisations apart | **The handle, shown only where the caller's own list repeats a name.** |
+
+### Decision 2 — Required, with a proposal
+
+An optional handle would leave two paths through creation that have to answer differently — a
+chosen handle can be refused, an omitted one cannot, because there would be nothing for the
+caller to change. Two paths is one more than this needs.
+
+**The field is required.** The form proposes a handle as the name is typed, and accepting the
+proposal costs a keystroke fewer than changing it — so the common case is free and the person
+has still chosen. Every refusal is then against something somebody typed, which is the whole
+property M1a exists to establish, with no branch where the server picks and the caller is left
+holding the consequence.
+
+Three things fall out of it, and they are most of why this is the better answer:
+
+- **No silent allocation.** Nothing walks `base-2`, `base-3` looking for a free handle to
+  assign. The only suffixing left builds a *suggestion*, which is advisory — it cannot be
+  wrong in a way that matters, only unhelpful.
+- **The advisory lock goes with it.** Without a check-then-assign sequence there is nothing to
+  serialise: the request carries a handle, the pre-check refuses it if taken, and
+  `uq_tenants_slug` catches the pair who passed that check in the same instant. Worth
+  comparing the stakes with the other pessimistic lock in this codebase —
+  `MembershipService.lockOwners` guards an invariant nothing can repair once broken, and this
+  would guard a *message*. A rare, self-correcting, already-actionable refusal does not earn a
+  lock.
+- **The proposal becomes the frontend's job**, and `Slug.of` moves with it. Deriving a handle
+  from a name is what a form does while somebody types; once the field is required the server
+  never needs it, and leaving it there would leave code nothing calls. Accent folding,
+  lowercasing and hyphenating port to TypeScript with their own tests. **The shape regex is
+  the contract between the two**, and it is the server that enforces it — a proposal the
+  server would reject is a frontend bug, not a disagreement about the rule.
+
+A name with nothing to derive from — `!!! ???` — proposes nothing, and the visitor types a
+handle themselves. That is the right outcome rather than a fallback worth inventing: an empty
+proposal in a required field asks a question, where `organisation` would invite somebody to
+accept it without reading it.
+
+### Decision 3 — On submit, with the suggestion in the refusal
+
+An availability endpoint (`is acme-consulting free?`) would be the nicer form, and it is a
+probe surface: anybody could walk it to enumerate which organisations exist. Handles become
+semi-public once they are in URLs, so it would not be a disaster — but it is a new endpoint,
+a new public surface, and a new thing to rate limit, bought for a case that arises rarely.
+
+So the refusal carries the answer instead:
+
+```
+409  { "code": "handle_taken", "suggested": "acme-consulting-2" }
+```
+
+One round trip, only when it collides, and nothing to probe.
+
+**The extra property rides on the problem document, not on a field error.** `FieldProblem`
+deliberately publishes only a constraint's *numeric* attributes, and `errors` is built from
+Bean Validation failures — a service-level "somebody else has this" is neither. The form
+places the message against the handle input itself, knowing what the code refers to, exactly
+as the sign-in form places `email_not_verified`.
+
+### Decision 5 — The handle can change, and old links die
+
+Chosen deliberately, so the cost belongs here in writing: **every link anyone has pasted to
+an organisation stops working the moment its handle changes.** No redirect table, no retired
+handles that keep resolving.
+
+Two things make that survivable rather than reckless, and both are temporary:
+
+- **Nothing routes by handle today.** M2 is what puts one in a URL, so until then the cost of
+  changing a handle is genuinely zero — there is no link to break.
+- **It is the reversible direction.** Adding retired-handle redirects later is a table and a
+  lookup; taking them away once people rely on them is not.
+
+**This is the decision to revisit at M2**, not because it will have become wrong, but because
+that is the moment its cost stops being hypothetical. It is noted in `roadmap.md` under M2
+rather than left in this plan for nobody to find.
+
+### Decision 6 — Disambiguate where a choice is being made, and nowhere else
+
+Once two organisations can share a name, a person who belongs to both sees the same word
+twice. It only bites where a *choice* is being made between organisations, which is two
+places:
+
+| Where | After |
+|---|---|
+| `ChooseOrganisationPage` | the handle beside the name, **when the list repeats a name** |
+| `OrganisationSwitcher` | the same, appended in the option |
+
+Everywhere else needs nothing, and it is worth recording why rather than leaving it to be
+rediscovered:
+
+- **The invitation preview already carries its discriminator.** "Ada has invited you to join
+  Acme Consulting" — if you do not know Ada, the organisation's name was never going to
+  settle it. This is the case the roadmap worried about most, and it is the one already
+  answered.
+- **The app header is covered by the switcher** that sits in it.
+- **Sentences that interpolate a name are left alone.** "Acme Consulting is ready" reads badly
+  with a handle in it, and by then you are inside one organisation rather than choosing
+  between two.
+
+**Only on a repeat**, because putting `acme-consulting` under "Acme Consulting" for everybody
+is noise for the overwhelming majority with no collision. It is a display rule over data
+already on the wire — `MembershipSummary` has carried `organisation.slug` since M1 step 1 —
+so it costs no query and no endpoint.
+
+---
+
+## Step 1 — The handle becomes a field
+
+**Goal.** Two organisations may share a name. Whoever creates one chooses its address, and is
+refused only when they chose something somebody else already has.
+
+### The field
+
+`handle` joins `RegistrationRequest` and `CreateOrganisationRequest`, **required** in both.
+
+- **Shape:** lowercase letters, digits and single hyphens, not leading or trailing —
+  `^[a-z0-9]+(-[a-z0-9]+)*$` — and 2 to 80 characters, matching the column.
+- **`Pattern` joins `CONSTRAINT_CODES`** as `pattern`, with a catalogue entry that is
+  self-contained: only a constraint's *numeric* attributes are published, so the regular
+  expression stays on the server and the message has to say "lowercase letters, numbers and
+  hyphens" in its own words rather than interpolate one.
+- **The name keeps `@NotBlank @Size(max = 200)`** and loses everything else. An empty name is
+  still refused, because that *is* something the person filling in the form can fix — which is
+  the distinction the whole milestone turns on.
+
+### Accepting it, or refusing it
+
+There is no allocator any more, only an answer:
+
+- **Free** → taken exactly as given.
+- **Taken** → `HandleTakenException`, carrying the first free suffixed form so the refusal
+  arrives with its own remedy.
+- **The suggestion strips a trailing `-<digits>` before suffixing**, so a refused
+  `acme-consulting-2` proposes `acme-consulting-3` rather than `acme-consulting-2-2`.
+- **Two callers choosing one handle in the same instant** get past the check together and meet
+  `uq_tenants_slug`. The violation is caught and reported as `handle_taken` without a
+  suggestion — the constraint name says which index was tripped, the same mechanism step 2
+  uses — and a retry produces the ordinary refusal with one. This is rare, self-correcting,
+  and already actionable, which is why it does not get a lock.
+
+### What goes away
+
+- `Slug.of` and `SlugTests` **move to the frontend**, per decision 2.
+- `OrganisationNameUnavailableException` and `UnusableOrganisationNameException` are deleted.
+  `handle_taken` replaces the first; nothing replaces the second, because a name that yields
+  no handle is no longer a name that yields anything.
+- `OrganisationService` stops deriving. It validates freeness, saves, and reports.
+
+### The forms
+
+Registration and "start an organisation" both gain the field, prefilled: as the name is typed
+the handle follows it, until the moment the visitor edits the handle themselves, after which
+it is theirs and stops moving. A refused handle replaces the field's value with the suggestion
+and says why.
+
+**Backend, frontend and catalogue move in one commit** — the rule M1 step 4 set, for the same
+reason: splitting it leaves a form that can be shown a code nothing has wording for, or a
+required field the server does not know about.
+
+**Tests.** Two organisations registered with the same name and different handles both succeed.
+A chosen handle is stored exactly as typed. A missing handle is a field error, and a malformed
+one reports `pattern`. A taken handle is refused with a suggestion, and that suggestion is
+accepted when submitted. A refused `acme-2` suggests `acme-3`. Two concurrent creations of one
+handle leave one organisation and one `handle_taken`, released together as
+`SingleUseTokenServiceTests` does for redemption — the index is what holds, and a serial test
+cannot tell that from luck. Frontend: the proposal follows the name until the field is edited
+and then stops; a refusal prefills the suggestion; a name with nothing to derive from proposes
+nothing.
+
+**Done when** two people can register "Acme Consulting", and the only thing either is ever
+refused is a handle they typed.
+
+---
+
+## Step 2 — Each conflict reports what it actually is
+
+**Goal.** Retire the last refusal that describes the wrong thing.
+
+`registration_conflict` was written when a registration could trip two unique indexes and the
+handler could not tell which. After step 1 it is down to one — and the handler it lives in
+stopped being registration's during M1 step 9, when the advice went application-wide. It now
+answers for an invitation race too, telling an owner that *"that email address or organisation
+name was just taken"* when what happened is that a colleague invited the same person a moment
+earlier. This is the item the Phase D review recorded and deliberately left; step 1 is what
+makes it worth doing.
+
+- `RegistrationService` catches the violation on the email index and rethrows
+  `EmailAlreadyRegisteredException` — the code its own pre-check already produces, so the race
+  and the ordinary case become indistinguishable to the client, which is what they should
+  always have been.
+- `InvitationService.write` does the same with `InvitationAlreadyPendingException`.
+- What is left in `ApiExceptionHandler` is a genuine last resort, and takes a neutral code and
+  wording that does not name a field it knows nothing about.
+
+**Tests.** Both handlers keep reporting the code they do today when their pre-check fires. The
+catch-all reports the neutral code and still does not echo the violation's own message, which
+can name database objects.
+
+**Done when** no problem document describes a constraint the caller did not touch.
+
+---
+
+## Step 3 — Changing the name and the handle afterwards
+
+**Goal.** An organisation is not stuck with what it was called on the day it was created.
+
+The one part of this milestone that adds rather than corrects, and the one to strike if it
+needs trimming — nothing else here depends on it.
+
+- `PATCH /api/organisations` `{name?, handle?}` — **OWNER only**, and the organisation comes
+  from the caller's token rather than the path. The absent identifier is the point: it is the
+  same rule every tenant-scoped endpoint follows, and it is what stops this becoming a way to
+  rename somebody else's organisation.
+- A changed handle goes through the same allocator, so it is refused with the same code and
+  the same suggestion as at creation.
+- `/app/settings` — a new owner-only page, and a nav entry beside Members. Members do not see
+  it; the server enforces the same rule regardless.
+
+**The name is included alongside the handle deliberately.** A settings screen that lets an
+owner change their address but not their name would be an arbitrary place to stop, and after
+step 1 the name derives nothing, so changing it is a plain column update with no consequence
+anywhere. If that is unwanted, this is the seam to cut along.
+
+**Changing a handle breaks every link to it**, per decision 5. The screen says so before it
+saves rather than after.
+
+**Tests.** An owner changes the name; an owner changes the handle; a member is refused both.
+A handle already taken is refused with a suggestion. The organisation another token names is
+untouched, with a second organisation in the fixture so leakage would fail.
+
+**Done when** an organisation can be renamed and re-addressed without touching the database.
+
+---
+
+## Step 4 — Two organisations, one name, on screen
+
+**Goal.** A person who belongs to two organisations called Acme can tell them apart.
+
+- A small helper — given the caller's memberships, which names occur more than once — used by
+  `ChooseOrganisationPage` and `OrganisationSwitcher`. Both already hold the list; neither
+  needs a new request.
+- The handle renders beside the name only for those: as secondary text in the chooser, and
+  appended in the switcher's option, where an `<option>` has nowhere to put a second line.
+- A catalogue entry for the pairing, so the punctuation between name and handle is not a
+  literal string.
+
+**Tests.** Two organisations with the same name each show their handle; two with different
+names show none. A repeat in one list does not put a handle beside an unrelated name.
+
+**Done when** no screen offers a choice between two things a person cannot tell apart.
+
+---
+
+## Step 5 — Close out
+
+- `roadmap.md`: strike the M0 debt row about organisation names being unique across the
+  installation, and mark M1a done with what it actually did — which is not what M1a was
+  written to do, and should say so.
+- `roadmap.md`: M1a's "decisions required" table has answers now, including the one it called
+  unresolved. Record them where the question was asked.
+- `roadmap.md`, **under M2**: reserved handles, and whether a changed handle should leave a
+  redirect behind. Both are deferred here on the grounds that nothing routes by handle yet,
+  and M2 is the step that ends that. They belong where the person doing M2 will read them.
+- `CLAUDE.md`: the handle is chosen, not derived; a refusal is only ever raised against a
+  choice; the allocation lock and why it is keyed the way it is.
+
+---
+
+## Migrations
+
+**None**, and that is worth stating rather than leaving as an absence.
+
+Every slug already in the database is unique and stays valid — `uq_tenants_slug` is unchanged,
+the column is unchanged, and no existing row needs a different handle than the one it has.
+What changes is only where the *next* handle comes from. A milestone that alters what a column
+means without altering the column is exactly the kind that gets a migration written for it out
+of habit; there is nothing here for one to do.
+
+---
+
+## Sequencing and risk
+
+**Step 1 is the whole milestone**, and it got considerably smaller when the handle became
+required: no allocator, no allocation loop, no lock. What is left to get wrong is narrower and
+worth naming.
+
+**The sharpest edge is now mapping a constraint violation back to the right refusal.** Both
+step 1 and step 2 read an index name out of a `DataIntegrityViolationException` to decide what
+happened, which couples that code to names owned by a migration. Rename an index without
+following it and a specific, actionable refusal silently degrades to a generic one — the same
+shape of failure as the exception-advice scope that broke during M1 step 9, and just as quiet.
+**Whatever reads a constraint name needs a test that fails if the name changes**, not just one
+that passes today.
+
+The remaining race — two people choosing one handle in the same instant — is deliberately left
+to `uq_tenants_slug`. It is worth being clear that this is a judgement about stakes rather
+than an oversight: it produces a rare, retryable refusal against something the caller typed,
+where M0's bug produced a certain refusal against something they could not change.
+
+**Do it before M2.** The roadmap's reason stands and gets stronger with decision 5: nothing
+routes by handle today, so a handle that changes costs nothing. The moment M2 puts one in a
+URL, both deferred questions — reserved handles, and redirects for retired ones — stop being
+free to defer. Step 5 is what makes sure they are read at that moment rather than discovered.
+
+**Step 3 is the one to disagree with.** It is the only part that adds a feature, and it brings
+a settings screen and an editable name with it. Everything else in this milestone is the
+removal of two refusals and the machinery that made them necessary.
