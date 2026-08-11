@@ -879,6 +879,49 @@ mid-session. A refused request reports whatever the server said and the page sta
 was true before this step and no screen here made it worse, but a members page left open is
 where somebody will first notice.
 
+### Phase D review — what it changed, and what it left
+
+Read back over as a whole once all four steps were in. Nothing was missing against the
+plan; six things were wrong or thin, and are now fixed:
+
+- **Resending an invitation rewrote when it was first sent.** `Invitation.renew` served two
+  callers that wanted different things — reusing an expired slot as a *new* invitation, and
+  putting a new link behind an *existing* one — so chasing somebody quietly reset the date
+  an owner reads to decide whether to chase them, and moved the invitation to the top of a
+  list ordered by it. Split into `renew` and `reissue`.
+- **Two list orderings were only mostly decided.** Members by display name and invitations
+  by creation time both tie, and a tie resolves however the database feels like it. Both now
+  have an address as a tiebreak, so neither flickers between requests.
+- **Demoting yourself left the owner controls on screen.** The role is pinned into the token
+  for twelve hours while the server reads the membership back on every request, so the page
+  went on offering exactly what it would be refused — which is what hiding those controls
+  from a member was for. `refreshAccount` on the auth context re-reads the session.
+- **Removing yourself ended in a spurious error.** The removal succeeded, then the reload
+  asked for a list the caller was no longer entitled to and the page showed both "removed"
+  and "you do not belong to that organisation". It now ends the session, since a token
+  scoped to an organisation you have just left can do nothing else.
+- **An expired invitation said "Expires" beside a date already past.** It is still
+  outstanding — it holds that address's one live slot until somebody withdraws it or sends a
+  new link — so it now says so, and says what to do about it.
+- **The h1 line-height bug**, found while reviewing: `:root` set `font: 18px/145%`, and a
+  percentage there computes to a length and *inherits as that length*. Every heading
+  inherited 26.1px of leading whatever its own size, so a 56px title drew its second line
+  on top of its first. Unitless now, with headings stating their own.
+
+Three things the review found and deliberately left:
+
+- **A `DataIntegrityViolationException` anywhere still reports `registration_conflict`.**
+  The catch-all was written when the advice was scoped to `auth`; now it is application-wide,
+  so two owners inviting one address in the same instant would be told an email address or
+  organisation name was taken. Rare, self-correcting on retry, and renaming the code costs
+  the accuracy it has for the race it was written for. Worth revisiting if a second
+  constraint starts racing.
+- **Somebody else changing your role does not reach your session** until it next restores.
+  Inherent to a stateless token, the same limitation password reset already records, and not
+  worth a deny list in M1.
+- **`already_a_member` and `invalid_credentials` on accept are still unreachable** through
+  the product. Step 11 did not open a path to either, as Step 10 guessed it might.
+
 ---
 
 # Phase E — Close out

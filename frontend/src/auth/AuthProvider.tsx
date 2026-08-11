@@ -170,6 +170,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [acceptSession]
   );
 
+  const refreshAccount = useCallback(async () => {
+    setAccount(
+      await apiRequest<Account>('/auth/me', { token: session.current?.token })
+    );
+  }, []);
+
   const request = useCallback(
     <T,>(path: string, options: { method?: string; body?: unknown } = {}) =>
       apiRequest<T>(path, { ...options, token: session.current?.token }),
@@ -187,6 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createOrganisation,
       acceptInvitation,
       request,
+      refreshAccount,
       logout: forget
     }),
     [
@@ -199,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createOrganisation,
       acceptInvitation,
       request,
+      refreshAccount,
       forget
     ]
   );

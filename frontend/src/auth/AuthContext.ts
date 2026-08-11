@@ -46,6 +46,15 @@ export type AuthContextValue = {
     token: string,
     credentials: NewAccount | null
   ) => Promise<string>;
+  /**
+   * Re-reads the account behind the current session.
+   *
+   * The role in an access token was true when it was issued and stays there for twelve
+   * hours, while the server reads the membership back on every request. Anything that
+   * causes its own role to change has to ask, or it goes on offering what it may no
+   * longer do.
+   */
+  refreshAccount: () => Promise<void>;
   logout: () => void;
   /**
    * Calls the API as whoever is signed in.

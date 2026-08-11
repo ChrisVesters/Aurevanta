@@ -491,6 +491,25 @@ class InvitationApiTests {
 		assertThat(onlyInvitation().getTokenHash()).isEqualTo(LinkTokens.hash(second)).isNotEqualTo(firstHash);
 	}
 
+	/**
+	 * Chasing an invitation is not sending a new one. When it was first sent is what an
+	 * owner is reading when they decide to chase it — and what the outstanding list is
+	 * ordered by, so rewriting it would move an invitation to the top for being chased.
+	 */
+	@Test
+	void resendingKeepsWhenTheInvitationWasFirstSent() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.OWNER).andExpect(status().isCreated());
+		Invitation first = onlyInvitation();
+
+		this.mvc.perform(resend(this.ada, first.getId())).andExpect(status().isOk());
+
+		Invitation resent = onlyInvitation();
+		assertThat(resent.getCreatedAt()).isEqualTo(first.getCreatedAt());
+		// And it is still the same offer, not a different one behind the same address.
+		assertThat(resent.getRole()).isEqualTo(UserRole.OWNER);
+		assertThat(resent.getExpiresAt()).isAfter(first.getExpiresAt());
+	}
+
 	/** The message names whoever sent it, so the row has to agree about who that is. */
 	@Test
 	void theOwnerWhoResendsBecomesTheInviterOfRecord() throws Exception {

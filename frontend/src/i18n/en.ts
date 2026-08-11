@@ -208,6 +208,9 @@ export const en = {
       title: 'Pending invitations',
       none: 'Nobody is waiting on an invitation.',
       expires: 'Expires {{date}}',
+      // Still outstanding, and still holding this address's one live slot — so it is
+      // something to act on rather than something that has tidied itself away.
+      expired: 'Expired {{date}} — send a new link or withdraw it',
       resend: 'Send again',
       resendNamed: 'Send {{email}} a new link',
       resent:

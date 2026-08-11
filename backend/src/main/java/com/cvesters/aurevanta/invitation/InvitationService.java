@@ -163,7 +163,9 @@ public class InvitationService {
 		String rawToken = LinkTokens.generate();
 		// The resender becomes the inviter of record, because their name is what the
 		// message carries — the row and the inbox must not disagree about who is asking.
-		invitation.renew(invitation.getRole(), caller.getUser(), LinkTokens.hash(rawToken), now.plus(VALID_FOR), now);
+		// The role and the date it was first sent are left alone: this is the same
+		// invitation, reaching the same person by a link that works.
+		invitation.reissue(caller.getUser(), LinkTokens.hash(rawToken), now.plus(VALID_FOR));
 		send(invitation, caller, rawToken);
 		return invitation;
 	}
@@ -215,8 +217,7 @@ public class InvitationService {
 
 		Instant now = Instant.now(this.clock);
 		// Spent first, and conditionally, so that two clicks arriving together cannot
-		// both
-		// get a membership out of one invitation.
+		// both get a membership out of the one invitation.
 		if (this.invitations.markAccepted(invitation.getId(), now) == 0) {
 			throw new InvalidTokenException();
 		}

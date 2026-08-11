@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MembersPage } from './MembersPage';
+import { readStoredSession } from '../auth/session';
 import {
   ACCOUNT,
   INVITATION,
@@ -290,6 +291,68 @@ describe('MembersPage', () => {
         screen.getByText('Nobody is waiting on an invitation.')
       ).toBeInTheDocument()
     );
+  });
+
+  /**
+   * An invitation that has run out of time is still outstanding — it holds that address's
+   * one live slot until somebody withdraws it or sends a new link — so "Expires" beside a
+   * date already past would read as a bug rather than as something to act on.
+   */
+  it('marks an invitation that has run out of time', async () => {
+    await open(ACCOUNT, [{ ...INVITATION, expiresAt: '2020-01-01T00:00:00Z' }]);
+
+    expect(screen.getByText(/^Expired/)).toBeInTheDocument();
+    // Still listed, and still with both things an owner can do about it.
+    expect(
+      screen.getByRole('button', {
+        name: 'Send dave@elsewhere.test a new link'
+      })
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Demoting yourself changes what you may do, and the token still says otherwise for as
+   * long as twelve hours. An interface that went on offering what the server would refuse
+   * is the thing hiding the controls from a member was for.
+   */
+  it('takes the owner controls away when you demote yourself', async () => {
+    await open();
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse(200, { ...MEMBERS[0], role: 'MEMBER' })
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { ...ACCOUNT, role: 'MEMBER' }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, [{ ...MEMBERS[0], role: 'MEMBER' }, MEMBERS[1]])
+      );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Role for Ada'),
+      'MEMBER'
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Role for Bob')).not.toBeInTheDocument()
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Send invitation' })
+    ).not.toBeInTheDocument();
+  });
+
+  /**
+   * A session scoped to an organisation you have just left can do nothing but be
+   * refused — starting with reloading the list it is sitting on.
+   */
+  it('ends the session when you remove yourself', async () => {
+    await open();
+    fetchMock.mockResolvedValueOnce(jsonResponse(204));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Ada' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, remove' }));
+
+    await waitFor(() => expect(readStoredSession()).toBeNull());
+    // And no attempt to read a list it is no longer entitled to.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it('says when nobody is waiting on an invitation', async () => {

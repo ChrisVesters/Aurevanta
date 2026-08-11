@@ -550,6 +550,10 @@ button.link {
     font-size: 14px;
   }
 
+  .email.expired {
+    color: var(--danger);
+  }
+
   .you {
     font-size: 13px;
     color: var(--accent);

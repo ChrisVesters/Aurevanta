@@ -21,7 +21,7 @@ import type { Invitation, Member } from '../members/types';
  */
 export function MembersPage() {
   const { t } = useTranslation();
-  const { account, request } = useAuth();
+  const { account, request, refreshAccount, logout } = useAuth();
   const [members, setMembers] = useState<Member[] | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
@@ -65,16 +65,26 @@ export function MembersPage() {
 
   const reload = useCallback(() => setReloads((count) => count + 1), []);
 
-  /** Every owner action is the same shape: do it, say what went wrong, reload. */
+  /**
+   * Every owner action is the same shape: do it, say what went wrong, then settle up.
+   *
+   * `settle` is normally a reload, and is not when the action was aimed at the caller
+   * themselves — a session that has just had its own standing changed underneath it needs
+   * more than a fresh list.
+   */
   const perform = useCallback(
-    async (action: Promise<unknown>, announcement: string | null) => {
+    async (
+      action: Promise<unknown>,
+      announcement: string | null,
+      settle: () => void | Promise<void> = reload
+    ) => {
       setBusy(true);
       setFailure(null);
       setNotice(null);
       try {
         await action;
         setNotice(announcement);
-        reload();
+        await settle();
       } catch (error) {
         setFailure(describeFailure(t, error));
       }
@@ -83,22 +93,38 @@ export function MembersPage() {
     [reload, t]
   );
 
+  /**
+   * Demoting yourself changes what you may do here, and the token still says otherwise
+   * for as long as twelve hours. Re-reading the account is what takes the controls away;
+   * the list comes with it, because what may be shown depends on the answer.
+   */
+  const refreshThenReload = useCallback(async () => {
+    await refreshAccount();
+    reload();
+  }, [refreshAccount, reload]);
+
   const changeRole = useCallback(
     (member: Member, role: UserRole) =>
       void perform(
         request(`/members/${member.id}`, { method: 'PATCH', body: { role } }),
-        null
+        null,
+        member.userId === account?.userId ? refreshThenReload : reload
       ),
-    [perform, request]
+    [perform, request, account?.userId, refreshThenReload, reload]
   );
 
   const remove = useCallback(
     (member: Member) =>
       void perform(
         request(`/members/${member.id}`, { method: 'DELETE' }),
-        t('members.removed', { name: member.displayName })
+        t('members.removed', { name: member.displayName }),
+        // Removing yourself leaves a session scoped to an organisation you are no longer
+        // in, and every request it could make from here is one the server will refuse —
+        // starting with the reload. Ending it is the only coherent thing left, and the
+        // guards take the visitor from there.
+        member.userId === account?.userId ? logout : reload
       ),
-    [perform, request, t]
+    [perform, request, account?.userId, logout, reload, t]
   );
 
   const resend = useCallback(

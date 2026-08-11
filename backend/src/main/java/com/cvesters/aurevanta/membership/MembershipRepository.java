@@ -62,15 +62,16 @@ public interface MembershipRepository extends JpaRepository<Membership, UUID> {
 
 	/**
 	 * Everyone in one organisation, by display name so the list does not reorder itself
-	 * between requests. User and tenant are fetched because both are read after the
-	 * transaction closes.
+	 * between requests — and by address after it, because two people may well share a
+	 * name and an order that is only <em>mostly</em> decided is one that flickers. User
+	 * and tenant are fetched because both are read after the transaction closes.
 	 */
 	@Query("""
 			select m from Membership m
 			join fetch m.user u
 			join fetch m.tenant
 			where m.tenant.id = :tenantId
-			order by u.displayName asc
+			order by u.displayName asc, u.email asc
 			""")
 	List<Membership> findAllInTenant(@Param("tenantId") UUID tenantId);
 

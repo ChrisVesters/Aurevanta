@@ -99,10 +99,25 @@ public class Invitation {
 	 */
 	public void renew(UserRole role, User invitedBy, String tokenHash, Instant expiresAt, Instant at) {
 		this.role = role;
+		this.createdAt = at;
+		reissue(invitedBy, tokenHash, expiresAt);
+	}
+
+	/**
+	 * Puts a new link behind the invitation that is already there, for one being sent
+	 * again.
+	 *
+	 * <p>
+	 * Keeps {@link #getCreatedAt()}, which {@link #renew} deliberately does not: this is
+	 * still the invitation that was sent a fortnight ago, and how long somebody has been
+	 * sitting on it is the thing an owner is looking at when they decide to chase it. It
+	 * is also what the outstanding list is ordered by, so rewriting it would move an
+	 * invitation to the top for having been chased.
+	 */
+	public void reissue(User invitedBy, String tokenHash, Instant expiresAt) {
 		this.invitedBy = invitedBy;
 		this.tokenHash = tokenHash;
 		this.expiresAt = expiresAt;
-		this.createdAt = at;
 	}
 
 	/**

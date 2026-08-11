@@ -56,14 +56,18 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
 			""")
 	Optional<Invitation> findByTokenHash(@Param("tokenHash") String tokenHash);
 
-	/** Everything still outstanding in one organisation, most recently sent first. */
+	/**
+	 * Everything still outstanding in one organisation, most recently sent first, and by
+	 * address after that: two invitations sent in the same moment would otherwise come
+	 * back in whatever order the database felt like, which is an order that changes.
+	 */
 	@Query("""
 			select i from Invitation i
 			join fetch i.tenant
 			join fetch i.invitedBy
 			where i.tenant.id = :tenantId
 			  and i.status = com.cvesters.aurevanta.invitation.InvitationStatus.PENDING
-			order by i.createdAt desc
+			order by i.createdAt desc, i.email asc
 			""")
 	List<Invitation> findPendingForTenant(@Param("tenantId") UUID tenantId);
 

@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { Invitation } from './types';
 
+/** Read at render rather than stored: what has run out of time changes with the clock. */
+function hasExpired(invitation: Invitation): boolean {
+  return new Date(invitation.expiresAt).getTime() <= Date.now();
+}
+
 type PendingInvitationsProps = {
   invitations: Invitation[];
   busy: boolean;
@@ -44,10 +49,21 @@ export function PendingInvitations({
           <li key={invitation.id}>
             <span className="who">
               <span className="name">{invitation.email}</span>
-              <span className="email">
-                {t('members.pending.expires', {
-                  date: expiry.format(new Date(invitation.expiresAt))
-                })}
+              {/*
+                An invitation that has run out of time is still outstanding — it holds
+                the one live slot that address has, and only withdrawing or resending
+                frees it. Saying "Expires" beside a date already past would read as a
+                bug rather than as something to act on.
+              */}
+              <span
+                className={hasExpired(invitation) ? 'email expired' : 'email'}
+              >
+                {t(
+                  hasExpired(invitation)
+                    ? 'members.pending.expired'
+                    : 'members.pending.expires',
+                  { date: expiry.format(new Date(invitation.expiresAt)) }
+                )}
               </span>
             </span>
             <span className="role">{t(`roles.${invitation.role}`)}</span>
