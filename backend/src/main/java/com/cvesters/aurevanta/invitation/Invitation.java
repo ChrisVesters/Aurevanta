@@ -106,6 +106,19 @@ public class Invitation {
 	}
 
 	/**
+	 * Withdraws the offer, freeing the slot the partial unique index reserves so the same
+	 * address can be invited again later.
+	 *
+	 * <p>
+	 * The row stays rather than being deleted: an invitation that was deliberately
+	 * withdrawn is a different answer to the person still holding the link than one that
+	 * was never sent, and only a surviving row can tell them so.
+	 */
+	public void revoke() {
+		this.status = InvitationStatus.REVOKED;
+	}
+
+	/**
 	 * Whether the link has run out of time.
 	 *
 	 * <p>

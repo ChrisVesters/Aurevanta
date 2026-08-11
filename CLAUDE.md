@@ -260,7 +260,42 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Behind `MailRateLimiter` like everything else that sends mail.** Needing credentials is
   not what makes an endpoint safe here: the inbox belongs to a stranger either way, and it
   cannot tell an invitation from a confirmation link — which is why they share one budget
-  per recipient.
+  per recipient. Resend claims *after* its lookup rather than before, alone among the
+  senders: the recipient is named by a row an owner can already see, not by anything they
+  typed, so there is no enumeration for a "count requests" rule to prevent.
+- **Two of the six endpoints need no credentials.** `GET /api/invitations/{token}` and
+  `POST /api/invitations/{token}/accept` are reached by somebody being invited *into* an
+  organisation, so a token scoped to it cannot be the price of entry. The other four —
+  issue, list, revoke, resend — are OWNER-only and tenant-scoped.
+- **The preview carries three fields and no more**: organisation name, inviter's display
+  name, role. It is served to anyone holding the link, so it must disclose nothing a member
+  would have had to sign in for — no identifier, no handle, no member list — and nothing
+  about the invited address either.
+- **Accepting has two ways through, chosen by the address and not by the caller.** Nobody
+  holds it, so an account is created and a session handed back at once — the link proved
+  the address, so `email_verified_at` is stamped and no confirmation is sent. Somebody does
+  hold it, and then they must *be* that somebody: `sign_in_required` if the caller is
+  anonymous, `invitation_for_another_address` if they are signed in as someone else. **A
+  token emailed to a mailbox proves control of the mailbox, never ownership of the account
+  registered with it**, and treating the two as the same would make a forwarded message a
+  way into somebody else's account.
+- **Nothing is written until every refusal has been ruled out.** Being told to sign in must
+  not cost the visitor the link they were told to come back with, so the invitation is spent
+  only once the attempt is certain to succeed — and spent by a conditional `UPDATE`, so two
+  clicks arriving together cannot both produce a membership.
+- **A link that no longer works says which way it failed** — `invitation_expired`,
+  `invitation_revoked`, or `invalid_token` for unknown and already-spent. The one-answer
+  rule the single-use tokens follow is relaxed here on purpose: what the visitor should do
+  next differs (ask for another, or do not), and a 256-bit token in an inbox cannot be
+  probed for.
+- **Revoking sets a status, never deletes the row.** The partial index counts only pending
+  rows, so withdrawing one frees the address to be invited again; and a surviving row is
+  what lets the person still holding the link be told it was withdrawn rather than that it
+  never existed.
+- **Resending mints a new token**, retiring the old link. Resending usually means the first
+  message went astray, and a message that went astray is one somebody else may be holding.
+  The resender becomes the inviter of record, because their name is what the message
+  carries.
 
 ## Outbound mail
 

@@ -25,7 +25,7 @@
 | | 7 | Rate limiting on mail-sending endpoints ✅ *done* | 5, 6 |
 | | 8 | Frontend: verification, reset, gate handling ✅ *done* | 5, 6 |
 | **D — Team** | 9 | Invitations: schema and issuing ✅ *done* | 1, 2, 3 |
-| | 10 | Invitations: preview, accept, revoke | 9 |
+| | 10 | Invitations: preview, accept, revoke ✅ *done* | 9 |
 | | 11 | Member management | 1 |
 | | 12 | Frontend: members, acceptance, organisation switcher | 10, 11 |
 | **E — Close out** | 13 | Documentation and debt retirement | all |
@@ -693,7 +693,7 @@ Two things this step does **not** do, both for Step 10:
   address must wait seven days for it to lapse. Acceptable only because Phase D ships as
   one release.
 
-## Step 10 — Invitations: preview, accept, revoke
+## Step 10 — Invitations: preview, accept, revoke ✅ *done*
 
 - `GET /api/invitations/{token}` — **unauthenticated preview** returning organisation name,
   inviter's display name and role, so the invitee knows what they are joining before typing
@@ -719,6 +719,54 @@ membership with a different role and keeps the first; accepting as another ident
 refused; an unauthenticated accept for an existing address creates no duplicate account.
 
 **Done when** one person holds two memberships, reached entirely through the product.
+
+### As built — where it differs from the above
+
+Every bullet and every named test landed. Eight things a later step should know:
+
+- **A link that no longer works says which way it failed.** The plan asks Step 12 for
+  distinct messages for expired and revoked, which the one-answer rule the single-use tokens
+  follow cannot supply — so `invitation_expired` and `invitation_revoked` are their own
+  codes, and only "unknown" and "already spent" share `invalid_token`. Relaxing the rule is
+  deliberate and narrow: what the visitor should do next genuinely differs (ask for another,
+  or do not), and the enumeration it guards against needs a guessable token, which 32 random
+  bytes in somebody's inbox is not.
+- **Nothing is written until every refusal has been ruled out**, and only then is the
+  invitation spent. Getting this backwards would mean `sign_in_required` costing the visitor
+  the very link it tells them to come back with.
+- **The accept body is optional, and needed on only one of the two paths.** Somebody with no
+  account sends a name and a password; somebody who has one signs in and sends nothing.
+  `credentials_required` covers the request that is neither. The alternative — two endpoints,
+  or fields validated conditionally — would have split one decision the address already makes.
+- **The invitation is spent by a conditional `UPDATE`,** as `user_tokens` redeems its links.
+  There is a test that releases four accepts together and asserts exactly one membership
+  comes out; without it, the losers would each be told they had joined and then trip the
+  unique index on `memberships`.
+- **Ownership is enforced in the service for all four owner-only endpoints**, re-reading the
+  membership rather than trusting the twelve-hour-old role in the token. Step 9 established
+  this for issuing; listing, revoking and resending now share the same helper, and the two
+  that send mail share a second one that also requires the caller's own address to be
+  confirmed.
+- **Resend claims the mail limit after its lookup, not before** — the only sender that does.
+  The "count requests, not messages" rule exists so an unauthenticated endpoint's refusals
+  cannot be used to ask which addresses exist; here the recipient comes from a row the owner
+  can already list. `InvitationService` therefore holds a `MailRateLimiter`, which no other
+  service does.
+- **`AuthenticationResponse.of` and `AccountResponse.of` became public.** Accepting ends in a
+  session like any other, and a client should not have to parse a second shape to learn it
+  now holds one.
+- **The token travels in the URL path**, as the plan specifies, so it reaches access logs on
+  the way. That is inherent to the frontend route `/invite/:token` carrying it already; a
+  body would have hidden it from the API's own logs and nowhere else. Worth revisiting only
+  alongside how the frontend route is shaped.
+
+Two states the product still cannot reach on its own, both checked anyway:
+
+- **`already_a_member` on accept** is defensive. Issuing refuses an address that is already
+  a member, and accepting is the only way to gain one, so the state has to be seeded
+  directly — but it is what keeps the rule true once Step 11 can add and remove people.
+- **`invalid_credentials` on accept**, for a token naming an account that has since been
+  deleted. There is no account-deletion feature; the check is the same one `/auth/me` makes.
 
 ## Step 11 — Member management
 

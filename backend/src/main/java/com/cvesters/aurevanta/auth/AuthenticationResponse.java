@@ -5,15 +5,20 @@ import com.cvesters.aurevanta.security.AccessTokenService.IssuedToken;
 
 /**
  * A session scoped to one organisation: the token to send back, and the account it acts
- * as. Returned by registration, by a sign-in that resolved to a single membership, and by
- * exchanging a token for another organisation.
+ * as. Returned by a sign-in that resolved to a single membership, by exchanging a token
+ * for another organisation, and by accepting an invitation.
+ *
+ * <p>
+ * Built from outside this package by {@code invitation}, which is why the factory is
+ * public. Accepting an invitation ends in a session like any other, and a client should
+ * not have to parse a second shape to learn it now holds one.
  *
  * @param accessToken send back as {@code Authorization: Bearer <accessToken>}
  */
 public record AuthenticationResponse(String accessToken, String tokenType, long expiresInSeconds,
 		AccountResponse account) {
 
-	static AuthenticationResponse of(Membership membership, IssuedToken token) {
+	public static AuthenticationResponse of(Membership membership, IssuedToken token) {
 		return new AuthenticationResponse(token.value(), "Bearer", token.ttl().toSeconds(),
 				AccountResponse.of(membership));
 	}

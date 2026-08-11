@@ -35,6 +35,15 @@ class SecurityConfiguration {
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**", "/actuator/info")
 				.permitAll()
+				// Reading an invitation and accepting it, both of which are done by
+				// somebody being invited *into* an organisation — so a token scoped
+				// to one cannot be the price of entry. A single path segment, so
+				// neither pattern reaches the owner-only endpoints beside them:
+				// `/api/invitations` is not matched by `/api/invitations/*`.
+				.requestMatchers(HttpMethod.GET, "/api/invitations/*")
+				.permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/invitations/*/accept")
+				.permitAll()
 				// The only two endpoints an identity token exists for: list the
 				// caller's organisations, and trade the token for one of them.
 				.requestMatchers(HttpMethod.GET, "/api/memberships")

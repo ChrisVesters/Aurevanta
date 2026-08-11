@@ -3,6 +3,7 @@ package com.cvesters.aurevanta.invitation;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,6 +19,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.RequestBuilder;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -37,6 +39,8 @@ import com.cvesters.aurevanta.user.UserRepository;
 import com.cvesters.aurevanta.user.UserRole;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -360,8 +364,7 @@ class InvitationApiTests {
 	@Test
 	void refusesToKeepWritingToOneAddress() throws Exception {
 		// Counted before anything is looked up, so the refusals in between still spend
-		// the
-		// allowance — the limit bounds requests rather than the messages they produce.
+		// the allowance — it bounds requests rather than the messages they produce.
 		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
 		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isConflict());
 		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isConflict());
@@ -369,6 +372,202 @@ class InvitationApiTests {
 		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isTooManyRequests())
 			.andExpect(jsonPath("$.code").value("too_many_requests"))
 			.andExpect(header().exists(HttpHeaders.RETRY_AFTER));
+	}
+
+	@Test
+	void listsWhatIsStillOutstanding() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		invite(this.ada, "erin@elsewhere.test", UserRole.OWNER).andExpect(status().isCreated());
+
+		this.mvc.perform(list(this.ada))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.length()").value(2))
+			// Most recently sent first, so the one just typed is where it was expected.
+			.andExpect(jsonPath("$[0].email").value("erin@elsewhere.test"))
+			.andExpect(jsonPath("$[0].role").value("OWNER"))
+			.andExpect(jsonPath("$[0].status").value("PENDING"))
+			// Never the link: only its hash was kept, and a list that could hand one back
+			// would put a way into the organisation in front of anyone who can read it.
+			.andExpect(jsonPath("$[0].token").doesNotExist());
+	}
+
+	/**
+	 * Scoped by tenant, with a second organisation in the fixture so leakage would fail.
+	 */
+	@Test
+	void theListShowsOnlyTheCallersOwnOrganisation() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+
+		this.mvc.perform(list(this.grace)).andExpect(status().isOk()).andExpect(jsonPath("$").isEmpty());
+	}
+
+	@Test
+	void aMemberCannotSeeWhoHasBeenInvited() throws Exception {
+		this.mvc.perform(list(this.bob))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("not_an_owner"));
+	}
+
+	@Test
+	void withdrawingAnInvitationTakesItOffTheList() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		UUID invitation = onlyInvitation().getId();
+
+		this.mvc.perform(revoke(this.ada, invitation)).andExpect(status().isNoContent());
+
+		assertThat(onlyInvitation().getStatus()).isEqualTo(InvitationStatus.REVOKED);
+		this.mvc.perform(list(this.ada)).andExpect(jsonPath("$").isEmpty());
+	}
+
+	/**
+	 * The unique index counts only pending rows, so withdrawing one releases the address
+	 * — which is the whole reason revoking changes a status rather than deleting a row.
+	 */
+	@Test
+	void withdrawingFreesTheAddressToBeInvitedAgain() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		this.mvc.perform(revoke(this.ada, onlyInvitation().getId())).andExpect(status().isNoContent());
+
+		invite(this.ada, "dave@elsewhere.test", UserRole.OWNER).andExpect(status().isCreated());
+
+		assertThat(this.invitations.findAll()).extracting(Invitation::getStatus)
+			.containsExactlyInAnyOrder(InvitationStatus.REVOKED, InvitationStatus.PENDING);
+	}
+
+	/**
+	 * The identifier comes from the request, so this is where revoking would become a way
+	 * to reach into another organisation if the lookup were by identifier alone.
+	 */
+	@Test
+	void anotherOrganisationsInvitationCannotBeWithdrawn() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+
+		this.mvc.perform(revoke(this.grace, onlyInvitation().getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("invitation_not_found"));
+
+		assertThat(onlyInvitation().getStatus()).isEqualTo(InvitationStatus.PENDING);
+	}
+
+	@Test
+	void withdrawingTheSameInvitationTwiceIsRefused() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		UUID invitation = onlyInvitation().getId();
+		this.mvc.perform(revoke(this.ada, invitation)).andExpect(status().isNoContent());
+
+		this.mvc.perform(revoke(this.ada, invitation))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("invitation_not_found"));
+	}
+
+	@Test
+	void aMemberCannotWithdrawAnInvitation() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+
+		this.mvc.perform(revoke(this.bob, onlyInvitation().getId()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("not_an_owner"));
+	}
+
+	/**
+	 * Resending is usually because the first message went astray — and a message that
+	 * went astray is one somebody else may be holding, so the link it carried has to stop
+	 * working.
+	 */
+	@Test
+	void resendingSendsANewLinkAndRetiresTheOldOne() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		String first = tokenFromLatestMail();
+		String firstHash = onlyInvitation().getTokenHash();
+		this.mail.clear();
+
+		this.mvc.perform(resend(this.ada, onlyInvitation().getId()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.email").value("dave@elsewhere.test"))
+			.andExpect(jsonPath("$.status").value("PENDING"));
+
+		String second = tokenFromLatestMail();
+		assertThat(second).isNotEqualTo(first);
+		assertThat(onlyInvitation().getTokenHash()).isEqualTo(LinkTokens.hash(second)).isNotEqualTo(firstHash);
+	}
+
+	/** The message names whoever sent it, so the row has to agree about who that is. */
+	@Test
+	void theOwnerWhoResendsBecomesTheInviterOfRecord() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		this.mail.clear();
+
+		this.mvc.perform(resend(this.ivanConfirmed(), onlyInvitation().getId())).andExpect(status().isOk());
+
+		assertThat(onlyInvitation().getInvitedBy().getId()).isEqualTo(this.ivan.getUser().getId());
+		assertThat(this.mail.onlyMessage().subject()).contains("Ivan");
+	}
+
+	@Test
+	void anotherOrganisationsInvitationCannotBeResent() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+
+		this.mvc.perform(resend(this.grace, onlyInvitation().getId()))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("invitation_not_found"));
+	}
+
+	@Test
+	void aMemberCannotResendAnInvitation() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+
+		this.mvc.perform(resend(this.bob, onlyInvitation().getId()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("not_an_owner"));
+	}
+
+	@Test
+	void anOwnerWhoseOwnAddressWasNeverConfirmedCannotResend() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+
+		this.mvc.perform(resend(this.ivan, onlyInvitation().getId()))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("email_not_verified"));
+	}
+
+	/**
+	 * Resending is the endpoint that could bury one inbox, so it counts against the same
+	 * per-recipient budget as everything else that writes to it — even though the address
+	 * is named by a row rather than by the request, which is why it is claimed after the
+	 * lookup rather than before.
+	 */
+	@Test
+	void resendingCannotBeRepeatedWithoutLimit() throws Exception {
+		invite(this.ada, "dave@elsewhere.test", UserRole.MEMBER).andExpect(status().isCreated());
+		UUID invitation = onlyInvitation().getId();
+		this.mvc.perform(resend(this.ada, invitation)).andExpect(status().isOk());
+		this.mvc.perform(resend(this.ada, invitation)).andExpect(status().isOk());
+
+		this.mvc.perform(resend(this.ada, invitation))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(jsonPath("$.code").value("too_many_requests"));
+	}
+
+	private RequestBuilder list(Membership caller) {
+		return get("/api/invitations").header(HttpHeaders.AUTHORIZATION, "Bearer " + tokenFor(caller));
+	}
+
+	private RequestBuilder revoke(Membership caller, UUID invitationId) {
+		return delete("/api/invitations/" + invitationId).header(HttpHeaders.AUTHORIZATION,
+				"Bearer " + tokenFor(caller));
+	}
+
+	private RequestBuilder resend(Membership caller, UUID invitationId) {
+		return post("/api/invitations/" + invitationId + "/resend").header(HttpHeaders.AUTHORIZATION,
+				"Bearer " + tokenFor(caller));
+	}
+
+	/** Ivan with his address confirmed, for the cases that are not about the gate. */
+	private Membership ivanConfirmed() {
+		User ivan = this.ivan.getUser();
+		ivan.markEmailVerified(CREATED_AT);
+		this.users.save(ivan);
+		return this.ivan;
 	}
 
 	private User user(String email, String displayName, boolean verified) {

@@ -19,7 +19,7 @@ import com.cvesters.aurevanta.user.UserRole;
 public record AccountResponse(UUID userId, String email, String displayName, boolean emailVerified, UserRole role,
 		OrganisationResponse organisation) {
 
-	static AccountResponse of(Membership membership) {
+	public static AccountResponse of(Membership membership) {
 		User user = membership.getUser();
 		return new AccountResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.isEmailVerified(),
 				membership.getRole(), OrganisationResponse.of(membership.getTenant()));
