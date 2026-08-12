@@ -143,6 +143,27 @@ public class RateLimiter {
 		this.recent.remove(key);
 	}
 
+	/**
+	 * Takes back the most recent attempt counted against {@code key}.
+	 *
+	 * <p>
+	 * For a caller that had to claim before it could know whether there was anything to
+	 * claim for. Attempts are counted rather than successes precisely so that a limit
+	 * cannot be read as an answer, and that stays true here: what is given back is one
+	 * request's own claim, decided by something the refusal already told the caller.
+	 *
+	 * <p>
+	 * Silent if the key has since expired out of the window, which is the right outcome —
+	 * there is nothing left to give back, and inventing a negative count would let a
+	 * refunded request pay for a later one.
+	 */
+	public void refund(String key) {
+		this.recent.computeIfPresent(key, (ignored, hits) -> {
+			hits.pollLast();
+			return hits.isEmpty() ? null : hits;
+		});
+	}
+
 	/** When the oldest attempt still counted leaves the window, and a slot frees up. */
 	private Duration retryAfter(Instant oldest, Instant now) {
 		Duration remaining = Duration.between(now, oldest.plus(this.window));

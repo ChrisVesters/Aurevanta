@@ -3,6 +3,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { AppLayout } from './AppLayout';
+import { SettingsPage } from './SettingsPage';
 import { readStoredSession } from '../auth/session';
 import {
   ACCOUNT,
@@ -129,6 +130,64 @@ describe('AppLayout', () => {
     const switcher = await screen.findByLabelText('Organisation');
     expect(switcher).toHaveTextContent(
       'Acme Planning Co (acme-planning-co)Acme Planning Co (acme-planning-co-2)'
+    );
+  });
+
+  /**
+   * The switcher loads its own list, and a rename changes neither the id it is keyed on
+   * nor the membership behind it — so without a reason to reload, the option goes on
+   * offering the old name until a full reload or a switch. Since M1a a name is not
+   * unique, which is what makes a stale one worse than merely out of date: the rename may
+   * have been the thing telling two options apart.
+   */
+  it('reloads the switcher when the organisation is renamed', async () => {
+    const renamed = { ...ACCOUNT.organisation, name: 'Acme Ltd' };
+    let account = ACCOUNT;
+    let held = [ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP];
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) => {
+      if (url === '/api/auth/me') {
+        return Promise.resolve(jsonResponse(200, account));
+      }
+      if (url === '/api/memberships') {
+        return Promise.resolve(jsonResponse(200, held));
+      }
+      // The rename itself. What the server answers with is also what the session and the
+      // switcher's list will say from here on.
+      account = { ...ACCOUNT, organisation: renamed };
+      held = [
+        { ...ACME_MEMBERSHIP, organisation: renamed },
+        UMBRELLA_MEMBERSHIP
+      ];
+      return Promise.resolve(jsonResponse(200, renamed));
+    });
+    renderRouted(
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route path="/app/settings" element={<SettingsPage />} />
+        </Route>
+      </Routes>,
+      { route: '/app/settings' }
+    );
+    await screen.findByRole('heading', { name: 'Organisation' });
+    expect(await screen.findByLabelText('Organisation')).toHaveTextContent(
+      'Acme Planning Co'
+    );
+
+    await userEvent.clear(screen.getByLabelText('Organisation name'));
+    await userEvent.type(
+      screen.getByLabelText('Organisation name'),
+      'Acme Ltd'
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Organisation')).toHaveTextContent(
+        'Acme Ltd'
+      )
+    );
+    expect(screen.getByLabelText('Organisation')).not.toHaveTextContent(
+      'Acme Planning Co'
     );
   });
 

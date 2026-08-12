@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Field } from '../auth/Field';
 import { MAXIMUM_NAME_LENGTH } from '../auth/constants';
@@ -9,6 +8,7 @@ import { textField } from '../auth/formValues';
 import { useFormFailure } from '../auth/useFormFailure';
 import type { Organisation } from '../auth/types';
 import { SLUG_TAKEN, SlugField } from '../tenant/SlugField';
+import { useProposedSlug } from '../tenant/useProposedSlug';
 
 /**
  * What an owner may change about their organisation: what it is called, and what it
@@ -57,7 +57,10 @@ export function SettingsPage() {
 function OrganisationForm({ organisation }: { organisation: Organisation }) {
   const { t } = useTranslation();
   const { request, refreshAccount } = useAuth();
-  const [slug, setSlug] = useState(organisation.slug);
+  // Started at the handle it already has, and so already its owner's: nothing here
+  // proposes over the top of it, which is the same rule the creating forms follow one
+  // keystroke later.
+  const handle = useProposedSlug(organisation.slug);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const { message, code, fieldErrors, report, clear } = useFormFailure([
@@ -74,16 +77,14 @@ function OrganisationForm({ organisation }: { organisation: Organisation }) {
     try {
       await request<Organisation>('/organisations', {
         method: 'PATCH',
-        body: { name: textField(values, 'name'), slug }
+        body: { name: textField(values, 'name'), slug: handle.slug }
       });
       // The header names the organisation, and the session is where it reads that from.
       await refreshAccount();
       setSaved(true);
     } catch (error) {
       report(error);
-      if (error instanceof ApiError && error.suggested) {
-        setSlug(error.suggested);
-      }
+      handle.takeSuggestion(error);
     }
     setSaving(false);
   }
@@ -118,10 +119,11 @@ function OrganisationForm({ organisation }: { organisation: Organisation }) {
       />
       <SlugField
         id="slug"
-        value={slug}
-        onChange={setSlug}
+        value={handle.slug}
+        onChange={handle.choose}
         error={fieldErrors.slug}
         taken={code === SLUG_TAKEN}
+        suggested={handle.suggested}
       />
 
       {/*
@@ -129,7 +131,7 @@ function OrganisationForm({ organisation }: { organisation: Organisation }) {
           redirects from a handle that has moved, so every link anybody holds to the old
           one stops working the moment this is submitted.
         */}
-      {slug !== organisation.slug && (
+      {handle.slug !== organisation.slug && (
         <p className="notice" role="status">
           {t('settings.handleMoves', { from: organisation.slug })}
         </p>

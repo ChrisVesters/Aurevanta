@@ -35,11 +35,21 @@ public final class Slug {
 	/**
 	 * The {@code n}th alternative to a handle, shortened if the suffix would not
 	 * otherwise fit the column.
+	 *
+	 * <p>
+	 * Trailing hyphens come off after the cut, because the cut can land on one:
+	 * shortening {@code a…a-b} to make room leaves {@code a…a-}, and appending {@code -2}
+	 * to that yields a doubled hyphen that {@link #PATTERN} refuses. A suggestion the
+	 * server would then reject is worse than no suggestion at all — the forms fill it in,
+	 * so the visitor is refused for a value they never typed.
 	 */
 	public static String withSuffix(String base, int n) {
 		String suffix = "-" + n;
 		int room = MAX_LENGTH - suffix.length();
-		return ((base.length() <= room) ? base : base.substring(0, room)) + suffix;
+		String shortened = (base.length() <= room) ? base : base.substring(0, room);
+		// Never empties it: a handle of this shape starts with a letter or a digit, and
+		// the room left for it is tens of characters, so that first one always survives.
+		return shortened.replaceAll("-+$", "") + suffix;
 	}
 
 	/**

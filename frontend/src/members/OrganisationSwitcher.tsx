@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
-import type { Membership } from '../auth/types';
+import type { Membership, Organisation } from '../auth/types';
 import { describeFailure } from '../i18n/problems';
 import { sharedNames } from '../tenant/sharedNames';
 
@@ -20,7 +20,7 @@ import { sharedNames } from '../tenant/sharedNames';
 export function OrganisationSwitcher({
   organisation
 }: {
-  organisation: { id: string; name: string };
+  organisation: Organisation;
 }) {
   const { t } = useTranslation();
   const { request, selectOrganisation } = useAuth();
@@ -43,8 +43,11 @@ export function OrganisationSwitcher({
     return () => {
       cancelled = true;
     };
-    // Reloaded on every switch, so a membership gained or lost since is reflected.
-  }, [request, organisation.id]);
+    // Reloaded on every switch, so a membership gained or lost since is reflected — and
+    // on a rename, which changes neither the id nor the membership but does change what
+    // this list has to say. Since M1a a name is not unique, so a stale list can offer two
+    // options that read alike: the rename may have been the thing telling them apart.
+  }, [request, organisation.id, organisation.name, organisation.slug]);
 
   async function switchTo(organisationId: string) {
     setSwitching(true);

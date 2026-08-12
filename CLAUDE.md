@@ -9,10 +9,11 @@ Licensed GPL-3.0.
 `docs/product-concept.md` holds the domain concepts and planned features — read it before
 designing schema or domain logic. It is design intent, not a description of existing code.
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
-depends on; M0 (tenancy and identity) and M1 (making it a team product) are built.
-`docs/m1-plan.md` is the record of how M1 was done and where it departed from its own brief;
-`docs/m1a-plan.md` is the plan for what comes next, which is a correction to M0 rather than
-new ground.
+depends on; M0 (tenancy and identity), M1 (making it a team product) and M1a (organisation
+names are not unique) are built. `docs/m1-plan.md` and `docs/m1a-plan.md` are the records of
+how those last two were done and where each departed from its own brief — M1a most of all,
+since it corrected M0 by a different route than the one it was written to take. M2 is next
+and is the first milestone to carry domain data.
 
 ## Layout
 
@@ -116,11 +117,13 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Routing is React Router** (`react-router` v8, `BrowserRouter` in `main.tsx`).
   `/` is a public landing page, `/register` and `/login` sit behind `RedirectWhenSignedIn`,
   and everything under `/app` sits behind `RequireAuth`, inside a shared `AppLayout` that
-  owns the header and the organisation switcher. `/app/members` and `/app/settings` are
-  owner-only: the nav entry is hidden and the page says so, with the server refusing either
-  way — what is on screen is a courtesy, not the boundary. The forms never navigate themselves: they
-  update the session and the guards move the visitor on, which is also what returns someone
-  to the page they originally asked for after signing in.
+  owns the header and the organisation switcher. `/app/settings` is owner-only: the nav
+  entry is hidden and the page says so, with the server refusing either way — what is on
+  screen is a courtesy, not the boundary. **`/app/members` is not**, and the difference is
+  the point: any member may see who their colleagues are, so the page is reached by
+  everybody and hides only the controls that administer somebody. The forms never navigate
+  themselves: they update the session and the guards move the visitor on, which is also what
+  returns someone to the page they originally asked for after signing in.
 - **The pages an emailed link lands on are public and outside both guards** —
   `/verify-email`, `/reset-password`, `/invite/:token`. The last is outside
   `RedirectWhenSignedIn` as well, and deliberately: somebody already signed in is exactly
@@ -196,6 +199,17 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **One budget per recipient, shared across endpoints.** Per-endpoint budgets would hand an
   attacker twice the allowance for alternating between reset and resend, and the person
   being written to cannot tell which endpoint sent what.
+- **A refusal that could never have sent a message gives the recipient's claim back**
+  (`MailRateLimiter.refundRecipient`), and registration's `slug_taken` is the one that does.
+  M1a made it a refusal the product *invites* people to retry — the form fills in the free
+  alternative it carries — and a retry loop in front of three-per-quarter-hour locks
+  somebody out of registering at all, and out of the password reset that shares the budget.
+  **The source keeps its claim**, because that budget bounds what one client can make this
+  application do and a refused registration still cost it a lookup and a bcrypt hash;
+  refunding it would leave an endpoint that hashes passwords unlimited to anybody willing to
+  collide on a handle every time. **Only a refusal decided without looking the address up may
+  be refunded** — anything decided *by* the address would make the limit an answer to the
+  question the blanket `202`s exist to refuse.
 - **`429` carries `Retry-After`**, which is why it is the one failure with its own handler
   returning a `ResponseEntity` rather than a bare `ProblemDetail`. A client told only "too
   many" can do nothing but guess, and a bad guess is a retry loop.
@@ -275,12 +289,95 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   at once. Two copies of that check would be two chances for one to drift.
 - **`MembershipService.join` is the only place a membership is created** — registering,
   accepting an invitation and starting an organisation all go through it.
-- **`POST /api/organisations` `{name}` is the way out of belonging to nothing**, and takes
-  an *identity* token for that reason: the caller who needs it has no organisation and so
-  no access token to offer. Losing your last membership became reachable the moment an owner
-  could remove people, and waiting to be invited is not something a person can do for
+- **`POST /api/organisations` `{name, slug}` is the way out of belonging to nothing**, and
+  takes an *identity* token for that reason: the caller who needs it has no organisation and
+  so no access token to offer. Losing your last membership became reachable the moment an
+  owner could remove people, and waiting to be invited is not something a person can do for
   themselves. `OrganisationService` is shared with registration, so both apply one set of
   rules about what an organisation may be called.
+
+## Organisations: the name, and the handle
+
+- **The name is not unique and never was in reality.** Two organisations may both be called
+  Acme Consulting. M0 made the name unique by accident — it derived the slug from it and put
+  a unique index on that — which produced the one refusal in the system nobody could act on,
+  because a person cannot choose a different name for their own company. M1a is the
+  correction; `docs/m1a-plan.md` is its record.
+- **The handle is chosen, not derived.** `slug` is a required field on
+  `RegistrationRequest` (as `organisationSlug`), `CreateOrganisationRequest` and
+  `UpdateOrganisationRequest`. Nothing on the server derives one, and nothing allocates one:
+  the caller brings a handle, and it is taken exactly as typed or refused.
+- **A refusal is only ever raised against something somebody chose.** That is the whole
+  property this milestone exists to establish, and it is why the field is required rather
+  than optional. An omitted handle would have to be filled in by the server, and a server
+  that picks cannot then refuse — so there would be two paths through creation answering
+  differently, and the caller would be left holding a consequence they never chose.
+- **`slug_taken` carries the next free alternative** (`suggested`), so the refusal arrives
+  with its own remedy. That is what buys the absence of an availability endpoint: asking "is
+  `acme` free?" would be a public surface anybody could walk to enumerate which
+  organisations exist, bought for a case that arises rarely. `OrganisationService.nextFree`
+  counts from `Slug.base`, which strips a trailing `-<digits>` first — somebody refused
+  `acme-2` is offered `acme-3`, not `acme-2-2`.
+- **The extra property rides on the problem document, not on `errors`.** `FieldProblem` is
+  built from Bean Validation failures and publishes only a constraint's numeric attributes;
+  "somebody else has this" is neither. The form knows what the code refers to and places the
+  message against the handle input itself, the way sign-in places `email_not_verified`.
+- **There is no lock, deliberately.** Once the handle arrives in the request there is no
+  check-then-assign sequence to serialise: `existsBySlug` refuses a taken handle, and the
+  pair who pass that check in the same instant meet `uq_tenants_slug`. Compare
+  `MembershipRepository.lockOwners` above — that guards an invariant nothing can repair once
+  broken, and this would guard a *message*. The race produces a rare, self-correcting,
+  already-actionable refusal, which does not earn one.
+- **The service never catches the constraint violation; `ApiExceptionHandler` reads it.**
+  Catching it in the service would need a `saveAndFlush` to make it land somewhere catchable
+  and would leave a branch only two colliding writers could reach, which nothing could cover.
+  The advice maps three index names — `uq_tenants_slug`, `uq_users_email`,
+  `uq_invitations_pending` — each to **the code its own pre-check produces**, so a caller
+  cannot tell a race from the ordinary case. `slug_taken` from that route carries no
+  suggestion: the transaction is already lost, so there is nothing left to ask the database.
+  Anything unmapped degrades to a neutral `conflict` that names no field.
+- **The one `slug_taken` without a suggestion is the one the field must not promise one
+  for.** `SlugField` takes `suggested` alongside `taken` and says "choose another" rather
+  than "we have suggested another", because in that path the input is still holding the
+  handle that was just refused. `useProposedSlug.takeSuggestion` is what decides it, so
+  whether an alternative arrived and whether the field was replaced with it stay one fact.
+- **`ConstraintNamesTests` is what fails when a migration renames an index.** Those names
+  belong to Flyway, not to the advice, and nothing else would notice them drifting apart — a
+  specific refusal would quietly become a generic one with the suite still green. Adding an
+  entry to the map is what adds it to the test.
+- **`PATCH /api/organisations` `{name, slug}` — OWNER only**, with the organisation taken
+  from the token and never named in the request, like every other tenant-scoped endpoint.
+  Both fields are required: Jackson cannot tell an absent field from a null one, so an
+  optional name would have to decide which of "leave it" and "clear it" a null meant, and
+  both readings are wrong for a column that cannot be empty. **Keeping your own handle is not
+  taking somebody's** — the collision check skips the caller's own, or renaming would be
+  impossible without also re-addressing.
+- **Changing a handle breaks every link to it.** No redirect table, no retired handles that
+  keep resolving. That is free only while nothing routes by handle; M2 is the step that ends
+  it, and both this and reserved handles are recorded under M2 in `roadmap.md` rather than
+  left here to be rediscovered.
+- **Deriving a handle from a name is the frontend's job** — `proposeSlug` in
+  `src/tenant/slug.ts`, with accent folding, lowercasing and hyphenating. **`Slug.PATTERN` is
+  the contract between the two and the server enforces it**, so a proposal the server would
+  refuse is a bug in the proposer, not a disagreement about the rule. A name with nothing to
+  derive from proposes nothing, and the visitor types one: an empty required field asks a
+  question, where a default like `organisation` would invite somebody to accept it unread.
+- **`useProposedSlug` is shared by both forms that create an organisation**, and taking over
+  is one-way: the handle follows the name until somebody edits it, and then it is theirs and
+  stops moving — including when they go back to fix a typo in the name. A field that kept
+  following would silently undo a handle chosen one keystroke earlier. The settings form does
+  *not* use it: that handle already has an owner.
+- **`SLUG_TAKEN` is exported from `SlugField` so the form can keep the banner quiet.**
+  `useFormFailure` cannot know to: a handle already taken is not a validation failure and
+  never appears in `errors`, so the refusal was rendered twice, once beside the field and
+  once in the banner. A test caught it, and the tests now assert it is said once.
+- **The handle is shown on screen only where a choice is being made and the caller's own
+  list repeats a name** — `ChooseOrganisationPage` and `OrganisationSwitcher`, via
+  `sharedNames`. Names that differ only in case count as the same name, since that is not a
+  difference anybody reliably notices in a list. Everywhere else needs nothing: an invitation
+  preview already carries an inviter, the header is covered by the switcher, and a sentence
+  that interpolates a name reads badly with a handle in it. Both screens already hold the
+  list, so this costs no query and no endpoint.
 
 ## Invitations
 

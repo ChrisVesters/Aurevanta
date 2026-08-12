@@ -44,6 +44,31 @@ public class MailRateLimiter {
 		refuseIfSpent(this.byAddress.claim(normalise(emailAddress)));
 	}
 
+	/**
+	 * Gives back the recipient's share of a claim that turned out to send nothing.
+	 *
+	 * <p>
+	 * For a request refused by something decided without reference to the address at all
+	 * — a handle somebody else already holds. The per-recipient budget bounds what can be
+	 * dumped in one inbox, and a request that put nothing there has spent nothing of it.
+	 * Without this, a refusal the product invites people to retry costs them the budget a
+	 * password reset would later need.
+	 *
+	 * <p>
+	 * <strong>The source keeps its claim.</strong> That budget bounds what one client can
+	 * make this application do, and a refused registration still cost it a lookup and a
+	 * bcrypt hash. Giving that back would make an endpoint that hashes a password
+	 * unlimited to anyone willing to collide on a handle every time.
+	 *
+	 * <p>
+	 * Only ever called for a refusal whose reason the caller has already been told, so it
+	 * cannot become an answer to a question the blanket {@code 202}s exist to refuse.
+	 * Nothing decided by looking the address up may be refunded.
+	 */
+	public void refundRecipient(String emailAddress) {
+		this.byAddress.refund(normalise(emailAddress));
+	}
+
 	private static void refuseIfSpent(Optional<Duration> refusal) {
 		refusal.ifPresent((retryAfter) -> {
 			throw new TooManyRequestsException(retryAfter);

@@ -201,6 +201,41 @@ class MailRateLimitApiTests {
 		assertThat(this.mail.sent()).isEmpty();
 	}
 
+	/**
+	 * A handle somebody else holds is a refusal the product invites people to retry — the
+	 * form fills in the alternative it carries. Spending the inbox's budget on it would
+	 * mean three collisions locked somebody out of registering at all, and out of the
+	 * password reset that shares the budget, for a quarter of an hour.
+	 */
+	@Test
+	void aTakenHandleDoesNotSpendTheRecipientsBudget() throws Exception {
+		register("acme", "ada@acme.test").andExpect(status().isCreated());
+
+		for (int attempt = 0; attempt < 3; attempt++) {
+			register("acme", "grace@acme.test").andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("slug_taken"));
+		}
+
+		register("umbrella", "grace@acme.test").andExpect(status().isCreated());
+	}
+
+	/**
+	 * The source keeps its claim, because it spent this application's time either way: a
+	 * refused registration still costs a lookup and a bcrypt hash, and refunding that
+	 * would leave an endpoint that hashes passwords unlimited to anybody willing to
+	 * collide on a handle every time.
+	 */
+	@Test
+	void aTakenHandleStillSpendsTheSourcesBudget() throws Exception {
+		register("acme", "ada@acme.test").andExpect(status().isCreated());
+
+		for (int attempt = 0; attempt < 4; attempt++) {
+			register("acme", "nobody-" + attempt + "@acme.test").andExpect(status().isConflict());
+		}
+
+		register("umbrella", "grace@acme.test").andExpect(status().isTooManyRequests());
+	}
+
 	private ResultActions requestReset(String email) throws Exception {
 		return this.mvc.perform(resetRequest(email));
 	}

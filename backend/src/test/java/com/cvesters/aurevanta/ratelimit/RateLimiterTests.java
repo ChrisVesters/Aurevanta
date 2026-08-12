@@ -260,6 +260,32 @@ class RateLimiterTests {
 		assertThat(this.limiter.tracked()).isEqualTo(2);
 	}
 
+	/** One attempt back, not the whole key: the two before it were still attempts. */
+	@Test
+	void givesBackTheMostRecentAttempt() {
+		spend(3);
+
+		this.limiter.refund("ada@acme.test");
+
+		assertThat(this.limiter.claim("ada@acme.test")).isEmpty();
+		assertThat(this.limiter.claim("ada@acme.test")).isPresent();
+	}
+
+	/**
+	 * Refunding the last one held releases the key rather than leaving an empty one to be
+	 * swept later, and refunding a key that holds nothing is not an error — the window it
+	 * was claimed in may simply have passed.
+	 */
+	@Test
+	void refundingTheLastAttemptReleasesTheKey() {
+		this.limiter.claim("ada@acme.test");
+
+		this.limiter.refund("ada@acme.test");
+		this.limiter.refund("nobody@acme.test");
+
+		assertThat(this.limiter.tracked()).isZero();
+	}
+
 	@Test
 	void forgetsEverythingWhenCleared() {
 		spend(3);

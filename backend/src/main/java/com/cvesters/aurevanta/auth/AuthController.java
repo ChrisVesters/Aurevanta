@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.cvesters.aurevanta.problem.InvalidCredentialsException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
+import com.cvesters.aurevanta.problem.SlugTakenException;
 import com.cvesters.aurevanta.auth.registration.RegistrationRequest;
 import com.cvesters.aurevanta.auth.registration.RegistrationService;
 import com.cvesters.aurevanta.auth.signin.AuthenticationService;
@@ -77,12 +78,26 @@ class AuthController {
 	 * many addresses as somebody cares to type, which the per-source limit is what stops.
 	 * An endpoint that emails an address the caller chose belongs behind this whether or
 	 * not it can be made to email the same one twice.
+	 *
+	 * <p>
+	 * A handle somebody else holds gives the recipient's claim back. M1a made
+	 * {@code slug_taken} a refusal this endpoint <em>invites</em> people to retry — the
+	 * form fills in the free alternative it carries — and a retry loop in front of a
+	 * three-per-quarter-hour budget locks somebody out of registering at all. It is
+	 * decided without looking the address up and the caller has already been told why, so
+	 * giving it back answers nothing that the refusal did not.
 	 */
 	@PostMapping("/register")
 	@ResponseStatus(HttpStatus.CREATED)
 	AccountResponse register(@Valid @RequestBody RegistrationRequest request, HttpServletRequest incoming) {
 		this.rateLimiter.claim(incoming.getRemoteAddr(), request.email());
-		return AccountResponse.of(this.registrationService.register(request));
+		try {
+			return AccountResponse.of(this.registrationService.register(request));
+		}
+		catch (SlugTakenException ex) {
+			this.rateLimiter.refundRecipient(request.email());
+			throw ex;
+		}
 	}
 
 	/**

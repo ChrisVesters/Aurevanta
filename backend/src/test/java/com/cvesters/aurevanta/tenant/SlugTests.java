@@ -51,6 +51,20 @@ class SlugTests {
 	}
 
 	/**
+	 * The cut that makes room can land on a hyphen, and appending to that leaves a
+	 * doubled one — a suggestion the server's own pattern refuses. The forms fill a
+	 * suggestion in, so this arrives as a refusal against a value the visitor never
+	 * typed.
+	 */
+	@Test
+	void makesRoomWithoutLeavingATrailingHyphen() {
+		String handle = Slug.withSuffix("a".repeat(Slug.MAX_LENGTH - 3) + "-b", 2);
+
+		assertThat(handle).endsWith("a-2");
+		assertThat(SHAPE.matcher(handle).matches()).isTrue();
+	}
+
+	/**
 	 * Somebody refused {@code acme-2} is plainly already counting, and a suggestion that
 	 * appends to their count rather than continuing it reads as a mistake.
 	 */

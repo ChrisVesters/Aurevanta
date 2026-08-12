@@ -7,7 +7,6 @@ import { MAXIMUM_NAME_LENGTH } from '../auth/constants';
 import { textField } from '../auth/formValues';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
-import { ApiError } from '../api/client';
 import { SLUG_TAKEN, SlugField } from '../tenant/SlugField';
 import { sharedNames } from '../tenant/sharedNames';
 import { useProposedSlug } from '../tenant/useProposedSlug';
@@ -60,11 +59,9 @@ export function ChooseOrganisationPage() {
       await createOrganisation(textField(values, 'name'), handle.slug);
     } catch (error) {
       report(error);
-      // The refusal arrives holding a free handle; taking it up is what the visitor
-      // would otherwise do by hand.
-      if (error instanceof ApiError && error.suggested) {
-        handle.choose(error.suggested);
-      }
+      // The refusal usually arrives holding a free handle; taking it up is what the
+      // visitor would otherwise do by hand.
+      handle.takeSuggestion(error);
       setCreating(false);
     }
   }
@@ -114,6 +111,7 @@ export function ChooseOrganisationPage() {
               onChange={handle.choose}
               error={fieldErrors.slug}
               taken={code === SLUG_TAKEN}
+              suggested={handle.suggested}
             />
 
             <button type="submit" className="primary" disabled={creating}>

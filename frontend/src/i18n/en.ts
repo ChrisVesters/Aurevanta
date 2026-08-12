@@ -79,7 +79,12 @@ export const en = {
         hint: 'Lowercase letters, numbers and hyphens. Yours to change later.',
         // A handle is an address, not a name — which is why this refusal is one somebody
         // can act on, and why the field is already holding the way past it.
-        taken: 'Somebody already has that handle. We have suggested another.'
+        taken: 'Somebody already has that handle. We have suggested another.',
+        // Two people choosing one handle in the same instant: the loser is refused by the
+        // unique index, too late for the server to go and find a free one. Promising a
+        // suggestion here would point at a field still holding the refused handle.
+        takenWithoutSuggestion:
+          'Somebody already has that handle. Choose another.'
       },
       displayName: { label: 'Your name' },
       email: { label: 'Email' },

@@ -20,6 +20,14 @@ type SlugFieldProps = {
   error?: string;
   /** Whether the last attempt was refused because somebody else holds this handle. */
   taken: boolean;
+  /**
+   * Whether that refusal arrived holding a free alternative, which this field has been
+   * replaced with. Not every one does: the race between two callers choosing the same
+   * handle is refused after the transaction is lost, with nothing left to go and look up.
+   * Saying "we have suggested another" there would point at a field still holding the
+   * handle that was just refused.
+   */
+  suggested: boolean;
 };
 
 /**
@@ -34,7 +42,8 @@ export function SlugField({
   value,
   onChange,
   error,
-  taken
+  taken,
+  suggested
 }: SlugFieldProps) {
   const { t } = useTranslation();
 
@@ -61,7 +70,9 @@ export function SlugField({
       */}
       {taken && (
         <p className="field-error" role="alert">
-          {t('auth.fields.slug.taken')}
+          {suggested
+            ? t('auth.fields.slug.taken')
+            : t('auth.fields.slug.takenWithoutSuggestion')}
         </p>
       )}
     </>

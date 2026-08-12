@@ -2,7 +2,6 @@ import { useState } from 'react';
 import type { SubmitEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
-import { ApiError } from '../api/client';
 import { useAuth } from './AuthContext';
 import { Field } from './Field';
 import { textField } from './formValues';
@@ -58,12 +57,9 @@ export function RegisterForm() {
       setConfirmationSentTo(account.email);
     } catch (error) {
       report(error);
-      // A refused handle arrives holding a free one. Taking it up is what the visitor
-      // would otherwise do by hand, and it also marks the field as theirs — so a later
-      // edit to the name above cannot quietly undo it.
-      if (error instanceof ApiError && error.suggested) {
-        handle.choose(error.suggested);
-      }
+      // A refused handle usually arrives holding a free one. Taking it up is what the
+      // visitor would otherwise do by hand.
+      handle.takeSuggestion(error);
       setSubmitting(false);
     }
   }
@@ -139,6 +135,7 @@ export function RegisterForm() {
         onChange={handle.choose}
         error={fieldErrors.organisationSlug}
         taken={code === SLUG_TAKEN}
+        suggested={handle.suggested}
       />
       <Field
         id="displayName"

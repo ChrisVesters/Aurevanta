@@ -60,7 +60,7 @@ its owner, JWT auth, tenant isolation enforced in the service layer.
 | Gap | Why it matters |
 |---|---|
 | ~~A tenant can only ever have one user~~ | *Retired in M1 step 1:* identity is now separate from membership. `users` holds the person — one address, one password, one confirmed inbox — and a `memberships` row holds their standing in one organisation, so somebody consulting for two clients belongs to both with a different role in each. |
-| An organisation name is unique across the whole installation | `uq_tenants_slug` makes the second "Acme Consulting" to arrive unregisterable. Company names are not unique in reality, and nothing about this product makes them so. Scheduled as M1a. |
+| ~~An organisation name is unique across the whole installation~~ | *Retired in M1a:* the name is a plain column that derives nothing, and `uq_tenants_slug` now guards a handle its owner chose. `existsBySlug` and that index still make the *handle* unique — deliberately, because it is an address — but the second "Acme Consulting" to arrive registers, and the only thing anyone is ever refused is something they typed. |
 | ~~Per-field validation errors carry English prose, not codes~~ | *Retired in M1 step 4:* each field error now carries the constraint that failed and its bounds, and the frontend translates that.  |
 | ~~No password reset, no email verification~~ | *Retired in M1 steps 5 and 6:* an unconfirmed address cannot obtain a token by any route, and reset is the way back for an account whose confirmation mail never arrived — which under a hard gate is the only way back. |
 | Landing page advertises unbuilt features | Fine while private; must not go public as-is. |
@@ -101,10 +101,11 @@ departed from its own brief. Four things changed shape against the bullets above
 
 ---
 
-## M1a — Organisation names are not unique
+## M1a — Organisation names are not unique ✅ *done*
 
 *A correction slotted after M1, not a split of it. Lettered to avoid renumbering M2–M11.*
-`m1a-plan.md` breaks it into four steps and answers the decisions below.
+`m1a-plan.md` breaks it into five steps, answers the decisions below, and records where each
+step departed from its own brief.
 
 M0 gave `tenants.slug` a unique index and derived it from the organisation's name, which
 quietly made **the name itself unique across the entire installation**. Register "Acme
@@ -113,14 +114,16 @@ though the first to arrive owns it. There are thousands of them, and nothing abo
 product changes that. It is the one refusal in the system a user cannot act on: they cannot
 choose a different name, because it is their name.
 
-**The slug stops being an identity and becomes a convenience.** Two ways to go:
+**The slug stops being an identity and becomes a convenience.** Two ways to go — *neither was
+taken; the handle became a field instead. Kept because the reasoning still explains what the
+alternatives cost, and* **As built** *below says what happened.*
 
 | | |
 |---|---|
 | **Recommended: keep the slug unique, disambiguate on collision** | `acme-consulting`, then `acme-consulting-2`. Readable URLs survive, and the name the user typed is never altered — only the handle derived from it. |
 | Alternative: drop slugs, address organisations by id | Simpler and honest, but gives up readable URLs, which M10's shareable read-only link would want back. |
 
-**What it touches**
+**What it touches** *(as anticipated; all three read differently once the handle is a field)*
 
 - Drop the name pre-check in `OrganisationService` — which registration and "start another
   organisation" now share, so there is one place to drop it — and retire
@@ -171,6 +174,49 @@ it, so the common case is free and the person has still chosen.
 handle leaves a redirect behind. Both are free to defer only while nothing routes by handle,
 and M2 is the step that ends that.
 
+### As built
+
+**This milestone did not do what it was written to do**, and that is the first thing to know
+about it. It was written to make the derived slug survive a collision quietly; what shipped
+makes the handle a field somebody fills in, which is a different answer to the same problem
+and a smaller one. `m1a-plan.md` carries the five steps and where each departed from its brief.
+Against the bullets above, four things read differently:
+
+- **Nothing derives a handle any more, so nothing needed a uniqueness pass.** `Slug.of` did not
+  gain one — it left the backend altogether. Proposing a handle from a name is what a form does
+  while somebody types, so it is `proposeSlug` in the frontend now, and what stays on the server
+  is the part the server is answerable for: the shape (`Slug.PATTERN`, which is the contract
+  between the two) and the alternative offered when a chosen handle is taken.
+- **Two refusals went, not one.** `organisation_name_unavailable` and
+  `organisation_name_unusable` are both deleted. The second had nothing left to describe once a
+  name derives nothing: a name of pure punctuation is now just a name. What replaces the first
+  is `slug_taken`, which carries the next free handle so the refusal arrives with its own
+  remedy — decided in preference to an availability endpoint, which would have been a surface
+  anybody could walk to enumerate which organisations exist.
+- **`registration_conflict` was retired rather than narrowed.** The bullet says it narrows to
+  email; in fact `uq_users_email` now answers with `email_already_registered`, the code its own
+  pre-check produces, so a race and the ordinary case became indistinguishable to the client —
+  which is what they should always have been. The neutral leftover is `conflict`, naming no
+  field, because a refusal that guesses at what the caller was doing is worse than one that
+  admits it does not know. `ApiExceptionHandler` maps three unique indexes that way, and
+  `ConstraintNamesTests` fails if a migration renames one out from under it.
+- **There is deliberately no lock**, and it is worth saying so where the absence would
+  otherwise look like an oversight. Once the handle is carried in the request there is no
+  check-then-assign sequence to serialise: the pre-check refuses a taken handle, and the pair
+  who get past it in the same instant meet `uq_tenants_slug`. Compare
+  `MembershipService.lockOwners`, which guards an invariant nothing can repair once broken;
+  this would guard a *message*. A rare, self-correcting, already-actionable refusal does not
+  earn one.
+
+**It also added a settings screen**, which M1 excluded in as many words ("org settings beyond a
+name"). Once the handle is a field, an organisation that could never change its address would
+be stuck with a decision made in its first thirty seconds — so `PATCH /api/organisations` and
+`/app/settings` came with it, owner-only, name and handle together. It is the one part of this
+milestone that adds rather than corrects, and the seam to cut along if that was the wrong call.
+
+**No migration.** Every slug already in the database is unique and stays valid; the column and
+its index are untouched. What changed is only where the *next* handle comes from.
+
 ---
 
 ## M2 — The estimation schema
@@ -191,6 +237,8 @@ organisation handle in a URL and so ends the grace period both were granted:
   retired-handle table later is a table and a lookup; not adding it is silent breakage that
   nobody reports, because the person who follows a dead link is not the person who changed
   the handle.
+
+**The schema itself:**
 
 - **Projects** (or plans) — a named container per tenant.
 - **Work items** — the unit that carries an estimate.
@@ -630,14 +678,18 @@ never the quality of the maths applied to it.
 temptation will be to build satisfying CRUD screens for projects and tasks. Resist it: a
 beautiful task list that sums P50s is precisely the tool this product exists to replace.
 
-M1a earns its place in that sequence only because it is cheap *now*: it is a small change
-that becomes a link-breaking one the moment M2 puts a slug in a URL. It is not more
-important than the engine — nothing is — it is just perishable.
+M1a earned its place in that sequence only because it was cheap *then*: a small change that
+becomes a link-breaking one the moment M2 puts a slug in a URL. It was never more important
+than the engine — nothing is — it was just perishable, and it is now spent.
+
+**M1 and M1a are done, so what is left of this sequence is M2's schema decisions, then
+M3a.** Two of the six below are still open, and they are the ones that block rather than
+merely inform.
 
 ### Blocked on a decision, not on engineering
 
-M1 can start today. M2 cannot, until these are settled — and all five are cheaper to answer
-now than to retrofit:
+M2 cannot start until these are settled — and all of them are cheaper to answer now than to
+retrofit:
 
 | | Recommendation |
 |---|---|

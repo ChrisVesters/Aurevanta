@@ -115,8 +115,28 @@ describe('SettingsPage', () => {
     // Said once, beside the field it is about — not in the banner as well.
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /already has that handle/i
+      'Somebody already has that handle. We have suggested another.'
     );
+  });
+
+  /**
+   * The race: two callers choosing one handle in the same instant, where the loser meets
+   * the unique index with the transaction already lost and nothing left to look up. The
+   * field is still holding the handle that was just refused, so promising a suggestion
+   * would be pointing at one that is not there.
+   */
+  it('does not claim a suggestion when the refusal carried none', async () => {
+    await open();
+    fetchMock.mockResolvedValueOnce(jsonResponse(409, { code: 'slug_taken' }));
+
+    await userEvent.clear(screen.getByLabelText('Handle'));
+    await userEvent.type(screen.getByLabelText('Handle'), 'umbrella');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Somebody already has that handle. Choose another.'
+    );
+    expect(screen.getByLabelText('Handle')).toHaveValue('umbrella');
   });
 
   it('reports any other refusal in the banner', async () => {

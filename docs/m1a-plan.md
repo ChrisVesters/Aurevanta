@@ -42,7 +42,7 @@ changing either is a deliberate act rather than a side effect.
 | 2 | Each conflict reports what it actually is ✅ *done* | 1 |
 | 3 | Changing the name and the handle afterwards ✅ *done* | 1 |
 | 4 | Two organisations, one name, on screen ✅ *done* | 1 |
-| 5 | Close out | 1–4 |
+| 5 | Close out ✅ *done* | 1–4 |
 
 Step 1 is the milestone. Steps 2 and 4 are consequences it leaves behind; step 3 is the one
 addition, and the one to strike if the milestone needs trimming.
@@ -407,7 +407,7 @@ names show none. A repeat in one list does not put a handle beside an unrelated 
 
 ---
 
-## Step 5 — Close out
+## Step 5 — Close out ✅ *done*
 
 - `roadmap.md`: strike the M0 debt row about organisation names being unique across the
   installation, and mark M1a done with what it actually did — which is not what M1a was
@@ -419,6 +419,67 @@ names show none. A repeat in one list does not put a handle beside an unrelated 
   and M2 is the step that ends that. They belong where the person doing M2 will read them.
 - `CLAUDE.md`: the handle is chosen, not derived; a refusal is only ever raised against a
   choice; the allocation lock and why it is keyed the way it is.
+
+### As built — where it differs from the above
+
+- **There is no allocation lock to describe**, so `CLAUDE.md` records its absence instead —
+  and why, since a missing lock beside `lockOwners` looks like an oversight rather than a
+  judgement. This bullet was written before decision 2 removed the check-then-assign
+  sequence the lock existed to serialise; the plan's own sequencing note says as much two
+  screens further down, and this is the one place it was not followed through.
+- **Two of the three `roadmap.md` items were already done.** The decisions table and the M2
+  deferrals were written when the plan was, because both were answers this milestone needed
+  *before* building rather than notes to leave after it. What was left is the part that can
+  only be written afterwards: the M0 debt row, and an "As built" saying that this milestone
+  did not do what it was written to do.
+- **`CLAUDE.md` gained a section rather than a paragraph.** Steps 1–4 shipped without
+  touching it, which was the plan — it is step 5's job — but four steps of decisions is more
+  than three bullets can hold: the handle's shape and where it is enforced, the refusal and
+  its remedy, the constraint map and the test that pins it, the two frontend rules that are
+  easy to get subtly wrong, and where a handle is shown on screen at all.
+- **`roadmap.md`'s "What I would build next" was stale in a way nothing else caught**: it
+  still sequenced M1 and M1a as work to come. It now says what is left, which is M2's two
+  open decisions.
+
+---
+
+## The review at the end, and what it found
+
+Five things, all fixed before the milestone was called done. Worth recording, because four
+of the five are the *same* mistake in different places: a rule that was got right where it
+was written down and then not followed through to the one path that reaches it differently.
+
+- **`Slug.withSuffix` could emit a handle its own `PATTERN` refuses.** The cut that makes
+  room for the suffix can land on a hyphen, and `-` + `-2` is a doubled hyphen. The
+  original `Slug.of` guarded it with a trailing `replaceAll("-+$", "")`, which went when
+  derivation moved to the frontend — and the test that covers the cut uses `"a".repeat(80)`,
+  which never reaches a hyphen to land on. The forms fill a suggestion in, so this arrived
+  as a `pattern` field error against a value the visitor never typed.
+- **The handle field promised a suggestion the race never sends.** `SlugTakenException(null)`
+  is deliberate — the transaction is lost, so there is nothing left to look up — but the
+  field said "we have suggested another" regardless, pointing at an input still holding the
+  refused handle. It now takes `suggested` alongside `taken`, decided by
+  `useProposedSlug.takeSuggestion`, which is also what applies the alternative: one fact,
+  one place. `SettingsPage` adopted the hook to get it, which removed its own copy of the
+  same three lines.
+- **A taken handle spent the registering address's mail budget.** The claim goes before
+  everything is looked up, which was written when `email_already_registered` was the only
+  refusal that could reach it — a refusal nobody retries. `slug_taken` is one the product
+  *invites* people to retry, and three collisions locked somebody out of registering at all
+  for a quarter of an hour, and out of the password reset that shares the budget.
+  `MailRateLimiter.refundRecipient` gives that share back; the **source** keeps its claim,
+  because a refused registration still cost a lookup and a bcrypt hash.
+- **The switcher went on offering an organisation's old name after a rename.** Its effect is
+  keyed on the organisation's id, which a rename does not change. Step 3 added renaming and
+  step 4 added the handle beside a repeated name without either noticing the other: a stale
+  option can be the one thing that told two identically named organisations apart.
+- **`CLAUDE.md` said `/app/members` is owner-only.** Step 3 widened a sentence to cover the
+  settings page it was adding and swept the members page in with it. Only the *controls*
+  there are owner-only; the page is for everybody, which is what `GET /api/members` exists
+  for.
+
+Each fix ships with the test that fails without it, and each of those was run against the
+unfixed code to prove it does.
 
 ---
 
