@@ -12,8 +12,10 @@ designing schema or domain logic. It is design intent, not a description of exis
 depends on; M0 (tenancy and identity), M1 (making it a team product) and M1a (organisation
 names are not unique) are built. `docs/m1-plan.md` and `docs/m1a-plan.md` are the records of
 how those last two were done and where each departed from its own brief — M1a most of all,
-since it corrected M0 by a different route than the one it was written to take. M2 is next
-and is the first milestone to carry domain data.
+since it corrected M0 by a different route than the one it was written to take.
+`docs/m2-plan.md` is the plan for what comes next: the first milestone to carry domain data,
+and the one whose schema M3–M9 all read from. **Nothing below describes any of it yet** — M2
+is planned, not built.
 
 `docs/security.md` is the security review taken after M1a — four open findings with the moment
 each is cheapest to fix, what was deliberately accepted, and, at least as usefully, what was

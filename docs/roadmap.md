@@ -224,8 +224,17 @@ its index are untouched. What changed is only where the *next* handle comes from
 The first migration that carries real domain data. Getting this wrong is the most
 expensive mistake available, because M3–M9 all read from it.
 
-**Two things M1a deferred come due here**, because this is the step that first puts an
-organisation handle in a URL and so ends the grace period both were granted:
+`m2-plan.md` breaks it into six steps and answers the two decisions below that this section
+called unresolved.
+
+**Two things M1a deferred were expected to come due here** — on the assumption that this is the
+step that first puts an organisation handle in a URL. **`m2-plan.md` decides it is not**: plan
+URLs stay `/app/projects/{id}` and the organisation keeps coming from the access token, as it
+does everywhere else. Nothing about entering a plan needs a handle in the path, and adding a
+routing change to the milestone whose risk is already its schema buys nothing.
+
+So both stay deferred, and they stay written here, because the reasoning still holds for
+whichever milestone *does* put a handle in a URL:
 
 - **Reserved handles.** Nothing stops an organisation calling itself `api` or `admin` today,
   because a handle addresses nothing. Decide before routing exists whether to reserve a list
@@ -238,12 +247,10 @@ organisation handle in a URL and so ends the grace period both were granted:
   nobody reports, because the person who follows a dead link is not the person who changed
   the handle.
 
-**Two of the open security findings get more expensive here** — not because they are this
-milestone's work, but because this milestone is what raises their cost. Findings 3 and 4 under
-*Security debt*: an invitation token interpolated into an API path unencoded, whose blast
-radius is bounded by *which endpoints exist*, and the same token travelling in the request
-line, a wire change that is free only while nothing outside this repository sends it. Both are
-cheap now and stop being cheap here.
+**One of the open security findings gets more expensive here.** Finding 3 under *Security
+debt* — an invitation token interpolated into an API path unencoded — has a blast radius
+bounded by *which endpoints exist*, and this milestone adds endpoints. Finding 4, which would
+remove it, is unaffected by M2 and stays on its own schedule.
 
 **The schema itself:**
 
@@ -277,14 +284,22 @@ gone.
 | Multi-estimator (wideband Delphi / planning poker)? | **Design the schema for it now, build the UI later.** An estimate already has an estimator; allowing several per item is a uniqueness constraint, not a rewrite. Disagreement between estimators is itself signal. |
 | Are estimates in effort or duration? | **Effort.** With resources (M11) this becomes load-bearing: duration is effort divided by what is assigned to it. Storing duration would bake an allocation assumption into the estimate and make M11 impossible without re-estimating everything. |
 | Dependency types — just finish-to-start, or SS/FF/SF too? | **Finish-to-start only, with lag.** It covers the overwhelming majority of real plans; the other three multiply scheduling complexity for cases most teams never model. |
-| What happens to items with no estimate? | **Unresolved, and it needs an answer before M3.** Real plans are mostly unestimated, so "refuse to forecast" makes the tool useless on first contact. Imputing from a reference class is defensible but invents data. Whatever is chosen must be visible in the output — a forecast half-built from guesses must not look like one built from estimates. |
-| Can a MEMBER edit estimates, or only an OWNER? | **Unresolved.** M1 ships roles but no domain permissions. Every endpoint from M2 onwards needs an answer, and retrofitting authorisation across a built API is painful. |
+| What happens to items with no estimate? | **Settled: forecast what is estimated, and report coverage.** An estimate is optional and a forecast states how many items it left out. Imputing from a reference class is defensible, invents data, and needs a per-forecast record of what was invented — which is a forecast-run concern, and those are M3. |
+| Can a MEMBER edit estimates, or only an OWNER? | **Settled: any member may do everything.** Roles govern administration only. Estimation is a team activity and multi-estimator support is meaningless without it. The cost is that destructive acts become everyone's, so M2 has no hard delete — projects and items archive. |
+| How large is a plan? | **500 items per project**, fixed in `m2-plan.md` because it decides whether M2 needs pagination and whether M3 forecasts synchronously. Both answers are no and yes. |
 
 ---
 
 ## M3 — The simulation engine ⭐ *the product*
 
 Fit → sample → aggregate. Everything else is a view over this.
+
+**M3 inherits one obligation from M2**, and it is easy to postpone into never: **persist every
+forecast run from the first commit**, with its inputs, its assumptions and its results. M2
+deliberately did *not* build the table — its columns are this engine's, and designing them
+before the engine existed would have been guessing. The roadmap's original warning stands
+unchanged and now applies here: this history cannot be reconstructed later, and M10's
+sliding-date detector and the movement decomposition in the icebox both need it.
 
 > **This milestone is oversized and should be split before work starts.** It now carries
 > distribution fitting, sampling, graph scheduling, the team factor and scope uncertainty —
@@ -719,19 +734,20 @@ than the engine — nothing is — it was just perishable, and it is now spent.
 M3a.** Two of the six below are still open, and they are the ones that block rather than
 merely inform.
 
-### Blocked on a decision, not on engineering
+### Was blocked on a decision — now settled
 
-M2 cannot start until these are settled — and all of them are cheaper to answer now than to
-retrofit:
+Every one of these is answered, and `m2-plan.md` carries the reasoning. **Nothing blocks M2
+starting.**
 
-| | Recommendation |
+| | Decision |
 |---|---|
 | Unit of estimation | Task |
 | Multi-estimator | Schema now, UI later |
-| Effort or duration | Effort — load-bearing once M11 exists |
+| Effort or duration | Effort, stored in hours — a "day" is a calendar word and calendars are M11's |
 | Dependency types | Finish-to-start with lag |
-| **Items with no estimate** | **Open.** Blocks M3 as much as M2. |
-| **Can a MEMBER edit estimates?** | **Open.** Every M2 endpoint needs it. |
+| Items with no estimate | Forecast what is estimated, report coverage |
+| Can a MEMBER edit estimates? | Yes — any member may do everything; roles govern administration only |
+| How large is a plan? | 500 items per project |
 
 ### Known thin spots
 
@@ -742,7 +758,9 @@ Honest about where this plan is weakest, rather than discovering it mid-build:
   (a flat sum) is gone.
 - **The plan-entry UI is barely scoped.** It is named in M2 and deliberately minimal, but
   "minimal" has not been defined, and dependency editing is the kind of interface that
-  quietly consumes weeks.
-- **No scale target has been set.** Whether a plan holds 50 items or 5,000 decides
-  synchronous versus queued forecasting, and how affordable M11 is. Worth fixing a number
-  before M3a rather than discovering it under load.
+  quietly consumes weeks. `m2-plan.md` names the trap — the three-box estimate form will look
+  obviously bad the moment it is on screen, and making it good is M5 — without defining
+  "minimal" any more tightly than that.
+- ~~**No scale target has been set.**~~ *Fixed at 500 items per project in `m2-plan.md`*, which
+  is what decides whether M2 needs pagination (no) and whether M3 can forecast synchronously
+  (yes). M11's affordability is still open at that size.
