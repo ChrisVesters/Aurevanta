@@ -113,6 +113,33 @@ describe('AppLayout', () => {
     );
   });
 
+  /** An <option> has nowhere to put a second line, so the handle goes inline. */
+  it('tells two organisations with one name apart by their handles', async () => {
+    const otherAcme = {
+      ...ACME_MEMBERSHIP,
+      id: 'a-second-acme',
+      organisation: {
+        id: 'the-other-acme',
+        name: 'Acme Planning Co',
+        slug: 'acme-planning-co-2'
+      }
+    };
+    await signedIn([ACME_MEMBERSHIP, otherAcme]);
+
+    const switcher = await screen.findByLabelText('Organisation');
+    expect(switcher).toHaveTextContent(
+      'Acme Planning Co (acme-planning-co)Acme Planning Co (acme-planning-co-2)'
+    );
+  });
+
+  it('says nothing about a handle when every name is its own', async () => {
+    await signedIn([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
+
+    const switcher = await screen.findByLabelText('Organisation');
+    expect(switcher).toHaveTextContent('Acme Planning CoUmbrella');
+    expect(switcher).not.toHaveTextContent('acme-planning-co');
+  });
+
   it('says so when the exchange is refused', async () => {
     await signedIn([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
     const switcher = await screen.findByLabelText('Organisation');

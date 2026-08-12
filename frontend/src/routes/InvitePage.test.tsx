@@ -123,10 +123,38 @@ describe('InvitePage', () => {
   });
 
   /**
-   * The hole the server closes: a token emailed to a mailbox proves control of the
-   * mailbox, not ownership of the account registered with it.
+   * The bug this closes: an invited colleague who already has an account was shown the
+   * form for making one, and only told otherwise after inventing a name and a password.
+   * The preview answers it first, so nothing is asked that cannot be given.
    */
-  it('sends somebody whose address already has an account to sign in first', async () => {
+  it('asks for no account at all when the address already has one', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { ...INVITATION_PREVIEW, claimed: true })
+    );
+    open();
+
+    expect(
+      await screen.findByText(
+        'This invitation is for an address that already has an Aurevanta account.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    // Back here afterwards, or accepting would mean finding the email again.
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      '/login'
+    );
+    // Nothing was sent: the preview was the whole of the exchange.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * The same answer arriving late, for an account registered between the preview and the
+   * attempt — and the hole the server closes either way: a token emailed to a mailbox
+   * proves control of the mailbox, not ownership of the account registered with it.
+   */
+  it('sends somebody whose address gained an account meanwhile to sign in', async () => {
     await previewed();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(401, { code: 'sign_in_required' })
@@ -144,11 +172,12 @@ describe('InvitePage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'That address already has an Aurevanta account.'
     );
-    // Back here afterwards, or accepting would mean finding the email again.
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
       'href',
       '/login'
     );
+    // The form goes with it: resubmitting it could only be refused the same way.
+    expect(screen.queryByLabelText('Your name')).not.toBeInTheDocument();
   });
 
   it('accepts with the account somebody already holds, sending no credentials', async () => {

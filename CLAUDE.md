@@ -316,10 +316,18 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `POST /api/invitations/{token}/accept` are reached by somebody being invited *into* an
   organisation, so a token scoped to it cannot be the price of entry. The other four —
   issue, list, revoke, resend — are OWNER-only and tenant-scoped.
-- **The preview carries three fields and no more**: organisation name, inviter's display
-  name, role. It is served to anyone holding the link, so it must disclose nothing a member
-  would have had to sign in for — no identifier, no handle, no member list — and nothing
-  about the invited address either.
+- **The preview carries four fields and no more**: organisation name, inviter's display
+  name, role, and `claimed`. It is served to anyone holding the link, so it must disclose
+  nothing a member would have had to sign in for — no identifier, no handle, no member list.
+- **`claimed` is the one thing the preview says about the invited address**, and it says it
+  so that the page can ask the right thing before anything is typed. Without it the page had
+  to guess from the *visitor's* session, which is a different question: an invited colleague
+  who already had an account was shown the form for making one, and told to sign in instead
+  only after inventing a display name and a twelve-character password. The disclosure is one
+  bit, never the address, and reaching it takes the raw token — which was mailed to that
+  address and is stored only as a hash, so the audience is the recipient and whoever they
+  forwarded the message to. `sign_in_required` still exists and is still the authority: it is
+  the same answer arriving late, for an account registered since the preview was fetched.
 - **Accepting has two ways through, chosen by the address and not by the caller.** Nobody
   holds it, so an account is created and a session handed back at once — the link proved
   the address, so `email_verified_at` is stamped and no confirmation is sent. Somebody does

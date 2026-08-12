@@ -9,6 +9,7 @@ import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { ApiError } from '../api/client';
 import { SLUG_TAKEN, SlugField } from '../tenant/SlugField';
+import { sharedNames } from '../tenant/sharedNames';
 import { useProposedSlug } from '../tenant/useProposedSlug';
 
 /**
@@ -35,6 +36,9 @@ export function ChooseOrganisationPage() {
     clear
   } = useFormFailure(['name', 'slug']);
   const handle = useProposedSlug();
+  // Two organisations may share a name since M1a; the handle is what tells them apart,
+  // and only where they actually do.
+  const sharesName = sharedNames(memberships);
 
   async function choose(organisationId: string) {
     setSelecting(true);
@@ -132,6 +136,25 @@ export function ChooseOrganisationPage() {
                   onClick={() => void choose(membership.organisation.id)}
                 >
                   {membership.organisation.name}
+                  {/*
+                    Inside the button rather than beside it: two buttons that read the
+                    same are two buttons anybody navigating by their names cannot choose
+                    between, which is the same problem one layer down.
+
+                    The space is deliberate and load-bearing. An accessible name is the
+                    button's text run together, so without it the two lines are announced
+                    as one word — which would leave the handle no easier to hear than the
+                    name it is there to disambiguate. It is invisible on screen, where the
+                    two are separate rows of a column.
+                  */}
+                  {sharesName(membership.organisation) && (
+                    <>
+                      {' '}
+                      <span className="handle">
+                        {membership.organisation.slug}
+                      </span>
+                    </>
+                  )}
                 </button>
                 <span className="role">{t(`roles.${membership.role}`)}</span>
               </li>

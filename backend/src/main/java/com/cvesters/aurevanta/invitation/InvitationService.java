@@ -173,6 +173,13 @@ public class InvitationService {
 	/**
 	 * What the invitation offers, for somebody holding the link and deciding whether to
 	 * act on it.
+	 *
+	 * <p>
+	 * The address is looked up for the same reason {@link #accept} looks it up: which of
+	 * the two ways through applies is decided by the address and not by whoever is
+	 * holding the link. Answering it here as well only moves that decision in front of
+	 * the attempt instead of behind it — see {@link InvitationPreview} for what saying so
+	 * costs.
 	 * @throws InvalidTokenException if no invitation was ever issued for that link, or it
 	 * has already been accepted
 	 * @throws InvitationExpiredException if it ran out of time
@@ -180,7 +187,8 @@ public class InvitationService {
 	 */
 	@Transactional(readOnly = true)
 	public InvitationPreview preview(String rawToken) {
-		return InvitationPreview.of(live(rawToken));
+		Invitation invitation = live(rawToken);
+		return InvitationPreview.of(invitation, this.users.findByEmailIgnoringCase(invitation.getEmail()).isPresent());
 	}
 
 	/**

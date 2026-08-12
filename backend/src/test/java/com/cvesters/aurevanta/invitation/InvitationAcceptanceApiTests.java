@@ -154,19 +154,45 @@ class InvitationAcceptanceApiTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.organisationName").value("Acme Planning Co"))
 			.andExpect(jsonPath("$.invitedBy").value("Ada"))
-			.andExpect(jsonPath("$.role").value("MEMBER"));
+			.andExpect(jsonPath("$.role").value("MEMBER"))
+			.andExpect(jsonPath("$.claimed").value(false));
+	}
+
+	/**
+	 * Which of the two ways through applies, said before the attempt rather than after
+	 * it. Somebody invited at an address they already have an account for is asked to
+	 * sign in, not to choose a display name and a password for an account that exists.
+	 */
+	@Test
+	void thePreviewSaysWhenTheInvitedAddressAlreadyHasAnAccount() throws Exception {
+		String token = inviteAndCaptureLink(this.erin.getEmail(), UserRole.MEMBER);
+
+		this.mvc.perform(get("/api/invitations/" + token))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.claimed").value(true));
+	}
+
+	/**
+	 * The address is matched the way accepting matches it, so casing cannot change it.
+	 */
+	@Test
+	void thePreviewIgnoresCaseWhenLookingTheAddressUp() throws Exception {
+		String token = inviteAndCaptureLink("ERIN@ELSEWHERE.TEST", UserRole.MEMBER);
+
+		this.mvc.perform(get("/api/invitations/" + token)).andExpect(jsonPath("$.claimed").value(true));
 	}
 
 	/**
 	 * Served to anybody holding the link, so it must disclose nothing a member would have
-	 * had to sign in to see — and nothing about the invited address either.
+	 * had to sign in to see. What it now says about the invited address is one bit and no
+	 * more: whether an account holds it, never the address itself.
 	 */
 	@Test
 	void thePreviewDisclosesNothingElse() throws Exception {
 		String token = inviteAndCaptureLink("dave@elsewhere.test", UserRole.MEMBER);
 
 		this.mvc.perform(get("/api/invitations/" + token))
-			.andExpect(jsonPath("$.*", hasSize(3)))
+			.andExpect(jsonPath("$.*", hasSize(4)))
 			.andExpect(jsonPath("$.email").doesNotExist())
 			.andExpect(jsonPath("$.organisation").doesNotExist())
 			.andExpect(jsonPath("$.expiresAt").doesNotExist());

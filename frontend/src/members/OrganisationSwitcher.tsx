@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import type { Membership } from '../auth/types';
 import { describeFailure } from '../i18n/problems';
+import { sharedNames } from '../tenant/sharedNames';
 
 /**
  * Moves the session from one organisation to another, using the exchange endpoint.
@@ -60,6 +61,10 @@ export function OrganisationSwitcher({
     return <span className="organisation">{organisation.name}</span>;
   }
 
+  // Since M1a a name is not unique. An <option> has nowhere to put a second line, so the
+  // handle goes inline — and only for the names that actually repeat.
+  const sharesName = sharedNames(held);
+
   return (
     <>
       <label className="visually-hidden" htmlFor="organisation-switcher">
@@ -74,7 +79,12 @@ export function OrganisationSwitcher({
       >
         {held.map((membership) => (
           <option key={membership.id} value={membership.organisation.id}>
-            {membership.organisation.name}
+            {sharesName(membership.organisation)
+              ? t('app.switcher.named', {
+                  name: membership.organisation.name,
+                  handle: membership.organisation.slug
+                })
+              : membership.organisation.name}
           </option>
         ))}
       </select>

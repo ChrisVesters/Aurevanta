@@ -86,11 +86,16 @@ export const INVITATION: Invitation = {
   createdAt: '2026-08-11T08:00:00Z'
 };
 
-/** Three fields and no more, exactly as the unauthenticated preview sends them. */
+/**
+ * Four fields and no more, exactly as the unauthenticated preview sends them. `claimed`
+ * is false here because the default fixture is the invitation to a stranger; a case about
+ * somebody who already has an account overrides it.
+ */
 export const INVITATION_PREVIEW: InvitationPreview = {
   organisationName: 'Acme Planning Co',
   invitedBy: 'Ada',
-  role: 'MEMBER'
+  role: 'MEMBER',
+  claimed: false
 };
 
 export function identity(memberships: Membership[]): Identity {

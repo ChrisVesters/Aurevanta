@@ -20,7 +20,10 @@ export const en = {
     switcher: {
       // Labels a control that shows the organisation it would switch away from, so the
       // name beside it is not itself an explanation of what the control does.
-      label: 'Organisation'
+      label: 'Organisation',
+      // Two organisations may share a name, and an <option> has nowhere to put a second
+      // line — so where they do, the handle that tells them apart goes inline.
+      named: '{{name}} ({{handle}})'
     }
   },
   // Shared: a role is shown wherever an organisation is named, not on one screen.
@@ -246,7 +249,11 @@ export const en = {
     lede: '{{inviter}} has invited you to join {{organisation}} on Aurevanta as {{role}}.',
     // The address already has an account, so it has to be claimed by whoever holds it.
     // Signing in returns here rather than going to the dashboard.
-    signIn: '<signIn>Sign in</signIn> to accept it as that person.',
+    claimed: {
+      lede: 'This invitation is for an address that already has an Aurevanta account.',
+      signIn:
+        '<signIn>Sign in</signIn> as that person to accept it — you will come straight back here.'
+    },
     signOut: 'Sign out and accept it as somebody else',
     create: {
       lede: 'Choose how you want to be known and a password, and you are in.',

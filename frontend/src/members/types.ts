@@ -29,7 +29,7 @@ export type Invitation = {
 /**
  * What somebody holding an invitation link is shown before acting on it.
  *
- * Three fields, and the server sends no more: this is served without credentials to
+ * Four fields, and the server sends no more: this is served without credentials to
  * anyone who has the link, so it says who is asking and what they are being asked to
  * join, and nothing a member would have had to sign in to see.
  */
@@ -37,6 +37,13 @@ export type InvitationPreview = {
   organisationName: string;
   invitedBy: string;
   role: UserRole;
+  /**
+   * Whether an account already holds the invited address — the one thing said about it,
+   * and the only way this page can ask the right thing of a visitor who is not signed
+   * in. The alternative is guessing from the visitor's own session, which answers a
+   * different question and gets this one wrong.
+   */
+  claimed: boolean;
 };
 
 /** What accepting needs from somebody who has no account yet. */

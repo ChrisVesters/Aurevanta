@@ -41,7 +41,7 @@ changing either is a deliberate act rather than a side effect.
 | 1 | The handle becomes a field ✅ *done* | — |
 | 2 | Each conflict reports what it actually is ✅ *done* | 1 |
 | 3 | Changing the name and the handle afterwards ✅ *done* | 1 |
-| 4 | Two organisations, one name, on screen | 1 |
+| 4 | Two organisations, one name, on screen ✅ *done* | 1 |
 | 5 | Close out | 1–4 |
 
 Step 1 is the milestone. Steps 2 and 4 are consequences it leaves behind; step 3 is the one
@@ -371,7 +371,7 @@ untouched, with a second organisation in the fixture so leakage would fail.
 
 ---
 
-## Step 4 — Two organisations, one name, on screen
+## Step 4 — Two organisations, one name, on screen ✅ *done*
 
 **Goal.** A person who belongs to two organisations called Acme can tell them apart.
 
@@ -387,6 +387,23 @@ untouched, with a second organisation in the fixture so leakage would fail.
 names show none. A repeat in one list does not put a handle beside an unrelated name.
 
 **Done when** no screen offers a choice between two things a person cannot tell apart.
+
+### As built — where it differs from the above
+
+- **Names that differ only in case count as the same name.** "Acme" beside "acme" is two
+  things nobody reliably tells apart in a list, which is the test this rule applies. The
+  alternative — exact comparison — is defensible and leaves the one genuinely confusable
+  case uncovered for nothing.
+- **The handle goes *inside* the chooser's button**, not beside it. Two buttons that read
+  the same are two buttons anybody navigating by their names cannot choose between, which
+  is the same problem one layer down from the one being fixed.
+- **A space between the name and the handle turned out to be load-bearing.** An accessible
+  name is the button's text run together, so without it the two lines are announced as one
+  word and the handle is no easier to hear than the name it exists to disambiguate. It is
+  invisible on screen, where the two are separate rows of a column. A test caught it.
+- **One catalogue entry, not two.** Only the switcher needs punctuation between the two —
+  an `<option>` has nowhere to put a second line — so the chooser renders the handle as a
+  plain second row and needs no wording of its own.
 
 ---
 

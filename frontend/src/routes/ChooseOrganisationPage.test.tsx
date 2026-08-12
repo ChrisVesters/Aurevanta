@@ -39,6 +39,50 @@ describe('ChooseOrganisationPage', () => {
     expect(screen.getByText('Member')).toBeInTheDocument();
   });
 
+  /**
+   * Since M1a a name is not unique, so this list can offer the same word twice. Inside
+   * the button, because two buttons that read the same are two buttons anybody
+   * navigating by their names cannot choose between.
+   */
+  it('tells two organisations with one name apart by their handles', async () => {
+    const otherAcme = {
+      ...ACME_MEMBERSHIP,
+      id: 'a-second-acme',
+      role: 'MEMBER',
+      organisation: {
+        id: 'the-other-acme',
+        name: 'Acme Planning Co',
+        slug: 'acme-planning-co-2'
+      }
+    };
+    await choosing([ACME_MEMBERSHIP, otherAcme, UMBRELLA_MEMBERSHIP]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', {
+          name: 'Acme Planning Co acme-planning-co'
+        })
+      ).toBeInTheDocument()
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Acme Planning Co acme-planning-co-2'
+      })
+    ).toBeInTheDocument();
+  });
+
+  /** Noise for the overwhelming majority, who have no collision at all. */
+  it('says nothing about a handle when every name is its own', async () => {
+    await choosing([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Acme Planning Co' })
+      ).toBeInTheDocument()
+    );
+    expect(screen.queryByText('umbrella')).not.toBeInTheDocument();
+  });
+
   it('exchanges the token for the organisation that was picked', async () => {
     await choosing([ACME_MEMBERSHIP, UMBRELLA_MEMBERSHIP]);
     await waitFor(() =>

@@ -668,3 +668,18 @@ button.danger {
     align-self: flex-start;
   }
 }
+
+/*
+  The handle that tells two identically named organisations apart, under the name it
+  belongs to. Only rendered where a list actually repeats a name — see `sharedNames`.
+*/
+.organisations button.primary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .handle {
+    font-size: 13px;
+    opacity: 0.75;
+  }
+}

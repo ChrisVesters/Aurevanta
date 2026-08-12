@@ -161,21 +161,6 @@ export function InvitePage() {
           {message}
         </p>
       )}
-      {/*
-        The address already has an account. Signing in from here comes back to this page
-        rather than the dashboard, so the invitation is still in front of them when they
-        return — otherwise accepting means finding the email again.
-      */}
-      {code === SIGN_IN_REQUIRED && (
-        <p className="switch">
-          <Trans
-            i18nKey="invite.signIn"
-            components={{
-              signIn: <Link to="/login" state={{ from: location.pathname }} />
-            }}
-          />
-        </p>
-      )}
       {/* Signed in as somebody else: a shared computer, or a forwarded message. */}
       {code === WRONG_ADDRESS && (
         <p className="switch">
@@ -208,6 +193,34 @@ export function InvitePage() {
             ? t('invite.accept.submitting')
             : t('invite.accept.submit')}
         </button>
+      </AuthLayout>
+    );
+  }
+
+  /*
+    Nobody is signed in and the address is already somebody's. Asking for a display name
+    and a password would be asking for an account that exists, so they are not asked:
+    the preview says which of the two ways through applies before anything is typed.
+    `sign_in_required` is the same answer arriving late, for an account registered
+    between fetching the preview and acting on it.
+
+    Signing in from here comes back to this page rather than going to the dashboard, so
+    the invitation is still in front of them when they return — otherwise accepting means
+    finding the email again.
+  */
+  if (preview.claimed || code === SIGN_IN_REQUIRED) {
+    return (
+      <AuthLayout>
+        {invitation}
+        <p className="lede">{t('invite.claimed.lede')}</p>
+        <p className="switch">
+          <Trans
+            i18nKey="invite.claimed.signIn"
+            components={{
+              signIn: <Link to="/login" state={{ from: location.pathname }} />
+            }}
+          />
+        </p>
       </AuthLayout>
     );
   }
