@@ -238,6 +238,13 @@ organisation handle in a URL and so ends the grace period both were granted:
   nobody reports, because the person who follows a dead link is not the person who changed
   the handle.
 
+**Two of the open security findings get more expensive here** — not because they are this
+milestone's work, but because this milestone is what raises their cost. Findings 3 and 4 under
+*Security debt*: an invitation token interpolated into an API path unencoded, whose blast
+radius is bounded by *which endpoints exist*, and the same token travelling in the request
+line, a wire change that is free only while nothing outside this repository sends it. Both are
+cheap now and stop being cheap here.
+
 **The schema itself:**
 
 - **Projects** (or plans) — a named container per tenant.
@@ -638,14 +645,40 @@ Three of the above are not really nice-to-haves:
 
 Threaded through the above rather than scheduled as a block.
 
-- **Security hardening** — rate limiting on auth endpoints, token revocation, audit trail
-  for tenant-scoped access. The JWT secret must be set explicitly in any real deployment.
+- **Security** — rate limiting arrived in M1; what is left is below as *Security debt*, which
+  is a reviewed list rather than the guess this bullet used to be. The JWT secret must still be
+  set explicitly in any real deployment.
 - **Localisation** — infrastructure exists, English only. Adding a locale is a catalogue
   file *once* the backend sends codes instead of prose (M1).
 - **Accessibility** — the auth forms set this bar; keep it as charts arrive, where it is
   much harder. A confidence cone needs a non-visual equivalent.
 - **Operations** — CI, container build, migration strategy, health and metrics.
 - **API documentation** — OpenAPI, once the domain endpoints exist and are stable.
+
+### Security debt
+
+Four findings from the review taken after M1a and before M2. **`security.md` is the record** —
+it carries the exploit paths, the fixes, what was deliberately accepted, and what was checked
+and found sound. This table exists so the debt is visible from the plan; it is not a second
+copy of the reasoning, and it should not become one.
+
+| # | | Severity | Cheapest moment |
+|---|---|---|---|
+| 1 | The credential cannot be withdrawn, and sits where a script can read it | Medium | Any time — but the two halves are one migration, so do them together |
+| 2 | Registration is a free, repeatable account-existence oracle | Medium | Before a registration screen is redesigned; the ordering fix is free today |
+| 3 | An invitation token is interpolated into an API path unencoded | Low | Before M2 — its blast radius is the endpoint set |
+| 4 | Raw invitation tokens travel in the request line | Low | Before the API is public; fixing 4 removes 3 |
+
+**Cross-cutting rather than scheduled, deliberately.** None of these is estimation work, and a
+list of security fixes sitting inside a milestone's bullets competes with that milestone for
+the same attention — which, given the ordering principle above, is a competition security
+loses every time the plan is trimmed to reach the engine sooner. They belong here, where the
+question is *when is this cheapest* rather than *what is this milestone made of*.
+
+**Worth knowing before picking any of them up**: finding 1's second half would make CSRF this
+application's problem for the first time. CLAUDE.md currently argues that CSRF needs no defence
+*because* authentication is bearer-only with no cookie — true today, and false the moment a
+cookie is set.
 
 ### Decided: forecast quality is not a commercial axis
 

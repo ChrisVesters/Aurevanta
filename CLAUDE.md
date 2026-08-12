@@ -15,6 +15,14 @@ how those last two were done and where each departed from its own brief — M1a 
 since it corrected M0 by a different route than the one it was written to take. M2 is next
 and is the first milestone to carry domain data.
 
+`docs/security.md` is the security review taken after M1a — four open findings with the moment
+each is cheapest to fix, what was deliberately accepted, and, at least as usefully, what was
+checked and found sound. None of them is scheduled into a milestone, deliberately: they are
+carried under *Cross-cutting* in `roadmap.md`, because a security list inside a milestone's
+bullets is scope, and scope is what gets cut. **Read it before changing anything it names**:
+two of the four are properties this codebase argues for elsewhere and does not keep, so a
+change made without it can quietly widen one.
+
 ## Layout
 
 - `backend/` — Spring Boot 4.1 REST API (Java 25, Maven), PostgreSQL 18 + Flyway.
