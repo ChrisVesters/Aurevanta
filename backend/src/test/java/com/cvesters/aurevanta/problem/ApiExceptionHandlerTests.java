@@ -66,7 +66,8 @@ class ApiExceptionHandlerTests {
 	static Stream<Arguments> racedConstraints() {
 		return Stream.of(Arguments.of(ApiExceptionHandler.UNIQUE_SLUG_INDEX, "slug_taken"),
 				Arguments.of(ApiExceptionHandler.UNIQUE_EMAIL_INDEX, "email_already_registered"),
-				Arguments.of(ApiExceptionHandler.UNIQUE_PENDING_INVITATION_INDEX, "invitation_already_pending"));
+				Arguments.of(ApiExceptionHandler.UNIQUE_PENDING_INVITATION_INDEX, "invitation_already_pending"),
+				Arguments.of(ApiExceptionHandler.UNIQUE_DEPENDENCY_EDGE_INDEX, "dependency_already_exists"));
 	}
 
 	/**

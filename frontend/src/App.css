@@ -604,6 +604,12 @@ button.link {
     font-size: 13px;
   }
 
+  /* Where the task sits in the plan, read from both ends. */
+  .shape {
+    font-size: 13px;
+    color: var(--text);
+  }
+
   /* Every control in a row on the row's centre line, as the member list does it. */
   button {
     align-self: center;
@@ -709,6 +715,74 @@ button.link {
 
     &[aria-invalid='true'] {
       border-color: var(--danger-border);
+    }
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+}
+
+/*
+  How the plan is joined up. The same gesture again — a row opening in place — with one
+  thing the other two do not have: a list of what has already been said, because an arrow
+  is drawn once and then lived with, and the way to change one is to rub it out.
+*/
+.dependency-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+
+  input,
+  select {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--danger-border);
+    }
+  }
+
+  /* The loop the refusal named, beside the refusal rather than instead of it. */
+  .cycle {
+    margin: 0;
+    font-size: 14px;
+    color: var(--danger);
+  }
+
+  .dependency-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 14px;
     }
   }
 

@@ -4,7 +4,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import jakarta.persistence.LockModeType;
+
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -47,6 +50,33 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 			where p.id = :id and p.tenant.id = :tenantId
 			""")
 	Optional<Project> findInTenant(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
+
+	/**
+	 * The same plan, locked for update, so that one caller at a time may reason about the
+	 * shape of it.
+	 *
+	 * <p>
+	 * <strong>This row is a lock over its graph, and holds nothing that the graph is made
+	 * of.</strong> Drawing a dependency has to establish that the plan stays acyclic,
+	 * which is a property of every edge at once: two callers can each read a graph that
+	 * their own new edge leaves acyclic, and close a cycle together. Compare
+	 * {@code MembershipRepository.lockOwners}, which guards a count across several rows
+	 * for the same reason — and compare the conditional {@code UPDATE} that makes
+	 * spending a token safe, which cannot serve here, because that makes a race on
+	 * <em>one row</em> safe and this is a race on a property of all of them. Postgres has
+	 * no unique index for "acyclic".
+	 *
+	 * <p>
+	 * One lock per plan, held for a walk over at most 500 items — and taken on the
+	 * project rather than on the edges, because the edges that would have to be locked
+	 * are the ones that do not exist yet.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("""
+			select p from Project p
+			where p.id = :id and p.tenant.id = :tenantId
+			""")
+	Optional<Project> lockForGraphChange(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 
 	/**
 	 * How many items each of the organisation's plans holds, archived ones left out.

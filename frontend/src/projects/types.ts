@@ -55,6 +55,24 @@ export type WorkItem = {
 };
 
 /**
+ * One arrow in a plan: the predecessor has to finish before the successor begins.
+ *
+ * Finish-to-start with a lag is the only kind there is, so nothing here says which kind it
+ * is — a field with one possible value is a field somebody has to read to learn nothing.
+ *
+ * Names no project. An edge is only ever listed by plan and only ever addressed by its own
+ * identifier, and its two ends already say which plan it is in.
+ */
+export type Dependency = {
+  id: string;
+  predecessorItemId: string;
+  successorItemId: string;
+  /** How long after the predecessor finishes the successor may begin. Usually none. */
+  lagHours: number;
+  createdAt: string;
+};
+
+/**
  * One person's current three-point range for one item, in hours of effort.
  *
  * Several may be current on one item at once — one per estimator — and that is the point

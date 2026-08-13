@@ -12,7 +12,12 @@ import type {
   SignInResponse
 } from '../auth/types';
 import type { Invitation, InvitationPreview, Member } from '../members/types';
-import type { Estimate, Project, WorkItem } from '../projects/types';
+import type {
+  Dependency,
+  Estimate,
+  Project,
+  WorkItem
+} from '../projects/types';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
@@ -191,6 +196,20 @@ export const COLLEAGUES_ESTIMATE: Estimate = {
   p90Hours: 4,
   createdAt: '2026-08-13T12:00:00Z'
 };
+
+/**
+ * The runbook cannot be written until the auth service has moved, which is the plan's
+ * whole shape at this size — and enough for a row to have to say both ends of an arrow.
+ */
+export const DEPENDENCIES: Dependency[] = [
+  {
+    id: '30303030-3030-3030-3030-303030303030',
+    predecessorItemId: WORK_ITEMS[0].id,
+    successorItemId: WORK_ITEMS[1].id,
+    lagHours: 0,
+    createdAt: '2026-08-13T13:00:00Z'
+  }
+];
 
 export const INVITATION: Invitation = {
   id: '88888888-8888-8888-8888-888888888888',

@@ -51,7 +51,8 @@ class ApiExceptionHandler {
 	 * other codes in this application.
 	 */
 	private static final Map<String, String> CONSTRAINT_CODES = Map.of("NotBlank", "not_blank", "NotNull", "not_null",
-			"Size", "size", "Email", "email", "Pattern", "pattern", "Positive", "positive", "Digits", "digits");
+			"Size", "size", "Email", "email", "Pattern", "pattern", "Positive", "positive", "PositiveOrZero",
+			"positive_or_zero", "Digits", "digits");
 
 	/** What an unmapped constraint becomes, so a new one degrades rather than leaks. */
 	private static final String UNKNOWN_CONSTRAINT = "invalid";
@@ -61,6 +62,8 @@ class ApiExceptionHandler {
 	static final String UNIQUE_EMAIL_INDEX = "uq_users_email";
 
 	static final String UNIQUE_PENDING_INVITATION_INDEX = "uq_invitations_pending";
+
+	static final String UNIQUE_DEPENDENCY_EDGE_INDEX = "uq_dependencies_edge";
 
 	/**
 	 * Unique indexes whose violation has a better answer than "something conflicted", and
@@ -87,7 +90,8 @@ class ApiExceptionHandler {
 	 */
 	private static final Map<String, Supplier<ApiProblemException>> CONSTRAINT_CONFLICTS = Map.of(UNIQUE_SLUG_INDEX,
 			() -> new SlugTakenException(null), UNIQUE_EMAIL_INDEX, EmailAlreadyRegisteredException::new,
-			UNIQUE_PENDING_INVITATION_INDEX, InvitationAlreadyPendingException::new);
+			UNIQUE_PENDING_INVITATION_INDEX, InvitationAlreadyPendingException::new, UNIQUE_DEPENDENCY_EDGE_INDEX,
+			DependencyAlreadyExistsException::new);
 
 	/**
 	 * Every index name this advice reads, for the test that pins them to the database.
@@ -116,7 +120,7 @@ class ApiExceptionHandler {
 	 * zero is the more useful half of that answer.
 	 */
 	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "not_null", "size", "max_size", "email",
-			"pattern", "positive", "digits");
+			"pattern", "positive", "positive_or_zero", "digits");
 
 	/** Every domain failure describes itself, so one branch covers all of them. */
 	@ExceptionHandler(ApiProblemException.class)
@@ -158,6 +162,25 @@ class ApiExceptionHandler {
 		if (ex.getSuggested() != null) {
 			problem.setProperty("suggested", ex.getSuggested());
 		}
+		return problem;
+	}
+
+	/**
+	 * The third failure that answers with more than a code, and the reason it is worth a
+	 * branch is the same as the handle suggestion's: the refusal arrives with what the
+	 * caller needs in order to act on it.
+	 *
+	 * <p>
+	 * A plan holds up to five hundred items, and "that would create a cycle" without
+	 * saying which one is a refusal somebody has to go and find by hand. The walk that
+	 * decided the refusal already knows the route, so it is carried out as {@code path} —
+	 * item identifiers, which the client turns into the titles it is already drawing,
+	 * because prose from here is never shown to anybody.
+	 */
+	@ExceptionHandler(DependencyCycleException.class)
+	ProblemDetail handleDependencyCycle(DependencyCycleException ex) {
+		ProblemDetail problem = problem(ex.getStatus(), ex.getTitle(), ex.getMessage(), ex.getCode());
+		problem.setProperty("path", ex.getPath());
 		return problem;
 	}
 

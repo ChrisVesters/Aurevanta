@@ -24,6 +24,11 @@ const BACKEND_CODES = [
   'progress_date_required',
   'progress_out_of_order',
   'progress_not_applicable',
+  'self_dependency',
+  'dependency_across_projects',
+  'dependency_already_exists',
+  'dependency_cycle',
+  'dependency_not_found',
   'already_a_member',
   'invitation_already_pending',
   'invitation_not_found',
@@ -164,6 +169,9 @@ describe('describeFieldErrors', () => {
       { code: 'max_size', min: 0, max: 200 },
       { code: 'email' },
       { code: 'pattern' },
+      { code: 'positive' },
+      { code: 'positive_or_zero' },
+      { code: 'digits', integer: 10, fraction: 2 },
       { code: 'invalid' }
     ];
 

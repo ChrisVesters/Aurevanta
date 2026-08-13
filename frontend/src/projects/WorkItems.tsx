@@ -1,23 +1,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
+import { DependencyForm } from './DependencyForm';
+import type { DependencyValues } from './DependencyForm';
 import { EstimateForm } from './EstimateForm';
 import type { EstimateValues } from './EstimateForm';
 import { ProgressForm } from './ProgressForm';
 import type { ProgressValues } from './ProgressForm';
 import { WorkItemForm } from './WorkItemForm';
 import { formatDay } from './dates';
-import type { Estimate, WorkItem } from './types';
+import type { Dependency, Estimate, WorkItem } from './types';
 
 type Values = { title: string; description: string | null };
 
-/** Which row is open, and for which of the three things a row can be opened for. */
-type OpenRow = { itemId: string; mode: 'edit' | 'estimate' | 'progress' };
+/** Which row is open, and for which of the four things a row can be opened for. */
+type OpenRow = {
+  itemId: string;
+  mode: 'edit' | 'estimate' | 'progress' | 'blocks';
+};
 
 const ESTIMATE_FIELDS = ['p10Hours', 'p50Hours', 'p90Hours'];
 const PROGRESS_FIELDS = ['status', 'actualEffortHours'];
+const BLOCK_FIELDS = ['successorItemId', 'lagHours'];
 
 /**
  * The work inside one plan: what it is made of, what each person thinks it will take, and
@@ -36,6 +43,13 @@ export function WorkItems({ projectId }: { projectId: string }) {
   const { account, request } = useAuth();
   const [items, setItems] = useState<WorkItem[] | null>(null);
   const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [dependencies, setDependencies] = useState<Dependency[]>([]);
+  /**
+   * The loop a refused arrow would have closed, already turned into titles. Kept here
+   * rather than taken from `useFormFailure`, which knows about wording and per-field
+   * complaints and deliberately nothing about the extra properties one refusal carries.
+   */
+  const [cycle, setCycle] = useState<string[] | null>(null);
   const [archived, setArchived] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,6 +59,7 @@ export function WorkItems({ projectId }: { projectId: string }) {
   const rewording = useFormFailure(['title', 'description']);
   const estimating = useFormFailure(ESTIMATE_FIELDS);
   const reporting = useFormFailure(PROGRESS_FIELDS);
+  const blocking = useFormFailure(BLOCK_FIELDS);
 
   const userId = account?.userId;
 
@@ -59,17 +74,21 @@ export function WorkItems({ projectId }: { projectId: string }) {
     // The estimates are only ever the current ones, and only for work still in the plan —
     // which is why nothing is asked about them while the archived listing is on screen.
     async function load() {
-      const [loaded, current] = await Promise.all([
+      const [loaded, current, drawn] = await Promise.all([
         request<WorkItem[]>(
           `/projects/${projectId}/items${archived ? '?archived=true' : ''}`
         ),
         archived
           ? Promise.resolve<Estimate[]>([])
-          : request<Estimate[]>(`/projects/${projectId}/estimates`)
+          : request<Estimate[]>(`/projects/${projectId}/estimates`),
+        archived
+          ? Promise.resolve<Dependency[]>([])
+          : request<Dependency[]>(`/projects/${projectId}/dependencies`)
       ]);
       if (!cancelled) {
         setItems(loaded);
         setEstimates(current);
+        setDependencies(drawn);
         setFailure(null);
       }
     }
@@ -108,6 +127,28 @@ export function WorkItems({ projectId }: { projectId: string }) {
     }
     return byItem;
   }, [estimates, userId]);
+
+  /**
+   * What each item must finish before, and what each item is waiting on — the same edges
+   * read from both ends, because a row has to say both to be worth reading at all.
+   */
+  const outgoing = useMemo(
+    () => byEnd(dependencies, 'predecessorItemId'),
+    [dependencies]
+  );
+  const incoming = useMemo(
+    () => byEnd(dependencies, 'successorItemId'),
+    [dependencies]
+  );
+
+  /**
+   * Every item in the plan by identifier. An arrow names the far end by identifier only,
+   * and an identifier is not something to show anybody.
+   */
+  const titles = useMemo(
+    () => new Map((items ?? []).map((item) => [item.id, item.title])),
+    [items]
+  );
 
   const reload = useCallback(() => setReloads((count) => count + 1), []);
 
@@ -192,6 +233,60 @@ export function WorkItems({ projectId }: { projectId: string }) {
     [request, reporting, reload]
   );
 
+  const block = useCallback(
+    async (itemId: string, values: DependencyValues) => {
+      setBusy(true);
+      blocking.clear();
+      setCycle(null);
+      try {
+        await request<Dependency>('/dependencies', {
+          method: 'POST',
+          body: { predecessorItemId: itemId, ...values }
+        });
+        // Left open, unlike every other form here, because ordering is plural where the
+        // others are not: a task that must finish before one thing usually must finish
+        // before two, and the list it just joined is right there. Closing after each one
+        // would make drawing three arrows three trips through the same button. Rubbing
+        // one out already leaves the panel open, so this is also what makes the two
+        // halves of it behave alike.
+        reload();
+      } catch (error) {
+        blocking.report(error);
+        // The refusal carries the loop it would have closed, which is the whole reason
+        // the server walks the graph rather than merely answering yes or no. Turned into
+        // titles here, where the plan is already on screen, and left alone where the
+        // refusal was something else.
+        if (error instanceof ApiError && error.path) {
+          setCycle(
+            error.path.map(
+              (id) => titles.get(id) ?? t('projects.items.blocks.putAway')
+            )
+          );
+        }
+      }
+      setBusy(false);
+    },
+    [request, blocking, reload, titles, t]
+  );
+
+  const unblock = useCallback(
+    async (dependency: Dependency) => {
+      setBusy(true);
+      blocking.clear();
+      setCycle(null);
+      try {
+        await request<void>(`/dependencies/${dependency.id}`, {
+          method: 'DELETE'
+        });
+        reload();
+      } catch (error) {
+        blocking.report(error);
+      }
+      setBusy(false);
+    },
+    [request, blocking, reload]
+  );
+
   const setItemArchived = useCallback(
     async (item: WorkItem, put: boolean) => {
       setBusy(true);
@@ -215,9 +310,11 @@ export function WorkItems({ projectId }: { projectId: string }) {
       rewording.clear();
       estimating.clear();
       reporting.clear();
+      blocking.clear();
+      setCycle(null);
       setOpen(row);
     },
-    [rewording, estimating, reporting]
+    [rewording, estimating, reporting, blocking]
   );
 
   return (
@@ -298,6 +395,11 @@ export function WorkItems({ projectId }: { projectId: string }) {
                       <>
                         <span className="estimate">{summary(item.id)}</span>
                         <span className="progress">{progress(item)}</span>
+                        {shape(item.id).map((line) => (
+                          <span className="shape" key={line}>
+                            {line}
+                          </span>
+                        ))}
                       </>
                     )}
                   </span>
@@ -329,6 +431,19 @@ export function WorkItems({ projectId }: { projectId: string }) {
                         }
                       >
                         {t('projects.items.progress.open')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        aria-label={t('projects.items.blocks.openNamed', {
+                          title: item.title
+                        })}
+                        onClick={() =>
+                          openRow({ itemId: item.id, mode: 'blocks' })
+                        }
+                      >
+                        {t('projects.items.blocks.open')}
                       </button>
                     </>
                   )}
@@ -372,6 +487,28 @@ export function WorkItems({ projectId }: { projectId: string }) {
                   banner={estimating.message}
                   fieldErrors={estimating.fieldErrors}
                   onSubmit={(values) => void estimate(item.id, values)}
+                  onCancel={() => openRow(null)}
+                />
+              )}
+
+              {open?.itemId === item.id && open.mode === 'blocks' && (
+                <DependencyForm
+                  // Remounted once an arrow has landed, which is what empties the boxes
+                  // for the next one — the same trick the add form uses, and it works
+                  // here for the same reason: a refusal does not reload, so it leaves
+                  // what was typed exactly where it is.
+                  key={reloads}
+                  id={`blocks-${item.id}`}
+                  item={item}
+                  candidates={items}
+                  drawn={outgoing.get(item.id) ?? []}
+                  titles={titles}
+                  cycle={cycle}
+                  busy={busy}
+                  banner={blocking.message}
+                  fieldErrors={blocking.fieldErrors}
+                  onSubmit={(values) => void block(item.id, values)}
+                  onRemove={(edge) => void unblock(edge)}
                   onCancel={() => openRow(null)}
                 />
               )}
@@ -453,4 +590,66 @@ export function WorkItems({ projectId }: { projectId: string }) {
     }
     return t('projects.items.progress.summary.notStarted');
   }
+
+  /**
+   * What the row says about where it sits in the plan, read from both ends.
+   *
+   * Both directions, and neither is redundant: an item that must finish before three
+   * others is what a delay to it would hold up, and an item waiting on two is why it has
+   * not started. A row that said only one of them would answer half the question somebody
+   * opened the plan with — and the other half would only be visible from another row.
+   */
+  function shape(itemId: string) {
+    const lines: string[] = [];
+    const before = outgoing.get(itemId) ?? [];
+    const after = incoming.get(itemId) ?? [];
+    if (before.length > 0) {
+      lines.push(
+        t('projects.items.blocks.summary.before', {
+          titles: named(before, 'successorItemId')
+        })
+      );
+    }
+    if (after.length > 0) {
+      lines.push(
+        t('projects.items.blocks.summary.after', {
+          titles: named(after, 'predecessorItemId')
+        })
+      );
+    }
+    return lines;
+  }
+
+  /** The far ends of some arrows, named — a plan is read by its titles, not its keys. */
+  function named(
+    edges: Dependency[],
+    end: 'predecessorItemId' | 'successorItemId'
+  ) {
+    return edges
+      .map(
+        (edge) => titles.get(edge[end]) ?? t('projects.items.blocks.putAway')
+      )
+      .join(', ');
+  }
+}
+
+/**
+ * The plan's arrows grouped by one of their ends.
+ *
+ * Outside the component because it is a fact about a list rather than about anything on
+ * screen, and because both directions are the same grouping with the ends swapped — two
+ * copies of it would be two chances for one to drift.
+ */
+function byEnd(
+  dependencies: Dependency[],
+  end: 'predecessorItemId' | 'successorItemId'
+) {
+  const grouped = new Map<string, Dependency[]>();
+  for (const dependency of dependencies) {
+    grouped.set(dependency[end], [
+      ...(grouped.get(dependency[end]) ?? []),
+      dependency
+    ]);
+  }
+  return grouped;
 }

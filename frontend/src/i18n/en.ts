@@ -290,6 +290,43 @@ export const en = {
         // what makes the coverage count above legible row by row.
         others: 'Estimated by {{names}}'
       },
+      // How the plan is joined up. Asked from one end only — the task the form is opened
+      // on always finishes first — so there is no way to draw an arrow backwards by
+      // misreading a label, and the other direction is the same arrow read from the other
+      // task.
+      blocks: {
+        open: 'Order',
+        openNamed: 'Order work around {{title}}',
+        hint: 'Pick what cannot start until this is finished. Everything else about the plan follows from these.',
+        fields: {
+          successorItemId: 'Must finish before',
+          // Nothing is chosen to begin with, so the first task in the plan is not quietly
+          // the answer for anybody who opens this and presses save.
+          choose: 'Choose a task…',
+          lagHours: 'Wait afterwards (hours)'
+        },
+        submit: 'Add',
+        submitting: 'Adding…',
+        cancel: 'Done',
+        drawn: 'Must finish before {{title}}',
+        drawnWithLag: 'Must finish before {{title}}, plus {{hours}} hours',
+        remove: 'Remove',
+        removeNamed: 'Stop requiring this to finish before {{title}}',
+        nothingLeft:
+          'Nothing left to order this against — every other task in the plan already follows it.',
+        // The far end of an arrow drawn against work that has since been put away. The
+        // archived listing is a different question, so its titles are not on this screen.
+        putAway: 'a task that has been put away',
+        // The loop the refusal named, rather than leaving somebody to find it by hand
+        // across a plan that can hold five hundred tasks.
+        cycle: 'That would make a loop: {{path}}.',
+        summary: {
+          before: 'Must finish before {{titles}}',
+          // Both directions are shown, and neither is redundant: what a delay here would
+          // hold up, and why this has not started.
+          after: 'Waiting on {{titles}}'
+        }
+      },
       // What has already happened. Three states and no more: this is not a workflow, and
       // what a forecast needs to know is only whether an item is still ahead of it.
       progress: {
@@ -458,6 +495,17 @@ export const en = {
       // has room for, so nobody using it can send a claim that contradicts itself.
       progress_not_applicable:
         'Work that has not started records no dates or effort, and work in progress has no date it was finished.',
+      // Reached by a client other than this one: the form offers only the tasks that
+      // could be picked, and never the task it was opened on.
+      self_dependency: 'A task cannot wait for itself.',
+      dependency_across_projects:
+        'Both ends of a dependency have to be in the same project.',
+      dependency_already_exists:
+        'That task already has to finish before this one.',
+      // The loop itself is named separately, from the `path` the refusal carries — a
+      // sentence that only says a loop exists leaves somebody to go and find it.
+      dependency_cycle: 'That would make a task wait for itself.',
+      dependency_not_found: 'That dependency is no longer in this project.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',
@@ -501,6 +549,10 @@ export const en = {
       // words rather than interpolate one.
       pattern: 'Use lowercase letters, numbers and hyphens.',
       positive: 'Use a number greater than zero.',
+      // Zero is a claim that there is no wait, so it is allowed where `positive` is not.
+      // A negative one would be a lead rather than a lag, which is a different kind of
+      // dependency than the one this product models.
+      positive_or_zero: 'Use zero or a number greater than it.',
       // The bounds come from the constraint, so this sentence never repeats them.
       digits: 'Use at most {{fraction}} decimal places.',
       invalid: 'Check this and try again.'

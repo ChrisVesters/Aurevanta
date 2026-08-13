@@ -96,6 +96,37 @@ public class ProjectService {
 		return project(projectId, tenantId);
 	}
 
+	/**
+	 * The same plan, held against anybody else reasoning about its shape at the same
+	 * moment.
+	 *
+	 * <p>
+	 * Public for {@code dependency}, which is the one thing in this milestone whose rule
+	 * is a property of a whole graph rather than of any row in it: two callers can each
+	 * read a plan their own new edge leaves acyclic and close a loop together. The lock
+	 * lives here rather than being taken on the repository directly so that reaching a
+	 * plan still goes through the one method that re-reads the caller's membership — a
+	 * lock is not a reason to skip the check that says they may be here at all.
+	 *
+	 * <p>
+	 * The row it locks holds none of the graph. That is the point: the edges that would
+	 * have to be locked instead are the ones that do not exist yet.
+	 *
+	 * <p>
+	 * <strong>Takes the lock and answers with nothing, including when there is no such
+	 * plan.</strong> Every caller has already reached a piece of work inside it, which is
+	 * what says the plan exists and belongs here — so a {@code project_not_found} raised
+	 * from this line would be a refusal no request could produce and no test could cover.
+	 * A plan that is not there has no items and no edges either, so there is nothing for
+	 * a lock over it to protect.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 */
+	@Transactional
+	public void lockForGraphChange(UUID callerId, UUID tenantId, UUID projectId) {
+		this.memberships.requireMember(callerId, tenantId);
+		this.projects.lockForGraphChange(projectId, tenantId);
+	}
+
 	/** The same plan with its coverage, which is what the API answers with. */
 	@Transactional(readOnly = true)
 	public PlannedProject planned(UUID callerId, UUID tenantId, UUID projectId) {

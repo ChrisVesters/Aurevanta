@@ -26,7 +26,7 @@
 | 2 | Work items ✅ *done* | 1 |
 | 3 | Estimates, and what coverage means ✅ *done* | 2 |
 | 4 | Progress, and actuals ✅ *done* | 2 |
-| 5 | Dependencies | 2 |
+| 5 | Dependencies ✅ *done* | 2 |
 | 6 | Close out | 1–5 |
 
 **There is no fat to cut here**, which is worth stating plainly rather than discovering
@@ -402,7 +402,7 @@ back to not-started clears the timestamps. Progress on an item in another organi
 
 ---
 
-## Step 5 — Dependencies
+## Step 5 — Dependencies ✅ *done*
 
 **Goal.** The plan has a shape, so M3 can forecast something other than a queue of one.
 
@@ -428,6 +428,84 @@ together as `SingleUseTokenServiceTests` does — a serial test cannot tell the 
 An edge to an item in another project is refused.
 
 **Done when** the schema can express a plan whose parts overlap.
+
+### As built — where it differs from the above
+
+The bullets above describe what is refused and how the refusal is made safe, and all of that
+holds. What they leave open is the shape of the API, and two of the answers are departures
+worth naming rather than details.
+
+- **There is a `DELETE`, and the step above never mentions one.** Nothing else in this
+  application deletes: a project archives, an item archives, an estimate is never rewritten
+  because M8 reads it years later. An edge is none of those things — it is a constraint the
+  scheduler obeys until it is gone, and one drawn by mistake that merely went dormant would
+  be a plan quietly forecasting around a line nobody could see. `DELETE
+  /api/dependencies/{id}` removes the row, and needs no lock: the invariant is that the graph
+  stays acyclic, and taking an arrow away cannot close a loop.
+- **Both ends go in the body: `POST /api/dependencies` `{predecessorItemId, successorItemId,
+  lagHours}`.** Neither end owns the other, so putting one in the path would have made the
+  pair read as though one did — and would have left the server checking a second identifier
+  against the first, which is the thing `WorkItemController` avoids by addressing an item on
+  its own. The project is not in the request either: the items answer it, and a third
+  identifier that could disagree with them would be a refusal nobody could act on. Listing is
+  still by plan (`GET /api/projects/{projectId}/dependencies`), because a screen showing a
+  plan needs every edge in it at once.
+- **A self-edge is `self_dependency`, not `dependency_cycle`, and is answered before any row
+  is read.** It is the only cycle decidable from the request alone, so answering it first
+  means a caller who put one identifier in both boxes learns nothing about which items exist
+  — and the remedy differs: a cycle is a plan to go and rethink, this is two boxes with the
+  same thing in them.
+- **`ProjectService.lockForGraphChange` takes the lock and refuses nothing**, returning
+  `void`. It was first written to throw `ProjectNotFoundException` on an empty result, which
+  is a branch no request can reach: every caller has already found a work item inside that
+  plan, which is what says the plan exists and belongs here. An uncoverable refusal is a hole
+  in the coverage gate dressed as diligence — the same thing `WorkItemService` says about a
+  `switch` over an enum. A plan that is not there has no items and no edges either, so there
+  is nothing for a lock over it to protect.
+- **The cycle path rides on the problem document as `path`, the way `slug_taken` carries
+  `suggested`.** Item identifiers rather than titles, since prose from the server is never
+  shown to anybody; the client already holds the plan it is drawing. The list starts at the
+  proposed predecessor, follows existing arrows back to it, and does not repeat the closing
+  item — the frontend adds it back when it draws the loop, because otherwise the last arrow
+  is the one step of the route nobody is shown.
+- **`lag_hours` is required and `@PositiveOrZero`.** Zero is the ordinary answer and is a
+  claim rather than a guess — there is no wait — so the server does not fill it in; a
+  negative would be a lead, which is a different kind of edge than the one decision 4 models.
+  That added `positive_or_zero` to `ApiExceptionHandler.CONSTRAINT_CODES`, to
+  `CODE_PRECEDENCE` and to the catalogue. **The form does answer it**, sending zero for an
+  empty box, because its own hint says that is what an empty box means — the strictness is
+  the API's contract with every other caller, not a question to push at somebody typing.
+- **A duplicate has both a pre-check and an index mapping.** `uq_dependencies_edge` joined
+  `ApiExceptionHandler.CONSTRAINT_CONFLICTS`, so the pair who get past the check in the same
+  instant are told `dependency_already_exists` rather than a bare `conflict` —
+  and `ConstraintNamesTests` picked it up for free, which is the point of that test.
+- **Cross-project and self-edge are `400`; duplicate and cycle are `409`.** The first two are
+  facts about what the request names, and the second two are conflicts with what is already
+  drawn.
+- **The concurrency test is its own class, `DependencyGraphLockTests`, and it has two
+  cases.** The second is the one worth having: the loop closes only through an arrow that was
+  already there, so the losing caller has to have *read* the winner's write rather than
+  merely been serialised against it.
+- **The frontend asks from one end only.** "Must finish before…" is opened on the task that
+  finishes first, so there is no box for which way round the arrow points and no way to draw
+  one backwards by misreading a label. The list offers neither the task itself nor anything it
+  already comes before — both are refusals the server would give — but it does not try to
+  hide a cycle, because that is a property of the whole plan decided under a lock, and
+  guessing at it here would hide options that are legal by the time the request lands.
+- **The panel stays open once an arrow lands**, alone among the forms in this component,
+  which all close on a successful write. Ordering is plural where rewording and estimating
+  are not — a task that must finish before one thing usually must finish before two — and
+  the list it just joined is in the same panel. It shipped closing on add while its button
+  said *Done*, which was a design half-made: a label describing a place you leave, on a
+  panel that left by itself. Rubbing an arrow out already kept it open, so this is also what
+  makes the two halves of the panel behave alike. Remounted on `reloads` to empty the boxes,
+  the way the add form does — and for the same reason it works there, since a refusal does
+  not reload and so leaves what was typed alone.
+- **Each row says both directions**: what it must finish before, and what it is waiting on.
+  Either alone answers half the question somebody opened the plan with, and the other half
+  would only be visible from a different row. An arrow pointing at work archived since is
+  named as "a task that has been put away" rather than shown as a blank — the archived
+  listing is a different screen, so its titles are not there to look up.
 
 ---
 

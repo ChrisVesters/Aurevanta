@@ -19,6 +19,13 @@ type ProblemDetail = {
    * exists. Absent rather than empty when there is none to give.
    */
   suggested?: string;
+  /**
+   * The loop a refused dependency would have closed, as item identifiers in the order it
+   * would have run — the last leads back to the first, which is not repeated. Carried for
+   * the same reason `suggested` is: a plan holds up to five hundred items, and a refusal
+   * that says only "this would create a cycle" leaves somebody to go and find it by hand.
+   */
+  path?: string[];
 };
 
 /**
@@ -41,6 +48,8 @@ export class ApiError extends Error {
   readonly fieldErrors: Record<string, FieldProblem>;
   /** A free alternative to what was refused, where the refusal has one to offer. */
   readonly suggested: string | undefined;
+  /** The loop a refused dependency would have closed, where that is what was refused. */
+  readonly path: string[] | undefined;
 
   constructor(status: number, problem: ProblemDetail | null) {
     super(problem?.detail ?? problem?.title ?? `Request failed (${status})`);
@@ -49,6 +58,7 @@ export class ApiError extends Error {
     this.code = problem?.code;
     this.fieldErrors = problem?.errors ?? {};
     this.suggested = problem?.suggested;
+    this.path = problem?.path;
   }
 }
 

@@ -6,6 +6,7 @@ import {
   ACCOUNT,
   ARCHIVED_WORK_ITEM,
   COLLEAGUES_ESTIMATE,
+  DEPENDENCIES,
   ESTIMATES,
   PROJECTS,
   WORK_ITEMS,
@@ -14,35 +15,61 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
-import type { Estimate, WorkItem } from './types';
+import type { Dependency, Estimate, WorkItem } from './types';
 
 const PROJECT_ID = PROJECTS[0].id;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 const ESTIMATES_URL = `/api/projects/${PROJECT_ID}/estimates`;
+const DEPENDENCIES_URL = `/api/projects/${PROJECT_ID}/dependencies`;
+
+/**
+ * A third task, so that drawing one arrow still leaves something to pick. With two, the
+ * panel would correctly report there is nothing left to order against — which is a
+ * different thing to assert than that it stayed open.
+ */
+const THREE_ITEMS: WorkItem[] = [
+  ...WORK_ITEMS,
+  {
+    ...WORK_ITEMS[1],
+    id: '40404040-4040-4040-4040-404040404040',
+    title: 'Cut the release'
+  }
+];
 
 describe('WorkItems', () => {
   const fetchMock = mockFetch();
 
   /**
-   * Answers three URLs separately: the session, the work in the plan, and what everybody
-   * currently thinks it will take. A double that answered them alike would hand the
-   * estimate list a page of work items, and every row would quietly read as unestimated.
+   * Answers four URLs separately: the session, the work in the plan, what everybody
+   * currently thinks it will take, and how the plan is joined up. A double that answered
+   * them alike would hand the estimate list a page of work items, and every row would
+   * quietly read as unestimated.
    */
-  function answer(items: WorkItem[], estimates: Estimate[]) {
+  function answer(
+    items: WorkItem[],
+    estimates: Estimate[],
+    dependencies: Dependency[]
+  ) {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/api/auth/me'
           ? jsonResponse(200, ACCOUNT)
           : url === ESTIMATES_URL
             ? jsonResponse(200, estimates)
-            : jsonResponse(200, items)
+            : url === DEPENDENCIES_URL
+              ? jsonResponse(200, dependencies)
+              : jsonResponse(200, items)
       )
     );
   }
 
-  async function open(items = WORK_ITEMS, estimates: Estimate[] = []) {
+  async function open(
+    items = WORK_ITEMS,
+    estimates: Estimate[] = [],
+    dependencies: Dependency[] = []
+  ) {
     storeAccessToken();
-    answer(items, estimates);
+    answer(items, estimates, dependencies);
     renderRouted(<WorkItems projectId={PROJECT_ID} />, {
       route: `/app/projects/${PROJECT_ID}`
     });
@@ -135,9 +162,9 @@ describe('WorkItems', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.getByText('Write the runbook')).toBeInTheDocument();
-    // Three calls: the session, the work, and what it is estimated at. Cancelling asks
-    // the server nothing.
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // Four calls: the session, the work, what it is estimated at, and how it is joined
+    // up. Cancelling asks the server nothing.
+    expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
   it('says so against the field when a reword is refused', async () => {
@@ -202,7 +229,7 @@ describe('WorkItems', () => {
 
   it('asks for the archived work separately, and brings one back', async () => {
     await open();
-    answer([ARCHIVED_WORK_ITEM], []);
+    answer([ARCHIVED_WORK_ITEM], [], []);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Show archived work' })
@@ -223,7 +250,7 @@ describe('WorkItems', () => {
 
   it('says so when nothing here has been put away', async () => {
     await open();
-    answer([], []);
+    answer([], [], []);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Show archived work' })
@@ -325,10 +352,10 @@ describe('WorkItems', () => {
     );
   });
 
-  /** The guard that keeps a list arriving late from touching a page that has gone. */
   /**
-   * The work and its estimates are asked for together, so both answers have to be dropped
-   * when the page has gone — which is what this delivers, after leaving.
+   * The work, its estimates and its arrows are asked for together, so all three answers
+   * have to be dropped when the page has gone — which is what this delivers, after
+   * leaving.
    */
   it('drops work that arrives after the page has been left', async () => {
     storeAccessToken();
@@ -342,11 +369,12 @@ describe('WorkItems', () => {
       route: `/app/projects/${PROJECT_ID}`
     });
     await screen.findByRole('status');
-    await waitFor(() => expect(pending).toHaveLength(2));
+    await waitFor(() => expect(pending).toHaveLength(3));
 
     unmount();
     pending[0](jsonResponse(200, WORK_ITEMS));
     pending[1](jsonResponse(200, ESTIMATES));
+    pending[2](jsonResponse(200, DEPENDENCIES));
 
     await waitFor(() =>
       expect(screen.queryByText('Write the runbook')).toBeNull()
@@ -576,7 +604,7 @@ describe('WorkItems', () => {
    */
   it('offers no estimate on work that has been put away', async () => {
     await open();
-    answer([ARCHIVED_WORK_ITEM], []);
+    answer([ARCHIVED_WORK_ITEM], [], []);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Show archived work' })
@@ -924,6 +952,402 @@ describe('WorkItems', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByLabelText('Status')).toBeNull();
+  });
+
+  /**
+   * Both directions on the row, because neither is redundant: what a delay here would
+   * hold up, and why this has not started. Only one of them is visible from any one row
+   * if the page shows one direction.
+   */
+  it('says what each task comes before and what it is waiting on', async () => {
+    await open(WORK_ITEMS, [], DEPENDENCIES);
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(
+      within(rows[0]).getByText('Must finish before Write the runbook')
+    ).toBeInTheDocument();
+    expect(
+      within(rows[1]).getByText('Waiting on Migrate the auth service')
+    ).toBeInTheDocument();
+  });
+
+  it('draws an arrow from the task the form was opened on', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/dependencies',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            predecessorItemId: WORK_ITEMS[0].id,
+            successorItemId: WORK_ITEMS[1].id,
+            // An empty wait box is answered here rather than sent unanswered to a server
+            // that refuses to guess at it.
+            lagHours: 0
+          })
+        })
+      )
+    );
+  });
+
+  /**
+   * Unlike every other form here, which closes on a successful write. Ordering is plural
+   * where the others are not: a task that must finish before one thing usually must
+   * finish before two, and closing after each would make drawing three arrows three trips
+   * through the same button.
+   */
+  it('stays open once an arrow lands, and shows it in the list', async () => {
+    await open(THREE_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    answer(THREE_ITEMS, [], DEPENDENCIES);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    // Asserted through the button that rubs it out, which only the panel has — the row
+    // above says the same sentence, and matching either would prove nothing about which.
+    expect(
+      await screen.findByRole('button', {
+        name: 'Stop requiring this to finish before Write the runbook'
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Must finish before')).toBeInTheDocument();
+  });
+
+  /** So the next arrow starts from empty boxes rather than the last one's wait. */
+  it('empties the boxes once an arrow has landed', async () => {
+    await open(THREE_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    await userEvent.type(screen.getByLabelText('Wait afterwards (hours)'), '8');
+    answer(THREE_ITEMS, [], DEPENDENCIES);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText('Wait afterwards (hours)')).toHaveValue(null)
+    );
+    expect(screen.getByLabelText('Must finish before')).toHaveValue('');
+  });
+
+  /** A refusal does not reload, so it leaves what was typed exactly where it is. */
+  it('leaves the boxes alone when an arrow is refused', async () => {
+    await open(THREE_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    await userEvent.type(screen.getByLabelText('Wait afterwards (hours)'), '8');
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, { code: 'dependency_already_exists' })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await screen.findByRole('alert');
+    expect(screen.getByLabelText('Wait afterwards (hours)')).toHaveValue(8);
+    expect(screen.getByLabelText('Must finish before')).toHaveValue(
+      WORK_ITEMS[1].id
+    );
+  });
+
+  it('sends the wait somebody typed', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    await userEvent.type(screen.getByLabelText('Wait afterwards (hours)'), '8');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/dependencies',
+        expect.objectContaining({
+          body: expect.stringContaining('"lagHours":8')
+        })
+      )
+    );
+  });
+
+  /**
+   * Both are refusals the server would give, so offering them would waste somebody's
+   * time to tell them something the form already knew.
+   */
+  it('offers neither the task itself nor one it already comes before', async () => {
+    await open(WORK_ITEMS, [], DEPENDENCIES);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Write the runbook'
+      })
+    );
+
+    const choices = within(
+      screen.getByLabelText('Must finish before')
+    ).getAllByRole('option');
+    expect(choices.map((choice) => choice.textContent)).toEqual([
+      'Choose a task…',
+      'Migrate the auth service'
+    ]);
+  });
+
+  it('says so when there is nothing left to order a task against', async () => {
+    await open(WORK_ITEMS, [], DEPENDENCIES);
+
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+
+    expect(
+      await screen.findByText(/Nothing left to order this against/)
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Must finish before')).toBeNull();
+  });
+
+  /**
+   * The refusal carries the loop it would have closed, which is the whole reason the
+   * server walks the graph rather than answering yes or no — a plan holds up to five
+   * hundred tasks, and finding it by hand is not something to ask of anybody.
+   */
+  it('names the loop a refused arrow would have closed', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, {
+        code: 'dependency_cycle',
+        path: [WORK_ITEMS[0].id, WORK_ITEMS[1].id]
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(
+      await screen.findByText(
+        'That would make a loop: Migrate the auth service → Write the runbook → Migrate the auth service.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('shows a per-field refusal against the field it belongs to', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { successorItemId: { code: 'not_null' } }
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(
+      await screen.findByText('Choose one of the options.')
+    ).toBeInTheDocument();
+    // Said once: the banner would only repeat what the field already says.
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('rubs an arrow out and asks the plan again', async () => {
+    await open(WORK_ITEMS, [], DEPENDENCIES);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Stop requiring this to finish before Write the runbook'
+      })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/dependencies/${DEPENDENCIES[0].id}`,
+        expect.objectContaining({ method: 'DELETE' })
+      )
+    );
+  });
+
+  /** A wait is the only thing an arrow carries beyond itself, so it has to be visible. */
+  it('says how long a wait is where an arrow has one', async () => {
+    await open(WORK_ITEMS, [], [{ ...DEPENDENCIES[0], lagHours: 8 }]);
+
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+
+    expect(
+      screen.getByText('Must finish before Write the runbook, plus 8 hours')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Nothing removes an arrow when its far end is archived, and the archived listing is a
+   * different screen — so the title is not on this one to look up. Saying so beats a row
+   * with a blank where a task should be.
+   */
+  it('says so where an arrow points at work that has been put away', async () => {
+    const gone = {
+      ...DEPENDENCIES[0],
+      successorItemId: ARCHIVED_WORK_ITEM.id
+    };
+    await open(WORK_ITEMS, [], [gone]);
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(
+      within(rows[0]).getByText(
+        'Must finish before a task that has been put away'
+      )
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      within(rows[0]).getByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Stop requiring this to finish before a task that has been put away'
+      })
+    ).toBeInTheDocument();
+  });
+
+  /** And the same where the loop a refusal names runs through work that is put away. */
+  it('names a loop that runs through work put away since', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText('Must finish before'),
+      WORK_ITEMS[1].id
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, {
+        code: 'dependency_cycle',
+        path: [WORK_ITEMS[0].id, ARCHIVED_WORK_ITEM.id]
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(
+      await screen.findByText(
+        'That would make a loop: Migrate the auth service → a task that has been put away → Migrate the auth service.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('shows a refused wait against the box it was typed in', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { lagHours: { code: 'positive_or_zero' } }
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(
+      await screen.findByText('Use zero or a number greater than it.')
+    ).toBeInTheDocument();
+  });
+
+  it('says so when rubbing an arrow out is refused', async () => {
+    await open(WORK_ITEMS, [], DEPENDENCIES);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(404, { code: 'dependency_not_found' })
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Stop requiring this to finish before Write the runbook'
+      })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That dependency is no longer in this project.'
+    );
+  });
+
+  it('closes the order form when it is cancelled', async () => {
+    await open(WORK_ITEMS, [], []);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Order work around Migrate the auth service'
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+    expect(screen.queryByLabelText('Must finish before')).toBeNull();
   });
 
   /** An item with notes shows them; one without shows nothing rather than an empty line. */
