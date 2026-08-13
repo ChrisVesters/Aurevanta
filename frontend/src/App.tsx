@@ -10,6 +10,8 @@ import { LoginPage } from './routes/LoginPage';
 import { MembersPage } from './routes/MembersPage';
 import { SettingsPage } from './routes/SettingsPage';
 import { NotFoundPage } from './routes/NotFoundPage';
+import { ProjectPage } from './routes/ProjectPage';
+import { ProjectsPage } from './routes/ProjectsPage';
 import { RegisterPage } from './routes/RegisterPage';
 import { ResetPasswordPage } from './routes/ResetPasswordPage';
 import { VerifyEmailPage } from './routes/VerifyEmailPage';
@@ -46,6 +48,13 @@ function App() {
         {/* One header, one organisation switcher, however many pages sit under it. */}
         <Route element={<AppLayout />}>
           <Route path="/app" element={<DashboardPage />} />
+          {/*
+            Addressed by identifier and not by organisation handle: the organisation comes
+            from the token, as it does on every other route. That is what lets M1a's two
+            deferrals — reserved handles, and redirects for retired ones — stay deferred.
+          */}
+          <Route path="/app/projects" element={<ProjectsPage />} />
+          <Route path="/app/projects/:projectId" element={<ProjectPage />} />
           <Route path="/app/members" element={<MembersPage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
         </Route>

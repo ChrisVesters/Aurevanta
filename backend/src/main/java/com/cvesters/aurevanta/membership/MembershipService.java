@@ -163,7 +163,23 @@ public class MembershipService {
 		return caller;
 	}
 
-	private Membership requireMember(UUID callerId, UUID tenantId) {
+	/**
+	 * The same re-read for an endpoint that any member may reach, which since M2 is most
+	 * of them: plan data is written by everybody, and roles govern administration only.
+	 *
+	 * <p>
+	 * Public for the same reason {@link #requireOwner} is. The tenant in an access token
+	 * was true when it was issued and stays there for twelve hours, so somebody removed
+	 * this morning would otherwise go on reading and writing an organisation's plans for
+	 * the rest of the day — and a second copy of that check somewhere else would be a
+	 * second chance for one of them to drift.
+	 * @return the caller's membership, whose {@code getTenant()} is the organisation
+	 * everything they may touch belongs to — so callers take the tenant from a row that
+	 * proved they belong to it rather than from the request
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 */
+	@Transactional(readOnly = true)
+	public Membership requireMember(UUID callerId, UUID tenantId) {
 		return this.memberships.findForUserInTenant(callerId, tenantId).orElseThrow(NotAMemberException::new);
 	}
 

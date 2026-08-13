@@ -242,6 +242,24 @@ a.button-link,
   font-size: 14px;
 }
 
+/* Prose rather than a name, so it gets a box shaped like prose — but the same box. */
+.field textarea {
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  resize: vertical;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: transparent;
+  }
+}
+
 .field-error,
 .form-error {
   font-size: 14px;
@@ -483,7 +501,8 @@ button.link {
   }
 }
 
-.members {
+.members,
+.projects {
   margin: auto;
   width: 100%;
   max-width: 720px;
@@ -500,6 +519,72 @@ button.link {
   h2 {
     font-size: 19px;
     margin: 0 0 4px;
+  }
+}
+
+.projects {
+  .back,
+  .listing-switch,
+  .archive {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  /* The one control that puts something away sits apart from the form that saves it. */
+  .archive {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .empty {
+    margin: 0;
+    font-size: 15px;
+  }
+}
+
+.project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+
+  button.primary {
+    align-self: flex-start;
+  }
+}
+
+.project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    display: flex;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .who {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .name {
+    color: var(--text-h);
+  }
+
+  .description {
+    font-size: 14px;
   }
 }
 

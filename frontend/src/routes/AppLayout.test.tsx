@@ -64,6 +64,19 @@ describe('AppLayout', () => {
       'href',
       '/app/members'
     );
+    // Reached by everybody, like the members page and unlike settings: plan data is
+    // every member's to write, and roles govern administration only.
+    expect(screen.getByRole('link', { name: 'Projects' })).toHaveAttribute(
+      'href',
+      '/app/projects'
+    );
+  });
+
+  it('offers projects to a member as well as to an owner', async () => {
+    await signedIn([ACME_MEMBERSHIP], { ...ACCOUNT, role: 'MEMBER' });
+
+    expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
   it('signs out', async () => {

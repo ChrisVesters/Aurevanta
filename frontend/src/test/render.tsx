@@ -12,6 +12,7 @@ import type {
   SignInResponse
 } from '../auth/types';
 import type { Invitation, InvitationPreview, Member } from '../members/types';
+import type { Project } from '../projects/types';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
@@ -76,6 +77,33 @@ export const MEMBERS: Member[] = [
     joinedAt: '2026-08-06T09:00:00Z'
   }
 ];
+
+/** Two plans in one organisation, one of them with nothing said about it yet. */
+export const PROJECTS: Project[] = [
+  {
+    id: '99999999-9999-9999-9999-999999999999',
+    name: 'Q3 platform work',
+    description: 'Everything we promised the board',
+    createdAt: '2026-08-13T08:00:00Z',
+    archivedAt: null
+  },
+  {
+    id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    name: 'Migration',
+    description: null,
+    createdAt: '2026-08-13T09:00:00Z',
+    archivedAt: null
+  }
+];
+
+/** Put away rather than deleted, which is the only way anything leaves a list in M2. */
+export const ARCHIVED_PROJECT: Project = {
+  id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  name: 'Last year',
+  description: null,
+  createdAt: '2025-08-13T08:00:00Z',
+  archivedAt: '2026-01-06T08:00:00Z'
+};
 
 export const INVITATION: Invitation = {
   id: '88888888-8888-8888-8888-888888888888',

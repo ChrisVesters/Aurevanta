@@ -14,6 +14,7 @@ export const en = {
     nav: {
       label: 'Sections',
       overview: 'Overview',
+      projects: 'Projects',
       members: 'Members',
       settings: 'Settings'
     },
@@ -208,6 +209,50 @@ export const en = {
     handleMoves:
       'Changing the handle from {{from}} will stop any link anyone has to this organisation from working.'
   },
+  projects: {
+    title: 'Projects',
+    lede: 'The plans {{organisation}} is working from.',
+    loading: 'Loading projects…',
+    none: 'No projects yet. Start one below and you can put work in it.',
+    noneArchived: 'Nothing has been put away.',
+    // Two states of one list rather than a filter, because the endpoint answers one or the
+    // other: a row saying which it was would be a row somebody has to read to know whether
+    // the work in front of them is live.
+    showArchived: 'Show archived projects',
+    showCurrent: 'Show current projects',
+    // Shared by the form that starts a project and the form that changes one, because they
+    // ask the same two questions at different moments.
+    fields: {
+      name: { label: 'Project name' },
+      description: {
+        label: 'What it covers',
+        hint: 'Optional, and yours to change later.'
+      }
+    },
+    new: {
+      title: 'Start a project',
+      lede: 'A container for one plan. Nothing is estimated yet — that comes once there is work in it.',
+      submit: 'Create project',
+      submitting: 'Creating…'
+    },
+    project: {
+      loading: 'Loading project…',
+      back: '← All projects',
+      save: 'Save changes',
+      saving: 'Saving…',
+      saved: 'Saved.',
+      archive: 'Archive this project',
+      unarchive: 'Bring this project back',
+      // Says what archiving is *not*, because the button sits where a delete usually does
+      // and the difference is the whole reason it is this button.
+      archiveHint:
+        'Archiving keeps the project and everything in it, and takes it out of the list.',
+      archived: 'Archived. It is out of the list and nothing has been lost.',
+      unarchived: 'Back in the list of current projects.',
+      archivedNotice:
+        'This project is archived. Bring it back to work in it again.'
+    }
+  },
   members: {
     title: 'Members',
     lede: 'Everyone who can see what {{organisation}} is planning.',
@@ -306,6 +351,10 @@ export const en = {
       last_owner:
         'An organisation must always have at least one owner. Make somebody else an owner first.',
       member_not_found: 'That person is no longer in this organisation.',
+      // Says the same thing for a project that never existed and one belonging to another
+      // organisation, because the server does — which is what stops it being a way to ask
+      // which projects exist elsewhere.
+      project_not_found: 'That project is no longer in this organisation.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',

@@ -738,6 +738,40 @@ nothing.
   if it ever happens, is a **second estimate alongside the time one**, sharing the P10/P50/P90
   machinery and the immutability discipline and not the unit slot.
 
+### Reworking the interface
+
+Every screen in this product is deliberately plain, and each was built that way for a stated
+reason rather than by neglect: M1 kept the auth forms minimal to reach a team product, and M2
+says outright that its plan-entry UI "looks bad" and that making it good is a later concern.
+Enough of them exist now — auth, members, settings, projects — that "make it look like a
+product" is a piece of work rather than a tidy-up, so it is recorded as one.
+
+**What this is not is M5.** The three-box P10/P50/P90 form will be the ugliest thing on
+screen and the most tempting thing to fix, and styling it is the one change that cannot help:
+`product-concept.md` is explicit that three boxes produce 3/5/8 without thinking, which is a
+question-design problem. **M5 replaces what is asked; this replaces how everything looks.**
+Conflating them means a beautifully styled form eliciting exactly the same garbage.
+
+**What is actually there today**, so the size of it is not a surprise: one hand-written
+`App.css` of about 770 lines, a dozen colour variables in `index.css` with a dark-mode block,
+and components assembled per screen from `Field` and bespoke markup. There is no component
+library and no design system — class names agree by convention, which is why `.members` and
+`.projects` share a rule that neither owns. It is coherent, and it is coherent by hand.
+
+**Deferrable, but not indefinitely, and the deadline is M10 rather than taste.** Nothing
+outside the browser depends on how a screen looks, so this is not perishable the way handles
+were — but M10 is where charts arrive, and a confidence cone, a burn-up and a criticality
+heatmap are exactly the things that get built twice if the second build is a rework. The
+accessibility bar the auth forms set is the same argument from the other side: it is
+cross-cutting above, it is much harder to hold in a chart than in a form, and a rework is
+when it is either kept or quietly lost.
+
+**It still ranks below the engine, and this is the section where that has to be said.** The
+ordering principle's warning is precise about this failure: a beautiful plan editor that
+forecasts nothing is the tool this product exists to replace. So the honest position is that
+the interface is worth doing well, worth doing before M10 spends effort on charts inside it,
+and worth doing after there is a forecast to put in front of anyone.
+
 ---
 
 ## Cross-cutting, not a milestone

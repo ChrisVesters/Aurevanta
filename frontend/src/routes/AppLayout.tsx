@@ -34,6 +34,7 @@ export function AppLayout() {
           <NavLink to="/app" end>
             {t('app.nav.overview')}
           </NavLink>
+          <NavLink to="/app/projects">{t('app.nav.projects')}</NavLink>
           <NavLink to="/app/members">{t('app.nav.members')}</NavLink>
           {/*
             Hidden from a member rather than shown and refused, as the members page hides
