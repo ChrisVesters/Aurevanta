@@ -48,4 +48,40 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 			""")
 	Optional<Project> findInTenant(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 
+	/**
+	 * How many items each of the organisation's plans holds, archived ones left out.
+	 *
+	 * <p>
+	 * One grouped query for the whole organisation rather than a count per project, so a
+	 * list of plans costs the same as one.
+	 */
+	@Query("""
+			select new com.cvesters.aurevanta.project.ProjectCount(w.project.id, count(w))
+			from WorkItem w
+			where w.tenant.id = :tenantId and w.archivedAt is null
+			group by w.project.id
+			""")
+	List<ProjectCount> itemCounts(@Param("tenantId") UUID tenantId);
+
+	/**
+	 * How many of those items anybody has estimated. Distinct, because several people may
+	 * hold a current estimate on one item and that is one item covered, not three.
+	 *
+	 * <p>
+	 * This query and the one above are the only place in the application where one
+	 * feature reaches into another's tables. They name {@code WorkItem} and
+	 * {@code Estimate} in JPQL and import neither, which is a coupling worth being
+	 * explicit about — and one that cannot go quietly stale, because Hibernate parses
+	 * every query at startup, so a renamed entity fails the context rather than the next
+	 * reader.
+	 */
+	@Query("""
+			select new com.cvesters.aurevanta.project.ProjectCount(
+			    e.workItem.project.id, count(distinct e.workItem.id))
+			from Estimate e
+			where e.tenant.id = :tenantId and e.workItem.archivedAt is null
+			group by e.workItem.project.id
+			""")
+	List<ProjectCount> estimatedItemCounts(@Param("tenantId") UUID tenantId);
+
 }

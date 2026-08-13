@@ -13,12 +13,20 @@ import java.util.UUID;
  *
  * @param archivedAt null while the project is in use, which is also how a client tells
  * the two states apart without a second field that could disagree with this one.
+ * @param itemCount how much work the plan holds, archived items excluded.
+ * @param estimatedItemCount how much of that carries an estimate. The pair is what lets a
+ * screen say "12 of 30 items estimated" without loading the plan — which is the point:
+ * coverage is reported prominently rather than left for somebody to work out, because a
+ * forecast that quietly covers less than the plan is the failure this product exists to
+ * prevent.
  */
-public record ProjectResponse(UUID id, String name, String description, Instant createdAt, Instant archivedAt) {
+public record ProjectResponse(UUID id, String name, String description, Instant createdAt, Instant archivedAt,
+		long itemCount, long estimatedItemCount) {
 
-	public static ProjectResponse of(Project project) {
+	public static ProjectResponse of(PlannedProject planned) {
+		Project project = planned.project();
 		return new ProjectResponse(project.getId(), project.getName(), project.getDescription(), project.getCreatedAt(),
-				project.getArchivedAt());
+				project.getArchivedAt(), planned.itemCount(), planned.estimatedItemCount());
 	}
 
 }

@@ -220,6 +220,10 @@ export const en = {
     // the work in front of them is live.
     showArchived: 'Show archived projects',
     showCurrent: 'Show current projects',
+    // Said in words wherever a plan is shown, because a forecast that quietly covers less
+    // than the plan is the failure this product exists to prevent — and a number nobody
+    // reads is not a disclosure.
+    coverage: '{{estimated}} of {{total}} items estimated',
     // Shared by the form that starts a project and the form that changes one, because they
     // ask the same two questions at different moments.
     fields: {
@@ -264,7 +268,28 @@ export const en = {
       archive: 'Archive',
       archiveNamed: 'Archive {{title}}',
       unarchive: 'Bring back',
-      unarchiveNamed: 'Bring {{title}} back'
+      unarchiveNamed: 'Bring {{title}} back',
+      estimate: {
+        open: 'Estimate',
+        openNamed: 'Estimate {{title}}',
+        // Hours of effort, never a date and never a duration: what a day is worth is a
+        // question about calendars and who is available, and that is a later milestone's
+        // to answer rather than something to bake into what somebody types here.
+        hint: 'In hours of effort — how much work it is, not how long it will be before it is done.',
+        fields: {
+          p10Hours: 'P10',
+          p50Hours: 'P50',
+          p90Hours: 'P90'
+        },
+        submit: 'Save estimate',
+        submitting: 'Saving…',
+        cancel: 'Cancel',
+        none: 'Not estimated',
+        mine: 'Your estimate: {{p10}} / {{p50}} / {{p90}} hours',
+        // A colleague's range is not invisible just because it is not yours — and it is
+        // what makes the coverage count above legible row by row.
+        others: 'Estimated by {{names}}'
+      }
     },
     project: {
       loading: 'Loading project…',
@@ -389,6 +414,10 @@ export const en = {
       // which projects exist elsewhere.
       project_not_found: 'That project is no longer in this organisation.',
       work_item_not_found: 'That task is no longer in this organisation.',
+      // Not a complaint about any one of the three boxes — each holds a perfectly good
+      // number, and what is wrong is the order they are in.
+      estimate_out_of_order:
+        'The three numbers must go up: P10 no more than P50, and P50 no more than P90.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',
@@ -431,6 +460,9 @@ export const en = {
       // The server keeps the expression to itself, so this has to say the rule in its own
       // words rather than interpolate one.
       pattern: 'Use lowercase letters, numbers and hyphens.',
+      positive: 'Use a number greater than zero.',
+      // The bounds come from the constraint, so this sentence never repeats them.
+      digits: 'Use at most {{fraction}} decimal places.',
       invalid: 'Check this and try again.'
     },
     network: 'Could not reach the server. Check your connection and try again.',

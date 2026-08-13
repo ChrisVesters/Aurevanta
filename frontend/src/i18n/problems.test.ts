@@ -20,6 +20,7 @@ const BACKEND_CODES = [
   'member_not_found',
   'project_not_found',
   'work_item_not_found',
+  'estimate_out_of_order',
   'already_a_member',
   'invitation_already_pending',
   'invitation_not_found',

@@ -3,7 +3,9 @@ package com.cvesters.aurevanta.project;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,9 +53,11 @@ public class ProjectService {
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 */
 	@Transactional
-	public Project create(UUID callerId, UUID tenantId, String name, String description) {
+	public PlannedProject create(UUID callerId, UUID tenantId, String name, String description) {
 		Tenant organisation = this.memberships.requireMember(callerId, tenantId).getTenant();
-		return this.projects.save(new Project(organisation, name, description, Instant.now(this.clock)));
+		// Nothing in it yet, so its coverage is not worth two queries to discover.
+		return new PlannedProject(
+				this.projects.save(new Project(organisation, name, description, Instant.now(this.clock))), 0, 0);
 	}
 
 	/**
@@ -66,13 +70,23 @@ public class ProjectService {
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 */
 	@Transactional(readOnly = true)
-	public List<Project> list(UUID callerId, UUID tenantId, boolean archived) {
+	public List<PlannedProject> list(UUID callerId, UUID tenantId, boolean archived) {
 		this.memberships.requireMember(callerId, tenantId);
-		return this.projects.findAllInTenant(tenantId, archived);
+		List<Project> found = this.projects.findAllInTenant(tenantId, archived);
+		Map<UUID, Long> items = counted(this.projects.itemCounts(tenantId));
+		Map<UUID, Long> estimated = counted(this.projects.estimatedItemCounts(tenantId));
+		return found.stream().map((project) -> planned(project, items, estimated)).toList();
 	}
 
 	/**
-	 * One plan, named by identifier.
+	 * One plan, named by identifier — the entity, for whoever needs the row rather than
+	 * the screen.
+	 *
+	 * <p>
+	 * Kept apart from {@link #planned} because most callers are other services: an item
+	 * being created needs the project it belongs to and nothing else, and counting how
+	 * much of a plan is estimated every time somebody types a task into it would be two
+	 * queries spent on a number nobody was asking for.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws ProjectNotFoundException if no project in it has that identifier
 	 */
@@ -82,17 +96,23 @@ public class ProjectService {
 		return project(projectId, tenantId);
 	}
 
+	/** The same plan with its coverage, which is what the API answers with. */
+	@Transactional(readOnly = true)
+	public PlannedProject planned(UUID callerId, UUID tenantId, UUID projectId) {
+		return withCoverage(get(callerId, tenantId, projectId), tenantId);
+	}
+
 	/**
 	 * Changes what a plan is called and what is said about it.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws ProjectNotFoundException if no project in it has that identifier
 	 */
 	@Transactional
-	public Project update(UUID callerId, UUID tenantId, UUID projectId, String name, String description) {
+	public PlannedProject update(UUID callerId, UUID tenantId, UUID projectId, String name, String description) {
 		this.memberships.requireMember(callerId, tenantId);
 		Project project = project(projectId, tenantId);
 		project.describe(name, description);
-		return project;
+		return withCoverage(project, tenantId);
 	}
 
 	/**
@@ -105,7 +125,7 @@ public class ProjectService {
 	 * @throws ProjectNotFoundException if no project in it has that identifier
 	 */
 	@Transactional
-	public Project setArchived(UUID callerId, UUID tenantId, UUID projectId, boolean archived) {
+	public PlannedProject setArchived(UUID callerId, UUID tenantId, UUID projectId, boolean archived) {
 		this.memberships.requireMember(callerId, tenantId);
 		Project project = project(projectId, tenantId);
 		if (archived) {
@@ -114,11 +134,29 @@ public class ProjectService {
 		else {
 			project.unarchive();
 		}
-		return project;
+		return withCoverage(project, tenantId);
 	}
 
 	private Project project(UUID projectId, UUID tenantId) {
 		return this.projects.findInTenant(projectId, tenantId).orElseThrow(ProjectNotFoundException::new);
+	}
+
+	private PlannedProject withCoverage(Project project, UUID tenantId) {
+		return planned(project, counted(this.projects.itemCounts(tenantId)),
+				counted(this.projects.estimatedItemCounts(tenantId)));
+	}
+
+	/**
+	 * A plan with its two counts, each defaulting to none: a project nobody has put
+	 * anything in is absent from a grouped count rather than present with a zero.
+	 */
+	private static PlannedProject planned(Project project, Map<UUID, Long> items, Map<UUID, Long> estimated) {
+		return new PlannedProject(project, items.getOrDefault(project.getId(), 0L),
+				estimated.getOrDefault(project.getId(), 0L));
+	}
+
+	private static Map<UUID, Long> counted(List<ProjectCount> rows) {
+		return rows.stream().collect(Collectors.toMap(ProjectCount::projectId, ProjectCount::count));
 	}
 
 }

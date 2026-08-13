@@ -74,7 +74,7 @@ class ProjectController {
 	 */
 	@GetMapping("/{projectId}")
 	ProjectResponse get(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId) {
-		return ProjectResponse.of(this.projects.get(caller.userId(), caller.tenantId(), projectId));
+		return ProjectResponse.of(this.projects.planned(caller.userId(), caller.tenantId(), projectId));
 	}
 
 	@PatchMapping("/{projectId}")

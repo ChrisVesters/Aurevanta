@@ -125,6 +125,17 @@ export function ProjectsPage() {
                 {project.description && (
                   <span className="description">{project.description}</span>
                 )}
+                {/*
+                  Coverage without opening the plan, which is the reason the server
+                  counts it rather than leaving the page to work it out from a list it
+                  does not load.
+                */}
+                <span className="coverage">
+                  {t('projects.coverage', {
+                    estimated: project.estimatedItemCount,
+                    total: project.itemCount
+                  })}
+                </span>
               </span>
             </li>
           ))}

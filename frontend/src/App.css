@@ -593,12 +593,78 @@ button.link {
     font-size: 14px;
   }
 
+  .coverage,
+  .estimate {
+    font-size: 13px;
+    color: var(--accent);
+  }
+
   /* Every control in a row on the row's centre line, as the member list does it. */
   button {
     align-self: center;
     box-sizing: border-box;
     min-height: 38px;
   }
+}
+
+/*
+  Three boxes, opened in place under the task they describe. Deliberately plain: making
+  this form good is elicitation, which is a milestone rather than a stylesheet.
+*/
+.estimate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+
+  .points {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .field {
+    flex: 1;
+    min-width: 96px;
+  }
+
+  input {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--danger-border);
+    }
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+}
+
+/* The plan's own coverage, above the list it describes. */
+.work > .coverage {
+  margin: 0;
+  font-size: 14px;
+  color: var(--accent);
 }
 
 /* The work inside a plan, above the settings that configure the plan itself. */

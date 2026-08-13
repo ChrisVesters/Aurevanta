@@ -12,6 +12,14 @@ export type Project = {
   createdAt: string;
   /** Null while it is in use. Nothing is ever deleted, so this is how one leaves a list. */
   archivedAt: string | null;
+  /** Work in the plan, archived items excluded. */
+  itemCount: number;
+  /**
+   * How much of that carries an estimate from anybody. Reported rather than enforced: a
+   * plan that is only half estimated is every real plan on its first day, and what matters
+   * is that nobody is left to guess how much of it a forecast covered.
+   */
+  estimatedItemCount: number;
 };
 
 /**
@@ -27,4 +35,26 @@ export type WorkItem = {
   description: string | null;
   createdAt: string;
   archivedAt: string | null;
+};
+
+/**
+ * One person's current three-point range for one item, in hours of effort.
+ *
+ * Several may be current on one item at once — one per estimator — and that is the point
+ * rather than a state to resolve on screen: two people who disagree about a task are
+ * saying something, and it is the engine that decides what.
+ *
+ * There is no way to change one. A revision is a new estimate, and the old one stays
+ * exactly as it was said, because that is the only form of it a calibration report can ask
+ * about later.
+ */
+export type Estimate = {
+  id: string;
+  itemId: string;
+  estimatorId: string;
+  estimatorName: string;
+  p10Hours: number;
+  p50Hours: number;
+  p90Hours: number;
+  createdAt: string;
 };

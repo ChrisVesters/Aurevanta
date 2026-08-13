@@ -12,7 +12,7 @@ import type {
   SignInResponse
 } from '../auth/types';
 import type { Invitation, InvitationPreview, Member } from '../members/types';
-import type { Project, WorkItem } from '../projects/types';
+import type { Estimate, Project, WorkItem } from '../projects/types';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
@@ -85,14 +85,18 @@ export const PROJECTS: Project[] = [
     name: 'Q3 platform work',
     description: 'Everything we promised the board',
     createdAt: '2026-08-13T08:00:00Z',
-    archivedAt: null
+    archivedAt: null,
+    itemCount: 2,
+    estimatedItemCount: 1
   },
   {
     id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     name: 'Migration',
     description: null,
     createdAt: '2026-08-13T09:00:00Z',
-    archivedAt: null
+    archivedAt: null,
+    itemCount: 0,
+    estimatedItemCount: 0
   }
 ];
 
@@ -102,7 +106,9 @@ export const ARCHIVED_PROJECT: Project = {
   name: 'Last year',
   description: null,
   createdAt: '2025-08-13T08:00:00Z',
-  archivedAt: '2026-01-06T08:00:00Z'
+  archivedAt: '2026-01-06T08:00:00Z',
+  itemCount: 0,
+  estimatedItemCount: 0
 };
 
 /** The work inside `PROJECTS[0]`, in the order it was written down. */
@@ -132,6 +138,45 @@ export const ARCHIVED_WORK_ITEM: WorkItem = {
   description: null,
   createdAt: '2026-08-13T08:30:00Z',
   archivedAt: '2026-08-13T09:00:00Z'
+};
+
+/**
+ * What Ada last said about the first item, and Bob about it too — one current estimate per
+ * person, which is the shape the schema is built for even though M2 shows it plainly.
+ */
+export const ESTIMATES: Estimate[] = [
+  {
+    id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+    itemId: WORK_ITEMS[0].id,
+    estimatorId: ACCOUNT.userId,
+    estimatorName: 'Ada',
+    p10Hours: 3,
+    p50Hours: 5,
+    p90Hours: 12,
+    createdAt: '2026-08-13T10:00:00Z'
+  },
+  {
+    id: '10101010-1010-1010-1010-101010101010',
+    itemId: WORK_ITEMS[0].id,
+    estimatorId: '77777777-7777-7777-7777-777777777777',
+    estimatorName: 'Bob',
+    p10Hours: 10,
+    p50Hours: 20,
+    p90Hours: 40,
+    createdAt: '2026-08-13T11:00:00Z'
+  }
+];
+
+/** One nobody but a colleague has estimated, so the reader's own boxes are empty. */
+export const COLLEAGUES_ESTIMATE: Estimate = {
+  id: '20202020-2020-2020-2020-202020202020',
+  itemId: WORK_ITEMS[1].id,
+  estimatorId: '77777777-7777-7777-7777-777777777777',
+  estimatorName: 'Bob',
+  p10Hours: 1,
+  p50Hours: 2,
+  p90Hours: 4,
+  createdAt: '2026-08-13T12:00:00Z'
 };
 
 export const INVITATION: Invitation = {

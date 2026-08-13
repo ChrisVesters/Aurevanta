@@ -5,6 +5,8 @@ import { WorkItems } from './WorkItems';
 import {
   ACCOUNT,
   ARCHIVED_WORK_ITEM,
+  COLLEAGUES_ESTIMATE,
+  ESTIMATES,
   PROJECTS,
   WORK_ITEMS,
   jsonResponse,
@@ -12,23 +14,35 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
+import type { Estimate, WorkItem } from './types';
 
 const PROJECT_ID = PROJECTS[0].id;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
+const ESTIMATES_URL = `/api/projects/${PROJECT_ID}/estimates`;
 
 describe('WorkItems', () => {
   const fetchMock = mockFetch();
 
-  /** Answers by URL: the session and the item list are separate questions. */
-  async function open(items = WORK_ITEMS) {
-    storeAccessToken();
+  /**
+   * Answers three URLs separately: the session, the work in the plan, and what everybody
+   * currently thinks it will take. A double that answered them alike would hand the
+   * estimate list a page of work items, and every row would quietly read as unestimated.
+   */
+  function answer(items: WorkItem[], estimates: Estimate[]) {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/api/auth/me'
           ? jsonResponse(200, ACCOUNT)
-          : jsonResponse(200, items)
+          : url === ESTIMATES_URL
+            ? jsonResponse(200, estimates)
+            : jsonResponse(200, items)
       )
     );
+  }
+
+  async function open(items = WORK_ITEMS, estimates: Estimate[] = []) {
+    storeAccessToken();
+    answer(items, estimates);
     renderRouted(<WorkItems projectId={PROJECT_ID} />, {
       route: `/app/projects/${PROJECT_ID}`
     });
@@ -121,8 +135,9 @@ describe('WorkItems', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.getByText('Write the runbook')).toBeInTheDocument();
-    // Two calls: the session and the list. Cancelling asks the server nothing.
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // Three calls: the session, the work, and what it is estimated at. Cancelling asks
+    // the server nothing.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('says so against the field when a reword is refused', async () => {
@@ -187,13 +202,7 @@ describe('WorkItems', () => {
 
   it('asks for the archived work separately, and brings one back', async () => {
     await open();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url === '/api/auth/me'
-          ? jsonResponse(200, ACCOUNT)
-          : jsonResponse(200, [ARCHIVED_WORK_ITEM])
-      )
-    );
+    answer([ARCHIVED_WORK_ITEM], []);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Show archived work' })
@@ -214,13 +223,7 @@ describe('WorkItems', () => {
 
   it('says so when nothing here has been put away', async () => {
     await open();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url === '/api/auth/me'
-          ? jsonResponse(200, ACCOUNT)
-          : jsonResponse(200, [])
-      )
-    );
+    answer([], []);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Show archived work' })
@@ -243,7 +246,9 @@ describe('WorkItems', () => {
           ? jsonResponse(200, ACCOUNT)
           : url === ITEMS_URL
             ? jsonResponse(200, WORK_ITEMS)
-            : jsonResponse(200, [ARCHIVED_WORK_ITEM])
+            : url === ESTIMATES_URL
+              ? jsonResponse(200, [])
+              : jsonResponse(200, [ARCHIVED_WORK_ITEM])
       )
     );
     await userEvent.click(
@@ -321,23 +326,27 @@ describe('WorkItems', () => {
   });
 
   /** The guard that keeps a list arriving late from touching a page that has gone. */
+  /**
+   * The work and its estimates are asked for together, so both answers have to be dropped
+   * when the page has gone — which is what this delivers, after leaving.
+   */
   it('drops work that arrives after the page has been left', async () => {
     storeAccessToken();
-    let deliver: (value: Response) => void = () => {};
+    const pending: ((value: Response) => void)[] = [];
     fetchMock.mockImplementation((url: string) =>
       url === '/api/auth/me'
         ? Promise.resolve(jsonResponse(200, ACCOUNT))
-        : new Promise<Response>((resolve) => {
-            deliver = resolve;
-          })
+        : new Promise<Response>((resolve) => pending.push(resolve))
     );
     const { unmount } = renderRouted(<WorkItems projectId={PROJECT_ID} />, {
       route: `/app/projects/${PROJECT_ID}`
     });
     await screen.findByRole('status');
+    await waitFor(() => expect(pending).toHaveLength(2));
 
     unmount();
-    deliver(jsonResponse(200, WORK_ITEMS));
+    pending[0](jsonResponse(200, WORK_ITEMS));
+    pending[1](jsonResponse(200, ESTIMATES));
 
     await waitFor(() =>
       expect(screen.queryByText('Write the runbook')).toBeNull()
@@ -363,6 +372,221 @@ describe('WorkItems', () => {
     refuse(jsonResponse(500, null));
 
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  // Estimates ---------------------------------------------------------------
+
+  it('shows the reader their own range, and says who else gave one', async () => {
+    await open(WORK_ITEMS, [...ESTIMATES, COLLEAGUES_ESTIMATE]);
+
+    const rows = await screen.findAllByRole('listitem');
+    // Ada's own numbers, not Bob's, even though both are current on that item.
+    expect(
+      within(rows[0]).getByText(/Your estimate: 3 \/ 5 \/ 12/)
+    ).toBeInTheDocument();
+    // And on the item only a colleague has estimated, their range is not invisible.
+    expect(within(rows[1]).getByText('Estimated by Bob')).toBeInTheDocument();
+  });
+
+  /**
+   * Several people holding a current estimate on one item is the schema working as
+   * intended, so the row names all of them rather than whichever arrived first.
+   */
+  it('names every colleague who estimated an item the reader has not', async () => {
+    const carol: Estimate = {
+      ...COLLEAGUES_ESTIMATE,
+      id: '30303030-3030-3030-3030-303030303030',
+      estimatorId: '40404040-4040-4040-4040-404040404040',
+      estimatorName: 'Carol'
+    };
+    await open(WORK_ITEMS, [COLLEAGUES_ESTIMATE, carol]);
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(
+      within(rows[1]).getByText('Estimated by Bob, Carol')
+    ).toBeInTheDocument();
+  });
+
+  it('says which work carries no estimate at all', async () => {
+    await open();
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(within(rows[0]).getByText('Not estimated')).toBeInTheDocument();
+  });
+
+  /**
+   * Decision 5 made visible: a partly estimated plan is the ordinary case, and what a
+   * forecast would leave out has to be on screen rather than worked out by counting rows.
+   */
+  it('says how much of the plan is estimated', async () => {
+    await open(WORK_ITEMS, [...ESTIMATES, COLLEAGUES_ESTIMATE]);
+
+    expect(
+      await screen.findByText('2 of 2 items estimated')
+    ).toBeInTheDocument();
+  });
+
+  it('counts an item once however many people estimated it', async () => {
+    await open(WORK_ITEMS, ESTIMATES);
+
+    expect(
+      await screen.findByText('1 of 2 items estimated')
+    ).toBeInTheDocument();
+  });
+
+  it('records a three-point estimate against the item', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+
+    await userEvent.type(screen.getByLabelText('P10'), '3');
+    await userEvent.type(screen.getByLabelText('P50'), '5');
+    await userEvent.type(screen.getByLabelText('P90'), '12');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/items/${WORK_ITEMS[0].id}/estimates`,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ p10Hours: 3, p50Hours: 5, p90Hours: 12 })
+        })
+      )
+    );
+  });
+
+  /** Revising starts from what that person last said, not from three empty boxes. */
+  it('opens with the reader’s current estimate already in it', async () => {
+    await open(WORK_ITEMS, ESTIMATES);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+
+    expect(screen.getByLabelText('P10')).toHaveValue(3);
+    expect(screen.getByLabelText('P90')).toHaveValue(12);
+  });
+
+  /**
+   * A box nobody filled in is missing rather than zero — `Number('')` is 0, and sending
+   * that would have the visitor told their estimate must be more than zero about a field
+   * they never touched.
+   */
+  it('sends an untouched box as nothing rather than as no hours', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+
+    await userEvent.type(screen.getByLabelText('P50'), '5');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/items/${WORK_ITEMS[0].id}/estimates`,
+        expect.objectContaining({
+          body: JSON.stringify({
+            p10Hours: null,
+            p50Hours: 5,
+            p90Hours: null
+          })
+        })
+      )
+    );
+  });
+
+  /**
+   * The refusal that belongs to no single box: each number is fine and the order is not,
+   * so it arrives in the banner rather than against a field chosen arbitrarily.
+   */
+  it('says so when the three numbers do not go up', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, { code: 'estimate_out_of_order' })
+    );
+
+    await userEvent.type(screen.getByLabelText('P10'), '5');
+    await userEvent.type(screen.getByLabelText('P50'), '3');
+    await userEvent.type(screen.getByLabelText('P90'), '12');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /The three numbers must go up/
+    );
+  });
+
+  it('puts a complaint about one number against that box', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { p10Hours: { code: 'positive' } }
+      })
+    );
+
+    await userEvent.type(screen.getByLabelText('P10'), '0');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
+
+    expect(
+      await screen.findByText('Use a number greater than zero.')
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('closes the estimate form when it is cancelled', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByLabelText('P10')).toBeNull();
+  });
+
+  /**
+   * Archived work is out of the plan, and the estimates endpoint says nothing about it —
+   * so a row there must not offer to estimate something the forecast will never see.
+   */
+  it('offers no estimate on work that has been put away', async () => {
+    await open();
+    answer([ARCHIVED_WORK_ITEM], []);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show archived work' })
+    );
+    await screen.findByText('Something we dropped');
+
+    expect(
+      screen.queryByRole('button', { name: 'Estimate Something we dropped' })
+    ).toBeNull();
+    expect(screen.queryByText('Not estimated')).toBeNull();
   });
 
   /** An item with notes shows them; one without shows nothing rather than an empty line. */

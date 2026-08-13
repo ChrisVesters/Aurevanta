@@ -62,6 +62,8 @@ public class WorkItemService {
 	 */
 	@Transactional
 	public WorkItem create(UUID callerId, UUID tenantId, UUID projectId, String title, String description) {
+		// The entity rather than the read model: how much of the plan is estimated is not
+		// a question worth two queries every time somebody types a task into it.
 		Project project = this.projects.get(callerId, tenantId, projectId);
 		return this.items.save(new WorkItem(project, title, description, Instant.now(this.clock)));
 	}
@@ -81,6 +83,22 @@ public class WorkItemService {
 	public List<WorkItem> list(UUID callerId, UUID tenantId, UUID projectId, boolean archived) {
 		this.projects.get(callerId, tenantId, projectId);
 		return this.items.findAllInProject(tenantId, projectId, archived);
+	}
+
+	/**
+	 * One item, if the caller may reach it.
+	 *
+	 * <p>
+	 * Public because an estimate is <em>of</em> an item, and {@code estimate} asks this
+	 * question rather than looking the row up itself: whether somebody may write against
+	 * a piece of work is this package's rule, and a second copy of it would be a second
+	 * chance for one of them to drift.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws WorkItemNotFoundException if no item in it has that identifier
+	 */
+	@Transactional(readOnly = true)
+	public WorkItem get(UUID callerId, UUID tenantId, UUID itemId) {
+		return item(callerId, tenantId, itemId);
 	}
 
 	/**

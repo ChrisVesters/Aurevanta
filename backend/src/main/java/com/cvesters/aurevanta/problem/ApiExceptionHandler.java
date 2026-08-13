@@ -51,7 +51,7 @@ class ApiExceptionHandler {
 	 * other codes in this application.
 	 */
 	private static final Map<String, String> CONSTRAINT_CODES = Map.of("NotBlank", "not_blank", "NotNull", "not_null",
-			"Size", "size", "Email", "email", "Pattern", "pattern");
+			"Size", "size", "Email", "email", "Pattern", "pattern", "Positive", "positive", "Digits", "digits");
 
 	/** What an unmapped constraint becomes, so a new one degrades rather than leaks. */
 	private static final String UNKNOWN_CONSTRAINT = "invalid";
@@ -108,9 +108,15 @@ class ApiExceptionHandler {
 	 * Presence comes first: an empty field needs to hear that it is empty, and the rules
 	 * about shape only start to mean something once there is something to shape. Anything
 	 * unlisted ranks last, so a mapped constraint always beats a generic {@code invalid}.
+	 *
+	 * <p>
+	 * {@code positive} and {@code digits} genuinely can fail together — an estimate of
+	 * {@code -0.001} hours breaks both — so they are ranked rather than left to arrive in
+	 * whichever order the set happens to iterate. Being told a number must be more than
+	 * zero is the more useful half of that answer.
 	 */
 	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "not_null", "size", "max_size", "email",
-			"pattern");
+			"pattern", "positive", "digits");
 
 	/** Every domain failure describes itself, so one branch covers all of them. */
 	@ExceptionHandler(ApiProblemException.class)
