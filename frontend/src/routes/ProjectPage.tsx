@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { ProjectForm } from '../projects/ProjectForm';
+import { WorkItems } from '../projects/WorkItems';
 import type { Project } from '../projects/types';
 
 /**
@@ -140,6 +141,12 @@ export function ProjectPage() {
             <p className="empty">{t('projects.project.archivedNotice')}</p>
           )}
 
+          {/*
+            The work comes first, because it is what the page is for. What the plan is
+            called is a setting, and settings belong under the thing they configure.
+          */}
+          <WorkItems projectId={project.id} />
+
           <ProjectForm
             // Keyed on what the server last said, so the fields show the saved project
             // rather than whatever was in them before somebody else's change arrived.
@@ -153,7 +160,9 @@ export function ProjectPage() {
             banner={message}
             fieldErrors={fieldErrors}
             onSubmit={(values) => void save(values)}
-          />
+          >
+            <h2>{t('projects.project.details')}</h2>
+          </ProjectForm>
 
           <p className="archive">
             <button

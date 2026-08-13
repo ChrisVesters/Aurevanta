@@ -6,6 +6,7 @@ import {
   MAXIMUM_NAME_LENGTH
 } from '../auth/constants';
 import { textField } from '../auth/formValues';
+import { optionalField } from './fields';
 
 type ProjectFormProps = {
   /** Distinguishes the inputs' ids, since both forms can be on screen in one app. */
@@ -23,12 +24,13 @@ type ProjectFormProps = {
 
 /**
  * The two fields a project has, shared by the form that starts one and the form that
- * changes one.
+ * changes one — the same two questions asked at different moments.
  *
- * They are the same two questions asked at different moments, and the thing worth not
- * repeating is what an empty description means: **the server stores nothing rather than an
- * empty string**, so this sends null for one. Written twice, one of them would eventually
- * send `''` and give the column two spellings for the same absence.
+ * Not shared with `WorkItemForm`, which asks a title rather than a name: the field names
+ * are the server's, and they are what a per-field complaint is keyed by. One component
+ * parameterised by which name to use would read worse than two that each say theirs. What
+ * they do share is `optionalField`, since "an empty box means nothing" is the rule either
+ * of them could quietly get wrong.
  */
 export function ProjectForm({
   id,
@@ -49,7 +51,7 @@ export function ProjectForm({
     const values = new FormData(event.currentTarget);
     onSubmit({
       name: textField(values, 'name'),
-      description: textField(values, 'description') || null
+      description: optionalField(values, 'description')
     });
   }
 

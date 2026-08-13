@@ -19,6 +19,7 @@ const BACKEND_CODES = [
   'last_owner',
   'member_not_found',
   'project_not_found',
+  'work_item_not_found',
   'already_a_member',
   'invitation_already_pending',
   'invitation_not_found',

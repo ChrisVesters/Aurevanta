@@ -558,7 +558,8 @@ button.link {
   }
 }
 
-.project-list {
+.project-list,
+.work-item-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -568,15 +569,20 @@ button.link {
 
   li {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
     padding: 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
   }
 
   .who {
+    flex: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    min-width: 180px;
   }
 
   .name {
@@ -585,6 +591,37 @@ button.link {
 
   .description {
     font-size: 14px;
+  }
+
+  /* Every control in a row on the row's centre line, as the member list does it. */
+  button {
+    align-self: center;
+    box-sizing: border-box;
+    min-height: 38px;
+  }
+}
+
+/* The work inside a plan, above the settings that configure the plan itself. */
+.work {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.work-item-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Fills the row when it opens in place of one, rather than sitting in a column of it. */
+  width: 100%;
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
   }
 }
 

@@ -12,7 +12,7 @@ import type {
   SignInResponse
 } from '../auth/types';
 import type { Invitation, InvitationPreview, Member } from '../members/types';
-import type { Project } from '../projects/types';
+import type { Project, WorkItem } from '../projects/types';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',
@@ -103,6 +103,35 @@ export const ARCHIVED_PROJECT: Project = {
   description: null,
   createdAt: '2025-08-13T08:00:00Z',
   archivedAt: '2026-01-06T08:00:00Z'
+};
+
+/** The work inside `PROJECTS[0]`, in the order it was written down. */
+export const WORK_ITEMS: WorkItem[] = [
+  {
+    id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+    projectId: PROJECTS[0].id,
+    title: 'Migrate the auth service',
+    description: 'Blocked on the vendor',
+    createdAt: '2026-08-13T08:10:00Z',
+    archivedAt: null
+  },
+  {
+    id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+    projectId: PROJECTS[0].id,
+    title: 'Write the runbook',
+    description: null,
+    createdAt: '2026-08-13T08:20:00Z',
+    archivedAt: null
+  }
+];
+
+export const ARCHIVED_WORK_ITEM: WorkItem = {
+  id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+  projectId: PROJECTS[0].id,
+  title: 'Something we dropped',
+  description: null,
+  createdAt: '2026-08-13T08:30:00Z',
+  archivedAt: '2026-08-13T09:00:00Z'
 };
 
 export const INVITATION: Invitation = {

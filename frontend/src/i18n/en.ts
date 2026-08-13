@@ -235,9 +235,42 @@ export const en = {
       submit: 'Create project',
       submitting: 'Creating…'
     },
+    // The work inside one plan. No numbers on any of it yet: estimates are the next step,
+    // and how they are *asked for* is a milestone of its own.
+    items: {
+      title: 'Work',
+      loading: 'Loading work…',
+      none: 'Nothing written down yet. Add the first task below.',
+      noneArchived: 'Nothing here has been put away.',
+      showArchived: 'Show archived work',
+      showCurrent: 'Show current work',
+      fields: {
+        title: { label: 'Task' },
+        description: { label: 'Notes' }
+      },
+      add: {
+        submit: 'Add task',
+        submitting: 'Adding…'
+      },
+      edit: {
+        open: 'Edit',
+        // What the button is called for anybody reading through a screen reader, where a
+        // column of identical "Edit" buttons says nothing about what each one edits.
+        openNamed: 'Edit {{title}}',
+        submit: 'Save',
+        submitting: 'Saving…',
+        cancel: 'Cancel'
+      },
+      archive: 'Archive',
+      archiveNamed: 'Archive {{title}}',
+      unarchive: 'Bring back',
+      unarchiveNamed: 'Bring {{title}} back'
+    },
     project: {
       loading: 'Loading project…',
       back: '← All projects',
+      // Names the half of the page that is about the plan itself rather than its contents.
+      details: 'Project details',
       save: 'Save changes',
       saving: 'Saving…',
       saved: 'Saved.',
@@ -355,6 +388,7 @@ export const en = {
       // organisation, because the server does — which is what stops it being a way to ask
       // which projects exist elsewhere.
       project_not_found: 'That project is no longer in this organisation.',
+      work_item_not_found: 'That task is no longer in this organisation.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',

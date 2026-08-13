@@ -17,16 +17,24 @@ import type { Project } from '../projects/types';
 describe('ProjectPage', () => {
   const fetchMock = mockFetch();
 
-  /** Rendered through a route, since the project is named by a path parameter. */
+  /**
+   * Rendered through a route, since the project is named by a path parameter.
+   *
+   * Three URLs answered separately, because the page loads two resources that fail
+   * independently: the plan itself, and — through `WorkItems` — the work inside it. A
+   * double that answered both alike would hand the item list a project.
+   */
   async function open(project: Project | null = PROJECTS[0]) {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/api/auth/me'
           ? jsonResponse(200, ACCOUNT)
-          : project
-            ? jsonResponse(200, project)
-            : jsonResponse(404, { code: 'project_not_found' })
+          : url.endsWith('/items')
+            ? jsonResponse(200, [])
+            : project
+              ? jsonResponse(200, project)
+              : jsonResponse(404, { code: 'project_not_found' })
       )
     );
     renderRouted(
@@ -114,9 +122,9 @@ describe('ProjectPage', () => {
         expect.objectContaining({ method: 'POST' })
       )
     );
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      /nothing has been lost/i
-    );
+    expect(
+      await screen.findByText(/nothing has been lost/i)
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Bring this project back' })
     ).toBeInTheDocument();

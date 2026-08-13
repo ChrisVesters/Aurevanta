@@ -13,3 +13,18 @@ export type Project = {
   /** Null while it is in use. Nothing is ever deleted, so this is how one leaves a list. */
   archivedAt: string | null;
 };
+
+/**
+ * One piece of work inside a plan, and the thing that will carry an estimate.
+ *
+ * Names its project, unlike a project naming its organisation: `PATCH /api/items/{id}`
+ * puts no project in the path, so this is what says which plan was just changed.
+ */
+export type WorkItem = {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  archivedAt: string | null;
+};
