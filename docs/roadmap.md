@@ -656,6 +656,90 @@ Three of the above are not really nice-to-haves:
 
 ---
 
+## Future — unsequenced
+
+Not the icebox, which holds estimation ideas waiting for a milestone number. These are
+questions already answerable today, recorded so the answer is not re-derived under pressure
+later.
+
+### Account security
+
+Neither of these is estimation work, so neither competes for a milestone number. They are
+here rather than in the icebox because both are changes to *identity*, which is the one part
+of this product already built: they land on M0/M1 code rather than waiting on a schema that
+does not exist yet. They are written together because they touch the same credential, and
+one of them cannot honestly be built before the other.
+
+- **Two-factor authentication.** TOTP first — an authenticator app needs no delivery
+  infrastructure, where SMS needs a provider and is the weakest factor on offer anyway. Three
+  things this codebase already decided constrain how it goes in. **The ordering rule from the
+  verification gate applies unchanged**: whether an account has a second factor is checked
+  only *after* the password, or sign-in becomes a way to ask which addresses hold accounts.
+  **`SignInRateLimiter` counts failures**, and a wrong code is a guess exactly as a wrong
+  password is, so it belongs under the same budget rather than a second one beside it.
+  **Recovery codes are the hard part, not the TOTP maths** — a second factor is also a second
+  way to lock somebody out of their own account, and under a hard verification gate the
+  password reset that exists to recover an account must not become a way around the factor.
+  Distinct from SSO, which M1 excluded: an organisation that federates gets its factor from
+  the identity provider, and the two would coexist rather than replace each other.
+- **Staying signed in for longer.** Today the only credentials are the twelve-hour access
+  token and the identity token — `security.md` says a grep of both sides finds no refresh
+  token — so "remember me" as currently reachable means *lengthening the twelve hours*, which
+  widens precisely the window Security debt finding 1 is about. **That makes this dependent on
+  finding 1 rather than merely adjacent to it.** The honest shape is a short-lived access
+  token beside a long-lived credential that can be withdrawn, and "can be withdrawn" is the
+  server-side per-request check (`token_version`, or a stored refresh row) that finding 1's
+  fix introduces. Built the other way round, this ships a longer-lived credential nothing can
+  take back, and sells it as convenience. A refresh token would also be a **third token kind**,
+  which the existing split already accommodates: endpoints guard on `SCOPE_TENANT` rather than
+  on the absence of `SCOPE_IDENTITY`, so a new kind reaches nothing until it is granted
+  something deliberately.
+
+**Ordering, if both are picked up:** finding 1, then longer sessions, which is that fix
+turned into a feature. Two-factor authentication is independent of both and can go at any
+time — though it is worth noting that the account it protects can still be held for twelve
+hours by anybody who obtained a token before the factor was added.
+
+### Generalising the unit of estimation
+
+M2 stores effort in hours (`m2-plan.md` decision 3), which is the right decision to ship.
+This is here because "make the unit configurable" sounds like one change and is three, and
+the cheap-looking version of it is the one that hurts.
+
+**Nothing about M2 makes any of them worse, so none of this is perishable.** That is worth
+stating, because M1a was: handles had to be fixed early since links get bookmarked into state
+nobody controls. Nothing outside this database refers to an hour. Every row written today is
+unambiguously hours, so a later migration backfills a default rather than guessing what old
+rows meant — which is exactly why adding a unit column *now*, against a need nobody has, buys
+nothing.
+
+- **Days, weeks, ideal-hours — free, and already provided for.** The same quantity rescaled;
+  `m2-plan.md` already stores hours and lets the UI show days. The multiplier is a setting,
+  and M11 is where a working day acquires a length anyway.
+- **Story points — moderate, and the cost is not in the schema.** The migration is a column
+  rename plus a unit on the *project* (never on the estimate: multi-estimator means several
+  estimates aggregate on one item, and mixed units there is undefined aggregation). The work
+  is that points only become time through a **velocity, which is itself uncertain** — sampled
+  points × sampled velocity, a few lines inside M3's loop and a more natural fit here than
+  anywhere else, since this engine already samples distributions and M9's throughput history
+  is where a defensible velocity would come from. Three consequences: **M11 needs the
+  conversion first**, because effort divided by an allocation only means anything in time
+  units; **M8 needs actuals in hours regardless**, since nobody records "actual story points";
+  and **`lag_hours` stays time whatever the project uses**, because a finish-to-start lag of
+  three points is meaningless. A points project therefore stores both units, and the unit is a
+  property of a quantity rather than of the installation.
+- **Money is a second axis, not a second unit** — and this is the point worth having written
+  down. It is *mathematically easier* than time, not harder: costs genuinely sum, so there is
+  no scheduler, no critical path and no merge bias, and the closed form M3 rejected would be
+  adequate. What doubles is the output surface, which is what "not cost or budget modelling"
+  above is really protecting. **So the trap is a `unit` column on `estimates`.** An item that
+  costs money also takes time, and anyone asking for cost wants both at once; a unit slot gives
+  each item one estimate in one unit and makes the thing they asked for harder to build. Cost,
+  if it ever happens, is a **second estimate alongside the time one**, sharing the P10/P50/P90
+  machinery and the immutability discipline and not the unit slot.
+
+---
+
 ## Cross-cutting, not a milestone
 
 Threaded through the above rather than scheduled as a block.
