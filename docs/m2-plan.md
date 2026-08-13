@@ -22,9 +22,9 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | Projects | — |
-| 2 | Work items | 1 |
-| 3 | Estimates, and what coverage means | 2 |
+| 1 | Projects ✅ *done* | — |
+| 2 | Work items ✅ *done* | 1 |
+| 3 | Estimates, and what coverage means ✅ *done* | 2 |
 | 4 | Progress, and actuals | 2 |
 | 5 | Dependencies | 2 |
 | 6 | Close out | 1–5 |
@@ -150,7 +150,7 @@ in one project is usually a portfolio wearing a project's name.
 
 ---
 
-## Step 1 — Projects
+## Step 1 — Projects ✅ *done*
 
 **Goal.** An organisation can hold more than one plan, and they cannot see each other's.
 
@@ -174,9 +174,32 @@ default listing and unarchiving brings it back. Two projects may share a name.
 
 **Done when** an organisation has somewhere to put a plan.
 
+### As built — where it differs from the above
+
+- **`MembershipService.requireMember` became public**, which is the whole of what "visible
+  to every member" turned into. Owner-only endpoints already shared one rule that re-reads
+  the membership rather than trusting the role in a token; any-member endpoints needed its
+  twin, and writing a second check inside `project` would have been the second chance for
+  one of them to drift. Every method in `ProjectService` starts with it and takes the
+  organisation off the row that comes back.
+- **Archiving and unarchiving are one service method with a boolean.** They are one decision
+  read in both directions, and splitting them would have been two lookups and two membership
+  checks to keep in step. `Project.archive` keeps the *first* moment, the way
+  `User.markEmailVerified` does: archiving something already archived is a no-op arriving
+  twice, not a fresh decision.
+- **A description is nullable, and an empty one is stored as nothing.** The request records
+  normalise `""` to null in their compact constructors, so the column has one spelling for
+  an absence rather than two for a query to miss half of. A null on `PATCH` therefore
+  *clears* it — which is a genuine value here, unlike the name, where a column that cannot
+  be empty has no reading of null that is right.
+- **`Project.isArchived()` was written and then removed.** Nothing read it, and an accessor
+  no logic reads is an untested branch dressed as an API; the tests assert on
+  `getArchivedAt()` instead. The same thing happened again in steps 2 and 3, which is worth
+  noticing as a pattern rather than three accidents.
+
 ---
 
-## Step 2 — Work items
+## Step 2 — Work items ✅ *done*
 
 **Goal.** The unit that carries an estimate exists.
 
@@ -195,9 +218,37 @@ default listing. 500 items load in one response.
 
 **Done when** a plan can be typed in, with no numbers on it yet.
 
+### As built — where it differs from the above
+
+- **`WorkItemController` has no class-level path**, because its endpoints sit at two. An
+  item is created and listed *within* a project, which is the only moment its plan has to
+  be named; once it exists it is addressed at `/api/items/{id}`. Steps 3 and 5 address
+  items directly too, so a path that repeated the project would be a second identifier the
+  server had to check agreed with the first — and a mismatch between them is a refusal
+  nobody could act on.
+- **`WorkItemResponse` carries its `projectId`, where `ProjectResponse` carries no
+  organisation.** The asymmetry is deliberate: an organisation is the one the caller's
+  token already names, and a project is not, so without it a client renaming an item would
+  have nothing to say which plan it had just changed.
+- **Listing the work in a plan that is not there is `project_not_found`, not an empty
+  list.** "No such plan" and "a plan with nothing in it" are different answers and only one
+  is worth acting on, so `WorkItemService` fetches the project through `ProjectService`
+  rather than assuming it.
+- **An archived project still accepts work**, and the service says so. Archiving means the
+  plan is not being worked from, not that it is sealed; refusing here would need a refusal
+  nobody asked for, aimed at somebody tidying up an old plan.
+- **The project page delegates rather than grows.** `WorkItems` loads and writes on its own
+  instead of through `ProjectPage`, because the plan and its contents are separate resources
+  on the server and answering for one another's failures would mean a plan that could not be
+  renamed because its items would not load.
+- **`ProjectForm` and `WorkItemForm` are two components, not one parameterised by a field
+  name.** The field names are the server's, and they are what a per-field complaint is keyed
+  by. What they *do* share is `optionalField` — "an empty box means nothing, not `''`" is
+  the rule either of them could quietly get wrong, so it is stated once.
+
 ---
 
-## Step 3 — Estimates, and what coverage means
+## Step 3 — Estimates, and what coverage means ✅ *done*
 
 **Goal.** The product's actual content: a range, from a named person, that is never overwritten.
 
@@ -233,6 +284,51 @@ estimate, and ignores archived items.
 
 **Done when** the schema holds everything M8 will need in three years, and nothing can quietly
 erase it.
+
+### As built — where it differs from the above
+
+Two of these are departures from what this step was written to do, and they are the first
+two for that reason.
+
+- **A band the wrong way round is refused as `estimate_out_of_order`, not as a field code.**
+  The bullets above say "refused with a field code", and that is not what it is: each of the
+  three numbers is perfectly good, and what is wrong is the relationship between them.
+  `FieldProblem` exists to say "this box is wrong", so pointing at one of them would be
+  picking a culprit arbitrarily. It is a document-level code, and the form shows it in the
+  banner rather than beside an input. **The per-field codes this step did owe are there** —
+  `Positive` → `positive` and `Digits` → `digits`, in `CONSTRAINT_CODES`, in
+  `CODE_PRECEDENCE` (they can fail together: `-0.001` breaks both), and in `errors.validation`.
+- **The item response does not say whether it is estimated.** The plan asked for a boolean
+  there; what shipped is `GET /api/projects/{id}/estimates`, carrying every estimator's
+  current range for the whole plan in one request. It subsumes the boolean, adds the numbers
+  the form needs to fill itself in, and shows a colleague's estimate rather than merely
+  admitting one exists. The reason to prefer it is structural: the boolean would have made
+  `item` depend on `estimate` while `estimate` already depends on `item`, and this keeps
+  that arrow pointing one way. The project response carries `itemCount` and
+  `estimatedItemCount` as written.
+- **`@Digits(integer = 10, fraction = 2)` matches the column exactly, and closes a real
+  hole.** `0.005` hours passes `@Positive`, rounds to `0.00` on the way into
+  `numeric(12, 2)`, and lands as an estimate of nothing — breaking the rule that had just
+  admitted it, silently, after the check that enforces it.
+- **Coverage is counted in `ProjectRepository`, in JPQL that names `WorkItem` and
+  `Estimate` and imports neither.** It is the one place a feature reaches into another's
+  tables, and it is worth being explicit about — the reason it is acceptable is that
+  Hibernate parses every query at startup, so a renamed entity fails the context rather than
+  the next reader. Compare the package name written as a string that M1 lost silently.
+- **`ProjectService` grew a second way to read a project**, because the read model is not
+  free: `get` hands back the entity for other services, `planned` adds the two counts for
+  the API. Without the split, typing a task into a plan would have paid for two grouped
+  counts nobody asked for.
+- **The estimator comes off the membership that just proved the caller belongs**, rather
+  than a second lookup by the identifier in their token. The lookup version had a branch for
+  an account that is gone, which this method cannot actually have — a membership is what
+  says the account exists — and an unreachable branch is one nothing can cover.
+- **The two loads on the project page were made parallel.** `WorkItems` asks for the work
+  and its estimates with one `Promise.all`; neither answer depends on the other, and waiting
+  for the first before asking for the second doubled the time to draw the page.
+- **`numberField` exists because `Number('')` is zero.** The obvious version of an
+  untouched box sends an estimate of no hours, and the visitor is told their estimate must
+  be more than zero about a field they never filled in.
 
 ---
 

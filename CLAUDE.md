@@ -13,9 +13,18 @@ depends on; M0 (tenancy and identity), M1 (making it a team product) and M1a (or
 names are not unique) are built. `docs/m1-plan.md` and `docs/m1a-plan.md` are the records of
 how those last two were done and where each departed from its own brief — M1a most of all,
 since it corrected M0 by a different route than the one it was written to take.
-`docs/m2-plan.md` is the plan for what comes next: the first milestone to carry domain data,
-and the one whose schema M3–M9 all read from. **Nothing below describes any of it yet** — M2
-is planned, not built.
+`docs/m2-plan.md` is the plan being worked through now: the first milestone to carry domain
+data, and the one whose schema M3–M9 all read from. Steps 1–3 (projects, work items,
+estimates) are built; **nothing below describes them yet**, because documenting the domain is
+that plan's own step 6.
+
+**A plan is updated as its steps land, not at the end.** Mark the step `✅ *done*` on its
+heading and in the *At a glance* table, and write its `### As built — where it differs from
+the above` in the same change as the code. That section is the point of these documents:
+`m1a-plan.md` is worth reading precisely because it records a milestone that did something
+other than what it was written to do, and a departure is only honestly recalled while it is
+still the thing you just decided. Leaving it to the close-out step turns a record into a
+reconstruction.
 
 `docs/security.md` is the security review taken after M1a — four open findings with the moment
 each is cheapest to fix, what was deliberately accepted, and, at least as usefully, what was
