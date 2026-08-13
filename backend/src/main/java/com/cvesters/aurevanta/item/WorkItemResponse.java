@@ -1,6 +1,8 @@
 package com.cvesters.aurevanta.item;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -15,13 +17,19 @@ import java.util.UUID;
  *
  * @param archivedAt null while the item is in use, which is how a client tells the two
  * states apart without a second field that could disagree with this one.
+ * @param startedOn and {@code completedOn} are dates rather than moments, because they
+ * are what somebody reports about a day rather than something the server observed.
+ * @param actualEffortHours null wherever nobody measured it, which will be most of the
+ * time — and comparable directly with an estimate, since both are hours of effort.
  */
 public record WorkItemResponse(UUID id, UUID projectId, String title, String description, Instant createdAt,
-		Instant archivedAt) {
+		Instant archivedAt, WorkItemStatus status, LocalDate startedOn, LocalDate completedOn,
+		BigDecimal actualEffortHours) {
 
 	public static WorkItemResponse of(WorkItem item) {
 		return new WorkItemResponse(item.getId(), item.getProject().getId(), item.getTitle(), item.getDescription(),
-				item.getCreatedAt(), item.getArchivedAt());
+				item.getCreatedAt(), item.getArchivedAt(), item.getStatus(), item.getStartedOn(), item.getCompletedOn(),
+				item.getActualEffortHours());
 	}
 
 }

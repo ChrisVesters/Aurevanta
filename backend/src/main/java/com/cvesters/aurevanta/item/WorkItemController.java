@@ -31,7 +31,7 @@ import com.cvesters.aurevanta.security.AuthenticatedUser;
  *
  * <p>
  * Every one of them is reachable by every member, and the organisation comes from the
- * caller's token in all six.
+ * caller's token in all of them.
  */
 @RestController
 class WorkItemController {
@@ -68,6 +68,23 @@ class WorkItemController {
 			@Valid @RequestBody UpdateWorkItemRequest request) {
 		return WorkItemResponse
 			.of(this.items.update(caller.userId(), caller.tenantId(), itemId, request.title(), request.description()));
+	}
+
+	/**
+	 * Records what has already happened to a piece of work.
+	 *
+	 * <p>
+	 * Its own endpoint rather than more fields on {@code PATCH /api/items/{id}}, because
+	 * the two are different acts by different people at different moments: rewording a
+	 * task is planning, and saying it finished on Tuesday is reporting. Keeping them
+	 * apart also keeps a rename from having to carry — and so being able to overwrite —
+	 * the dates M8 and M10 read.
+	 */
+	@PatchMapping("/api/items/{itemId}/progress")
+	WorkItemResponse recordProgress(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID itemId,
+			@Valid @RequestBody UpdateProgressRequest request) {
+		return WorkItemResponse.of(this.items.recordProgress(caller.userId(), caller.tenantId(), itemId,
+				request.status(), request.startedOn(), request.completedOn(), request.actualEffortHours()));
 	}
 
 	/**

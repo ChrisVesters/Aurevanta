@@ -119,7 +119,11 @@ export const WORK_ITEMS: WorkItem[] = [
     title: 'Migrate the auth service',
     description: 'Blocked on the vendor',
     createdAt: '2026-08-13T08:10:00Z',
-    archivedAt: null
+    archivedAt: null,
+    status: 'NOT_STARTED',
+    startedOn: null,
+    completedOn: null,
+    actualEffortHours: null
   },
   {
     id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
@@ -127,7 +131,12 @@ export const WORK_ITEMS: WorkItem[] = [
     title: 'Write the runbook',
     description: null,
     createdAt: '2026-08-13T08:20:00Z',
-    archivedAt: null
+    archivedAt: null,
+    // Under way, so the row has a date to stand behind its claim.
+    status: 'IN_PROGRESS',
+    startedOn: '2026-08-10',
+    completedOn: null,
+    actualEffortHours: null
   }
 ];
 
@@ -137,7 +146,11 @@ export const ARCHIVED_WORK_ITEM: WorkItem = {
   title: 'Something we dropped',
   description: null,
   createdAt: '2026-08-13T08:30:00Z',
-  archivedAt: '2026-08-13T09:00:00Z'
+  archivedAt: '2026-08-13T09:00:00Z',
+  status: 'NOT_STARTED',
+  startedOn: null,
+  completedOn: null,
+  actualEffortHours: null
 };
 
 /**

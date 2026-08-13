@@ -589,6 +589,343 @@ describe('WorkItems', () => {
     expect(screen.queryByText('Not estimated')).toBeNull();
   });
 
+  // Progress ----------------------------------------------------------------
+
+  it('says how far along each piece of work is', async () => {
+    await open();
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(within(rows[0]).getByText('Not started')).toBeInTheDocument();
+    // A status with no date beside it is a claim nobody has to stand behind.
+    expect(
+      within(rows[1]).getByText('In progress since Aug 10, 2026')
+    ).toBeInTheDocument();
+  });
+
+  it('says when finished work finished, and what it took where anybody measured it', async () => {
+    await open([
+      {
+        ...WORK_ITEMS[0],
+        status: 'DONE',
+        startedOn: '2026-08-10',
+        completedOn: '2026-08-14',
+        actualEffortHours: 6.5
+      },
+      { ...WORK_ITEMS[1], status: 'DONE', completedOn: '2026-08-12' }
+    ]);
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(
+      within(rows[0]).getByText('Done Aug 14, 2026 · took 6.5 hours')
+    ).toBeInTheDocument();
+    // Nobody measured this one, which will be the common case.
+    expect(within(rows[1]).getByText('Done Aug 12, 2026')).toBeInTheDocument();
+  });
+
+  it('records what has happened to a piece of work', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
+    await userEvent.type(screen.getByLabelText('Finished on'), '2026-08-14');
+    await userEvent.type(screen.getByLabelText('Actual effort (hours)'), '6.5');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save progress' })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/items/${WORK_ITEMS[0].id}/progress`,
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: 'DONE',
+            startedOn: null,
+            completedOn: '2026-08-14',
+            actualEffortHours: 6.5
+          })
+        })
+      )
+    );
+  });
+
+  /** Revising starts from what the row already says, not from an empty form. */
+  it('opens with what the item already records', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Write the runbook'
+      })
+    );
+
+    expect(screen.getByLabelText('Status')).toHaveValue('IN_PROGRESS');
+    expect(screen.getByLabelText('Started on')).toHaveValue('2026-08-10');
+  });
+
+  /**
+   * The refusal that belongs to no single box: which date is missing depends on the status
+   * in another one, so it arrives in the banner rather than against a field.
+   */
+  it('says so when a state is claimed without the date that supports it', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, { code: 'progress_date_required' })
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'IN_PROGRESS'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save progress' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /needs a start date/
+    );
+  });
+
+  /**
+   * The defect this rule exists for: hours typed against work marked not started were
+   * accepted, dropped by the server, and never mentioned again.
+   */
+  it('offers no effort or dates on work that has not started', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    expect(screen.getByLabelText('Status')).toHaveValue('NOT_STARTED');
+    expect(screen.queryByLabelText('Actual effort (hours)')).toBeNull();
+    expect(screen.queryByLabelText('Started on')).toBeNull();
+    expect(screen.queryByLabelText('Finished on')).toBeNull();
+  });
+
+  /** Work under way has taken hours already; it simply has no date it finished on. */
+  it('offers effort and a start, but no completion, on work in progress', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'IN_PROGRESS'
+    );
+
+    expect(screen.getByLabelText('Started on')).toBeInTheDocument();
+    expect(screen.getByLabelText('Actual effort (hours)')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Finished on')).toBeNull();
+  });
+
+  /** And what is not on screen is sent as nothing, rather than quietly kept back. */
+  it('sends nothing for what the chosen status has no room for', async () => {
+    await open([
+      {
+        ...WORK_ITEMS[0],
+        status: 'DONE',
+        startedOn: '2026-08-10',
+        completedOn: '2026-08-14',
+        actualEffortHours: 6.5
+      }
+    ]);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'NOT_STARTED'
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save progress' })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/items/${WORK_ITEMS[0].id}/progress`,
+        expect.objectContaining({
+          body: JSON.stringify({
+            status: 'NOT_STARTED',
+            startedOn: null,
+            completedOn: null,
+            actualEffortHours: null
+          })
+        })
+      )
+    );
+  });
+
+  /**
+   * The boxes holding those values have just vanished, so somebody who is not told would
+   * reasonably assume they survive the save.
+   */
+  it('warns before a status change throws away what was recorded', async () => {
+    await open([
+      {
+        ...WORK_ITEMS[0],
+        status: 'DONE',
+        startedOn: '2026-08-10',
+        completedOn: '2026-08-14',
+        actualEffortHours: 6.5
+      }
+    ]);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    expect(screen.queryByText(/Saving this discards/)).toBeNull();
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'NOT_STARTED'
+    );
+
+    expect(screen.getByText(/Saving this discards/)).toBeInTheDocument();
+  });
+
+  /**
+   * Work ticked off by somebody who never marked it as begun records only the day it
+   * finished, so the warning has to notice that one date without going looking for a start
+   * that was never there.
+   */
+  it('warns when the only thing recorded is the day it finished', async () => {
+    await open([
+      { ...WORK_ITEMS[0], status: 'DONE', completedOn: '2026-08-14' }
+    ]);
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'NOT_STARTED'
+    );
+
+    expect(screen.getByText(/Saving this discards/)).toBeInTheDocument();
+  });
+
+  /** Nothing recorded, nothing to lose: the warning would be about no data at all. */
+  it('says nothing about discarding when there is nothing recorded', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
+
+    expect(screen.queryByText(/Saving this discards/)).toBeNull();
+  });
+
+  it('says so when work would finish before it began', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, { code: 'progress_out_of_order' })
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save progress' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Work cannot be finished before it was started.'
+    );
+  });
+
+  it('puts a complaint about the effort against that box', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { actualEffortHours: { code: 'positive' } }
+      })
+    );
+
+    // The box exists only once the status has room for it, which is the whole of the rule
+    // this form now follows.
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'IN_PROGRESS'
+    );
+    await userEvent.type(screen.getByLabelText('Actual effort (hours)'), '0');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save progress' })
+    );
+
+    expect(
+      await screen.findByText('Use a number greater than zero.')
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /** A status the server will not take is a complaint about the box that holds it. */
+  it('puts a complaint about the status against the status', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(400, {
+        code: 'validation_failed',
+        errors: { status: { code: 'not_null' } }
+      })
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save progress' })
+    );
+
+    expect(
+      await screen.findByText('Choose one of the options.')
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('closes the progress form when it is cancelled', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByLabelText('Status')).toBeNull();
+  });
+
   /** An item with notes shows them; one without shows nothing rather than an empty line. */
   it('shows notes only where there are any', async () => {
     await open();

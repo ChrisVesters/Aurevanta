@@ -485,6 +485,38 @@ Reporting that per estimator — and offering a correction factor — makes the 
 its users rather than merely serve them. Depends entirely on M2's immutable estimate
 history.
 
+**An estimate dated after the work began is not a forecast and must not be scored as one.**
+Somebody who can already see how a task is going is writing a report, and counting it here
+flatters the hit rate — which is the one number in this product whose whole value is that
+it is unflattering. M2 makes this computable without a rule of its own: an estimate carries
+an immutable `created_at` and an item carries `started_on`, so calibration can exclude
+those ranges, or score them separately, which is arguably the more interesting report of
+the two.
+
+### Considered and rejected: making the schedule enforce it
+
+The direct version is to refuse the situation rather than measure around it — no starting
+work that has not been estimated, and no estimating work that has already started. Both
+were proposed, and both are turned down here so the question is not reopened from scratch.
+
+- **Estimating is optional, and that is settled above** (M2's decision table). A plan that
+  is half estimated is every real plan on its first day, which is why coverage is reported
+  prominently instead of demanded.
+- **The deeper objection is that work starts whether or not anybody has filled this tool
+  in.** Refusing to record a start does not prevent it; it makes the record less true than
+  reality — and this record is what M8 and M10 read. A gate would buy tidier data by
+  throwing away the evidence it was meant to protect. It is also workflow enforcement,
+  which *What Aurevanta is not* rules out in as many words.
+- **Freezing the estimate is unnecessary**, because nothing can change one: a revision is a
+  new row and the original stays readable. That immutability is exactly what makes the
+  exclusion above possible. Forbidding revisions would also delete the "estimates revised"
+  term from the movement decomposition in the icebox, which is signal rather than noise.
+
+If the concern wants surfacing before M8 exists, the cheap and honest form is a note on
+screen — "this task has no estimate, so a forecast will leave it out" — rather than a
+refusal. Saying what will happen is this product's job; deciding what a team may do next is
+not.
+
 ---
 
 ## M9 — Throughput cross-check

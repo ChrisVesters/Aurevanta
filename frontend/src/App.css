@@ -599,6 +599,11 @@ button.link {
     color: var(--accent);
   }
 
+  /* What has happened, beneath what it is expected to take. */
+  .progress {
+    font-size: 13px;
+  }
+
   /* Every control in a row on the row's centre line, as the member list does it. */
   button {
     align-self: center;
@@ -631,6 +636,61 @@ button.link {
   }
 
   input {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    width: 100%;
+    box-sizing: border-box;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--danger-border);
+    }
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+}
+
+/*
+  What has already happened. Shares the estimate form's shape because they are the same
+  gesture — a row opening in place to be told something — and differing for no reason would
+  read as two features that arrived separately.
+*/
+.progress-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+
+  .points {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .points .field {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  input,
+  select {
     font: inherit;
     font-size: 16px;
     padding: 10px 12px;

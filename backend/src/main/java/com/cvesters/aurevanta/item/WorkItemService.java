@@ -1,7 +1,9 @@
 package com.cvesters.aurevanta.item;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.cvesters.aurevanta.membership.MembershipService;
 import com.cvesters.aurevanta.problem.NotAMemberException;
+import com.cvesters.aurevanta.problem.ProgressDateRequiredException;
+import com.cvesters.aurevanta.problem.ProgressNotApplicableException;
+import com.cvesters.aurevanta.problem.ProgressOutOfOrderException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
 import com.cvesters.aurevanta.problem.WorkItemNotFoundException;
 import com.cvesters.aurevanta.project.Project;
@@ -111,6 +116,80 @@ public class WorkItemService {
 		WorkItem item = item(callerId, tenantId, itemId);
 		item.describe(title, description);
 		return item;
+	}
+
+	/**
+	 * Records what has already happened to one item, so a forecast can leave it out
+	 * rather than predict it again.
+	 *
+	 * <p>
+	 * <strong>The request states the whole of it, and anything it says that its own
+	 * status cannot hold is refused rather than dropped.</strong> Keeping the parts that
+	 * fit and discarding the rest is what this did first, and it meant somebody could
+	 * record four hours against work marked not started, watch the form close, and find
+	 * the number gone with nothing said about it.
+	 *
+	 * <p>
+	 * The other two checks make the dates evidence instead of decoration: a state that
+	 * needs a date and did not get one is refused rather than stamped with the server's
+	 * clock, and a completion before its start is refused because nothing downstream
+	 * could tell that from a fact.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws WorkItemNotFoundException if no item in it has that identifier
+	 * @throws ProgressDateRequiredException if the state claimed has no date to support
+	 * it
+	 * @throws ProgressNotApplicableException if it carries what that state cannot hold
+	 * @throws ProgressOutOfOrderException if the work finished before it began
+	 */
+	@Transactional
+	public WorkItem recordProgress(UUID callerId, UUID tenantId, UUID itemId, WorkItemStatus status,
+			LocalDate startedOn, LocalDate completedOn, BigDecimal actualEffortHours) {
+		requireConsistent(status, startedOn, completedOn, actualEffortHours);
+		WorkItem item = item(callerId, tenantId, itemId);
+		item.recordProgress(status, startedOn, completedOn, actualEffortHours);
+		return item;
+	}
+
+	/**
+	 * Every way a claim can disagree with itself, checked before the item is looked up —
+	 * as the estimate ordering is, and for the same reason: these are facts about the
+	 * request alone, so answering them first tells a caller nothing about which items
+	 * exist.
+	 */
+	private static void requireConsistent(WorkItemStatus status, LocalDate startedOn, LocalDate completedOn,
+			BigDecimal actualEffortHours) {
+		// Deliberately not a switch: one covering every constant of an enum still
+		// compiles
+		// to a default nothing can reach, and an unreachable branch is a hole in the
+		// coverage gate that no test can close.
+		if (status == WorkItemStatus.NOT_STARTED) {
+			// Nothing has happened, so there is nothing to report about it.
+			if (startedOn != null || completedOn != null || actualEffortHours != null) {
+				throw new ProgressNotApplicableException();
+			}
+			return;
+		}
+		if (status == WorkItemStatus.IN_PROGRESS) {
+			if (startedOn == null) {
+				throw new ProgressDateRequiredException();
+			}
+			// Effort so far is a real thing to record; a completion date is not, because
+			// this is the state for work that has not been finished.
+			if (completedOn != null) {
+				throw new ProgressNotApplicableException();
+			}
+			return;
+		}
+		// DONE, and the only state whose two dates have to agree with each other.
+		if (completedOn == null) {
+			throw new ProgressDateRequiredException();
+		}
+		// A start is optional even here — plenty of work is ticked off by somebody who
+		// never marked it as begun — but where both are given they have to agree about
+		// which came first.
+		if (startedOn != null && completedOn.isBefore(startedOn)) {
+			throw new ProgressOutOfOrderException();
+		}
 	}
 
 	/**

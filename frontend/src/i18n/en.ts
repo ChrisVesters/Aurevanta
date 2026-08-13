@@ -289,6 +289,37 @@ export const en = {
         // A colleague's range is not invisible just because it is not yours — and it is
         // what makes the coverage count above legible row by row.
         others: 'Estimated by {{names}}'
+      },
+      // What has already happened. Three states and no more: this is not a workflow, and
+      // what a forecast needs to know is only whether an item is still ahead of it.
+      progress: {
+        open: 'Progress',
+        openNamed: 'Record progress for {{title}}',
+        statusLabel: 'Status',
+        status: {
+          NOT_STARTED: 'Not started',
+          IN_PROGRESS: 'In progress',
+          DONE: 'Done'
+        },
+        // Asked for rather than taken from the clock: work is marked finished on the
+        // Monday after it finished at least as often as on the day.
+        startedOn: 'Started on',
+        completedOn: 'Finished on',
+        actualEffortHours: 'Actual effort (hours)',
+        // Said before saving rather than discovered after: the boxes holding these have
+        // just disappeared, and somebody who does not know why would reasonably assume
+        // what was in them is still there.
+        clears:
+          'Saving this discards the dates and effort already recorded against this task.',
+        submit: 'Save progress',
+        submitting: 'Saving…',
+        cancel: 'Cancel',
+        summary: {
+          notStarted: 'Not started',
+          inProgress: 'In progress since {{started}}',
+          done: 'Done {{completed}}',
+          doneWithEffort: 'Done {{completed}} · took {{hours}} hours'
+        }
       }
     },
     project: {
@@ -418,6 +449,15 @@ export const en = {
       // number, and what is wrong is the order they are in.
       estimate_out_of_order:
         'The three numbers must go up: P10 no more than P50, and P50 no more than P90.',
+      // Which date is missing depends on the status, so this says both rather than pointing
+      // at one box and describing half of what is wrong.
+      progress_date_required:
+        'Work in progress needs a start date, and finished work needs a date it was finished.',
+      progress_out_of_order: 'Work cannot be finished before it was started.',
+      // Reached by a client other than this one: the form only offers the boxes a status
+      // has room for, so nobody using it can send a claim that contradicts itself.
+      progress_not_applicable:
+        'Work that has not started records no dates or effort, and work in progress has no date it was finished.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',

@@ -23,6 +23,13 @@ export type Project = {
 };
 
 /**
+ * How far along one piece of work is. Three states and no more: this is not a workflow —
+ * day-to-day movement belongs in whatever tracker the team already uses — and what a
+ * forecast needs to know is only whether an item is still ahead of it.
+ */
+export type WorkItemStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE';
+
+/**
  * One piece of work inside a plan, and the thing that will carry an estimate.
  *
  * Names its project, unlike a project naming its organisation: `PATCH /api/items/{id}`
@@ -35,6 +42,16 @@ export type WorkItem = {
   description: string | null;
   createdAt: string;
   archivedAt: string | null;
+  status: WorkItemStatus;
+  /**
+   * Days rather than moments — `2026-08-14`, not an instant. What somebody reports is the
+   * day it happened, and storing a time of day would invent the one part of the claim they
+   * never made.
+   */
+  startedOn: string | null;
+  completedOn: string | null;
+  /** What it actually took, in the same hours an estimate is given in. Rarely filled in. */
+  actualEffortHours: number | null;
 };
 
 /**

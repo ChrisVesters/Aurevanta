@@ -25,7 +25,7 @@
 | 1 | Projects ✅ *done* | — |
 | 2 | Work items ✅ *done* | 1 |
 | 3 | Estimates, and what coverage means ✅ *done* | 2 |
-| 4 | Progress, and actuals | 2 |
+| 4 | Progress, and actuals ✅ *done* | 2 |
 | 5 | Dependencies | 2 |
 | 6 | Close out | 1–5 |
 
@@ -70,6 +70,14 @@ forecast runs are M3 (decision 8).
 **M2's half of this decision is making coverage computable and visible.** The project and item
 responses carry whether an estimate exists and how many items have one; the UI says so on the
 project page. M3 inherits a number it does not have to invent.
+
+**The other alternative — refusing to let work start until it is estimated — came up once
+step 4 was on screen, and is turned down under M8 in `roadmap.md`.** It is recorded there
+rather than here because that is where the concern behind it is actually answered: an
+estimate dated after `started_on` is a report rather than a forecast, and calibration can
+tell the two apart from data this milestone already stores. A gate would have overridden
+this decision, and would have bought tidier data by refusing to record something that had
+happened anyway.
 
 ### Decision 6 — Any member may do everything, and so nothing may be destroyed
 
@@ -332,7 +340,7 @@ two for that reason.
 
 ---
 
-## Step 4 — Progress, and actuals
+## Step 4 — Progress, and actuals ✅ *done*
 
 **Goal.** A forecast can exclude what is already done instead of re-predicting the past.
 
@@ -350,6 +358,47 @@ two for that reason.
 back to not-started clears the timestamps. Progress on an item in another organisation is a 404.
 
 **Done when** the plan knows what has already happened.
+
+### As built — where it differs from the above
+
+- **They are `started_on` and `completed_on`, and they are dates.** The bullets name them
+  `started_at` / `completed_at`, which would have made them instants like every other
+  timestamp in this schema — and they are not the same kind of fact. Everything else here
+  records a moment the *server* observed; this records a day a *person* reports. There is no
+  time of day in "we finished it on the twelfth", and storing one invents the very part
+  nobody claimed: midnight UTC reads back as the eleventh for every reader west of the
+  meridian. The frontend gets `<input type="date">` and the `yyyy-mm-dd` it hands back is
+  exactly what the column holds, so no timezone exists anywhere between the two.
+- **A state that needs a date and did not get one is refused, not stamped.** Defaulting to
+  the server's clock was the alternative and is worse in a way that only shows up years
+  later: M8 and M10 read these dates, and neither can tell one somebody reported from one
+  the server guessed while nobody was looking. `progress_date_required` says which is
+  missing without pointing at a box, because *which* box depends on the state in another.
+- **`DONE` does not require a start.** The plan pairs each state with the date it needs and
+  says nothing about this one; work is routinely ticked off by somebody who never marked it
+  as begun, and refusing that would refuse the commonest way anything gets recorded. Where
+  both dates *are* given they must agree about which came first — `progress_out_of_order`,
+  refused for the same reason an estimate the wrong way round is.
+- **A claim that carries what its own status cannot hold is refused** — `progress_not_applicable`.
+  This is the one thing in M2 that shipped wrong and was corrected after somebody used it.
+  It first kept whatever fitted the status and dropped the rest, which sounds careful and
+  is not: hours typed against work marked not started were accepted, discarded, and never
+  mentioned. Silently dropping input is worse than refusing it, because the person is not
+  told they have been overruled. The entity now writes what it is given, and the service is
+  the only place that says what a status means. Work is still put back to not started by a
+  request that carries nothing — the difference is that the emptiness is now the caller's
+  statement rather than the server's edit of it.
+- **The form only offers the boxes a status has room for**, which is the same rule seen
+  from the other end: the server refusing something a screen has just invited you to type
+  would be a trap rather than a check.
+- **Its own endpoint**, `PATCH /api/items/{id}/progress`, rather than more fields on the
+  item. Rewording a task is planning and saying it finished on Tuesday is reporting — and
+  keeping them apart stops a rename from being able to overwrite the dates M8 reads.
+- **Dependencies did not share the migration.** The table below has them together in V10;
+  they are V10 and V11 instead, so that each step is a commit that stands up by itself.
+- **The frontend got a third row mode**, beside rewording and estimating, and it warns
+  before a status change discards something already recorded — the boxes holding it have
+  just disappeared, and somebody not told would reasonably assume the values survive.
 
 ---
 
@@ -398,14 +447,16 @@ An edge to an item in another project is refused.
 
 ## Migrations
 
-Four, one per schema step, continuing from `V6__invitations.sql`:
+One per schema step, continuing from `V6__invitations.sql` — five rather than the four
+planned, because progress and dependencies were to share one and each step is a commit:
 
 | | |
 |---|---|
 | `V7__projects.sql` | `projects`, with `tenant_id` and an index on `(tenant_id, archived_at)` |
 | `V8__work_items.sql` | `work_items`, indexed on `(tenant_id, project_id, archived_at)` |
 | `V9__estimates.sql` | `estimates`, indexed on `(work_item_id, estimator_user_id, created_at desc)` |
-| `V10__progress_and_dependencies.sql` | progress columns on `work_items`; `dependencies` with its unique edge index |
+| `V10__work_item_progress.sql` | progress columns on `work_items` *(as built: dependencies moved to a migration of their own, so each step is a commit that stands up by itself)* |
+| `V11__dependencies.sql` | `dependencies` with its unique edge index |
 
 **No data migration**, because there is no domain data to move — this is the first of it.
 

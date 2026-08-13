@@ -5,15 +5,19 @@ import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { EstimateForm } from './EstimateForm';
 import type { EstimateValues } from './EstimateForm';
+import { ProgressForm } from './ProgressForm';
+import type { ProgressValues } from './ProgressForm';
 import { WorkItemForm } from './WorkItemForm';
+import { formatDay } from './dates';
 import type { Estimate, WorkItem } from './types';
 
 type Values = { title: string; description: string | null };
 
-/** Which row is open, and for which of the two things a row can be opened for. */
-type OpenRow = { itemId: string; mode: 'edit' | 'estimate' };
+/** Which row is open, and for which of the three things a row can be opened for. */
+type OpenRow = { itemId: string; mode: 'edit' | 'estimate' | 'progress' };
 
 const ESTIMATE_FIELDS = ['p10Hours', 'p50Hours', 'p90Hours'];
+const PROGRESS_FIELDS = ['status', 'actualEffortHours'];
 
 /**
  * The work inside one plan: what it is made of, what each person thinks it will take, and
@@ -28,7 +32,7 @@ const ESTIMATE_FIELDS = ['p10Hours', 'p50Hours', 'p90Hours'];
  * one after somebody else recorded theirs a moment earlier.
  */
 export function WorkItems({ projectId }: { projectId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { account, request } = useAuth();
   const [items, setItems] = useState<WorkItem[] | null>(null);
   const [estimates, setEstimates] = useState<Estimate[]>([]);
@@ -40,6 +44,7 @@ export function WorkItems({ projectId }: { projectId: string }) {
   const adding = useFormFailure(['title', 'description']);
   const rewording = useFormFailure(['title', 'description']);
   const estimating = useFormFailure(ESTIMATE_FIELDS);
+  const reporting = useFormFailure(PROGRESS_FIELDS);
 
   const userId = account?.userId;
 
@@ -168,6 +173,25 @@ export function WorkItems({ projectId }: { projectId: string }) {
     [request, estimating, reload]
   );
 
+  const report = useCallback(
+    async (itemId: string, values: ProgressValues) => {
+      setBusy(true);
+      reporting.clear();
+      try {
+        await request<WorkItem>(`/items/${itemId}/progress`, {
+          method: 'PATCH',
+          body: values
+        });
+        setOpen(null);
+        reload();
+      } catch (error) {
+        reporting.report(error);
+      }
+      setBusy(false);
+    },
+    [request, reporting, reload]
+  );
+
   const setItemArchived = useCallback(
     async (item: WorkItem, put: boolean) => {
       setBusy(true);
@@ -190,9 +214,10 @@ export function WorkItems({ projectId }: { projectId: string }) {
     (row: OpenRow | null) => {
       rewording.clear();
       estimating.clear();
+      reporting.clear();
       setOpen(row);
     },
-    [rewording, estimating]
+    [rewording, estimating, reporting]
   );
 
   return (
@@ -270,24 +295,42 @@ export function WorkItems({ projectId }: { projectId: string }) {
                       <span className="description">{item.description}</span>
                     )}
                     {!archived && (
-                      <span className="estimate">{summary(item.id)}</span>
+                      <>
+                        <span className="estimate">{summary(item.id)}</span>
+                        <span className="progress">{progress(item)}</span>
+                      </>
                     )}
                   </span>
 
                   {!archived && (
-                    <button
-                      type="button"
-                      className="secondary"
-                      disabled={busy}
-                      aria-label={t('projects.items.estimate.openNamed', {
-                        title: item.title
-                      })}
-                      onClick={() =>
-                        openRow({ itemId: item.id, mode: 'estimate' })
-                      }
-                    >
-                      {t('projects.items.estimate.open')}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        aria-label={t('projects.items.estimate.openNamed', {
+                          title: item.title
+                        })}
+                        onClick={() =>
+                          openRow({ itemId: item.id, mode: 'estimate' })
+                        }
+                      >
+                        {t('projects.items.estimate.open')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
+                        aria-label={t('projects.items.progress.openNamed', {
+                          title: item.title
+                        })}
+                        onClick={() =>
+                          openRow({ itemId: item.id, mode: 'progress' })
+                        }
+                      >
+                        {t('projects.items.progress.open')}
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -332,6 +375,18 @@ export function WorkItems({ projectId }: { projectId: string }) {
                   onCancel={() => openRow(null)}
                 />
               )}
+
+              {open?.itemId === item.id && open.mode === 'progress' && (
+                <ProgressForm
+                  id={`progress-${item.id}`}
+                  item={item}
+                  busy={busy}
+                  banner={reporting.message}
+                  fieldErrors={reporting.fieldErrors}
+                  onSubmit={(values) => void report(item.id, values)}
+                  onCancel={() => openRow(null)}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -372,5 +427,30 @@ export function WorkItems({ projectId }: { projectId: string }) {
       });
     }
     return t('projects.items.estimate.none');
+  }
+
+  /**
+   * What the row says about how far along the work is, said in the same breath as when.
+   *
+   * A status with no date beside it reads as a claim nobody has to stand behind, which is
+   * the opposite of what these rows are for — so where a date exists it is shown, in the
+   * reader's own locale rather than as the day the server spells it.
+   */
+  function progress(item: WorkItem) {
+    if (item.status === 'DONE' && item.completedOn) {
+      const completed = formatDay(item.completedOn, i18n.language);
+      return item.actualEffortHours === null
+        ? t('projects.items.progress.summary.done', { completed })
+        : t('projects.items.progress.summary.doneWithEffort', {
+            completed,
+            hours: item.actualEffortHours
+          });
+    }
+    if (item.status === 'IN_PROGRESS' && item.startedOn) {
+      return t('projects.items.progress.summary.inProgress', {
+        started: formatDay(item.startedOn, i18n.language)
+      });
+    }
+    return t('projects.items.progress.summary.notStarted');
   }
 }

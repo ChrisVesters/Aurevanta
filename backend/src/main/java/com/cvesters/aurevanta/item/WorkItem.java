@@ -1,6 +1,8 @@
 package com.cvesters.aurevanta.item;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import com.cvesters.aurevanta.project.Project;
@@ -8,6 +10,8 @@ import com.cvesters.aurevanta.tenant.Tenant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
@@ -56,6 +60,19 @@ public class WorkItem {
 	@Column(name = "archived_at")
 	private Instant archivedAt;
 
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private WorkItemStatus status;
+
+	@Column(name = "started_on")
+	private LocalDate startedOn;
+
+	@Column(name = "completed_on")
+	private LocalDate completedOn;
+
+	@Column(name = "actual_effort_hours", precision = 12, scale = 2)
+	private BigDecimal actualEffortHours;
+
 	protected WorkItem() {
 		// for JPA
 	}
@@ -68,6 +85,7 @@ public class WorkItem {
 		this.title = title;
 		this.description = description;
 		this.createdAt = createdAt;
+		this.status = WorkItemStatus.NOT_STARTED;
 	}
 
 	/**
@@ -99,6 +117,28 @@ public class WorkItem {
 		this.archivedAt = null;
 	}
 
+	/**
+	 * Records what has happened to this piece of work — all four together, because they
+	 * are one claim and the parts of it have to agree.
+	 *
+	 * <p>
+	 * <strong>Written exactly as given, with nothing quietly kept and nothing quietly
+	 * dropped.</strong> This once decided for itself which dates a status was allowed to
+	 * keep, which sounds careful and is not: what somebody sent and what the row ended up
+	 * holding could differ with nobody told. Work put back to not started is cleared
+	 * because the request that does it carries nothing, and a request carrying what its
+	 * own status cannot hold is refused before it reaches here — {@code WorkItemService}
+	 * is where that is decided, so there is one account of what a status means rather
+	 * than two.
+	 */
+	public void recordProgress(WorkItemStatus status, LocalDate startedOn, LocalDate completedOn,
+			BigDecimal actualEffortHours) {
+		this.status = status;
+		this.startedOn = startedOn;
+		this.completedOn = completedOn;
+		this.actualEffortHours = actualEffortHours;
+	}
+
 	public UUID getId() {
 		return id;
 	}
@@ -125,6 +165,22 @@ public class WorkItem {
 
 	public Instant getArchivedAt() {
 		return archivedAt;
+	}
+
+	public WorkItemStatus getStatus() {
+		return status;
+	}
+
+	public LocalDate getStartedOn() {
+		return startedOn;
+	}
+
+	public LocalDate getCompletedOn() {
+		return completedOn;
+	}
+
+	public BigDecimal getActualEffortHours() {
+		return actualEffortHours;
 	}
 
 }
