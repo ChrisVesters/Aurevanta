@@ -41,7 +41,8 @@ change made without it can quietly widen one.
 - `frontend/` — React 19 + TypeScript SPA built with Vite 8.
 
 **Backend packages are by feature, not by layer** — `tenant`, `user`, `membership`,
-`invitation`, `security` each hold their own entity, repository, service and web types.
+`invitation`, `security`, and the four domain packages `project`, `item`, `estimate`,
+`dependency`, each hold their own entity, repository, service and web types.
 `auth` is large enough to be split a second time, by use case: `auth.registration`,
 `auth.signin`, `auth.verification`, `auth.reset`. The controller and the response shapes
 all its endpoints share stay in `auth` itself. A new auth use case — verifying an address,
@@ -52,6 +53,13 @@ every failure the API can report and the single advice that renders them. It sta
 `auth`, which stopped being true once `ratelimit` refused on behalf of whatever it guards
 and invitations began reporting failures of their own. Every `code` this API publishes can
 be read in that one directory.
+
+**The four domain packages depend in one direction only** — `dependency` and `estimate`
+both point at `item`, `item` points at `project`, and nothing points back. That is why
+whether a caller may reach a piece of work is asked of `WorkItemService.get` rather than
+answered a second time inside `estimate`, and it is the reason coverage is counted in
+`ProjectRepository` rather than published as a boolean on the item response: the boolean
+would have made `item` depend on `estimate` while `estimate` already depends on `item`.
 
 ## Commands
 
@@ -136,7 +144,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Routing is React Router** (`react-router` v8, `BrowserRouter` in `main.tsx`).
   `/` is a public landing page, `/register` and `/login` sit behind `RedirectWhenSignedIn`,
   and everything under `/app` sits behind `RequireAuth`, inside a shared `AppLayout` that
-  owns the header and the organisation switcher. `/app/settings` is owner-only: the nav
+  owns the header and the organisation switcher. **A plan is `/app/projects/{id}`, and no
+  route anywhere carries an organisation handle** — the organisation comes from the access
+  token as it does on every request. M2 was expected to be what first put a handle in a URL
+  and deliberately was not, so M1a's two deferrals (reserved handles, redirects for retired
+  ones) are still deferred and still recorded in `roadmap.md`. `/app/settings` is owner-only: the nav
   entry is hidden and the page says so, with the server refusing either way — what is on
   screen is a courtesy, not the boundary. **`/app/members` is not**, and the difference is
   the point: any member may see who their colleagues are, so the page is reached by
@@ -552,6 +564,10 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `errors.validation` in `en.ts`; an unmapped one degrades to `invalid` rather than leaking
   its name. Only the constraint's *numeric* attributes go out — a regular expression or a
   message template is implementation detail, not something to render.
+- **`@Size(max = n)` reports a lower bound of zero, so it gets its own code.** "Use between
+  0 and 200 characters" is not a sentence worth putting in front of anybody, so a `size`
+  whose `min` is zero is published as `max_size` and the catalogue says "no more than"
+  instead of inventing a range. Every optional description in the domain is one of these.
 - **One field can break several rules at once**, and Bean Validation returns them in a set
   whose order varies between requests. `CODE_PRECEDENCE` decides which is reported, so the
   answer never depends on arrival order — presence (`not_blank`) before shape (`size`,
@@ -562,3 +578,228 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   pasting an address out of a password manager would be told it is invalid. Passwords are
   deliberately never stripped: spaces are legitimate in a passphrase, and trimming would
   store one credential and compare another.
+
+## Plans, and the work in them
+
+- **Any member may do everything to a plan**, and roles govern administration only —
+  invitations, members, organisation settings. Estimation is a team activity, and
+  multi-estimator support is meaningless if only an owner may estimate. So
+  `MembershipService.requireMember` is the twin of `requireOwner`, and no method in the four
+  domain services touches a row before it has passed — some call it themselves, and the rest
+  reach it through the `ProjectService` or `WorkItemService` lookup they already need, which
+  is the same rule reached rather than a second copy of it. It re-reads the membership rather
+  than trusting the tenant pinned into a token up to twelve hours ago, and the organisation
+  is taken **off the row that comes back**, never off the request.
+- **Nothing in the domain is deleted, and that follows from the rule above.** Widening write
+  access makes destroying things everybody's to do, and a member who deleted a project would
+  delete a colleague's work with nothing to put back — unlike removing a member, which an
+  owner undoes by inviting them again. Projects and work items carry `archived_at`;
+  archiving hides them from the default listing and any member may bring one back. **There
+  is a second, independent reason**, which is why the column is right rather than merely
+  defensible: an estimate is evidence M8 reads years from now, and deleting the item it
+  hangs on would destroy that evidence long before the feature that needs it exists.
+- **Archiving and unarchiving are one service method with a boolean**, because they are one
+  decision read in both directions and two would be two lookups and two membership checks to
+  keep in step. `archive` keeps the *first* moment the way `User.markEmailVerified` does:
+  archiving something already archived is a no-op arriving twice, not a fresh decision.
+- **A listing asks for one state or the other** — `?archived=true` — rather than returning
+  both and leaving every caller to filter. The caller that forgot would show work somebody
+  had deliberately put away as though it were live.
+- **A project's name is not unique, and this time that is a decision.** M1a spent a whole
+  milestone removing an accidental uniqueness constraint on an organisation's name; two
+  plans called "Q3 platform work" is ordinary, and the id is what addresses them. Listings
+  order by name, then `created_at`, then id — a name alone is not a total order, and one
+  that is nearly total rearranges itself between requests.
+- **`WorkItemController` has no class-level path**, because its endpoints sit at two. An
+  item is created and listed *within* a project (`/api/projects/{id}/items`), which is the
+  only moment its plan has to be named; once it exists it is addressed at `/api/items/{id}`,
+  and so are its estimates and its dependencies. A path that repeated the project would be a
+  second identifier the server had to check agreed with the first, and a disagreement
+  between them is a refusal nobody could act on.
+- **Asking for the work in a plan that is not there is `project_not_found`, not an empty
+  list.** "No such plan" and "a plan with nothing in it" are different answers and only one
+  is worth acting on, so `WorkItemService` and `DependencyService` fetch the project through
+  `ProjectService` rather than assuming it.
+- **An archived project still accepts work.** Archiving says the plan is not being worked
+  from, not that it is sealed, and refusing here would need a refusal nobody asked for aimed
+  at somebody tidying up an old plan.
+- **500 items per project is the scale target**, which is what makes "does this need
+  pagination" answerable: no. It is also what lets the cycle check read a whole graph in one
+  query instead of walking it a hop at a time under a lock.
+- **`ProjectService` has two ways to read a project and the split is not accidental.** `get`
+  hands back the entity for the other services; `planned` adds `itemCount` and
+  `estimatedItemCount` for the API. Without it, typing a task into a plan would pay for two
+  grouped counts nobody asked for.
+
+### Progress is reported, not observed
+
+- **Its own endpoint** — `PATCH /api/items/{id}/progress` — rather than more fields on the
+  item. Rewording a task is planning and saying it finished on Tuesday is reporting, and
+  keeping them apart stops a rename from overwriting the dates M8 reads.
+- **`started_on` and `completed_on` are dates, and they are the only ones in this schema.**
+  Everything else records a moment the *server* observed; these record a day a *person*
+  reports. There is no time of day in "we finished it on the twelfth", and storing one
+  invents the part nobody claimed — midnight UTC reads back as the eleventh for every reader
+  west of the meridian. `<input type="date">` hands back exactly what the column holds, and
+  `formatDay` builds a date from its parts rather than through `new Date(iso)`, which would
+  reintroduce the same shift in the last step before a person sees it.
+- **A state that needs a date and did not get one is refused, never stamped with the
+  server's clock** (`progress_date_required`). M8 and M10 read these dates and neither can
+  tell one somebody reported from one the server guessed while nobody was looking. Which box
+  is missing depends on the state in another, so the refusal names no field.
+- **A claim carrying what its own status cannot hold is refused, not trimmed**
+  (`progress_not_applicable`). This shipped wrong once: it kept whatever fitted the status
+  and dropped the rest, so hours typed against work marked not started were accepted,
+  discarded and never mentioned. Silently dropping input is worse than refusing it, because
+  the person is not told they have been overruled. The entity writes what it is given; the
+  service is the only place that says what a status means.
+- **`DONE` does not require a start.** Work is routinely ticked off by somebody who never
+  marked it as begun. Where both dates are given they must agree about which came first —
+  `progress_out_of_order`.
+- **`actual_effort_hours` is optional even when done.** Most teams do not track it, and
+  refusing to let somebody mark work finished because they cannot say how long it took would
+  refuse the common case to serve a feature years away.
+- **`requireConsistent` is deliberately not a `switch`.** One covering every constant of an
+  enum still compiles to a default nothing can reach, and an unreachable branch is a hole in
+  the coverage gate that no test can close.
+
+## Estimates: written once, never rewritten
+
+- **There is no update and no delete, and that is the whole design.** A revision is a new
+  row; the first stays exactly where it is. M8 asks how often a person's band contained the
+  truth, which is a question about what they *said at the time*, and only rows nothing
+  rewrites can answer it. **Guard this with the test, not the intention** — an `UPDATE` will
+  look simpler at some point, most likely when somebody fixes a typo in their own estimate.
+- **Immutability is doing authorization work as well.** Because no estimate is ever updated,
+  no member can rewrite a colleague's even though every member may write estimates. The
+  strictest rule in this schema is the one nobody had to enforce.
+- **The current estimate is the newest row per (item, estimator)**, which the
+  `(work_item_id, estimator_user_id, created_at desc)` index answers directly. Several
+  people may hold a current estimate on one item at once — that is not a conflict to refuse
+  but the signal M3 gets to reason about.
+- **The estimator is a `User`, not a `Membership`.** A membership is deletable — M1 made
+  sure of it, because removing somebody must not delete their account — so hanging this off
+  one would destroy calibration evidence as a side effect of a person leaving. The foreign
+  key deliberately does not cascade, mirroring "removal deletes the membership, never the
+  identity".
+- **Effort in hours, `numeric(12, 2)`, and `@Digits(integer = 10, fraction = 2)` matches the
+  column exactly.** Without it `0.005` passes `@Positive`, rounds to `0.00` on the way in and
+  lands as an estimate of nothing — breaking the rule that had just admitted it, silently,
+  after the check that enforces it. A "day" is a calendar word and calendars are M11's; the
+  UI may show days, the column stores hours.
+- **A band the wrong way round is `estimate_out_of_order`, a document-level code and not a
+  field one.** Each of the three numbers is perfectly good and what is wrong is the
+  relationship between them, so `FieldProblem` — which exists to say "this box is wrong" —
+  would have to pick a culprit arbitrarily. The form shows it in the banner. It is checked
+  before the item is looked up, because it is a fact about the request alone and a caller who
+  sent nonsense learns nothing about which items exist by being told so.
+- **`GET /api/projects/{id}/estimates` carries every estimator's current range for a whole
+  plan**, rather than the item response carrying a boolean saying one exists. It subsumes the
+  boolean, gives the form the numbers to fill itself in, and shows a colleague's estimate
+  instead of merely admitting one is there — and it keeps the dependency arrow pointing one
+  way. A plan's worth at a time, because asking per item would be five hundred requests to
+  draw one page.
+- **Coverage is counted in `ProjectRepository`, in JPQL naming `WorkItem` and `Estimate` and
+  importing neither.** It is the one place a feature reaches into another's tables, and it is
+  acceptable because Hibernate parses every query at startup — a renamed entity fails the
+  context rather than the next reader. Compare the package name written as a string that M1
+  lost silently. It counts *distinct* items, since three people estimating one task is one
+  item covered, and it ignores archived items so the count and the screen agree.
+
+## Dependencies, and the lock that no constraint can replace
+
+- **Finish-to-start with a lag, and nothing else.** The other three edge types multiply the
+  scheduler's complexity for cases most teams never draw.
+- **The lock is the sharpest thing in the domain, and removing it will look like a
+  simplification.** Acyclicity is a property of every edge at once, so two callers can each
+  read a graph their own new edge leaves acyclic and close a loop together. `DELETE` needs no
+  lock — taking an arrow away cannot close a loop — but a write takes
+  `ProjectService.lockForGraphChange` **before the graph is read** and holds it until the
+  edge lands. Postgres has no unique index for "acyclic", and a conditional `UPDATE` cannot
+  serve either: that makes a race on *one row* safe, and this is a race on a property of all
+  of them. It is the `MembershipRepository.lockOwners` situation, not the token-redemption
+  one. `DependencyGraphLockTests` releases two callers together, and its second case is the
+  one worth having — the loop closes only through an arrow the loser had to have *read* the
+  winner write, so a serial test could not tell the lock from luck.
+- **The locked row holds none of the graph, and that is the point**: the edges that would
+  otherwise have to be locked are the ones that do not exist yet. It is taken in
+  `ProjectService` rather than on the repository directly, so reaching a plan still goes
+  through the method that re-reads the caller's membership — a lock is not a reason to skip
+  the check that says somebody may be here at all. It **refuses nothing** and returns `void`;
+  every caller has already found a work item inside that plan, so a `project_not_found` from
+  that line would be a branch no request could reach and no test could cover.
+- **An edge is deleted where everything else archives**, and the two rules do not conflict.
+  A dependency carries no history anything downstream reads; it is a constraint the scheduler
+  obeys until it is gone, and one drawn by mistake that merely went dormant would leave a
+  plan quietly forecasting around a line nobody could see.
+- **Both ends go in the body** — `POST /api/dependencies` `{predecessorItemId,
+  successorItemId, lagHours}`. Neither end owns the other, so putting one in the path would
+  read as though it did; the project is not in the request either, because the items answer
+  it and a third identifier that could disagree with them would be a refusal nobody could
+  act on. Listing is by plan (`GET /api/projects/{projectId}/dependencies`), because a screen
+  showing a plan needs every edge at once.
+- **A self-edge is `self_dependency` and is answered before any row is read** — the only
+  cycle decidable from the request alone, so a caller who put one identifier in both boxes
+  learns nothing about which items exist. The remedy differs too: a cycle is a plan to go and
+  rethink, this is two boxes with the same thing in them.
+- **`dependency_cycle` carries the loop as `path`**, the way `slug_taken` carries
+  `suggested`. Item identifiers rather than titles, since server prose is never shown to
+  anybody and the client already holds the plan it is drawing. It starts at the proposed
+  predecessor, follows existing arrows back round, and does not repeat the closing item — the
+  frontend adds it back, or the last arrow would be the one step of the route nobody is shown.
+  Breadth-first, so the loop somebody is handed is the shortest one rather than whichever a
+  depth-first walk wandered into.
+- **`self_dependency` and `dependency_across_projects` are `400`; `dependency_already_exists`
+  and `dependency_cycle` are `409`.** The first two are facts about what the request names,
+  the second two are conflicts with what is already drawn.
+- **A duplicate has both a pre-check and an index mapping.** `uq_dependencies_edge` is in
+  `ApiExceptionHandler.CONSTRAINT_CONFLICTS`, so the pair who pass the check in the same
+  instant get `dependency_already_exists` rather than a bare `conflict` — and
+  `ConstraintNamesTests` picked it up for free, which is what that test is for.
+- **`lag_hours` is required and `@PositiveOrZero`.** Zero is the ordinary answer and is a
+  claim rather than a guess — there is no wait — so the server does not fill it in; a
+  negative would be a lead, which is a different kind of edge than this models. The form does
+  answer it, sending zero for an empty box, because its own hint says that is what an empty
+  box means: the strictness is the API's contract with every other caller, not a question to
+  push at somebody typing.
+
+## The plan screens
+
+- **`WorkItems` loads and writes on its own** rather than through `ProjectPage`, because a
+  plan and its contents are separate resources on the server and answering for one another's
+  failures would mean a plan that could not be renamed because its items would not load. It
+  asks for the work and its estimates with one `Promise.all` — neither answer depends on the
+  other — and reloads from the server after every action, since the order is the server's, so
+  is what an item ends up called, and so is which estimate is current after a colleague
+  recorded theirs a moment ago.
+- **A row opens one of four small forms** — reword, estimate, report progress, order — and
+  each has its own `useFormFailure` over the field names it renders. `ProjectForm` and
+  `WorkItemForm` are two components rather than one parameterised by a field name, because
+  the field names are the server's and are what a per-field complaint is keyed by. What they
+  share is `optionalField` — "an empty box means nothing, not `''`" — stated once because the
+  version of that bug which gets written is the second copy.
+- **`numberField` exists because `Number('')` is zero.** The obvious version sends an
+  untouched box as an estimate of no hours, and the visitor is told their estimate must be
+  more than zero about a field they never filled in.
+- **The progress form offers only the boxes a status has room for**, which is
+  `progress_not_applicable` seen from the other end: a server refusing something a screen has
+  just invited you to type would be a trap rather than a check. It warns before a status
+  change discards something already recorded, because the boxes holding it have just
+  disappeared and somebody not told would reasonably assume the values survive.
+- **Ordering is asked from one end only** — "must finish before…", opened on the task that
+  finishes first — so there is no control for which way the arrow points and no way to draw
+  one backwards by misreading a label. The list offers neither the task itself nor anything
+  it already comes before, both being refusals the server would give, but it does not try to
+  hide a cycle: that is a property of the whole plan decided under a lock, and guessing at it
+  here would hide options that are legal by the time the request lands.
+- **That panel stays open once an arrow lands**, alone among these forms, which all close on
+  a successful write. Ordering is plural where rewording and estimating are not, and the list
+  it just joined is in the same panel. Each row says **both** directions — what it must
+  finish before, and what it is waiting on — because either alone answers half the question
+  somebody opened the plan with. An arrow pointing at work archived since is named as such
+  rather than shown as a blank, since the archived listing is a different screen.
+- **The estimate form is three boxes and is deliberately not good.** `product-concept.md` is
+  explicit that three boxes labelled P10/P50/P90 produce 3/5/8 without thinking, which is
+  worse than no tool because the garbage now carries a probability. Making it good is M5, and
+  it is a question-design problem rather than a styling one — so styling it is the one change
+  that cannot help.

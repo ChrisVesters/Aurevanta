@@ -1,8 +1,10 @@
 # Aurevanta — Feature Roadmap
 
-> **Status: proposal, as of 2026-08-06.** `product-concept.md` says *what* Aurevanta is
-> and why; this document says *in what order we build it, and what has to be decided
-> first*. M0 and M1 exist in code.
+> **Status: proposal, as of 2026-08-06; last revised 2026-08-14.** `product-concept.md`
+> says *what* Aurevanta is and why; this document says *in what order we build it, and what
+> has to be decided first*. M0, M1, M1a and M2 exist in code, so the next thing built is the
+> engine — which is where the ordering principle below stops being advice and starts being
+> the only thing left.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -219,19 +221,21 @@ its index are untouched. What changed is only where the *next* handle comes from
 
 ---
 
-## M2 — The estimation schema
+## M2 — The estimation schema ✅ *done*
 
 The first migration that carries real domain data. Getting this wrong is the most
 expensive mistake available, because M3–M9 all read from it.
 
-`m2-plan.md` breaks it into six steps and answers the two decisions below that this section
-called unresolved.
+`m2-plan.md` breaks it into six steps, answers the two decisions below that this section
+called unresolved, and records where each step departed from its own brief.
 
 **Two things M1a deferred were expected to come due here** — on the assumption that this is the
-step that first puts an organisation handle in a URL. **`m2-plan.md` decides it is not**: plan
-URLs stay `/app/projects/{id}` and the organisation keeps coming from the access token, as it
-does everywhere else. Nothing about entering a plan needs a handle in the path, and adding a
-routing change to the milestone whose risk is already its schema buys nothing.
+step that first puts an organisation handle in a URL. **It was not, and now that it is built
+there is no assumption left to argue with**: plan URLs are `/app/projects/{id}`, every one of
+them inside `/app`, and the organisation comes from the access token as it does everywhere
+else.
+Nothing about entering a plan needed a handle in the path, and adding a routing change to the
+milestone whose risk was already its schema would have bought nothing.
 
 So both stay deferred, and they stay written here, because the reasoning still holds for
 whichever milestone *does* put a handle in a URL:
@@ -247,10 +251,12 @@ whichever milestone *does* put a handle in a URL:
   nobody reports, because the person who follows a dead link is not the person who changed
   the handle.
 
-**One of the open security findings gets more expensive here.** Finding 3 under *Security
-debt* — an invitation token interpolated into an API path unencoded — has a blast radius
-bounded by *which endpoints exist*, and this milestone adds endpoints. Finding 4, which would
-remove it, is unaffected by M2 and stays on its own schedule.
+**One of the open security findings got more expensive here, and the moment has passed.**
+Finding 3 under *Security debt* — an invitation token interpolated into an API path unencoded
+— has a blast radius bounded by *which endpoints exist*, and this milestone added seventeen of
+them. It was not taken first and it is now larger than it was; that is the cost of leaving it,
+recorded rather than quietly absorbed. Finding 4, which would remove it, was unaffected by M2
+and stays on its own schedule.
 
 **The schema itself:**
 
@@ -264,9 +270,11 @@ remove it, is unaffected by M2 and stays on its own schedule.
   once finished. Without it there is no mid-project re-forecast, no burn-up (M10) and no
   calibration (M8); with it, a forecast can exclude completed work instead of re-predicting
   the past.
-- **Forecast runs** — every forecast persisted with its inputs, its assumptions and its
-  results. M10's sliding-date detector, and the movement decomposition in the icebox, are
-  impossible without this history, and it cannot be reconstructed later.
+- ~~**Forecast runs**~~ — *moved to M3 by decision 8, and the warning moved with it.* The
+  premise was right and the conclusion did not follow: nothing produces a forecast until
+  M3, so no history was accumulating in the meantime to lose, while every column of the
+  table is an input, assumption or output of an engine that did not exist yet. See the
+  obligation recorded at the top of M3.
 - **The minimum UI to enter a plan** — projects, items, estimates and dependency edges.
   Deliberately plain. The ordering principle warns against sinking months into CRUD screens,
   but the schema is useless without *some* way to fill it, and pretending otherwise hides
@@ -287,6 +295,40 @@ gone.
 | What happens to items with no estimate? | **Settled: forecast what is estimated, and report coverage.** An estimate is optional and a forecast states how many items it left out. Imputing from a reference class is defensible, invents data, and needs a per-forecast record of what was invented — which is a forecast-run concern, and those are M3. |
 | Can a MEMBER edit estimates, or only an OWNER? | **Settled: any member may do everything.** Roles govern administration only. Estimation is a team activity and multi-estimator support is meaningless without it. The cost is that destructive acts become everyone's, so M2 has no hard delete — projects and items archive. |
 | How large is a plan? | **500 items per project**, fixed in `m2-plan.md` because it decides whether M2 needs pagination and whether M3 forecasts synchronously. Both answers are no and yes. |
+
+### As built
+
+**This milestone did what it was written to do**, which is worth saying plainly after M1a,
+which did not. Five migrations (`V7`–`V11`), four backend packages — `project`, `item`,
+`estimate`, `dependency` — seventeen endpoints, and two screens. The decisions above all
+survived contact with the code. Against the bullets, five things read differently:
+
+- **Forecast runs are M3's, per decision 8**, and are struck out above rather than deleted
+  so the reasoning stays visible.
+- **The lag is required, not optional.** The bullet above calls it optional, and the field is
+  not: zero is the ordinary answer and it is a *claim* — there is no wait — so the server
+  will not fill it in on somebody's behalf. What is optional is the box, which sends zero
+  when it is left empty, because its own hint says that is what an empty box means.
+- **Progress dates are dates, not instants.** `started_on` and `completed_on` are the only
+  columns in this schema that are not timestamps, because they are the only ones recording a
+  day a *person* reports rather than a moment the *server* observed. There is no time of day
+  in "we finished it on the twelfth", and inventing one reads back as the eleventh for every
+  reader west of the meridian.
+- **An edge is deleted, everything else archives.** The no-hard-delete rule that decision 6
+  bought holds for projects, items and estimates — and deliberately not for a dependency,
+  which carries no history anything downstream reads and which, left dormant, would be a
+  plan forecasting around a constraint nobody could see.
+- **The dependency lock is the sharpest thing here and it is real.** Acyclicity is a property
+  of a whole graph, so the plan's own row is locked for update while the graph is walked and
+  the edge written. `DependencyGraphLockTests` releases two callers together, and its second
+  case is the one worth having: the loop closes only through an arrow the loser had to have
+  *read* the winner write.
+
+**What did not get built, and should not have been.** The three-box P10/P50/P90 form is on
+screen and is as bad as `product-concept.md` warned it would be. That is M5's problem and
+fixing it here would have been the ordering principle's warning arriving in person. Same for
+the forecast: there is now a plan with numbers in it and nothing that reads them, which is
+exactly the state M3 exists to end.
 
 ---
 
@@ -880,14 +922,17 @@ M1a earned its place in that sequence only because it was cheap *then*: a small 
 becomes a link-breaking one the moment M2 puts a slug in a URL. It was never more important
 than the engine — nothing is — it was just perishable, and it is now spent.
 
-**M1 and M1a are done, so what is left of this sequence is M2's schema decisions, then
-M3a.** Two of the six below are still open, and they are the ones that block rather than
-merely inform.
+**M1, M1a and M2 are all done, so what is left of that sequence is M3a and nothing else.**
+There is now a schema with plans, work, ranges, progress and a graph in it, and nothing that
+reads any of it — which is the exact state the ordering principle was written to get to
+quickly and then leave. The temptation from here is no longer CRUD screens; it is the
+*plan-entry UI that already exists and looks bad*. It is meant to. M5 replaces what it asks,
+and the interface rework is recorded under *Future*; neither is the engine.
 
-### Was blocked on a decision — now settled
+### Was blocked on a decision — settled, and then built
 
-Every one of these is answered, and `m2-plan.md` carries the reasoning. **Nothing blocks M2
-starting.**
+Every one of these was answered before M2 started, and `m2-plan.md` carries the reasoning.
+All seven are now in the schema.
 
 | | Decision |
 |---|---|
@@ -906,11 +951,13 @@ Honest about where this plan is weakest, rather than discovering it mid-build:
 - **M3 is oversized** and should be split into M3a/M3b before anyone starts it.
 - **Scope uncertainty has no agreed position in a graph** — the model that made it easy
   (a flat sum) is gone.
-- **The plan-entry UI is barely scoped.** It is named in M2 and deliberately minimal, but
-  "minimal" has not been defined, and dependency editing is the kind of interface that
-  quietly consumes weeks. `m2-plan.md` names the trap — the three-box estimate form will look
-  obviously bad the moment it is on screen, and making it good is M5 — without defining
-  "minimal" any more tightly than that.
+- ~~**The plan-entry UI is barely scoped.**~~ *Resolved by building it.* The worry was that
+  "minimal" was undefined and that dependency editing would quietly consume weeks. What
+  minimal turned out to mean is two screens: a list of plans, and a plan whose work is a
+  table of rows, each opening one of four small forms. Ordering is asked from one end only —
+  "must finish before…" — so there is no control for which way an arrow points and no way to
+  draw one backwards by misreading a label. The trap it named is still open by design: the
+  three-box estimate form is on screen and is obviously bad, and that is M5's to fix.
 - ~~**No scale target has been set.**~~ *Fixed at 500 items per project in `m2-plan.md`*, which
   is what decides whether M2 needs pagination (no) and whether M3 can forecast synchronously
   (yes). M11's affordability is still open at that size.

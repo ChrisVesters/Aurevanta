@@ -1,9 +1,17 @@
 # Aurevanta — Concepts and Planned Features
 
-> **Status: design intent, not implemented.** As of 2026-08-05 the repository contains
-> only the backend and frontend scaffolds. Nothing described below exists in code yet;
-> `V1__baseline.sql` is an empty Flyway baseline and the domain schema has not been
-> designed. Treat this document as the product direction, not a description of behaviour.
+> **Status: design intent, and now partly built.** As of 2026-08-14 the schema this
+> document implies exists: M0–M1a built tenancy, identity and teams, and **M2 built the
+> estimation schema** — projects, work items, immutable P10/P50/P90 estimates with an
+> estimator, progress and actuals, and a precedence graph, with the plainest possible UI to
+> fill them. `roadmap.md` sequences the rest and is newer than this document wherever the
+> two disagree.
+>
+> **Everything downstream of the schema is still design intent**, which is most of what
+> follows: there is no distribution fitting, no sampling, no forecast of any kind. The
+> product's own argument applies to itself here — what exists today is a table of numbers,
+> and M3 is what makes it worth having. Two of the *Open questions* at the end were
+> answered by M2 and are marked as such; the rest stand.
 
 ## Purpose
 
@@ -72,6 +80,11 @@ merely serve them.
 *Schema implication:* estimates must be stored immutably with a timestamp and an
 estimator, never overwritten in place. This constraint should be honoured in the first
 migration even though the feature comes later.
+
+> **Built, 2026-08-14.** `V9__estimates.sql` has no `updated_at` and there is no endpoint
+> that updates one; a revision is a new row and the current estimate is the newest per
+> (item, estimator). The estimator is a **user** rather than a membership, so it survives
+> that person leaving the organisation — a membership is deletable and this evidence is not.
 
 **Throughput cross-check.** A second, independent forecast derived from historical
 throughput — items completed per week, sampled from the team's own past — with no
@@ -150,12 +163,15 @@ inside a number.
 
 ## Open questions
 
-- **Unit of estimation** — task, story, or epic? This changes how much scope-growth
-  modelling is needed: coarser units absorb some unknown work implicitly.
-- **Multi-estimator support** — do several people estimate the same item independently
-  and then reconcile (wideband Delphi / planning poker)? If so, disagreement between
-  estimators is itself a signal of real uncertainty or of an ambiguous requirement, and
-  the app can flag large divergences. This is a schema decision, not a UI one.
+- ~~**Unit of estimation** — task, story, or epic?~~ *Answered by M2: **task**.* Coarser
+  units hide scope growth inside the estimate, which M3's scope-uncertainty model would
+  then count a second time. The quantity is **effort in hours**, never duration — duration
+  is effort divided by what is assigned to it, and that division is M11's.
+- ~~**Multi-estimator support**~~ *Answered by M2: **schema now, UI later**.* Several
+  estimates may sit on one item, one current per estimator, and they are read back
+  together — so two people disagreeing is stored rather than refused. What is *done* with
+  the disagreement is M3's, and the session UI that makes it a group activity is in the
+  icebox. It was a schema decision, as this bullet said, and the schema was built for it.
 - **Communicating to stakeholders** — output must reach people who do not know what P90
   means. Plain-language sentences ("85% likely to finish between 12 October and
   20 November") and a burn-up with a confidence cone, showing the band narrowing as work

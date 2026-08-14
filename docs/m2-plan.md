@@ -27,7 +27,7 @@
 | 3 | Estimates, and what coverage means ✅ *done* | 2 |
 | 4 | Progress, and actuals ✅ *done* | 2 |
 | 5 | Dependencies ✅ *done* | 2 |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 **There is no fat to cut here**, which is worth stating plainly rather than discovering
 halfway. Drop estimates and there is no product. Drop dependencies and M3 forecasts a flat
@@ -509,7 +509,7 @@ worth naming rather than details.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 - `roadmap.md`: mark M2 done, answer the two rows its decision table calls *Unresolved*, and
   correct the claim that M2 puts a handle in a URL — it does not, and the deferrals that
@@ -520,6 +520,42 @@ worth naming rather than details.
   outliving the membership; archive-not-delete; the dependency lock and why it is a lock.
 - `product-concept.md`: its status banner still says nothing is implemented, which stopped
   being true at M0 and becomes actively misleading once the domain it describes exists.
+
+### As built — where it differs from the above
+
+- **Two of the four bullets were already spent.** The decision-table rows and the
+  forecast-run obligation were written into `roadmap.md` when *this* plan was written, not
+  when the code landed, because both are things a plan has to settle before step 1 rather
+  than after step 5. Finding a close-out item already done is what a close-out step is for;
+  the note is here so the next reader does not go looking for the change in this commit's
+  diff.
+- **The handle claim was corrected twice, and only the second time was honest.** Writing this
+  plan turned it from an assumption into a decision (7); this step turned it from a decision
+  into a fact, because the milestone is now built and there is no longer an assumption to
+  argue with. The deferrals it carried are still deferred, and are now recorded in
+  `CLAUDE.md`'s routing note as well — the roadmap is where they are scheduled, and the
+  routing note is where somebody about to add a handle to a URL would actually be looking.
+- **`roadmap.md` got an M2 *As built* section it was not asked for.** M1 and M1a both have
+  one, and M2 being the milestone that went to plan is exactly the thing worth writing down:
+  without it, a reader comparing the three would find the two that departed documented and
+  the one that did not, silent — which reads as an omission rather than as a result.
+- **Three stale claims elsewhere in `roadmap.md` were the actual work of this step**, and
+  none of them is in the bullets: the forecast-runs line still listed a table decision 8 had
+  moved, "the plan-entry UI is barely scoped" was a thin spot that building it resolved, and
+  the security note about finding 3 was written in the future tense for a moment that has
+  now passed — its blast radius grew by seventeen endpoints and nobody took it first, which
+  is a cost worth recording rather than quietly absorbing.
+- **`CLAUDE.md` gained four sections rather than the one the bullet implies**, split the way
+  the packages are: plans and their work, progress as a thing somebody *reports*, estimates
+  and immutability, the graph and its lock — plus the plan screens, since a rule like "the
+  form only offers the boxes a status has room for" is one half of a refusal whose other
+  half is on the server, and the two are only comprehensible together.
+- **`product-concept.md` needed more than its banner.** Two of its *Open questions* — the
+  unit of estimation and multi-estimator support — are answered by this milestone's decisions
+  1 and 2, and a document whose banner said "partly built" while still asking them would have
+  moved the misleading part rather than fixed it. The banner now also says what is *not*
+  built, which is most of that document: there is no fitting, no sampling and no forecast, and
+  the product's own argument about a table of numbers currently applies to itself.
 
 ---
 
