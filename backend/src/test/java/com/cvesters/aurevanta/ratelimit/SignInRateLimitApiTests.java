@@ -83,8 +83,8 @@ class SignInRateLimitApiTests {
 	@BeforeEach
 	void clearAccountsAndCounts() {
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 		this.mail.clear();
 		this.mailRateLimiter.clear();
 		this.signInRateLimiter.clear();

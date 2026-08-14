@@ -32,7 +32,7 @@
 | 2 | Sampling one item ✅ *done* | 1 |
 | 3 | Scheduling the graph ✅ *done* | — |
 | 4 | The engine, end to end ✅ *done* | 2, 3 |
-| 5 | Persisting a run, and asking for one | 4 |
+| 5 | Persisting a run, and asking for one ✅ *done* | 4 |
 | 6 | Reading a forecast | 5 |
 | 7 | Close out | 1–6 |
 
@@ -638,7 +638,7 @@ can see.
 
 ---
 
-## Step 5 — Persisting a run, and asking for one
+## Step 5 — Persisting a run, and asking for one ✅ *done*
 
 **Goal.** The engine is reachable, and every answer it has ever given is still readable.
 
@@ -673,6 +673,51 @@ missing, so it is written here rather than inherited.
 
 **Done when** a forecast is a record rather than an event, and M10's history has started
 accumulating on its first day.
+
+### As built — where it differs from the above
+
+- **The archived-edge question step 4 handed over is answered, and it needed a limitation code
+  of its own.** M2 lets an arrow point at work that has since been put away; a forecast only
+  loads what is live. Such an edge cannot be honoured — the far end is never going to finish,
+  so waiting for it would be waiting forever — so it is dropped. **Dropping it silently was the
+  one thing not on the table**: that is exactly the mistake M2's progress endpoint shipped and
+  had to be corrected for, and here it would show up as a plan coming out early for a reason
+  nobody could see. `dependencies_on_archived_work` is the fifth limitation code.
+- **Snapshots get their own `ObjectMapper`, not Spring's.** The application's is
+  *configuration*: a property-naming strategy or an inclusion rule set for the sake of the API
+  would change the shape of everything written from that moment on and stop everything written
+  before it from being readable. This table exists to be replayed long after anybody remembers
+  what was in `application.yaml`, so its format is pinned in `ForecastSnapshots` where changing
+  it is a decision rather than a side effect.
+- **The snapshot stores the ranges people typed, not the fitted parameters.** The bullets say
+  "resolved inputs", which could mean either. Raw ranges keep the fit an implementation detail
+  a version bump may redefine, and make M10's diff read as "somebody revised their estimate"
+  rather than as two numbers nobody recognises.
+- **Coverage on the run is counted from what the run actually loaded**, not copied from
+  `ProjectRepository`'s grouped counts — and the test asserts the two agree. Two independent
+  paths to one number is worth more than one path used twice.
+- **`Max` joined `CONSTRAINT_CODES`, `CODE_PRECEDENCE` and the frontend catalogue**, because
+  `sampleCount` is the first bounded-above quantity in the API. `max_size` already existed for
+  lengths; this is the one for amounts.
+- **`nothing_to_forecast` is a `422`, and the run is not written.** A refusal that had already
+  stored a row would leave the history holding a forecast nobody received.
+- **One response shape rather than two.** The list endpoint returns the histogram as well,
+  which is a hundred numbers per run it does not strictly need. A plan accumulates forecasts at
+  the rate somebody presses a button, and two shapes for one resource is the kind of thing that
+  drifts; if it ever matters, that is when to split it.
+- **A latent bug in the whole test suite surfaced, and it is worth recording because it was
+  nobody's fault and everybody's problem.** Every test class wipes the database in its
+  `@BeforeEach` in the order `… memberships, users, tenants`. That is only safe while nothing
+  tenant-owned points at a *person* — which stopped being true in M2, when
+  `estimates.estimator_user_id` arrived with no cascade on purpose, and got worse here with
+  `forecast_runs.requested_by_user_id`. It kept working by luck of test ordering, and adding a
+  class changed the order. Deleting the organisation first cascades everything it owns and
+  leaves the people to be removed on their own, so the fix is `tenants` before `users` in all
+  eighteen classes.
+- **Both coverage gaps the gate found were real.** An arrow *out of* live work into archived
+  work is a different branch from one *into* it, and nothing had forecast a plan with recorded
+  effort at all — which is decision 5's own data failing to reach the snapshot it has to be
+  replayed from.
 
 ---
 

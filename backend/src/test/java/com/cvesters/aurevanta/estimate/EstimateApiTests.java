@@ -102,8 +102,8 @@ class EstimateApiTests {
 		this.items.deleteAll();
 		this.projects.deleteAll();
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 
 		Tenant acme = this.tenants.save(new Tenant("Acme Planning Co", "acme-planning-co", CREATED_AT));
 		Tenant umbrella = this.tenants.save(new Tenant("Umbrella", "umbrella", CREATED_AT));

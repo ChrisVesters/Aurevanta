@@ -131,8 +131,8 @@ class InvitationAcceptanceApiTests {
 	void seedTwoOrganisations() {
 		this.invitations.deleteAll();
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 		this.mail.clear();
 		this.rateLimiter.clear();
 		this.signInRateLimiter.clear();

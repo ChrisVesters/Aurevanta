@@ -1,0 +1,233 @@
+package com.cvesters.aurevanta.forecast;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
+import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import com.cvesters.aurevanta.forecast.model.Forecast;
+import com.cvesters.aurevanta.project.Project;
+import com.cvesters.aurevanta.tenant.Tenant;
+import com.cvesters.aurevanta.user.User;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+/**
+ * One answer this product gave, on one day, from one set of assumptions.
+ *
+ * <p>
+ * <strong>Nothing here can be changed</strong>, as with an estimate and for a related
+ * reason: M10 asks whether a date has been sliding, which is a question about what was
+ * said *then*. A run that could be edited afterwards would answer it with whatever
+ * somebody most recently believed, and the movement it exists to detect would disappear.
+ *
+ * <p>
+ * <strong>It stores its own seed, its own inputs and its own engine version</strong>,
+ * which together mean it can be run again and produce the numbers below. That is worth
+ * more than it looks: anything this milestone did not think to store — the per-item
+ * durations M6 will want, for instance — can be recovered exactly rather than being gone,
+ * so the seed is the compression.
+ */
+@Entity
+@Table(name = "forecast_runs")
+public class ForecastRun {
+
+	/**
+	 * Hours, to the hundredth. Thirty-six seconds, which is finer than a forecast means.
+	 */
+	private static final int HOURS_SCALE = 2;
+
+	@Id
+	@GeneratedValue
+	private UUID id;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "tenant_id", nullable = false)
+	private Tenant tenant;
+
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "project_id", nullable = false)
+	private Project project;
+
+	/**
+	 * The person, not their membership. They may have left by the time anybody reads
+	 * this, and they still asked the question — the same rule an estimate's estimator
+	 * follows.
+	 */
+	@ManyToOne(fetch = FetchType.LAZY, optional = false)
+	@JoinColumn(name = "requested_by_user_id", nullable = false)
+	private User requestedBy;
+
+	@Column(name = "created_at", nullable = false)
+	private Instant createdAt;
+
+	@Column(nullable = false)
+	private long seed;
+
+	@Column(name = "sample_count", nullable = false)
+	private int sampleCount;
+
+	@Column(nullable = false)
+	private int capacity;
+
+	@Column(name = "priority_rule", nullable = false, length = 40)
+	private String priorityRule;
+
+	@Column(name = "engine_version", nullable = false)
+	private int engineVersion;
+
+	@Column(name = "item_count", nullable = false)
+	private int itemCount;
+
+	@Column(name = "estimated_item_count", nullable = false)
+	private int estimatedItemCount;
+
+	@Column(name = "mean_hours", nullable = false, precision = 14, scale = 2)
+	private BigDecimal meanHours;
+
+	@Column(name = "p10_hours", nullable = false, precision = 14, scale = 2)
+	private BigDecimal p10Hours;
+
+	@Column(name = "p50_hours", nullable = false, precision = 14, scale = 2)
+	private BigDecimal p50Hours;
+
+	@Column(name = "p80_hours", nullable = false, precision = 14, scale = 2)
+	private BigDecimal p80Hours;
+
+	@Column(name = "p90_hours", nullable = false, precision = 14, scale = 2)
+	private BigDecimal p90Hours;
+
+	@Column(name = "p95_hours", nullable = false, precision = 14, scale = 2)
+	private BigDecimal p95Hours;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(nullable = false, columnDefinition = "jsonb")
+	private String inputs;
+
+	@JdbcTypeCode(SqlTypes.JSON)
+	@Column(nullable = false, columnDefinition = "jsonb")
+	private String outputs;
+
+	protected ForecastRun() {
+		// for JPA
+	}
+
+	public ForecastRun(Project project, User requestedBy, int capacity, int sampleCount, long seed, int engineVersion,
+			String priorityRule, int itemCount, int estimatedItemCount, Forecast forecast, String inputs,
+			String outputs, Instant createdAt) {
+		// Taken from the project rather than from a caller, so a run cannot be filed
+		// under
+		// one organisation and against another's plan.
+		this.tenant = project.getTenant();
+		this.project = project;
+		this.requestedBy = requestedBy;
+		this.capacity = capacity;
+		this.sampleCount = sampleCount;
+		this.seed = seed;
+		this.engineVersion = engineVersion;
+		this.priorityRule = priorityRule;
+		this.itemCount = itemCount;
+		this.estimatedItemCount = estimatedItemCount;
+		this.meanHours = hours(forecast.meanHours());
+		this.p10Hours = hours(forecast.p10Hours());
+		this.p50Hours = hours(forecast.p50Hours());
+		this.p80Hours = hours(forecast.p80Hours());
+		this.p90Hours = hours(forecast.p90Hours());
+		this.p95Hours = hours(forecast.p95Hours());
+		this.inputs = inputs;
+		this.outputs = outputs;
+		this.createdAt = createdAt;
+	}
+
+	private static BigDecimal hours(double value) {
+		return BigDecimal.valueOf(value).setScale(HOURS_SCALE, RoundingMode.HALF_UP);
+	}
+
+	public UUID getId() {
+		return id;
+	}
+
+	public Project getProject() {
+		return project;
+	}
+
+	public User getRequestedBy() {
+		return requestedBy;
+	}
+
+	public Instant getCreatedAt() {
+		return createdAt;
+	}
+
+	public long getSeed() {
+		return seed;
+	}
+
+	public int getSampleCount() {
+		return sampleCount;
+	}
+
+	public int getCapacity() {
+		return capacity;
+	}
+
+	public String getPriorityRule() {
+		return priorityRule;
+	}
+
+	public int getEngineVersion() {
+		return engineVersion;
+	}
+
+	public int getItemCount() {
+		return itemCount;
+	}
+
+	public int getEstimatedItemCount() {
+		return estimatedItemCount;
+	}
+
+	public BigDecimal getMeanHours() {
+		return meanHours;
+	}
+
+	public BigDecimal getP10Hours() {
+		return p10Hours;
+	}
+
+	public BigDecimal getP50Hours() {
+		return p50Hours;
+	}
+
+	public BigDecimal getP80Hours() {
+		return p80Hours;
+	}
+
+	public BigDecimal getP90Hours() {
+		return p90Hours;
+	}
+
+	public BigDecimal getP95Hours() {
+		return p95Hours;
+	}
+
+	/** The snapshot, as it was written down. {@link ForecastInputs} is its shape. */
+	public String getInputs() {
+		return inputs;
+	}
+
+	public String getOutputs() {
+		return outputs;
+	}
+
+}

@@ -41,6 +41,17 @@ import java.util.List;
  */
 public final class Schedule {
 
+	/**
+	 * What the rule below is called, stored on every run that was scheduled by it.
+	 *
+	 * <p>
+	 * The priority rule is a modelling assumption rather than an implementation detail —
+	 * two defensible rules give two different forecasts from identical data — so a run
+	 * made under one must never be silently compared with a run made under another. A
+	 * second rule would be a second constant, and the runs would say which they had.
+	 */
+	public static final String PRIORITY_RULE = "most_work_waiting";
+
 	private final int itemCount;
 
 	private final int capacity;

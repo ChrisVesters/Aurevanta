@@ -77,8 +77,8 @@ class OrganisationApiTests {
 	@BeforeEach
 	void seedAnAccountWithNothingInIt() {
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 
 		this.mallory = user("mallory@nowhere.test", "Mallory");
 	}

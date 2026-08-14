@@ -74,8 +74,8 @@ class MailRateLimitApiTests {
 	@BeforeEach
 	void clearAccountsAndCounts() {
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 		this.mail.clear();
 		this.rateLimiter.clear();
 	}

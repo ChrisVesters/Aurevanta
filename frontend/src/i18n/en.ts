@@ -553,6 +553,9 @@ export const en = {
       // A negative one would be a lead rather than a lag, which is a different kind of
       // dependency than the one this product models.
       positive_or_zero: 'Use zero or a number greater than it.',
+      // A ceiling on a quantity rather than on a length, which is what `max_size` is for.
+      // The only one so far is how many runs a forecast may simulate.
+      max: 'Use no more than {{value}}.',
       // The bounds come from the constraint, so this sentence never repeats them.
       digits: 'Use at most {{fraction}} decimal places.',
       invalid: 'Check this and try again.'

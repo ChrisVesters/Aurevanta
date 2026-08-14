@@ -52,7 +52,7 @@ class ApiExceptionHandler {
 	 */
 	private static final Map<String, String> CONSTRAINT_CODES = Map.of("NotBlank", "not_blank", "NotNull", "not_null",
 			"Size", "size", "Email", "email", "Pattern", "pattern", "Positive", "positive", "PositiveOrZero",
-			"positive_or_zero", "Digits", "digits");
+			"positive_or_zero", "Digits", "digits", "Max", "max");
 
 	/** What an unmapped constraint becomes, so a new one degrades rather than leaks. */
 	private static final String UNKNOWN_CONSTRAINT = "invalid";
@@ -120,7 +120,7 @@ class ApiExceptionHandler {
 	 * zero is the more useful half of that answer.
 	 */
 	private static final List<String> CODE_PRECEDENCE = List.of("not_blank", "not_null", "size", "max_size", "email",
-			"pattern", "positive", "positive_or_zero", "digits");
+			"pattern", "positive", "positive_or_zero", "max", "digits");
 
 	/** Every domain failure describes itself, so one branch covers all of them. */
 	@ExceptionHandler(ApiProblemException.class)

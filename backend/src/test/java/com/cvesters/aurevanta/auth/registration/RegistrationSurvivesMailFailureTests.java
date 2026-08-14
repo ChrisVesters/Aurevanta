@@ -62,8 +62,8 @@ class RegistrationSurvivesMailFailureTests {
 	@BeforeEach
 	void clearAccounts() {
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 		this.rateLimiter.clear();
 	}
 

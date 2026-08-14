@@ -99,8 +99,8 @@ class MembershipApiTests {
 	void seedTwoOrganisations() {
 		this.signInRateLimiter.clear();
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 
 		this.acme = this.tenants.save(new Tenant("Acme Planning Co", "acme-planning-co", CREATED_AT));
 		this.umbrella = this.tenants.save(new Tenant("Umbrella", "umbrella", CREATED_AT));

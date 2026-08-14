@@ -94,8 +94,8 @@ class DependencyGraphLockTests {
 		this.items.deleteAll();
 		this.projects.deleteAll();
 		this.memberships.deleteAll();
-		this.users.deleteAll();
 		this.tenants.deleteAll();
+		this.users.deleteAll();
 
 		Tenant acme = this.tenants.save(new Tenant("Acme Planning Co", "acme-planning-co", CREATED_AT));
 		User user = new User("ada@acme.test", this.passwordEncoder.encode("correct-horse-battery"), "Ada", CREATED_AT);
