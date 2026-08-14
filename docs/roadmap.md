@@ -336,6 +336,18 @@ exactly the state M3 exists to end.
 
 Fit → sample → aggregate. Everything else is a view over this.
 
+`m3a-plan.md` breaks **M3a** into seven steps and answers twelve decisions, four of which this
+section did not know it was carrying: what to do when several people have estimated one item,
+what an *unestimated* item does to a graph it sits in the middle of, what "remaining work" means
+for a task already under way, and where the capacity number comes from.
+
+`m3b-plan.md` breaks **M3b** into six and answers ten, including the open question this document
+records below — **where new work attaches in a graph**. The answer is that it attaches as a
+successor to a randomly chosen existing item, and the argument that settles it is that a
+multiplier and extra items are the same thing until there is a capacity constraint and different
+things afterwards. Modelling scope as a multiplier would have been the team factor counted twice
+under a second name.
+
 **M3 inherits one obligation from M2**, and it is easy to postpone into never: **persist every
 forecast run from the first commit**, with its inputs, its assumptions and its results. M2
 deliberately did *not* build the table — its columns are this engine's, and designing them
@@ -343,13 +355,22 @@ before the engine existed would have been guessing. The roadmap's original warni
 unchanged and now applies here: this history cannot be reconstructed later, and M10's
 sliding-date detector and the movement decomposition in the icebox both need it.
 
-> **This milestone is oversized and should be split before work starts.** It now carries
-> distribution fitting, sampling, graph scheduling, the team factor and scope uncertainty —
-> too much to land or review in one piece. A sensible cut: **M3a** fitting, sampling and the
-> graph scheduler with a fixed global capacity, which is enough to produce a real forecast;
-> **M3b** the team factor and scope uncertainty, which are refinements of a working engine
-> and carry their own open questions. Keeping them together risks the correlation modelling
-> being rushed to get the milestone finished.
+> **Split, as this note asked, and both halves are planned.** `m3a-plan.md` is **M3a** —
+> fitting, sampling, the graph scheduler with one global capacity, forecast-run persistence and
+> the plainest way to ask for a forecast. `m3b-plan.md` is **M3b** — the shared team factor and
+> scope uncertainty. Two builds, two plans, written together: the worry this note records is
+> that correlation modelling gets *rushed to finish the milestone*, and a plan written in
+> advance is the defence against that rather than a cause of it.
+>
+> **The line is not where it first looks**, which is the one thing worth carrying up from those
+> plans. The tempting cut is "the engine, then the refinements"; the defensible one is *what can
+> be checked against a whole-plan closed form*. M3a has one — a schedule at capacity 1 is a sum
+> of independent log-normals, with an exact mean and variance. The moment a shared factor is
+> sampled across items that closed form is wrong by construction (214.0 against a true 222.2,
+> measured below). **M3b is not left unverifiable**, it is verified in pieces instead: exactness
+> for a single item under a factor, the 209.4 → 222.2 figure measured below, and byte-identical
+> equivalence with M3a once its two parameters are zero. So M3a is proved whole, M3b is proved
+> in parts, and M3a goes first because it is what the parts are measured against.
 
 - **Distribution fitting** — log-normal from P10 and P90, with P50 as a consistency check.
   Surface the discrepancy when the three points are mutually inconsistent rather than
@@ -362,10 +383,13 @@ sliding-date detector and the movement decomposition in the icebox both need it.
 - **Scope uncertainty** — a distribution over *how much unknown work appears*, sampled and
   multiplied through. `product-concept.md` argues this is usually the larger of the two
   uncertainty sources; omitting it is why other tools look precise and land wrong.
-  **Open question the graph created:** when the model was a sum, unknown work was simply a
-  multiplier. In a schedule, new work needs a *position* — does it attach to the critical
-  path, spread across the graph, or append at the end? The choice materially changes the
-  answer, and inflating the total is no longer a valid shortcut.
+  **The open question the graph created — now answered, in `m3b-plan.md` decision 3:** when
+  the model was a sum, unknown work was simply a multiplier. In a schedule it needs a
+  *position*, and it gets one — each generated item attaches as a successor to a uniformly
+  chosen existing item, so it inherits a place in the plan and competes for capacity. The
+  multiplier is not merely a shortcut that stopped working; it is *the team factor wearing a
+  second name*, since two multipliers compose into one. What separates the two effects is
+  capacity: one makes items longer, the other makes more of them.
 
 **Engineering notes.** Pure functions over primitives, no persistence — the most testable
 code in the system, so property-based tests belong here. Decide early whether runs are
@@ -922,7 +946,8 @@ M1a earned its place in that sequence only because it was cheap *then*: a small 
 becomes a link-breaking one the moment M2 puts a slug in a URL. It was never more important
 than the engine — nothing is — it was just perishable, and it is now spent.
 
-**M1, M1a and M2 are all done, so what is left of that sequence is M3a and nothing else.**
+**M1, M1a and M2 are all done, so what is left of that sequence is M3a and nothing else** —
+now planned in `m3a-plan.md`.
 There is now a schema with plans, work, ranges, progress and a graph in it, and nothing that
 reads any of it — which is the exact state the ordering principle was written to get to
 quickly and then leave. The temptation from here is no longer CRUD screens; it is the
@@ -948,9 +973,13 @@ All seven are now in the schema.
 
 Honest about where this plan is weakest, rather than discovering it mid-build:
 
-- **M3 is oversized** and should be split into M3a/M3b before anyone starts it.
-- **Scope uncertainty has no agreed position in a graph** — the model that made it easy
-  (a flat sum) is gone.
+- ~~**M3 is oversized**~~ *Split into M3a and M3b by `m3a-plan.md`*, along the line described at
+  the top of M3: M3a is the half a closed form can verify.
+- ~~**Scope uncertainty has no agreed position in a graph**~~ *Answered in `m3b-plan.md`
+  decision 3*: new work attaches as a successor to a uniformly chosen existing item. Appending
+  at the end, loading the critical path and inflating durations were each rejected with a
+  reason, the last of them because a multiplier is indistinguishable from the team factor and
+  would be one effect counted twice.
 - ~~**The plan-entry UI is barely scoped.**~~ *Resolved by building it.* The worry was that
   "minimal" was undefined and that dependency editing would quietly consume weeks. What
   minimal turned out to mean is two screens: a list of plans, and a plan whose work is a

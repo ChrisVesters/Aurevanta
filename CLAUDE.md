@@ -9,14 +9,26 @@ Licensed GPL-3.0.
 `docs/product-concept.md` holds the domain concepts and planned features — read it before
 designing schema or domain logic. It is design intent, not a description of existing code.
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
-depends on; M0 (tenancy and identity), M1 (making it a team product) and M1a (organisation
-names are not unique) are built. `docs/m1-plan.md` and `docs/m1a-plan.md` are the records of
-how those last two were done and where each departed from its own brief — M1a most of all,
-since it corrected M0 by a different route than the one it was written to take.
-`docs/m2-plan.md` is the plan being worked through now: the first milestone to carry domain
-data, and the one whose schema M3–M9 all read from. Steps 1–3 (projects, work items,
-estimates) are built; **nothing below describes them yet**, because documenting the domain is
-that plan's own step 6.
+depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
+are not unique) and M2 (the estimation schema) are built. `docs/m1-plan.md`,
+`docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was done and where each
+departed from its own brief — M1a most of all, since it corrected M0 by a different route than
+the one it was written to take.
+
+`docs/m3a-plan.md` and `docs/m3b-plan.md` are the two halves of M3, the simulation engine —
+which `roadmap.md` calls the product and everything before it was built to feed. **M3a is the
+one being worked through now**; none of either exists yet, so there is a schema full of plans,
+ranges, progress and a graph, and nothing that reads any of them. Read both before touching
+anything under `forecast`, because almost all of the risk is in decisions rather than in code:
+what happens when two people estimate the same task differently, what an unestimated item does
+to a graph it sits in the middle of, what "remaining work" means for a task already under way,
+and where newly discovered work attaches. **The failure mode here is not a crash but a plausible
+number**, which is why the engine is pure functions with an oracle behind every one of them.
+
+**They are two builds and one design**, split where a whole-plan closed form stops being
+available: M3a is proved against arithmetic that exists outside this codebase, and M3b — the
+shared team factor and scope growth — is proved in pieces, the strongest of which is that
+setting its two parameters to zero must reproduce an M3a run byte for byte.
 
 **A plan is updated as its steps land, not at the end.** Mark the step `✅ *done*` on its
 heading and in the *At a glance* table, and write its `### As built — where it differs from
