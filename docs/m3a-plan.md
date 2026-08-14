@@ -30,7 +30,7 @@
 |---|---|---|
 | 1 | Fitting a range to a distribution ✅ *done* | — |
 | 2 | Sampling one item ✅ *done* | 1 |
-| 3 | Scheduling the graph | — |
+| 3 | Scheduling the graph ✅ *done* | — |
 | 4 | The engine, end to end | 2, 3 |
 | 5 | Persisting a run, and asking for one | 4 |
 | 6 | Reading a forecast | 5 |
@@ -484,7 +484,7 @@ already done — are arithmetic rather than intention.
 
 ---
 
-## Step 3 — Scheduling the graph
+## Step 3 — Scheduling the graph ✅ *done*
 
 **Goal.** Durations become a completion time, and the number of people is finally in the model.
 
@@ -516,6 +516,46 @@ tied on priority start in write order, twice, from a shuffled input. A cycle is 
 
 **Done when** the aggregator is a scheduler, and the capacity assumption is a number somebody
 can see.
+
+### As built — where it differs from the above
+
+- **`Schedule` is prepared once and run many times, not the static function the bullet
+  describes.** `finish(durations, edges, capacity, priority)` and "computed once, on the graph
+  rather than on a draw" are two bullets that contradict each other: a static function taking
+  the edges would redo a graph walk and a transitive closure ten thousand times. Worse than the
+  cost, it would let the priority rule be recomputed per run, which is exactly what decision 7
+  exists to stop. `Schedule.of(edges, typicalEfforts, underWay, capacity)` does the graph work,
+  and `finish(durations)` is the per-run half. It is **immutable, so runs may be parallelised**
+  — which is step 4's stated lever if the budget is missed.
+- **The engine works in array positions, not identifiers.** `Precedence` names both ends as
+  `int`, and mapping `UUID`s to positions happens once, outside this package. Walking a
+  five-hundred-item graph ten thousand times through a hash map would cost more than the
+  scheduling.
+- **The priority key needs a transitive closure, and that ties it to the 500-item ceiling.**
+  "Total downstream effort" is the sum over everything *reachable*, which a diamond would
+  otherwise double-count, so it is a bitset closure — 500 × 500 bits, which is nothing at that
+  size and quadratic beyond it. **The standard scheduling heuristic is the longest chain behind
+  an item rather than the total work**, it is O(n + m) with no closure, and it is a better
+  scheduler; it is not a better *sentence*, and decision 7 chose the rule a person can repeat
+  back. Worth revisiting at M11, where the priority rule stops being a tie-breaker and starts
+  being the model.
+- **Work already under way had to be excluded from being released a second time**, which the
+  bullets do not mention and which is a real bug rather than a subtlety: an in-progress item
+  with an unfinished predecessor starts at zero, and then its predecessor finishing would have
+  marked it startable again and run it twice. The plan's own test — "an in-progress item starts
+  at zero despite an unfinished predecessor" — is what catches it.
+- **The heap is written out rather than taken from `java.util`.** `PriorityQueue<Integer>` boxes
+  every one of the several million operations a forecast performs, which was measured against
+  step 4's two-second budget and is roughly where it would be spent. The priority selection
+  needs no heap at all: the order is static, so it is a `BitSet` over positions and "highest
+  priority available" is "lowest set bit".
+- **Nothing validates that a duration is not negative**, deliberately, and it is the one check
+  a reader might expect. `ItemModel.sample` cannot return one, and the alternative is five
+  million comparisons per forecast to catch a bug that has no way in.
+- **One expectation in the tests was wrong before the code was**, which is worth recording
+  because it is the failure mode this whole milestone is about: ten items at capacity four was
+  written down as finishing at 15 because it looked right, and it finishes at 19. The scheduler
+  was correct and the plausible number was mine.
 
 ---
 
