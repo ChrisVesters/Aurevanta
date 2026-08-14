@@ -69,11 +69,30 @@ public record LogNormalFit(double mu, double sigma) {
 	}
 
 	/**
+	 * The outcome this fit puts {@code z} standard deviations from its middle, measured
+	 * in the logarithm — so {@code at(0)} is the median and every draw from this
+	 * distribution is this function of a standard normal number.
+	 *
+	 * <p>
+	 * Both ways of sampling go through here, which is the point of it existing: an
+	 * ordinary draw passes a Gaussian, and a draw conditioned on work already done passes
+	 * a point picked out of the surviving tail. Written once so the two cannot drift into
+	 * disagreeing about what this distribution is.
+	 *
+	 * <p>
+	 * A {@code sigma} of zero collapses this to the median whatever {@code z} is, which
+	 * is what makes a point mass need no special case anywhere upstream.
+	 */
+	public double at(double z) {
+		return Math.exp(this.mu + this.sigma * z);
+	}
+
+	/**
 	 * The middle this fit implies, which is the geometric mean of the two ends — and so
 	 * not, in general, the number the estimator wrote in the middle box.
 	 */
 	public double median() {
-		return Math.exp(this.mu);
+		return at(0.0);
 	}
 
 	/**

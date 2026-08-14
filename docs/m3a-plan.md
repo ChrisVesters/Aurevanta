@@ -29,7 +29,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | Fitting a range to a distribution ✅ *done* | — |
-| 2 | Sampling one item | 1 |
+| 2 | Sampling one item ✅ *done* | 1 |
 | 3 | Scheduling the graph | — |
 | 4 | The engine, end to end | 2, 3 |
 | 5 | Persisting a run, and asking for one | 4 |
@@ -414,7 +414,7 @@ implied one produce ratios either side of 1. Extreme but legal inputs — 0.01 h
 
 ---
 
-## Step 2 — Sampling one item
+## Step 2 — Sampling one item ✅ *done*
 
 **Goal.** One draw of how long a piece of work takes, given everything known about it.
 
@@ -440,6 +440,47 @@ same seed produce identical sequences.
 
 **Done when** the two decisions this product's honesty rests on — disagreement, and work
 already done — are arithmetic rather than intention.
+
+### As built — where it differs from the above
+
+- **`WorkItemStatus` is reused rather than mirrored, against this step's own bullet.** "Nothing
+  in this package knows what a `WorkItem` is" is right about the entity, its repository and its
+  service, and wrong about the enum: it has *no imports at all*, and its own documentation
+  already says "what a forecast needs is only whether an item is still ahead of it, and these
+  three answer that" — it was written anticipating this reader. A local copy would have been
+  three constants restated plus a mapping function, and that mapping would have been a `switch`
+  over an enum, which `WorkItemService` explains at length is a coverage trap. `forecast`
+  depending on `item` is already the arrow step 5 draws. **`forecast.model` still has no Spring,
+  no JPA and no I/O**, which is the property the bullet was protecting.
+- **The truncated draw samples the surviving tail directly rather than inverting a probability
+  near one.** Decision 5 writes it as `p = Φ((ln a − mu)/sigma)`, then `u ~ Uniform(p, 1)`. That
+  is correct arithmetic and poor floating point: `p` is a number near 1, which is the half of
+  the range a double holds worst, and the API can reach `p == 1.0` exactly — an item put at 19
+  to 21 hours with six minutes logged — where `quantile` has no answer. What is built computes
+  the *upper* tail, `Φ((mu − ln a)/sigma)`, which `cdf` returns accurately, and draws uniformly
+  within it. Same distribution, and the same reason `Normal.cdf` computes the smaller tail and
+  subtracts only when it must.
+- **A comprehensively outrun estimate returns nothing, and this needed deciding.** Nineteen to
+  twenty-one hours with a hundred spent puts the conditioning point past 37 standard deviations,
+  where the distribution holds no probability at all. There is no honest draw to make, so the
+  remainder is zero — the model reporting that it has been falsified rather than forecasting.
+  The remedy is a revision, which M2 makes a new row. It is reachable through the API, so it is
+  a branch with a test rather than a hypothetical.
+- **`LogNormalFit` grew the `at(z)` that step 1 declined to write.** Step 1 recorded leaving it
+  out because no caller existed; two callers now do — an ordinary draw passes a Gaussian, a
+  conditioned one passes a point from the surviving tail — and having both go through one
+  method is what stops them drifting about what the distribution is. `median()` became `at(0)`.
+- **The conditional draw got an oracle the plan did not ask for, and it is the strongest test in
+  the step.** `E[X | X > a]` has a closed form, so the sampler's average over two hundred
+  thousand draws is checked against an answer worked out rather than sampled — they agree to
+  about one part in ten thousand. The plan only asked that the remainder be non-negative and
+  finite, which would have passed for a sampler that was merely *plausible*.
+- **"The longer it has run, the more it has left" is not monotonic, and the plan says it as
+  though it were.** Measured on an 8–40 hour estimate the remainder goes 17.2 hours at five
+  spent, 14.2 at twenty, 17.1 at fifty, 34.0 at two hundred: it falls while the bulk of the
+  distribution is being used up and rises once only the tail is left. The claim survives in the
+  form that matters — work that has run long enough has more ahead of it than work that has
+  not — and the test asserts that rather than the overstatement.
 
 ---
 
