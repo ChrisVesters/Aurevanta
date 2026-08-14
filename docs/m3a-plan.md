@@ -28,7 +28,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | Fitting a range to a distribution | — |
+| 1 | Fitting a range to a distribution ✅ *done* | — |
 | 2 | Sampling one item | 1 |
 | 3 | Scheduling the graph | — |
 | 4 | The engine, end to end | 2, 3 |
@@ -355,7 +355,7 @@ already been written into a slide.
 
 ---
 
-## Step 1 — Fitting a range to a distribution
+## Step 1 — Fitting a range to a distribution ✅ *done*
 
 **Goal.** Three numbers a person typed become two parameters, and the disagreement between them
 becomes visible.
@@ -376,6 +376,41 @@ implied one produce ratios either side of 1. Extreme but legal inputs — 0.01 h
 — stay finite.
 
 **Done when** a range has a distribution and nothing has been assumed about the middle.
+
+### As built — where it differs from the above
+
+- **`quantile` is deliberately *not* refined against `cdf`, and that is a decision this step
+  discovered rather than inherited.** One Halley step using `cdf` would take Acklam's part in a
+  billion down to machine precision, and it is the obvious thing to write. It also destroys the
+  test above: `cdf(quantile(p)) == p` would then be true *by construction*, so the assertion
+  that reads as the strongest evidence in the file would be evidence of nothing. What is there
+  instead is two rational approximations, derived by different people from different forms,
+  neither knowing the other exists, agreeing to a part in a billion. **The accuracy was the
+  cheaper thing to give up**, since it is used to place a draw inside a distribution somebody
+  described to two significant figures.
+- **`LogNormalFit.from` refuses, and the plan did not ask it to.** `0 < p10 <= p90` is already
+  guaranteed by `@Positive` and `estimate_out_of_order`, so neither refusal is reachable through
+  the API — but this is a pure function that a test calls directly, so the branch is *coverable*,
+  which is exactly the distinction `ProjectService.lockForGraphChange` makes in the other
+  direction. The alternative is worse than an unused branch: `Math.log` of a negative is a silent
+  `NaN` that would surface as a percentile several steps later with nothing pointing back here.
+- **Hart's CDF is accurate absolutely, not relatively, and step 2 needs to know it.** It holds
+  about one part in 10^15 of the *whole distribution*, which in the deep tail means roughly one
+  part in 10^9 of the answer — measured at 8σ, not assumed. This costs decision 5 nothing,
+  because a truncated draw asks for the mass a task has already spent, which is a number near
+  *one* where absolute accuracy is exactly what matters. It would cost a great deal to anybody
+  comparing two very small probabilities, so it is stated in the test rather than left to be
+  rediscovered.
+- **The constant is `P90_Z` and positive**, where the bullets say "the P10 z-score". Same number,
+  and the sign belongs at the call site: the fit divides by `2 * P90_Z`, and writing it negative
+  would put a minus in every formula that reads it.
+- **Three test tolerances had to become relative**, which is worth a line because the first
+  version of each was absolute and passed for the wrong reason. Recovering an end runs back
+  through `quantile`, whose error is relative, so a fixed tolerance is one that passes at eight
+  hours and fails at eight thousand — and `numeric(12, 2)` reaches ten billion.
+- **`LogNormalFit` grew no `quantile` method**, though step 2's truncated draw will want one.
+  Nothing in this step needed it, and the test computes the percentile itself in one line;
+  adding it now would have been API written against a caller that does not exist yet.
 
 ---
 
