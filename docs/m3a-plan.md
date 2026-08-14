@@ -31,7 +31,7 @@
 | 1 | Fitting a range to a distribution ✅ *done* | — |
 | 2 | Sampling one item ✅ *done* | 1 |
 | 3 | Scheduling the graph ✅ *done* | — |
-| 4 | The engine, end to end | 2, 3 |
+| 4 | The engine, end to end ✅ *done* | 2, 3 |
 | 5 | Persisting a run, and asking for one | 4 |
 | 6 | Reading a forecast | 5 |
 | 7 | Close out | 1–6 |
@@ -559,7 +559,7 @@ can see.
 
 ---
 
-## Step 4 — The engine, end to end
+## Step 4 — The engine, end to end ✅ *done*
 
 **Goal.** Ten thousand runs, one distribution, and an answer to "how do we know this is right".
 
@@ -592,6 +592,49 @@ can see.
   only true while this holds, and nothing else would notice it stopping being true.
 
 **Done when** there is a forecast, and a reason to believe it.
+
+### As built — where it differs from the above
+
+- **The oracle agreed to five thousandths of a percent, and that is the headline.** Forty tight
+  tasks come out at **811.08** sampled, **811.12** from the closed form computed in the test,
+  and **811.1** from the measurement `roadmap.md` took before any of this existed. Three routes
+  to one number, none of them sharing a line of code. The assertions are deliberately set far
+  looser than the agreement — at sampling error, about a third of a percent — so they stay
+  tests of the engine rather than detectors of a changed seed.
+- **The budget is not close: about 300ms** for five hundred items and ten thousand runs,
+  against the two seconds decision 8 allowed. Six times over is comfortable enough that
+  parallelising runs stays an unused lever, and the assertion is left at two seconds rather
+  than tightened, because a tight wall-clock assertion fails on a busy machine and teaches
+  nobody anything. What it guards is the order of magnitude.
+- **`Forecast` carries a standard deviation, which the bullets do not list.** Without it the
+  oracle above is only half checkable: the plan asks the test to assert convergence to the mean
+  *and the variance*, and there was nothing to assert the variance against. M6 will want it
+  too.
+- **`java.util.Random`, and this is a decision rather than a default.** Decision 9 promises a
+  stored run can be replayed from its seed years later, which is worth nothing if the numbers
+  move underneath it. `Random` is the only generator in the JDK whose algorithms are written
+  into its *contract* rather than only its implementation; `SplittableRandom` is faster and
+  gets its Gaussian from a default method nothing promises to keep. A JDK upgrade silently
+  changing old forecasts would be worse than any version bump, because the version would not
+  have changed.
+- **`Engine.VERSION` and the sample-count bound live here, not in step 5.** The version is a
+  property of the model rather than of the table it gets stored in, and the bound is about what
+  the engine can afford. `MAX_SAMPLE_COUNT` is a hundred thousand, which is a bound on
+  absurdity rather than a promise of speed — what actually stops one member tying up a server
+  is a limit on concurrent forecasts, and that is still not built.
+- **The histogram's counts are a `List`, not an `int[]`.** A record with an array component
+  compares identities rather than contents, which would have quietly broken
+  `theSameSeedForecastsTheSamePlanIdentically` — the single test decision 9 rests on — into
+  something that passes for the wrong reason.
+- **Step 5 inherits a question this step surfaced.** The engine refuses an edge naming an item
+  it was not given, which is right; but M2 lets an arrow point at *archived* work, and a
+  forecast only loads what is live. So step 5 has to decide what an edge into archived work
+  means, and say so rather than dropping it silently — which is the mistake M2's own step 4
+  had to correct.
+- **The one gap the coverage gate found was real.** No test drove the engine with work already
+  under way: the sampler tested its half and the scheduler tested its half, and nothing
+  exercised the wire between them. Decision 5 is one of this milestone's headline decisions, so
+  that is the sort of hole worth having a gate for.
 
 ---
 

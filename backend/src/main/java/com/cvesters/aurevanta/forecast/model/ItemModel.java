@@ -82,11 +82,52 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 	 * and the band comes out wide. The band is wide because they differ.
 	 */
 	public double sample(RandomGenerator random) {
-		if (this.status == WorkItemStatus.DONE || this.estimates.isEmpty()) {
+		if (weighsNothing()) {
 			return 0.0;
 		}
 		LogNormalFit fit = this.estimates.get(random.nextInt(this.estimates.size()));
 		return (this.spentHours > 0.0) ? remainderAfterWhatIsSpent(fit, random) : fit.at(random.nextGaussian());
+	}
+
+	/**
+	 * Roughly what this item holds, for ranking it against the others and for nothing
+	 * else.
+	 *
+	 * <p>
+	 * <strong>Never used to forecast anything.</strong> It answers "how much work is
+	 * waiting behind this" when the scheduler has more ready than it has room for, and
+	 * that question has to be settled the same way in every run — otherwise two forecasts
+	 * of one plan would be ordered differently and could not be compared. So it is the
+	 * middle of what people said, taken from the plan rather than from a draw.
+	 *
+	 * <p>
+	 * Where several people estimated it, their medians are averaged, which is exactly the
+	 * flattening {@link #sample} refuses to do — and is right here, because a ranking
+	 * needs one number and a forecast needs a distribution.
+	 *
+	 * <p>
+	 * Effort already spent is ignored, so work halfway through still ranks by what it was
+	 * thought to cost in total. That slightly overstates it, and it does not matter: this
+	 * decides which of two ready tasks is picked up first, not how long either takes.
+	 */
+	public double typicalEffortHours() {
+		if (weighsNothing()) {
+			return 0.0;
+		}
+		double total = 0.0;
+		for (LogNormalFit estimate : this.estimates) {
+			total += estimate.median();
+		}
+		return total / this.estimates.size();
+	}
+
+	/**
+	 * Finished, or never costed. Stated once because {@link #sample} and
+	 * {@link #typicalEffortHours} have to agree about it: an item the forecast counts as
+	 * free must also be an item nothing queues up behind.
+	 */
+	private boolean weighsNothing() {
+		return this.status == WorkItemStatus.DONE || this.estimates.isEmpty();
 	}
 
 	/**
