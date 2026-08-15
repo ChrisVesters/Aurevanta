@@ -412,7 +412,12 @@ class ForecastApiTests {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.id").value(run.getId().toString()))
 			.andExpect(jsonPath("$.capacity").value(3))
-			.andExpect(jsonPath("$.seed").value(run.getSeed()))
+			// A string, because sixty-four bits do not survive a JSON number in a
+			// browser. `isString` is what makes this an assertion at all: `value`
+			// re-reads the document as the expected type, so it passes against a
+			// number as happily as against the string this field has to be.
+			.andExpect(jsonPath("$.seed").isString())
+			.andExpect(jsonPath("$.seed").value(String.valueOf(run.getSeed())))
 			.andExpect(jsonPath("$.limitations").isArray());
 	}
 

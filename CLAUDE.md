@@ -16,9 +16,9 @@ departed from its own brief — M1a most of all, since it corrected M0 by a diff
 the one it was written to take.
 
 `docs/m3a-plan.md` and `docs/m3b-plan.md` are the two halves of M3, the simulation engine —
-which `roadmap.md` calls the product and everything before it was built to feed. **M3a is the
-one being worked through now**; none of either exists yet, so there is a schema full of plans,
-ranges, progress and a graph, and nothing that reads any of them. Read both before touching
+which `roadmap.md` calls the product and everything before it was built to feed. **M3a is
+built and M3b is not**: a plan with ranges in it produces a band, and the two effects that
+band is missing are named on every forecast it makes. Read both before touching
 anything under `forecast`, because almost all of the risk is in decisions rather than in code:
 what happens when two people estimate the same task differently, what an unestimated item does
 to a graph it sits in the middle of, what "remaining work" means for a task already under way,
@@ -53,8 +53,8 @@ change made without it can quietly widen one.
 - `frontend/` — React 19 + TypeScript SPA built with Vite 8.
 
 **Backend packages are by feature, not by layer** — `tenant`, `user`, `membership`,
-`invitation`, `security`, and the four domain packages `project`, `item`, `estimate`,
-`dependency`, each hold their own entity, repository, service and web types.
+`invitation`, `security`, and the five domain packages `project`, `item`, `estimate`,
+`dependency`, `forecast`, each hold their own entity, repository, service and web types.
 `auth` is large enough to be split a second time, by use case: `auth.registration`,
 `auth.signin`, `auth.verification`, `auth.reset`. The controller and the response shapes
 all its endpoints share stay in `auth` itself. A new auth use case — verifying an address,
@@ -66,8 +66,11 @@ every failure the API can report and the single advice that renders them. It sta
 and invitations began reporting failures of their own. Every `code` this API publishes can
 be read in that one directory.
 
-**The four domain packages depend in one direction only** — `dependency` and `estimate`
-both point at `item`, `item` points at `project`, and nothing points back. That is why
+**The domain packages depend in one direction only** — `forecast` points at all four,
+`dependency` and `estimate` both point at `item`, `item` points at `project`, and nothing
+points back. `forecast` is the only one that reads from every other, and it does so through
+their services rather than their tables, so the arrows stay one-way and a forecast cannot
+reach a plan without passing the membership check the plan's own service makes. That is why
 whether a caller may reach a piece of work is asked of `WorkItemService.get` rather than
 answered a second time inside `estimate`, and it is the reason coverage is counted in
 `ProjectRepository` rather than published as a boolean on the item response: the boolean
@@ -815,3 +818,68 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   worse than no tool because the garbage now carries a probability. Making it good is M5, and
   it is a question-design problem rather than a styling one — so styling it is the one change
   that cannot help.
+
+## Forecasting: the engine, and the four decisions inside it
+
+- **`forecast.model` is separated by *purity*, not by feature, and it is the only package in
+  this application that is.** `Normal`, `LogNormalFit`, `ItemModel`, `Precedence`, `Schedule`,
+  `Engine`, `Forecast` and `Histogram` hold no Spring, no JPA and no I/O: they are functions
+  over primitives. `forecast` beside it is an ordinary feature package — entity, repository,
+  service, controller, responses — that reaches the other four domain packages through their
+  services. **The failure mode here is not a crash but a plausible number**, and the seam is
+  what makes the arithmetic checkable against sums that exist outside this codebase. The
+  strongest test in the milestone is that one: a chain at capacity 1 is a sum of independent
+  log-normals with an exact mean and variance, and forty tight tasks come out at 811.08
+  sampled against 811.12 from the closed form and 811.1 from a measurement taken in
+  `roadmap.md` before any of this existed.
+- **Four modelling decisions look like bugs from the outside and are not.** Each is argued in
+  `m3a-plan.md`; the risk is that one gets quietly *simplified* by somebody who did not read
+  it, which no test failure would announce as such.
+  - **A mixture over estimators, never an average.** One estimator is sampled per item per
+    run, so when two people disagree the band gets wider. That is the disagreement being
+    reported rather than a fault; averaging is the one change here that converts uncertainty
+    into false confidence, and it will be proposed the first time a band comes out wide.
+  - **An unestimated item stays in the graph as a zero-effort node.** Dropping it would
+    silently delete the precedence running through it, so the plan would come out early for a
+    reason nobody could see. Coverage is reported instead — `unestimated_items`, plus the
+    counts on the run.
+  - **Work already under way is drawn from the estimate *conditioned on what has been
+    spent*** — a truncated draw, not a fresh one. A task that has run long has more left, not
+    less. This is the defining property of the distribution this product chose, and a model
+    without it flatters every late project.
+  - **Capacity is required and has no default.** `roadmap.md` measured it moving the P90 by
+    70%, and a default would be a claim about a team made by a server that has never met
+    them. The box on screen is empty for the same reason: a box already filled in is a box
+    nobody reads.
+- **A run is written once and never updated, like an estimate.** `forecast_runs` stores its
+  resolved inputs, its seed, its sample count, its capacity, its priority rule and
+  `Engine.VERSION`, so any run can be replayed exactly — which is what M6 gets its per-item
+  contribution from instead of storing a duration vector per item per run, and what M10 reads
+  to see a date sliding. `ForecastApiTests` replays a stored snapshot and asserts it
+  reproduces its stored percentiles: **that is the test that fails the day somebody changes
+  the model without bumping the version.**
+- **The generator is `java.util.Random`, deliberately.** It is the only one in the JDK whose
+  algorithms are written into its *contract* rather than only its implementation.
+  `SplittableRandom` is faster and takes its Gaussian from a default method nothing promises
+  to keep, so a JDK upgrade could silently move every old forecast — worse than a version
+  bump, because no version would have changed.
+- **Snapshots use their own `ObjectMapper`, pinned in `ForecastSnapshots`.** The
+  application's is *configuration*: a naming strategy or inclusion rule set for the API's sake
+  would change every snapshot written from that moment and stop every earlier one from being
+  readable. The snapshot holds the ranges people typed rather than the fitted parameters, so
+  the fit stays an implementation detail a version bump may redefine.
+- **The seed goes out as a JSON *string*.** It is sixty-four bits and a JSON number is a
+  double in a browser, so as a number nearly every seed published arrived silently rounded —
+  and a seed that is nearly right reproduces nothing. `jsonPath().value` re-reads a document
+  as the expected type, so `isString()` is what actually pins it.
+- **Every forecast reports what it did not do, and the screen prints it beside the number.**
+  Five codes today, two of which (`no_team_factor`, `no_scope_uncertainty`) M3b exists to
+  delete. The panel renders a code it has never heard of rather than dropping it: the server
+  is what versions ahead here, and silently showing nothing is that rule failing through the
+  back door. **A band without its caveats is this product's own failure mode with a chart on
+  it**, which is why they are not behind a disclosure.
+- **Any member may forecast**, like everything else in the domain. A plan with nothing
+  estimated is refused with `nothing_to_forecast` (`422`) and **no row is written** — a
+  refusal that had stored a run would leave the history holding a forecast nobody received.
+- **Hours of effort, everywhere, and no calendar dates anywhere.** A date needs a working-day
+  assumption; M4 is where that gets made, where somebody can see it.

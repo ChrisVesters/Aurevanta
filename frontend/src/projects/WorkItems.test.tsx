@@ -935,9 +935,7 @@ describe('WorkItems', () => {
       screen.getByRole('button', { name: 'Save progress' })
     );
 
-    expect(
-      await screen.findByText('Choose one of the options.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('This is required.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -1191,9 +1189,7 @@ describe('WorkItems', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    expect(
-      await screen.findByText('Choose one of the options.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('This is required.')).toBeInTheDocument();
     // Said once: the banner would only repeat what the field already says.
     expect(screen.queryByRole('alert')).toBeNull();
   });

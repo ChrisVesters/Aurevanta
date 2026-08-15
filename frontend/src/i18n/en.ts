@@ -224,6 +224,66 @@ export const en = {
     // than the plan is the failure this product exists to prevent — and a number nobody
     // reads is not a disclosure.
     coverage: '{{estimated}} of {{total}} items estimated',
+    // The whole product, and the first screen where being wrong would not look like being
+    // wrong. Everything here is hours of effort: a date needs an assumption about what a
+    // working day is worth, and M4 is where somebody states one rather than this screen
+    // inventing it.
+    forecast: {
+      title: 'Forecast',
+      lede: 'Simulated from the ranges on the work above. Effort in hours, not dates.',
+      loading: 'Loading forecasts…',
+      none: 'No forecast yet. Say how many things can be worked on at once and ask for one.',
+      submit: 'Forecast this plan',
+      submitting: 'Simulating…',
+      more: 'Advanced',
+      fields: {
+        capacity: {
+          label: 'Things that can be under way at once',
+          // Not pre-filled, and this hint is why: a box already answered is a box nobody
+          // reads, and this is the number that moves the answer most.
+          hint: 'Required. The same plan finishes in half the time with twice the people, so nobody can guess this for you.'
+        },
+        sampleCount: {
+          label: 'Simulated runs',
+          hint: 'Ten thousand unless you say otherwise, which is accurate to well under a percent.'
+        }
+      },
+      // P10 to P90 is eight tenths of the probability, which is what makes this sentence
+      // true rather than merely reassuring.
+      band: 'An 80% chance of taking between {{low}} and {{high}} hours of effort.',
+      hours: '{{value}} hours',
+      percentiles: {
+        p10: 'Everything goes well',
+        p50: 'As likely over as under',
+        p80: 'Comfortable',
+        p90: 'Cautious',
+        p95: 'Very cautious'
+      },
+      assumptions:
+        'Assuming {{capacity}} things under way at once, over {{samples}} simulated runs.',
+      // Beside the number rather than behind a link. Two of them are always present, and
+      // deleting those two is the definition of M3b being finished.
+      limitations: {
+        title: 'What this forecast does not do',
+        no_team_factor:
+          'It treats every task as independent. Real projects have bad weeks where everything runs long together, so the true range is wider than this one.',
+        no_scope_uncertainty:
+          'It forecasts only the work already written down. Projects overrun because of work nobody listed more often than because a listed task ran long.',
+        unestimated_items:
+          'Some work in this plan carries no estimate. It kept its place in the order and counted as no effort, so the answer is short by whatever it holds.',
+        inconsistent_estimates:
+          "Somebody's middle number sits a long way from their own two ends. The estimate was used exactly as given; it may be worth a second look.",
+        dependencies_on_archived_work:
+          'An arrow pointed at work that has been put away. It was left out, because work that is not going to happen cannot be waited for.',
+        unknown:
+          'This forecast reported something this version of the app cannot describe yet.'
+      },
+      earlier: {
+        title: 'Earlier forecasts',
+        entry:
+          '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, asked for by {{who}}.'
+      }
+    },
     // Shared by the form that starts a project and the form that changes one, because they
     // ask the same two questions at different moments.
     fields: {
@@ -506,6 +566,11 @@ export const en = {
       // sentence that only says a loop exists leaves somebody to go and find it.
       dependency_cycle: 'That would make a task wait for itself.',
       dependency_not_found: 'That dependency is no longer in this project.',
+      // Not an error so much as a thing to go and do: a forecast of nothing is not a
+      // forecast, and the remedy is on the same screen.
+      nothing_to_forecast:
+        'Nothing in this plan has been estimated yet, so there is nothing to forecast. Add a range to some of the work above.',
+      forecast_not_found: 'That forecast is no longer in this project.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',
@@ -540,7 +605,10 @@ export const en = {
       not_blank: 'This cannot be empty.',
       // `not_blank` is for text somebody types; this is for a value they pick, where
       // "cannot be empty" would describe a box there is nothing to type into.
-      not_null: 'Choose one of the options.',
+      // True of a select and of a number alike. It said "choose one of the options" while
+      // every field that produced it happened to be a dropdown; the code names the
+      // constraint rather than the field, so the message cannot assume the shape of one.
+      not_null: 'This is required.',
       size: 'Use between {{min}} and {{max}} characters.',
       // A constraint that only bounds length above; `size` would say "between 0 and 200".
       max_size: 'Use no more than {{max}} characters.',

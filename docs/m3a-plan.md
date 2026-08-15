@@ -33,8 +33,8 @@
 | 3 | Scheduling the graph ✅ *done* | — |
 | 4 | The engine, end to end ✅ *done* | 2, 3 |
 | 5 | Persisting a run, and asking for one ✅ *done* | 4 |
-| 6 | Reading a forecast | 5 |
-| 7 | Close out | 1–6 |
+| 6 | Reading a forecast ✅ *done* | 5 |
+| 7 | Close out ✅ *done* | 1–6 |
 
 **Steps 1–4 touch no database, no Spring and no HTTP.** They are the only classes in this
 application that are pure functions over primitives, which is why they are four steps rather
@@ -721,7 +721,7 @@ accumulating on its first day.
 
 ---
 
-## Step 6 — Reading a forecast
+## Step 6 — Reading a forecast ✅ *done*
 
 **Goal.** Somebody can ask, and can see what they were and were not told.
 
@@ -749,9 +749,45 @@ from the catalogue, which the test setup already enforces.
 
 **Done when** the product does the thing it exists to do, badly styled and honestly.
 
+### As built — where it differs from the above
+
+- **The per-item P50 consistency signal is the one bullet not built**, and the plan was wrong
+  about what it costs. "It costs nothing here beyond showing it" is false: deciding that a
+  middle sits *far* from its implied one needs a threshold, and the server already owns one
+  (`ForecastService.CONSISTENT_ENOUGH`, a quarter either way). Copying it into the frontend
+  would be two rules that can disagree about the same estimate, which is the thing
+  `PasswordRules` exists in the backend to prevent. **What decision 12 actually requires is
+  already there** — the forecast reports `inconsistent_estimates` beside the band. Pointing at
+  *which* estimate is elicitation feedback, it belongs with M5, and the clean way in is for
+  the server to publish the ratio on `EstimateResponse` rather than for the browser to
+  re-derive it.
+- **The seed had to become a string, and that is a bug this step found in step 5.** It is
+  sixty-four bits and a JSON number is a double in a browser, so nearly every seed published
+  was arriving silently rounded — and a seed that is nearly right reproduces nothing at all. A
+  field that exists to make a run checkable was, until it was wired to a client, quietly
+  uncheckable.
+- **There are five limitation codes on screen, not the four the bullets name**, because step 5
+  added `dependencies_on_archived_work`. The panel also renders a code it has never heard of
+  rather than dropping it: the server is what versions ahead here, M3b adds one, and silently
+  showing nothing is decision 12 failing through the back door.
+- **`not_null` stopped saying "Choose one of the options."** Every field that produced it
+  happened to be a dropdown, so the wording had drifted into describing the *field* rather
+  than the *constraint* — and on a numeric capacity box it sent the visitor looking for
+  options that do not exist. It was already wrong for an omitted P50 and nobody had noticed.
+- **The list endpoint's cost showed up here rather than in step 5.** Every earlier forecast
+  arrives with its hundred-bucket histogram and the panel uses none of them. It stays as it
+  is — a plan gathers forecasts at the rate somebody presses a button — but this is the screen
+  that would notice first if that stopped being true.
+- **Two existing test doubles needed teaching about the new request**, which is the rule about
+  lying doubles arriving on schedule: `ProjectPage` renders the panel, so its double now
+  answers `/forecasts` separately rather than handing it a project. The catalogue-contract
+  test needed the two new codes, and the constraint-contract test was missing `max` from step
+  5 — it does not fail when a code is left out, which is worth knowing about a list that calls
+  itself the contract.
+
 ---
 
-## Step 7 — Close out
+## Step 7 — Close out ✅ *done*
 
 - `roadmap.md`: mark M3a done, split the M3 section into M3a and M3b, and retire the "M3 is
   oversized" thin spot by having actually split it. Record what M3b inherits, including the two
@@ -768,6 +804,32 @@ from the catalogue, which the test setup already enforces.
   step is a note wherever M3a departed from its own bullets, because **M3b's first test replays
   an M3a run and asserts byte-identical output** — so anything this milestone did differently
   from what is written above is something that test is silently pinning.
+
+### As built — where it differs from the above
+
+- **The seed had one more thing wrong with it, found while closing out rather than while
+  building.** Step 6's own record says the seed became a string; the annotation that makes it
+  one was never applied, and the test written to prove it passed anyway.
+  `jsonPath("$.seed").value(String.valueOf(…))` re-reads the document as the *expected* type,
+  so it matches a JSON number as happily as a string — an assertion that could not fail,
+  guarding the field whose entire purpose is to be checkable. `isString()` is what pins it, and
+  the frontend had been typed `seed: string` against a server that was sending a number the
+  whole time. Worth carrying forward: a test that asserts a *wire format* has to assert the
+  type, because the matcher will coerce away the thing being tested.
+- **`m3b-plan.md` got more than the note this step asked for.** The bullet above says to record
+  where M3a departed from its own bullets; what is actually useful to the person starting M3b
+  is the *list* of things the equivalence test holds — the generator, the order draws are taken
+  in, the conditional draw's zero, the transitive closure, the histogram's `List`. Four of the
+  five are invisible in the assertion that pins them, which is what makes them worth naming
+  where somebody will read them.
+- **The two limitation codes became M3b's definition of done**, in `roadmap.md` and in
+  `m3b-plan.md` both. "The model is better" has no finish line; "`no_team_factor` and
+  `no_scope_uncertainty` stop being emitted" has one, and it is checkable from outside.
+- **`product-concept.md`'s fitting section gained a reason it never had.** It listed
+  log-normal and PERT-beta as two candidates and recommended one; what settles it is not fit
+  quality but that PERT-beta needs a *bounded maximum*, which is the one number nobody knows.
+  Asking for it invents the tail and deriving it invents the tail silently — that is the
+  argument, and it was only ever implied.
 
 ---
 

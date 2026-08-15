@@ -29,6 +29,8 @@ const BACKEND_CODES = [
   'dependency_already_exists',
   'dependency_cycle',
   'dependency_not_found',
+  'nothing_to_forecast',
+  'forecast_not_found',
   'already_a_member',
   'invitation_already_pending',
   'invitation_not_found',
@@ -171,6 +173,7 @@ describe('describeFieldErrors', () => {
       { code: 'pattern' },
       { code: 'positive' },
       { code: 'positive_or_zero' },
+      { code: 'max', value: 100000 },
       { code: 'digits', integer: 10, fraction: 2 },
       { code: 'invalid' }
     ];

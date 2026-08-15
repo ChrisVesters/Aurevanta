@@ -1,17 +1,20 @@
 # Aurevanta — Concepts and Planned Features
 
-> **Status: design intent, and now partly built.** As of 2026-08-14 the schema this
-> document implies exists: M0–M1a built tenancy, identity and teams, and **M2 built the
-> estimation schema** — projects, work items, immutable P10/P50/P90 estimates with an
-> estimator, progress and actuals, and a precedence graph, with the plainest possible UI to
-> fill them. `roadmap.md` sequences the rest and is newer than this document wherever the
-> two disagree.
+> **Status: design intent, and now partly built.** As of 2026-08-15 the schema this
+> document implies exists and something reads it: M0–M1a built tenancy, identity and teams,
+> **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
+> with an estimator, progress and actuals, and a precedence graph, with the plainest possible
+> UI to fill them — and **M3a built the engine**. `roadmap.md` sequences the rest and is newer
+> than this document wherever the two disagree.
 >
-> **Everything downstream of the schema is still design intent**, which is most of what
-> follows: there is no distribution fitting, no sampling, no forecast of any kind. The
-> product's own argument applies to itself here — what exists today is a table of numbers,
-> and M3 is what makes it worth having. Two of the *Open questions* at the end were
-> answered by M2 and are marked as such; the rest stand.
+> **The core principle below is no longer only an argument.** Ranges are fitted to log-normals,
+> sampled ten thousand times, scheduled over the precedence graph at a stated capacity, and
+> read off as a band; every run is stored with its seed so it can be replayed exactly. What is
+> not built is the part that makes the band wide enough to believe: **there is no shared team
+> factor and no scope uncertainty**, which is M3b, and every forecast says so on screen rather
+> than leaving it to this document. Tier 2 and everything after it is still design intent. Two
+> of the *Open questions* at the end were answered by M2 and are marked as such; the rest
+> stand.
 
 ## Purpose
 
@@ -34,15 +37,23 @@ a spreadsheet and add up incorrectly.
 
 ### Distribution fitting
 
-Two candidate approaches:
+**Decided and built: log-normal, fitted from P10 and P90, with the stated P50 kept as a
+*signal* and never as an input.** Durations are positive and right-skewed, so this matches
+reality, and it does not pretend a worst case exists.
 
-- **Log-normal** (preferred default) — a two-parameter fit from P10 and P90, treating P50
-  as a consistency check. Durations are positive and right-skewed, so this matches
-  reality, and it does not pretend a worst case exists.
-- **PERT-beta** — honours all three supplied points, but requires a bounded maximum.
+**What decides it is the bounded maximum, not the fit quality.** PERT-beta honours all three
+points a person typed, which sounds strictly better — but it needs a maximum, and the number
+somebody would put there is the one thing nobody knows. Asking for it invents the tail; deriving
+it from the P90 invents it silently. A distribution that cannot represent "it could always be
+worse" is the wrong shape for the thing being modelled, whatever it does with the three points
+it was given.
 
-Recommendation: log-normal, with the P50 discrepancy surfaced to the user as a signal
-that their three points are mutually inconsistent.
+**The P50 is therefore evidence rather than a parameter.** A fit from two points reports the
+ratio of the stated middle to the implied one: 1.0 is agreement, and the further either way, the
+harder the three points are arguing with each other. That is a fact about the *estimate*, and it
+is surfaced — a forecast whose items disagree with themselves reports `inconsistent_estimates`
+beside the band. Pointing at *which* estimate is M5's, because it is elicitation feedback and
+belongs where the question is asked.
 
 ## Planned features
 

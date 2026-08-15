@@ -15,6 +15,7 @@ import type { Invitation, InvitationPreview, Member } from '../members/types';
 import type {
   Dependency,
   Estimate,
+  Forecast,
   Project,
   WorkItem
 } from '../projects/types';
@@ -210,6 +211,34 @@ export const DEPENDENCIES: Dependency[] = [
     createdAt: '2026-08-13T13:00:00Z'
   }
 ];
+
+/**
+ * One answer the engine gave. Carries the two limitations every M3a forecast has, because
+ * a fixture without them would let a screen that quietly dropped them pass its tests.
+ */
+export const FORECAST: Forecast = {
+  id: '50505050-5050-5050-5050-505050505050',
+  projectId: PROJECTS[0].id,
+  createdAt: '2026-08-14T10:00:00Z',
+  requestedById: ACCOUNT.userId,
+  requestedByName: 'Ada',
+  capacity: 2,
+  sampleCount: 10000,
+  // A string, because a seed is sixty-four bits and a JSON number here is a double.
+  seed: '-7203484712345678901',
+  engineVersion: 1,
+  priorityRule: 'most_work_waiting',
+  itemCount: 2,
+  estimatedItemCount: 2,
+  meanHours: 31.4,
+  p10Hours: 14.2,
+  p50Hours: 29.5,
+  p80Hours: 41.8,
+  p90Hours: 52.6,
+  p95Hours: 61.9,
+  limitations: ['no_team_factor', 'no_scope_uncertainty'],
+  histogram: { fromHours: 8.1, toHours: 96.4, counts: [1, 2, 3] }
+};
 
 export const INVITATION: Invitation = {
   id: '88888888-8888-8888-8888-888888888888',

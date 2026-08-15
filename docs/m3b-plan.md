@@ -208,6 +208,36 @@ and leaves the median where it was; raising growth pushes every percentile out a
 scope and team factor converge on the same effect at capacity 1 and diverge above it (decision 6,
 asserted rather than argued).
 
+> **M3a is built, and the equivalence test now pins more than this plan knew about.**
+> "Byte-identical to M3a's" means byte-identical to what M3a *did*, not to what its bullets
+> said, and the two differ in places. **Read the `### As built` sections of `m3a-plan.md` before
+> touching anything in the sampling loop or the scheduler**, because that is where the
+> difference is recorded and nothing else states it. The ones this test is silently holding:
+>
+> - **The generator is `java.util.Random`**, chosen because its algorithms are in its contract
+>   rather than only its implementation. Swapping it for anything faster breaks equivalence by
+>   definition, and would break every stored run with it.
+> - **The order draws are taken in is part of the answer.** One generator is seeded once and
+>   consumed in run order; a team factor drawn in the wrong place — even one that is always
+>   zero — shifts every subsequent draw and the test fails for a reason that looks like
+>   nothing. Step 1's own bullets already warn about this and it is worth reading twice.
+> - **The conditional draw samples the surviving tail directly** rather than inverting a
+>   probability, and a comprehensively outrun estimate has a remainder of exactly zero — the
+>   model reporting that it has been falsified rather than forecasting. Decision 10 above
+>   multiplies *that* remainder, so a factor applied to zero stays zero; it must not reach
+>   around the conditioning to find something to multiply.
+> - **The priority key is a transitive closure computed once, before sampling**, and ties break
+>   by write order. Scope growth adds items to the graph, so it changes what that closure
+>   contains — which is a real difference in behaviour, and exactly why it must be zero-growth
+>   identical rather than approximately so.
+> - **The histogram's counts are a `List` and its bucket edges are fixed at a hundred.** A
+>   record with an array component compares identities rather than contents, which is how a
+>   byte-identical assertion passes for the wrong reason.
+>
+> **What M3b is done by** is also sharper than these bullets: M3a emits `no_team_factor` and
+> `no_scope_uncertainty` on every forecast it produces, and those two codes disappearing is the
+> finish line.
+
 ### Decision 9 — A version bump must keep the old engine inside the new one
 
 M3a stores `engine_version` on every run so that a stored forecast can be re-run and reproduce

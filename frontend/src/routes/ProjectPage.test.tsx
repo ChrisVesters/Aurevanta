@@ -21,10 +21,10 @@ describe('ProjectPage', () => {
    * Rendered through a route, since the project is named by a path parameter.
    *
    * Five URLs answered separately, because the page loads resources that fail
-   * independently: the plan itself, and — through `WorkItems` — the work inside it, what
-   * that work is estimated at, and how it is joined up. A double that answered them alike
-   * would hand the estimate list a project, and the page would crash rather than the test
-   * failing where the mistake is.
+   * independently: the plan itself, the forecasts made of it, and — through `WorkItems` —
+   * the work inside it, what that work is estimated at, and how it is joined up. A double
+   * that answered them alike would hand the estimate list a project, and the page would
+   * crash rather than the test failing where the mistake is.
    */
   async function open(project: Project | null = PROJECTS[0]) {
     storeAccessToken();
@@ -34,7 +34,8 @@ describe('ProjectPage', () => {
           ? jsonResponse(200, ACCOUNT)
           : url.endsWith('/items') ||
               url.endsWith('/estimates') ||
-              url.endsWith('/dependencies')
+              url.endsWith('/dependencies') ||
+              url.endsWith('/forecasts')
             ? jsonResponse(200, [])
             : project
               ? jsonResponse(200, project)

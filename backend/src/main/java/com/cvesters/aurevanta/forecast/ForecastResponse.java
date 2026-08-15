@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import com.cvesters.aurevanta.forecast.model.Histogram;
 
 /**
@@ -25,14 +27,18 @@ import com.cvesters.aurevanta.forecast.model.Histogram;
  *
  * @param seed with the inputs and the engine version, the whole of what makes this run
  * reproducible. Published because a forecast somebody cannot check is a forecast they
- * have to take on trust.
+ * have to take on trust — and published as a <em>string</em>, because it is sixty-four
+ * bits and a JSON number is a double in a browser. Written as a number, nearly every seed
+ * arrived at a client silently rounded, and a seed that is nearly right reproduces
+ * nothing at all: the one field that exists to make a run checkable was uncheckable.
  * @param itemCount and {@code estimatedItemCount} are coverage as it was at the moment of
  * the run, which is not necessarily as it is now.
  */
 public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID requestedById, String requestedByName,
-		int capacity, int sampleCount, long seed, int engineVersion, String priorityRule, int itemCount,
-		int estimatedItemCount, BigDecimal meanHours, BigDecimal p10Hours, BigDecimal p50Hours, BigDecimal p80Hours,
-		BigDecimal p90Hours, BigDecimal p95Hours, List<ForecastLimitation> limitations, Histogram histogram) {
+		int capacity, int sampleCount, @JsonFormat(shape = JsonFormat.Shape.STRING) long seed, int engineVersion,
+		String priorityRule, int itemCount, int estimatedItemCount, BigDecimal meanHours, BigDecimal p10Hours,
+		BigDecimal p50Hours, BigDecimal p80Hours, BigDecimal p90Hours, BigDecimal p95Hours,
+		List<ForecastLimitation> limitations, Histogram histogram) {
 
 	static ForecastResponse of(ForecastRun run, ForecastOutputs outputs) {
 		return new ForecastResponse(run.getId(), run.getProject().getId(), run.getCreatedAt(),

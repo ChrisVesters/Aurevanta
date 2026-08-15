@@ -1,10 +1,10 @@
 # Aurevanta — Feature Roadmap
 
-> **Status: proposal, as of 2026-08-06; last revised 2026-08-14.** `product-concept.md`
+> **Status: proposal, as of 2026-08-06; last revised 2026-08-15.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a and M2 exist in code, so the next thing built is the
-> engine — which is where the ordering principle below stops being advice and starts being
-> the only thing left.
+> has to be decided first*. M0, M1, M1a, M2 and **M3a** exist in code, so there is now a
+> forecast — knowingly too tight, and saying so on its own face. The next thing built is
+> **M3b**, which is what makes the band believable rather than merely honest.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -332,9 +332,14 @@ exactly the state M3 exists to end.
 
 ---
 
-## M3 — The simulation engine ⭐ *the product*
+## M3 — The simulation engine ⭐ *the product* — M3a ✅ *done*
 
 Fit → sample → aggregate. Everything else is a view over this.
+
+**M3a is built; M3b is planned and is not.** A plan with ranges in it now produces a band, and
+the two effects that band is missing are named on every forecast it produces — which is the
+shape this split was chosen to have, rather than a half-finished milestone quietly reporting a
+whole answer.
 
 `m3a-plan.md` breaks **M3a** into seven steps and answers twelve decisions, four of which this
 section did not know it was carrying: what to do when several people have estimated one item,
@@ -355,6 +360,11 @@ before the engine existed would have been guessing. The roadmap's original warni
 unchanged and now applies here: this history cannot be reconstructed later, and M10's
 sliding-date detector and the movement decomposition in the icebox both need it.
 
+> **Discharged by M3a, in the same step that first produced a forecast.** `V12__forecast_runs.sql`
+> landed with the endpoint rather than after it, so no forecast has ever been made that was not
+> kept, and the history M10 reads started accumulating on its first day. A run is written once
+> and never updated, like an estimate.
+
 > **Split, as this note asked, and both halves are planned.** `m3a-plan.md` is **M3a** —
 > fitting, sampling, the graph scheduler with one global capacity, forecast-run persistence and
 > the plainest way to ask for a forecast. `m3b-plan.md` is **M3b** — the shared team factor and
@@ -372,12 +382,17 @@ sliding-date detector and the movement decomposition in the icebox both need it.
 > equivalence with M3a once its two parameters are zero. So M3a is proved whole, M3b is proved
 > in parts, and M3a goes first because it is what the parts are measured against.
 
+**M3a — built:**
+
 - **Distribution fitting** — log-normal from P10 and P90, with P50 as a consistency check.
   Surface the discrepancy when the three points are mutually inconsistent rather than
   silently picking one.
 - **Monte Carlo rollup** — sample per item, then **schedule the graph** to get a project
   completion per run. Not a sum: a sum is the special case where every item is one long
   chain. See "the aggregator is a scheduler" below.
+
+**M3b — planned, not built:**
+
 - **Shared team factor** — one factor sampled per run and applied across all items.
   Without it, good and bad luck cancel out and the band comes out implausibly tight.
 - **Scope uncertainty** — a distribution over *how much unknown work appears*, sampled and
@@ -394,7 +409,63 @@ sliding-date detector and the movement decomposition in the icebox both need it.
 **Engineering notes.** Pure functions over primitives, no persistence — the most testable
 code in the system, so property-based tests belong here. Decide early whether runs are
 synchronous (simple, fine for hundreds of items) or queued (needed at thousands). Seed the
-RNG so a forecast is reproducible and testable.
+RNG so a forecast is reproducible and testable. *All three are settled by M3a: `forecast.model`
+is pure and holds no Spring, runs are synchronous by decision 8 against a measured budget, and
+the seed is stored on the row so a run can be replayed.*
+
+### As built — M3a
+
+Two packages — `forecast.model`, which is pure, and `forecast`, which is a feature like every
+other — one migration, three endpoints and a panel below the work on the plan screen. The twelve
+decisions in `m3a-plan.md` all survived the build; four steps of arithmetic were checked against
+sums that exist outside this codebase before anything was persisted, which is the whole defence
+against the failure mode this milestone actually has.
+
+- **The oracle agreed to five thousandths of a percent.** Forty tight tasks come out at
+  **811.08** sampled, **811.12** from the closed form computed inside the test, and **811.1**
+  from the measurement taken in the table below before any of this code existed. Three routes to
+  one number, sharing no line of code. That is the answer to "how do we know the simulator is
+  right", and it is worth more than every other test in the milestone put together.
+- **The synchronous answer has a lot of room.** Five hundred items at ten thousand runs takes
+  about **300ms** against the two seconds decision 8 allowed, so queueing stays an unused lever
+  and parallelising runs is not needed. The assertion is left at two seconds: what it guards is
+  the order of magnitude, and a tight wall-clock assertion only fails on a busy machine.
+- **`java.util.Random`, deliberately.** It is the only generator in the JDK whose algorithms are
+  in its *contract* rather than only its implementation. A stored seed that replays differently
+  after a JDK upgrade would be worse than a version bump, because nothing would have changed
+  version.
+- **A fifth limitation code appeared during the build** — `dependencies_on_archived_work`. M2
+  lets an arrow point at work since archived, a forecast loads only what is live, and such an
+  edge cannot be honoured. Dropping it silently was the one option not on the table.
+- **A latent bug in the whole backend suite surfaced here**: every test class wiped `users`
+  before `tenants`, which was only safe while nothing tenant-owned pointed at a person. That
+  stopped being true in M2 and it kept working by luck of test ordering. Fixed in all eighteen
+  classes.
+
+**What M3b inherits.**
+
+- **Two limitation codes it exists to delete.** Every forecast M3a produces reports
+  `no_team_factor` and `no_scope_uncertainty` on screen beside the band. M3b is done when those
+  two codes stop being emitted, which is a sharper finish line than "the model is better".
+- **The equivalence test.** M3b's first test replays an M3a run with both new parameters at zero
+  and asserts byte-identical output. That test silently pins **everything M3a did differently
+  from its own bullets**, so `m3a-plan.md`'s per-step *As built* sections are its specification
+  as much as its history — the truncated in-progress draw, the ordering of the priority key, the
+  histogram's bucket edges, and the generator itself.
+- **`Engine.VERSION` and the snapshot format.** A run stores its inputs, its seed and its engine
+  version; M3b changes the model, so it bumps the version, and old runs keep replaying to the
+  numbers they were published with.
+
+**What M4 inherits.** Nothing in M3a knows what a date is: the engine, the table, the API and
+the panel are all in hours of effort, and the working-day assumption M4 needs has deliberately
+not been invented anywhere it could be inherited by accident. M4 is the first place it gets
+made, and the note in that section — keep it crude and **visible** — is the whole of what M3a
+was protecting.
+
+**What M6 inherits.** A run stores its seed, its inputs and its engine version, so per-item
+contribution can be obtained by **replaying** a run rather than by storing a sampled vector per
+item per run. `Forecast` already carries a standard deviation, which step 4 added because the
+oracle was only half checkable without it.
 
 ### The aggregator is a scheduler, not a sum
 
@@ -490,6 +561,14 @@ which is the honest trade rather than a capitulation.
 crude and **visible**, and replace it in M11 when real capacity arrives. An assumption
 users cannot see is one they will mistake for a result.
 
+**M3a kept this out on purpose, so M4 is where it enters.** The engine, `forecast_runs`, the
+API and the forecast panel are in hours of effort throughout, and there is no working day
+implied anywhere for M4 to inherit unexamined — which is the point: an assumption made in
+passing by the milestone below is exactly the one nobody can see. It is also a *stated input*
+like capacity, not a constant: decision 6 in `m3a-plan.md` refused to default the capacity
+because "every default is a hidden claim", and a working day is the same claim about the same
+team.
+
 ---
 
 ## M5 — Elicitation that produces honest ranges
@@ -522,6 +601,15 @@ contributes a great deal. Contribution has to be measured against *project compl
 correlate each item's sampled duration with the project outcome across runs, rather than
 computing it from variances in isolation. That is more work than the original description
 implies, and it is also strictly more useful.
+
+**It can be had by replaying, and does not need new columns.** M3a stores a run's inputs, its
+seed and its engine version precisely so a run can be reproduced exactly; correlating each
+item's sampled duration against the project outcome therefore means re-running a stored
+forecast, not storing a duration vector per item per run — which at 500 items and 10,000 runs
+would be five million numbers a table would have to carry for every button press. A replay costs
+about 300ms. What M6 must not do is change the model without bumping `Engine.VERSION`, since a
+replay that no longer reproduces its own stored percentiles is what the persistence test in
+`ForecastApiTests` exists to catch.
 
 ---
 
@@ -946,13 +1034,19 @@ M1a earned its place in that sequence only because it was cheap *then*: a small 
 becomes a link-breaking one the moment M2 puts a slug in a URL. It was never more important
 than the engine — nothing is — it was just perishable, and it is now spent.
 
-**M1, M1a and M2 are all done, so what is left of that sequence is M3a and nothing else** —
-now planned in `m3a-plan.md`.
-There is now a schema with plans, work, ranges, progress and a graph in it, and nothing that
-reads any of it — which is the exact state the ordering principle was written to get to
-quickly and then leave. The temptation from here is no longer CRUD screens; it is the
-*plan-entry UI that already exists and looks bad*. It is meant to. M5 replaces what it asks,
-and the interface rework is recorded under *Future*; neither is the engine.
+**M1, M1a, M2 and M3a are all done, so that sequence is spent.** Something now reads the schema:
+a plan with ranges in it produces a band, with its assumptions and its five missing pieces
+printed beside the number. **What is next is M3b**, already planned in `m3b-plan.md` — the
+shared team factor and scope uncertainty, which are the two of those five that are a model
+rather than a disclosure, and which the band is measurably too tight without (209.4 against
+222.2 at the P90, in the table under M3).
+
+The temptation from here is no longer CRUD screens; it is the *plan-entry UI that already
+exists and looks bad*. It is meant to. M5 replaces what it asks, and the interface rework is
+recorded under *Future*; neither is the engine. The second temptation is now M4, because a date
+is what people actually ask for and the conversion looks like arithmetic — but it imports a
+working-day assumption, and M3b is the milestone that makes the number being converted
+believable in the first place.
 
 ### Was blocked on a decision — settled, and then built
 
@@ -973,8 +1067,10 @@ All seven are now in the schema.
 
 Honest about where this plan is weakest, rather than discovering it mid-build:
 
-- ~~**M3 is oversized**~~ *Split into M3a and M3b by `m3a-plan.md`*, along the line described at
-  the top of M3: M3a is the half a closed form can verify.
+- ~~**M3 is oversized**~~ *Split into M3a and M3b by `m3a-plan.md`, and M3a is now built* —
+  which is what retires this rather than the split itself. The line held under construction:
+  M3a is the half a closed form can verify, and it was verified against one to five thousandths
+  of a percent before anything downstream of it existed.
 - ~~**Scope uncertainty has no agreed position in a graph**~~ *Answered in `m3b-plan.md`
   decision 3*: new work attaches as a successor to a uniformly chosen existing item. Appending
   at the end, loading the critical path and inflating durations were each rejected with a

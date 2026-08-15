@@ -93,3 +93,66 @@ export type Estimate = {
   p90Hours: number;
   createdAt: string;
 };
+
+/**
+ * What a forecast did not do, and every one of them carries at least two.
+ *
+ * **These are not a footnote.** M3a samples every item independently and forecasts only
+ * the work somebody wrote down, and both of those make the band narrower than the truth —
+ * so a number shown without them is the thing this product exists to replace. They are
+ * printed beside the answer rather than behind a link, and M3b removes the first two by
+ * building what they name.
+ */
+export type ForecastLimitation =
+  | 'no_team_factor'
+  | 'no_scope_uncertainty'
+  | 'unestimated_items'
+  | 'inconsistent_estimates'
+  | 'dependencies_on_archived_work';
+
+/** The shape of one forecast, coarse enough to draw and small enough to keep. */
+export type Histogram = {
+  fromHours: number;
+  toHours: number;
+  counts: number[];
+};
+
+/**
+ * One answer the engine gave, on one day, from one set of assumptions.
+ *
+ * **Hours of effort, never dates.** Turning one into the other needs an assumption about
+ * what a working day is worth, and M4 is where that gets made somewhere a person can see
+ * it. Anything here that reads like a date is the moment somebody pressed the button.
+ *
+ * Nothing changes a run and nothing deletes one, so this list only ever grows: the
+ * question worth asking of a forecast is usually how it compares with the last one.
+ */
+export type Forecast = {
+  id: string;
+  projectId: string;
+  createdAt: string;
+  requestedById: string;
+  requestedByName: string;
+  /** How many items the engine was told could be under way at once. */
+  capacity: number;
+  sampleCount: number;
+  /**
+   * A string rather than a number, and deliberately: it is sixty-four bits, and a JSON
+   * number is a double here, so as a number it would arrive rounded to something that
+   * reproduces nothing.
+   */
+  seed: string;
+  engineVersion: number;
+  priorityRule: string;
+  /** Coverage as it was when the run happened, which need not be as it is now. */
+  itemCount: number;
+  estimatedItemCount: number;
+  meanHours: number;
+  p10Hours: number;
+  p50Hours: number;
+  p80Hours: number;
+  p90Hours: number;
+  p95Hours: number;
+  limitations: ForecastLimitation[];
+  histogram: Histogram;
+};

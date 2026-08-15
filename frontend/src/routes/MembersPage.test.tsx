@@ -199,9 +199,7 @@ describe('MembersPage', () => {
       screen.getByRole('button', { name: 'Send invitation' })
     );
 
-    expect(
-      await screen.findByText('Choose one of the options.')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('This is required.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 

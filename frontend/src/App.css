@@ -1005,3 +1005,82 @@ button.danger {
     opacity: 0.75;
   }
 }
+
+/*
+  The forecast, under the work it is a question about. Deliberately plain: M3a's output is
+  an honest number rather than a good-looking one, and styling this before M5 fixes what
+  the estimate form asks would only make the answer look more considered than its inputs.
+*/
+.forecast {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.forecast form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The answer, and the only line on this screen anybody will read out loud. */
+.forecast > .band {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.forecast > .coverage,
+.forecast > .assumptions {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.forecast .percentiles {
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: left;
+}
+
+.forecast .percentiles th,
+.forecast .percentiles td {
+  padding: 4px 16px 4px 0;
+  font-weight: 400;
+}
+
+.forecast .percentiles th {
+  color: var(--muted);
+}
+
+/*
+  Beside the number rather than behind a disclosure, and styled as prose rather than as a
+  warning: these are not errors, they are what the model does not do — and a band read
+  without them is narrower than the truth.
+*/
+.forecast .limitations h3,
+.forecast .earlier h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.forecast .limitations ul,
+.forecast .earlier ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.forecast .limitations li,
+.forecast .earlier li {
+  margin-bottom: 4px;
+}
+
+.forecast .advanced > summary {
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--muted);
+}
