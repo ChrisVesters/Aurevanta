@@ -767,6 +767,15 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
   tool, and willing to trust that they can leave.
 - **Plan templates** — project shapes a team repeats, with their historical actuals
   attached as a starting reference class.
+- **Grouping, filtering and search inside a plan** — the plan screen renders every live item
+  in one flat table ordered by name, and 500 items per project is the *stated* ceiling, so at
+  its own declared scale the screen is unusable by construction. The cheap version needs no
+  schema and is view-only: search, filter by status or by estimator, collapse what is not
+  being discussed. The expensive version is a parent/child hierarchy, and it is expensive for
+  a reason M2 already gave when it fixed the unit of estimation at *task* — a parent carrying
+  its own estimate double-counts the scope of its children, which is the objection that ruled
+  epics out as the unit in the first place. **Tags are the middle answer**: grouping without a
+  rollup, so nothing acquires an estimate that is not a task's.
 
 ### Getting forecasts out
 
@@ -822,6 +831,28 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
   pairing with M10's probabilistic critical path.
 - **Confidence dial** — drag from 50% to 95% and watch the date move. Makes the
   confidence-versus-date trade tangible instead of abstract.
+- **Distribution curves — one per estimate, and one for the whole simulation.** The
+  percentile table states five numbers; the shape says why the mean sits above the middle and
+  why the right tail is the part worth managing, which is M10's argument arriving early and
+  cheaply. **The plan's curve needs no new data at all**: every run already stores a
+  hundred-bucket histogram in `forecast_runs.outputs`, both read endpoints already send it,
+  and `ForecastPanel` draws none of it — `m3a-plan.md` step 6 records that payload arriving
+  unused and says this screen is what would notice first. **A task's curve needs a decision,
+  and M3a already took the same one once**: the browser must not fit the distribution, because
+  two rules that can disagree about one estimate is what `PasswordRules` exists to prevent, so
+  the fit is *published* — `mu` and `sigma`, or points to plot — rather than re-derived from
+  P10 and P90 inside a chart component. **And a task two people estimated is a mixture rather
+  than a curve.** M3a decision 3 samples one estimator per run, so the honest picture is
+  bimodal — which is the strongest reason to draw it at all, since a shape says "these two do
+  not agree" in a way two rows of a table do not, and smoothing them into one hump would be
+  the averaging that decision refuses, arriving through the presentation layer. Two things it
+  must not do: interpolate the histogram into a precision the ranges never had, and let the
+  limitations slide from beside the number into a footnote under a picture — `no_team_factor`
+  means whatever curve is drawn is narrower than the truth. It would also be the *first* chart
+  in the product, which is what *Reworking the interface* is about when it says that work
+  belongs before M10 spends effort on charts; and the accessibility bar is much harder to hold
+  in a drawing than in a form, so the percentile table stays as the text equivalent rather
+  than being replaced by one.
 
 ### Speculative, flagged as such
 
@@ -850,11 +881,12 @@ later.
 
 ### Account security
 
-Neither of these is estimation work, so neither competes for a milestone number. They are
-here rather than in the icebox because both are changes to *identity*, which is the one part
+None of these is estimation work, so none competes for a milestone number. They are here
+rather than in the icebox because all three are changes to *identity*, which is the one part
 of this product already built: they land on M0/M1 code rather than waiting on a schema that
-does not exist yet. They are written together because they touch the same credential, and
-one of them cannot honestly be built before the other.
+does not exist yet. The first two are written together because they touch the same
+credential, and one of them cannot honestly be built before the other; the third widens what
+a credential is allowed to be.
 
 - **Two-factor authentication.** TOTP first — an authenticator app needs no delivery
   infrastructure, where SMS needs a provider and is the weakest factor on offer anyway. Three
@@ -880,11 +912,95 @@ one of them cannot honestly be built before the other.
   which the existing split already accommodates: endpoints guard on `SCOPE_TENANT` rather than
   on the absence of `SCOPE_IDENTITY`, so a new kind reaches nothing until it is granted
   something deliberately.
+- **A credential a machine can hold.** Every credential this product issues names a person and
+  expires within twelve hours, so anything automated has to sign in *as* somebody, holding
+  their password to do it. That is fine while nothing is automated, and the icebox is already
+  full of things that are: an issue-tracker import is inbound and carries the *other* system's
+  credential, but CI marking work finished, and a bot recording actuals for M8 to score, are
+  both pushing in. **The reason it sits beside the two above rather than in the icebox is that
+  it is the same argument reaching a third place**: a token that does not expire is exactly the
+  window Security debt finding 1 is about, opened deliberately this time, so it needs the same
+  server-side withdrawal that finding 1's fix introduces — plus a scope narrower than a
+  person's, and a row somebody can see and revoke on the members screen. Built as "remember me
+  for robots", it is finding 1 with a feature name on it.
 
 **Ordering, if both are picked up:** finding 1, then longer sessions, which is that fix
 turned into a feature. Two-factor authentication is independent of both and can go at any
 time — though it is worth noting that the account it protects can still be held for twelve
 hours by anybody who obtained a token before the factor was added.
+
+### Progress is written over, and the record is what M8 reads
+
+**Perishable, in the same way `forecast_runs` was.** M2 handed M3 one obligation in as many
+words — persist every run from the first commit rather than once the engine works, because
+that history cannot be reconstructed later. Progress is the same shape of thing with no such
+obligation attached: `WorkItem.recordProgress` writes `status`, `started_on`, `completed_on`
+and `actual_effort_hours` straight over whatever was there, `work_items` carries no
+`updated_at`, and nothing anywhere records *who* reported it. Every week this ships as it
+stands is a week of progress history that cannot be backfilled, which is what puts it here
+rather than in the icebox.
+
+**It is the third kind of evidence and the only one that is not evidence.** An estimate is
+immutable and names an estimator. A forecast run is immutable and names a requester. A
+progress report — which M8 and M10 both read — is neither, and the asymmetry is not a
+decision anybody took: `m2-plan.md` argues at length for the other two and this simply never
+came up.
+
+**The concrete cost is M8's own exclusion rule.** M8 refuses to score an estimate written
+after the work began, comparing `estimates.created_at` against `started_on` — and `started_on`
+can be moved afterwards by anybody, leaving no trace that it ever said something else. The hit
+rate is the one number in this product whose entire value is that it is unflattering, and as
+built it can be flattered by editing the date it is measured against. M10 wants the other
+half: its movement decomposition carries a "−1 progress" term it can currently only *infer*
+by diffing two forecast snapshots, rather than reading what somebody reported and when.
+
+**The shape, when it happens**, is an append-only log beside the current columns rather than
+instead of them — the item keeps its latest state for the screen and the scheduler, and the
+log holds who said what, when. That is the estimates pattern exactly, and it is the reason an
+estimate costs nothing to reason about.
+
+### Which forecast runs are history
+
+**Every forecast is written down, and that is right up until something starts asking in
+bulk.** `forecast_runs` has no update and no delete because the point of the table is that
+somebody asked twice; M10's sliding-date detector walks successive runs and its movement
+decomposition diffs two of them. Both readers assume every row is a person deliberately
+re-forecasting the same plan.
+
+**M7 breaks that assumption and M11 breaks it harder.** Inverse queries rank candidate scope
+cuts by re-running the schedule without each one, and "what if we hire someone?" sweeps a
+capacity — dozens of runs to answer one question. Landing those in the same table gives the
+detector a history that is mostly hypotheticals, and gives the diff two runs that were never
+about the same plan.
+
+**So the question is what a run is *for*, and it is cheap to answer now and awkward
+afterwards.** Either a scenario is never persisted — the engine is pure and a run costs about
+300ms, so nothing forces a row — or the table gains a kind and every reader of history filters
+on it. What must not happen is the third outcome, where scenarios are stored because storing
+was the code path that already existed, and the detector degrades with nobody able to say from
+which release.
+
+### Deleting a person
+
+**Nothing here deletes an account, and that is a decision this product has not taken yet.**
+Removing somebody deletes their membership and never their identity — M1 was explicit — and
+`estimates.estimator_user_id` and `forecast_runs.requested_by_user_id` point at `users` with
+no cascade on purpose, because calibration evidence has to outlive somebody leaving. All of
+that is right, and what follows from it is that an erasure request has no answer in this
+product. The first one will arrive with a deadline attached, which is the argument for
+settling it while nobody is waiting.
+
+**The two honest answers do not convert into each other, so the choice is real.**
+*Pseudonymise* — clear the address, the display name and the credential, keep the row and
+everything pointing at it — leaves M8's history intact for every colleague who did not leave,
+and keeps a forecast attributable to *someone*. *Delete* takes their estimates with it and
+silently rewrites the calibration record of people who never asked for anything. The first is
+what the immutability discipline in this schema already implies; the second is what somebody
+reaches for under a deadline, because it is what "delete my account" sounds like it means.
+
+**Adjacent and much easier: exporting what this product holds about one person**, which is
+the request that usually arrives first. Every row involved is reachable from one `users` id,
+so it needs no decision — only a screen and an endpoint.
 
 ### Generalising the unit of estimation
 
@@ -971,7 +1087,12 @@ Threaded through the above rather than scheduled as a block.
   file *once* the backend sends codes instead of prose (M1).
 - **Accessibility** — the auth forms set this bar; keep it as charts arrive, where it is
   much harder. A confidence cone needs a non-visual equivalent.
-- **Operations** — CI, container build, migration strategy, health and metrics.
+- **Operations** — CI, container build, migration strategy, health and metrics. **Plus a
+  per-tenant limit on concurrent forecasts**, which `m3a-plan.md` names as the thing that
+  actually bounds what one member can make this server do: `Engine.MAX_SAMPLE_COUNT` is a
+  bound on absurdity rather than a promise of speed, and the simulation runs *inside* the
+  request's transaction, so a few large forecasts at once occupy database connections as well
+  as processors.
 - **API documentation** — OpenAPI, once the domain endpoints exist and are stable.
 
 ### Security debt
