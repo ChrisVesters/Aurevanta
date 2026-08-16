@@ -77,13 +77,15 @@ public final class Engine {
 	 * @param edges what has to finish before what, by position in {@code items}
 	 * @param capacity how many items may be under way at once. There is no default
 	 * anywhere: it moves the answer by more than half, so somebody has to say it.
+	 * @param teamFactor the common cause every item in a run shares, or
+	 * {@link TeamFactor#NONE} for the independence this product does not believe in
 	 * @param sampleCount how many runs to simulate
 	 * @param seed stored with the run, and the whole of what makes one reproducible
 	 * @throws IllegalArgumentException if the sample count is not a number of runs this
 	 * engine will do, or if the plan cannot be scheduled
 	 */
-	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, int sampleCount,
-			long seed) {
+	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
+			int sampleCount, long seed) {
 		if (sampleCount < 1 || sampleCount > MAX_SAMPLE_COUNT) {
 			throw new IllegalArgumentException(
 					"A forecast runs between 1 and " + MAX_SAMPLE_COUNT + " times, not " + sampleCount);
@@ -103,8 +105,15 @@ public final class Engine {
 		double[] finishes = new double[sampleCount];
 		double[] durations = new double[plan.length];
 		for (int run = 0; run < sampleCount; run++) {
+			// Once, out here, and applied to everything: a stretch drawn per item
+			// would average itself away and leave the band exactly where
+			// independence left it. It multiplies what each item has *left*, which
+			// is what `sample` returns — hours already spent are measured rather
+			// than modelled, and a bad quarter that has not happened yet cannot
+			// reach back and make them longer.
+			double stretch = teamFactor.sample(random);
 			for (int at = 0; at < plan.length; at++) {
-				durations[at] = plan[at].sample(random);
+				durations[at] = stretch * plan[at].sample(random);
 			}
 			finishes[run] = schedule.finish(durations);
 		}

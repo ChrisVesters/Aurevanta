@@ -27,6 +27,7 @@ import com.cvesters.aurevanta.estimate.EstimateRepository;
 import com.cvesters.aurevanta.forecast.model.Engine;
 import com.cvesters.aurevanta.forecast.model.Forecast;
 import com.cvesters.aurevanta.forecast.model.Schedule;
+import com.cvesters.aurevanta.forecast.model.TeamFactor;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemRepository;
 import com.cvesters.aurevanta.item.WorkItemStatus;
@@ -179,7 +180,7 @@ class ForecastApiTests {
 		ForecastRun run = forecast("{\"capacity\":2}");
 		ForecastInputs inputs = this.forecasts.inputsOf(run);
 
-		Forecast replayed = Engine.run(inputs.toModels(), inputs.toPrecedences(), run.getCapacity(),
+		Forecast replayed = Engine.run(inputs.toModels(), inputs.toPrecedences(), run.getCapacity(), TeamFactor.NONE,
 				run.getSampleCount(), run.getSeed());
 
 		// To the hundredth of an hour its columns keep, which is thirty-six seconds.

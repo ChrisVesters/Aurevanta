@@ -25,7 +25,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | The team factor | M3a |
+| 1 | The team factor ✅ *done* | M3a |
 | 2 | Scope growth | M3a |
 | 3 | Both at once, and the engine version | 1, 2 |
 | 4 | Stating the assumptions, and storing them | 3 |
@@ -202,6 +202,8 @@ and should have, is that M3b has oracles of its own — they are just narrower.*
 - **The published figure.** `roadmap.md` measured ten wide tasks (2–30d) at a true P90 of 209.4
   independent and 222.2 with the shared factor. That is a number produced outside this codebase,
   which makes it the most valuable kind of test there is — reproduce the setup and converge to it.
+  *(It does not say what factor produced 222.2, so the setup is one fact short of reproducible;
+  step 1's `### As built` records recovering it as a P90 of 1.30 — a 30% stretch.)*
 
 Plus the properties that have no closed form but do have a direction: raising `s` widens the band
 and leaves the median where it was; raising growth pushes every percentile out and never in;
@@ -273,7 +275,7 @@ carries the bad quarter only across what it has left.
 
 ---
 
-## Step 1 — The team factor
+## Step 1 — The team factor ✅ *done*
 
 **Goal.** Good and bad luck stop cancelling.
 
@@ -298,6 +300,59 @@ A zero factor consumes no randomness: the same seed produces the same sequence a
 
 **Done when** the band widens for a reason, by an amount somebody measured before this code
 existed.
+
+### As built — where it differs from the above
+
+- **The stretch this milestone was measured at is 30%, and nobody had written that down.**
+  `roadmap.md` reports 209.4 → 222.2 on ten wide tasks without saying what factor produced it,
+  so the figure was not reproducible as stated — it is a target with a free parameter in it.
+  Solving for the parameter gives `s = 0.205`, which is a P90 of **1.30**, and 30% is exactly
+  the worked example decision 2 already uses. Both halves of that table are now a single test
+  from one plan and one seed: **209.4 and 222.2 reproduce to within a percent.** The number
+  was recovered rather than chosen, but it *was* recovered, and the next reader should know
+  that the plan's third oracle needed one more fact than the plan carried.
+- **`TeamFactor` holds a `LogNormalFit` and refuses one whose `mu` is not zero**, where the
+  bullets imply a bare `s`. Two reasons, and the refusal is the interesting one. Holding the
+  fit means a stretch is drawn by `LogNormalFit.at` — the same method an estimate is drawn
+  through, so the two cannot drift about what a log-normal is. And decision 1 says a mean-1
+  factor would move every forecast's centre *quietly*; a type that cannot hold a non-zero
+  middle turns the quietest failure in the milestone into a loud one. It is the precedent
+  `LogNormalFit.from`'s own refusals set in M3a step 1: unreachable through the API, coverable
+  by a test, and cheaper than a `NaN` surfacing four steps downstream.
+- **The middle is written as zero rather than read back from the fit.** `from` fits
+  `1/worst` against `worst` — a reciprocal pair, which is what makes the median 1 and is why
+  this is `LogNormalFit` with one end fixed rather than a second piece of machinery. But
+  `Math.log(1.0 / worst)` is only the negation of `Math.log(worst)` to within a rounding, so
+  the fit's `mu` comes back at about 1e-17 rather than at zero. Near enough for any number a
+  person sees, and not near enough for a constructor that refuses anything but zero — so the
+  `sigma` is taken from the fit and the `mu` is stated.
+- **The degenerate-equivalence test is here, as the sequencing section asked, and it is a
+  golden-number test rather than a comparison against a second engine.** M3a's `Engine` is not
+  a thing that still exists to be called, so what is asserted is the seven numbers it produced
+  — captured from the M3a build before this step changed a line — against what the same plan
+  and seed produce now with `TeamFactor.NONE`. Exact equality, not tolerance. The plan for it
+  is deliberately awkward (work under way with hours against it, work nobody estimated, a fork
+  and a lag), so the golden numbers pass through every branch of the sampler on the way out.
+  Step 3's version of this, against a run stored in the database, is the same assertion one
+  layer up and both are worth having.
+- **A mirror sits beside every "no draw is taken" test**, because each of them would pass just
+  as well if `sample` did nothing at all or if the parameter were ignored: a factor that
+  stretches must advance the generator, and must move the P90 off its golden value. That is
+  two assertions to make one meaningful, and it is the same shape as `DependencyGraphLockTests`
+  needing its second case.
+- **`Engine.run` takes the factor as a parameter and `ForecastService` passes `NONE`.** Nothing
+  can ask for a stretch yet — that is step 4 — so `Engine.VERSION` stays at 1 and every run
+  stored by this step is still, truthfully, a version 1 run. The bump belongs where the two
+  effects compose, not where the first one becomes possible.
+- **The factor multiplies durations and not lags**, which no bullet says either way. A lag is a
+  wait rather than work; a short-staffed quarter does not make a fortnight's curing take three
+  weeks. It follows from decision 1 saying "duration", and it is worth stating because the one
+  line that applies the factor sits close enough to the scheduler to make the other reading
+  look like an oversight.
+- **`ItemModelTests` needed nothing.** Decision 10 asks the factor to multiply the remainder
+  rather than the estimate, and multiplying what `ItemModel.sample` already returns *is* that —
+  so the decision cost no code and got a test anyway: an estimate comprehensively outrun has a
+  remainder of exactly zero, and a 200% stretch still finds nothing in it to multiply.
 
 ---
 
