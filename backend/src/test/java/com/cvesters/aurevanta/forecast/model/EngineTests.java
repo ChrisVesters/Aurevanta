@@ -2,6 +2,7 @@ package com.cvesters.aurevanta.forecast.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Tag;
@@ -174,18 +175,20 @@ class EngineTests {
 	}
 
 	/**
-	 * <strong>The most valuable test in M3b, and it belongs here in its first step rather
-	 * than in its last.</strong> These are the numbers this engine produced before there
-	 * was a team factor in it, recorded from the M3a build. A factor of none must not
-	 * change any of them — not approximately, exactly — because a version 1 run is
-	 * nothing more than a version 2 run with its two parameters zeroed, and every stored
-	 * forecast's claim to be replayable rests on that being true.
+	 * <strong>What {@link Engine#VERSION} being 2 rather than 3 actually
+	 * promises.</strong> These are the numbers this engine produced when it was version
+	 * 1, recorded from the M3a build before a line of M3b was written. Version 2 with
+	 * both of its parameters at none must reproduce every one of them — not
+	 * approximately, exactly — because that is the whole of what "the new engine contains
+	 * the old one" means, and every version 1 run in the database is replayable only
+	 * while it holds.
 	 *
 	 * <p>
 	 * It costs one assertion and turns the whole of {@code m3a}'s suite into a regression
-	 * suite for {@code m3b}. What it actually guards is the order draws are taken in: a
-	 * factor that consumed the generator even while returning 1 would shift every
-	 * subsequent number, and nothing else here would report it.
+	 * suite for {@code m3b}, which is why it was written in step 1 rather than waiting
+	 * for the version bump here. What it actually guards is the order draws are taken in:
+	 * a parameter that consumed the generator even while changing no number would shift
+	 * every subsequent draw, and nothing else here would report it.
 	 *
 	 * <p>
 	 * The plan below is deliberately awkward — work under way with hours against it, work
@@ -193,7 +196,7 @@ class EngineTests {
 	 * branch of the sampler on their way out.
 	 */
 	@Test
-	void aFactorOfNoneForecastsExactlyWhatThisEngineForecastBeforeItHadOne() {
+	void versionTwoWithNoAssumptionsForecastsExactlyWhatVersionOneDid() {
 		Forecast forecast = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.NONE, ScopeGrowth.NONE,
 				Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
@@ -209,15 +212,115 @@ class EngineTests {
 	}
 
 	/**
-	 * The mirror, so the golden numbers above are evidence that a factor of none is free
-	 * rather than evidence that the parameter is ignored.
+	 * The mirror, so the golden numbers above are evidence that no assumption is free
+	 * rather than evidence that the parameters are ignored. Either one alone moves the
+	 * answer off the number version 1 gave.
 	 */
 	@Test
-	void aFactorThatStretchesForecastsSomethingElseEntirely() {
+	void eitherAssumptionOnItsOwnForecastsSomethingElseEntirely() {
 		Forecast stretched = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.from(30.0), ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast grown = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.NONE, ScopeGrowth.from(20.0, 60.0),
 				Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(stretched.p90Hours()).isNotEqualTo(62.84338970329079);
+		assertThat(grown.p90Hours()).isNotEqualTo(62.84338970329079);
+	}
+
+	/**
+	 * <strong>The invariant every reproducibility claim in this engine rests on, and the
+	 * one a careless refactor breaks in silence.</strong> Draws are taken in one order —
+	 * the shared stretch, then how much work this run discovers, then each discovered
+	 * piece and where it landed, then the plan itself — and a parameter set to none is
+	 * skipped entirely rather than drawn and ignored. Move any of that and every stored
+	 * forecast becomes unreplayable while every number still looks perfectly reasonable.
+	 *
+	 * <p>
+	 * So this takes one run of a two-item plan and works out what it must come to,
+	 * drawing from a generator of its own in the order above. It is checked for all four
+	 * combinations of the two parameters, which is what makes it a test of the
+	 * <em>order</em> rather than of the arithmetic: the same sequence has to hold
+	 * whichever of them is doing nothing.
+	 *
+	 * <p>
+	 * It asks {@link TeamFactor} and {@link ScopeGrowth} for their own draws rather than
+	 * imitating them, so what is pinned here is the engine's ordering and nothing else —
+	 * how many draws each of those takes is their business, and their own tests say so.
+	 */
+	@Test
+	void theGeneratorIsConsumedInOneOrderWhicheverAssumptionsAreNone() {
+		List<ItemModel> plan = List.of(item(List.of(LogNormalFit.from(8.0, 40.0), LogNormalFit.from(12.0, 30.0))),
+				item(List.of(LogNormalFit.from(2.0, 30.0))));
+
+		assertDrawnInOrder(plan, TeamFactor.NONE, ScopeGrowth.NONE);
+		assertDrawnInOrder(plan, TeamFactor.from(30.0), ScopeGrowth.NONE);
+		assertDrawnInOrder(plan, TeamFactor.NONE, ScopeGrowth.from(50.0, 50.0));
+		assertDrawnInOrder(plan, TeamFactor.from(30.0), ScopeGrowth.from(50.0, 50.0));
+	}
+
+	/**
+	 * One run of a plan with nothing joined up, at capacity one, so the answer is the sum
+	 * of every duration drawn and the schedule adds nothing of its own to be wrong about.
+	 *
+	 * <p>
+	 * Summed in the order the scheduler starts things — the plan first, then what was
+	 * discovered — so that the comparison can be exact rather than merely close: floating
+	 * point addition does not care what the numbers are but does care what order they
+	 * arrive in.
+	 */
+	private static void assertDrawnInOrder(List<ItemModel> plan, TeamFactor factor, ScopeGrowth growth) {
+		Random oracle = new Random(SEED);
+		double stretch = factor.sample(oracle);
+		int found = growth.sample(plan.size(), oracle);
+		double[] discovered = new double[found];
+		for (int at = 0; at < found; at++) {
+			// Every item in this plan carries an estimate, so the reference class is the
+			// plan itself.
+			ItemModel like = plan.get(oracle.nextInt(plan.size()));
+			discovered[at] = stretch
+					* like.estimates().get(oracle.nextInt(like.estimates().size())).at(oracle.nextGaussian());
+			oracle.nextInt(plan.size());
+		}
+		double total = 0.0;
+		for (ItemModel item : plan) {
+			total += stretch * item.estimates().get(oracle.nextInt(item.estimates().size())).at(oracle.nextGaussian());
+		}
+		for (double duration : discovered) {
+			total += duration;
+		}
+
+		assertThat(Engine.run(plan, List.of(), 1, factor, growth, 1, SEED).meanHours()).isEqualTo(total);
+	}
+
+	/**
+	 * <strong>Two effects, and the band is wider for both of them than for
+	 * either.</strong> Nothing here has a closed form — that is what makes M3b a
+	 * milestone of its own — but the direction is not in any doubt, and a composition
+	 * that let one effect swallow the other would show up here and nowhere else.
+	 */
+	@Test
+	void bothAssumptionsTogetherWidenTheBandFurtherThanEitherAlone() {
+		List<ItemModel> plan = plainPlan(20, 8.0, 40.0);
+		List<Precedence> links = chainsOfFive(20);
+		TeamFactor stretch = TeamFactor.from(30.0);
+		ScopeGrowth growth = ScopeGrowth.from(20.0, 60.0);
+
+		Forecast neither = Engine.run(plan, links, 4, TeamFactor.NONE, ScopeGrowth.NONE, MEASURED, SEED);
+		Forecast stretchedOnly = Engine.run(plan, links, 4, stretch, ScopeGrowth.NONE, MEASURED, SEED);
+		Forecast grownOnly = Engine.run(plan, links, 4, TeamFactor.NONE, growth, MEASURED, SEED);
+		Forecast both = Engine.run(plan, links, 4, stretch, growth, MEASURED, SEED);
+
+		assertThat(band(stretchedOnly)).isGreaterThan(band(neither));
+		assertThat(band(grownOnly)).isGreaterThan(band(neither));
+		assertThat(band(both)).isGreaterThan(band(stretchedOnly)).isGreaterThan(band(grownOnly));
+		assertThat(both.p90Hours()).isGreaterThan(stretchedOnly.p90Hours()).isGreaterThan(grownOnly.p90Hours());
+	}
+
+	/**
+	 * How far apart the ends of a forecast are, which is the thing M3b exists to widen.
+	 */
+	private static double band(Forecast forecast) {
+		return forecast.p90Hours() - forecast.p10Hours();
 	}
 
 	/**

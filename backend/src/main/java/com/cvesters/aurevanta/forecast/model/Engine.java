@@ -44,10 +44,26 @@ public final class Engine {
 	 * <p>
 	 * A forecast can be replayed from its seed only if the engine that made it still
 	 * behaves the same way, so a run that does not say which engine made it is a run
-	 * nothing can check. M3b is the first bump, and it keeps this version reachable by
-	 * making it the special case where its two parameters are zero.
+	 * nothing can check.
+	 *
+	 * <p>
+	 * <strong>Version 2 contains version 1 rather than replacing it.</strong> M3a is this
+	 * engine with {@link TeamFactor#NONE} and {@link ScopeGrowth#NONE} — not
+	 * approximately but draw for draw, because a parameter that changes no number also
+	 * takes no draw from the generator. So replaying a version 1 run means running
+	 * version 2 with the parameters version 1 implied, and there is no second code path
+	 * to be kept in step with this one.
+	 *
+	 * <p>
+	 * <strong>The rule that buys, for whoever bumps this next.</strong> Either the new
+	 * engine contains the old one as a setting of its parameters, or every run made
+	 * before the bump becomes a record that can be read and never replayed. A change that
+	 * cannot be reduced to a parameter — a different fit, a different scheduler — does
+	 * not get to pretend otherwise: it bumps this, old runs become read-only history, and
+	 * M10 has to be told, because comparing runs across an incomparable bump is how a
+	 * tool reports a date sliding when nothing moved.
 	 */
-	public static final int VERSION = 1;
+	public static final int VERSION = 2;
 
 	/**
 	 * Sampling error at ten thousand runs is about ±0.77%, against 2% to 5% for the

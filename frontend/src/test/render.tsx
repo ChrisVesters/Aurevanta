@@ -226,7 +226,9 @@ export const FORECAST: Forecast = {
   sampleCount: 10000,
   // A string, because a seed is sixty-four bits and a JSON number here is a double.
   seed: '-7203484712345678901',
-  engineVersion: 1,
+  // Version 2 models the shared team factor and scope growth; a run made without either
+  // still says so through the limitations below, which is what M3b step 4 deletes.
+  engineVersion: 2,
   priorityRule: 'most_work_waiting',
   itemCount: 2,
   estimatedItemCount: 2,

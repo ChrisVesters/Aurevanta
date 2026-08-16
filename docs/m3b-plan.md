@@ -27,7 +27,7 @@
 |---|---|---|
 | 1 | The team factor ✅ *done* | M3a |
 | 2 | Scope growth ✅ *done* | M3a |
-| 3 | Both at once, and the engine version | 1, 2 |
+| 3 | Both at once, and the engine version ✅ *done* | 1, 2 |
 | 4 | Stating the assumptions, and storing them | 3 |
 | 5 | Asking the two questions | 4 |
 | 6 | Close out | 1–5 |
@@ -462,7 +462,7 @@ said it had to be given.
 
 ---
 
-## Step 3 — Both at once, and the engine version
+## Step 3 — Both at once, and the engine version ✅ *done*
 
 **Goal.** One engine, one version, and every earlier forecast still reproducible.
 
@@ -480,6 +480,44 @@ and the one a careless refactor breaks silently.
 
 **Done when** the engine models what it always should have, and can still answer for what it said
 before it did.
+
+### As built — where it differs from the above
+
+- **There was nothing left to compose, and that is the report.** Steps 1 and 2 each added their
+  parameter to the one run loop rather than to a branch beside it, so this step is the version
+  bump, the tests that make it mean something, and no change to the loop at all. The plan's
+  "the degenerate path is the compatibility layer, not a branch beside it" turned out to describe
+  the way the two earlier steps had to be written, not a thing to do here.
+- **The equivalence test was written in step 1, as the sequencing section asked**, so what this
+  step added was its name: `versionTwoWithNoAssumptionsForecastsExactlyWhatVersionOneDid`. It
+  still asserts the seven numbers captured from the M3a build before a line of M3b existed, and
+  exact equality still holds now that both parameters are threaded through the loop — which is
+  the whole of what version 2 promises about version 1.
+- **The draw-order invariant is pinned by a hand-rolled oracle rather than by a property.** The
+  plan asks that the generator be consumed in a fixed order regardless of which parameters are
+  zero, and the honest way to check that is to work out what one run must come to and compare
+  exactly. One run of a two-item plan at capacity 1, drawing from a generator of its own in the
+  documented order — stretch, count, each discovered piece and where it landed, then the plan —
+  asserted for all four combinations of the two parameters being none or not. **Exact equality,
+  not a tolerance**: the durations are summed in the order the scheduler starts things, so
+  floating point has nothing to disagree about. Any extra draw, any missing one, any reordering
+  fails it immediately.
+- **That oracle asks the two parameters for their own draws rather than imitating them**, so
+  what it pins is the engine's ordering alone. How many draws a fit takes is `TeamFactor`'s and
+  `ScopeGrowth`'s business and their own tests say so; a shadow implementation here would have
+  made this test pass on a day both of them were wrong in the same way.
+- **`ForecastApiTests` needed no change and gets its cross-version test in step 4.** Every run
+  the service writes today is a version 2 run with both parameters at none, so replaying one is
+  not yet a test of anything crossing the bump. Step 4's migration is what puts a version 1 row
+  in the table with its three columns backfilled to zero, and its test list already asks for
+  exactly that. Asserting it here would have meant fabricating a version 1 row from numbers this
+  engine produced, which proves nothing the golden test does not already prove better.
+- **Runs written between this step and step 4 carry a version and no parameters**, which sounds
+  like a gap and is not: they are all zero, and step 4's backfill sets zero on every existing
+  row. The backfill is true for them for the same reason it is true for the M3a rows.
+- **The frontend's forecast fixture said version 1.** Nothing renders it, so nothing failed —
+  but a double that describes a payload the server no longer sends is the same species of
+  problem as one that answers every URL alike, and it was one line.
 
 ---
 
