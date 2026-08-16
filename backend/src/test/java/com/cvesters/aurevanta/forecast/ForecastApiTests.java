@@ -44,6 +44,8 @@ import com.cvesters.aurevanta.user.UserRepository;
 import com.cvesters.aurevanta.user.UserRole;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -67,6 +69,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ForecastApiTests {
 
 	private static final Instant CREATED_AT = Instant.parse("2026-08-14T09:00:00Z");
+
+	private static final String ASKING_FOR_TWO_THOUSAND_RUNS = """
+			{"capacity":1,"sampleCount":2000,"teamFactorWorseByPercent":0,\
+			"scopeGrowthP10Percent":0,"scopeGrowthP90Percent":0}""";
 
 	@Autowired
 	private MockMvc mvc;
@@ -158,7 +164,7 @@ class ForecastApiTests {
 			.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
 				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"capacity\":1}"))
+				.content(assuming(1, 0, 0, 0)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.projectId").value(this.acmePlan.getId().toString()))
 			.andExpect(jsonPath("$.requestedByName").value("Ada"))
@@ -178,24 +184,55 @@ class ForecastApiTests {
 	 */
 	@Test
 	void aStoredRunReplaysToTheNumbersItReported() throws Exception {
-		ForecastRun run = forecast("{\"capacity\":2}");
+		ForecastRun run = forecast(assuming(2, 30, 20, 60));
+
+		assertThat(replayOf(run)).satisfies((replayed) -> {
+			// To the hundredth of an hour its columns keep, which is thirty-six seconds.
+			assertThat(rounded(replayed.p10Hours())).isEqualByComparingTo(run.getP10Hours());
+			assertThat(rounded(replayed.p50Hours())).isEqualByComparingTo(run.getP50Hours());
+			assertThat(rounded(replayed.p80Hours())).isEqualByComparingTo(run.getP80Hours());
+			assertThat(rounded(replayed.p90Hours())).isEqualByComparingTo(run.getP90Hours());
+			assertThat(rounded(replayed.p95Hours())).isEqualByComparingTo(run.getP95Hours());
+			assertThat(rounded(replayed.meanHours())).isEqualByComparingTo(run.getMeanHours());
+		});
+	}
+
+	/**
+	 * <strong>What the version 1 rows in this table become, and why the migration could
+	 * backfill them with zeros and call it true.</strong> A run that assumed nothing
+	 * reads back as two parameters that take no draw at all, so replaying it under
+	 * version 2 is running version 1 — which is the whole of the promise
+	 * {@code Engine.VERSION} makes. Every forecast made before this milestone is one of
+	 * these.
+	 */
+	@Test
+	void aRunThatAssumedNothingReplaysTheWayVersionOneDid() throws Exception {
+		ForecastRun run = forecast(2);
+
+		assertThat(TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue())).isEqualTo(TeamFactor.NONE);
+		assertThat(ScopeGrowth.from(run.getScopeGrowthP10Percent().doubleValue(),
+				run.getScopeGrowthP90Percent().doubleValue()))
+			.isEqualTo(ScopeGrowth.NONE);
+		assertThat(rounded(replayOf(run).p90Hours())).isEqualByComparingTo(run.getP90Hours());
+	}
+
+	/**
+	 * A run replayed from what it stored about itself — the assumptions included, which
+	 * is what makes them columns rather than prose. Reading them off the run rather than
+	 * naming them here is the point: a replay that had to be told what to assume would
+	 * only prove that the test remembered.
+	 */
+	private Forecast replayOf(ForecastRun run) {
 		ForecastInputs inputs = this.forecasts.inputsOf(run);
-
-		Forecast replayed = Engine.run(inputs.toModels(), inputs.toPrecedences(), run.getCapacity(), TeamFactor.NONE,
-				ScopeGrowth.NONE, run.getSampleCount(), run.getSeed());
-
-		// To the hundredth of an hour its columns keep, which is thirty-six seconds.
-		assertThat(rounded(replayed.p10Hours())).isEqualByComparingTo(run.getP10Hours());
-		assertThat(rounded(replayed.p50Hours())).isEqualByComparingTo(run.getP50Hours());
-		assertThat(rounded(replayed.p80Hours())).isEqualByComparingTo(run.getP80Hours());
-		assertThat(rounded(replayed.p90Hours())).isEqualByComparingTo(run.getP90Hours());
-		assertThat(rounded(replayed.p95Hours())).isEqualByComparingTo(run.getP95Hours());
-		assertThat(rounded(replayed.meanHours())).isEqualByComparingTo(run.getMeanHours());
+		return Engine.run(inputs.toModels(), inputs.toPrecedences(), run.getCapacity(),
+				TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue()), ScopeGrowth
+					.from(run.getScopeGrowthP10Percent().doubleValue(), run.getScopeGrowthP90Percent().doubleValue()),
+				run.getSampleCount(), run.getSeed());
 	}
 
 	@Test
 	void theSnapshotHoldsWhatEverybodyActuallySaid() throws Exception {
-		ForecastInputs inputs = this.forecasts.inputsOf(forecast("{\"capacity\":1}"));
+		ForecastInputs inputs = this.forecasts.inputsOf(forecast(1));
 
 		assertThat(inputs.items()).hasSize(2);
 		assertThat(inputs.items().getFirst().id()).isEqualTo(this.migration.getId());
@@ -209,25 +246,25 @@ class ForecastApiTests {
 
 	@Test
 	void moreCapacityForecastsAnEarlierFinish() throws Exception {
-		ForecastRun alone = forecast("{\"capacity\":1}");
-		ForecastRun together = forecast("{\"capacity\":2}");
+		ForecastRun alone = forecast(1);
+		ForecastRun together = forecast(2);
 
 		assertThat(together.getP90Hours()).isLessThan(alone.getP90Hours());
 	}
 
 	@Test
 	void anArrowMakesThePlanTakeLonger() throws Exception {
-		ForecastRun apart = forecast("{\"capacity\":2}");
+		ForecastRun apart = forecast(2);
 		this.dependencies.save(new Dependency(this.migration, this.rollout, new BigDecimal("0.00"), CREATED_AT));
 
-		ForecastRun inOrder = forecast("{\"capacity\":2}");
+		ForecastRun inOrder = forecast(2);
 
 		assertThat(inOrder.getP90Hours()).isGreaterThan(apart.getP90Hours());
 	}
 
 	@Test
 	void theCallerMaySayHowManyRunsToDo() throws Exception {
-		assertThat(forecast("{\"capacity\":1,\"sampleCount\":2000}").getSampleCount()).isEqualTo(2000);
+		assertThat(forecast(ASKING_FOR_TWO_THOUSAND_RUNS).getSampleCount()).isEqualTo(2000);
 	}
 
 	// Coverage and limitations ------------------------------------------------
@@ -236,7 +273,7 @@ class ForecastApiTests {
 	void coverageOnTheRunMatchesWhatThePlanSaysAboutItself() throws Exception {
 		this.items.save(new WorkItem(this.acmePlan, "Nobody has costed this", null, CREATED_AT.plusSeconds(2)));
 
-		ForecastRun run = forecast("{\"capacity\":1}");
+		ForecastRun run = forecast(1);
 
 		assertThat(run.getItemCount()).isEqualTo(3);
 		assertThat(run.getEstimatedItemCount()).isEqualTo(2);
@@ -247,25 +284,46 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * <strong>Decision 12.</strong> The first two are always there, because they describe
-	 * an engine that samples every item independently and forecasts only the work
-	 * somebody wrote down — and a band reported without them is this product's own
-	 * failure mode with a chart on it.
+	 * <strong>The concrete definition of M3b being finished.</strong> Every M3a forecast
+	 * carried {@code no_team_factor} and {@code no_scope_uncertainty}, because they
+	 * described an engine that sampled every item independently and forecast only the
+	 * work somebody had written down. Both are now modelled, so a plan with nothing else
+	 * wrong with it has nothing to report — the notices went away by having their cause
+	 * removed rather than their wording.
 	 */
 	@Test
-	void everyForecastSaysWhatTheModelDidNotDo() throws Exception {
-		ForecastRun run = forecast("{\"capacity\":1}");
+	void aForecastOfAWellDescribedPlanHasNothingToConfessTo() throws Exception {
+		ForecastRun run = forecast(assuming(1, 30, 20, 60));
 
-		assertThat(this.forecasts.outputsOf(run).limitations())
-			.containsExactlyInAnyOrder(ForecastLimitation.NO_TEAM_FACTOR, ForecastLimitation.NO_SCOPE_UNCERTAINTY);
+		assertThat(this.forecasts.outputsOf(run).limitations()).isEmpty();
+	}
+
+	/**
+	 * And the two retired codes are gone whatever was assumed. A run made with both
+	 * parameters at zero models the same thing M3a did, and still does not say so this
+	 * way: what it assumed is on the run itself now, where a reader can see the number
+	 * rather than a note about its absence.
+	 */
+	@Test
+	void noForecastStillReportsTheTwoLimitationsM3bRemoved() throws Exception {
+		this.items.save(new WorkItem(this.acmePlan, "Nobody has costed this", null, CREATED_AT.plusSeconds(2)));
+
+		this.mvc
+			.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
+				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(assuming(1, 0, 0, 0)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.limitations").value(hasItem("unestimated_items")))
+			.andExpect(jsonPath("$.limitations").value(not(hasItem("no_team_factor"))))
+			.andExpect(jsonPath("$.limitations").value(not(hasItem("no_scope_uncertainty"))));
 	}
 
 	@Test
 	void aPlanWithWorkNobodyCostedSaysSo() throws Exception {
 		this.items.save(new WorkItem(this.acmePlan, "Nobody has costed this", null, CREATED_AT.plusSeconds(2)));
 
-		assertThat(this.forecasts.outputsOf(forecast("{\"capacity\":1}")).limitations())
-			.contains(ForecastLimitation.UNESTIMATED_ITEMS);
+		assertThat(this.forecasts.outputsOf(forecast(1)).limitations()).contains(ForecastLimitation.UNESTIMATED_ITEMS);
 	}
 
 	@Test
@@ -274,7 +332,7 @@ class ForecastApiTests {
 			.save(new WorkItem(this.acmePlan, "Five to forty, middle at ten", null, CREATED_AT.plusSeconds(2)));
 		estimate(odd, "5.00", "10.00", "40.00");
 
-		assertThat(this.forecasts.outputsOf(forecast("{\"capacity\":1}")).limitations())
+		assertThat(this.forecasts.outputsOf(forecast(1)).limitations())
 			.contains(ForecastLimitation.INCONSISTENT_ESTIMATES);
 	}
 
@@ -292,7 +350,7 @@ class ForecastApiTests {
 		shelved.archive(CREATED_AT);
 		this.items.save(shelved);
 
-		ForecastRun run = forecast("{\"capacity\":2}");
+		ForecastRun run = forecast(2);
 
 		assertThat(this.forecasts.outputsOf(run).limitations())
 			.contains(ForecastLimitation.DEPENDENCIES_ON_ARCHIVED_WORK);
@@ -308,7 +366,7 @@ class ForecastApiTests {
 		shelved.archive(CREATED_AT);
 		this.items.save(shelved);
 
-		ForecastRun run = forecast("{\"capacity\":2}");
+		ForecastRun run = forecast(2);
 
 		assertThat(this.forecasts.outputsOf(run).limitations())
 			.contains(ForecastLimitation.DEPENDENCIES_ON_ARCHIVED_WORK);
@@ -324,12 +382,12 @@ class ForecastApiTests {
 	 */
 	@Test
 	void workAlreadyUnderWayCarriesWhatItHasCostIntoTheSnapshot() throws Exception {
-		ForecastRun fresh = forecast("{\"capacity\":1}");
+		ForecastRun fresh = forecast(1);
 		this.migration.recordProgress(WorkItemStatus.IN_PROGRESS, LocalDate.of(2026, 8, 12), null,
 				new BigDecimal("6.00"));
 		this.items.save(this.migration);
 
-		ForecastRun started = forecast("{\"capacity\":1}");
+		ForecastRun started = forecast(1);
 
 		assertThat(this.forecasts.inputsOf(started).items().getFirst().spentHours()).isEqualByComparingTo("6.00");
 		assertThat(this.forecasts.inputsOf(started).items().getFirst().status()).isEqualTo(WorkItemStatus.IN_PROGRESS);
@@ -346,17 +404,112 @@ class ForecastApiTests {
 			.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
 				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"capacity\":1}"))
+				.content(assuming(1, 0, 0, 0)))
 			.andExpect(status().isUnprocessableEntity())
 			.andExpect(jsonPath("$.code").value("nothing_to_forecast"));
 
 		assertThat(this.runs.findAll()).isEmpty();
 	}
 
+	/**
+	 * <strong>Three different numbers on purpose.</strong> Two of these columns would
+	 * look perfectly well stored if the service handed them over in the wrong order, and
+	 * nothing else in the suite would notice — so no two of them are the same here, in
+	 * the request, on the row, or in the response.
+	 */
+	@Test
+	void aRunStoresAndReportsTheAssumptionsItWasMadeUnder() throws Exception {
+		ForecastRun run = forecast(assuming(2, 30, 20, 60));
+
+		assertThat(run.getTeamFactorWorseByPercent()).isEqualByComparingTo("30.00");
+		assertThat(run.getScopeGrowthP10Percent()).isEqualByComparingTo("20.00");
+		assertThat(run.getScopeGrowthP90Percent()).isEqualByComparingTo("60.00");
+		this.mvc.perform(get("/api/forecasts/" + run.getId()).header(HttpHeaders.AUTHORIZATION, bearer(this.ada)))
+			.andExpect(jsonPath("$.teamFactorWorseByPercent").value(30.00))
+			.andExpect(jsonPath("$.scopeGrowthP10Percent").value(20.00))
+			.andExpect(jsonPath("$.scopeGrowthP90Percent").value(60.00));
+	}
+
+	/**
+	 * <strong>A run made with zeros still says so.</strong> Zero is a claim — that
+	 * nothing in this team's world has a common cause and that no unlisted work will
+	 * appear — and a stored claim reads back the same as any other.
+	 */
+	@Test
+	void aRunThatAssumedNothingSaysThatToo() throws Exception {
+		ForecastRun run = forecast(1);
+
+		assertThat(run.getTeamFactorWorseByPercent()).isEqualByComparingTo("0.00");
+		assertThat(run.getScopeGrowthP10Percent()).isEqualByComparingTo("0.00");
+		assertThat(run.getScopeGrowthP90Percent()).isEqualByComparingTo("0.00");
+	}
+
+	/** Both effects on makes a wider band than the same plan with neither. */
+	@Test
+	void assumingACommonCauseAndUnlistedWorkWidensTheBand() throws Exception {
+		ForecastRun listed = forecast(2);
+
+		ForecastRun honest = forecast(assuming(2, 30, 20, 60));
+
+		assertThat(honest.getP90Hours()).isGreaterThan(listed.getP90Hours());
+		assertThat(honest.getP90Hours().subtract(honest.getP10Hours()))
+			.isGreaterThan(listed.getP90Hours().subtract(listed.getP10Hours()));
+	}
+
+	@Test
+	void refusesAForecastThatDoesNotSayWhatItAssumes() throws Exception {
+		refused("{\"capacity\":1}", "teamFactorWorseByPercent", "not_null");
+		refused("{\"capacity\":1}", "scopeGrowthP10Percent", "not_null");
+		refused("{\"capacity\":1}", "scopeGrowthP90Percent", "not_null");
+	}
+
+	@Test
+	void refusesAnAssumptionThatCannotBeOne() throws Exception {
+		refused(assuming(1, -1, 0, 0), "teamFactorWorseByPercent", "positive_or_zero");
+		refused(assuming(1, 0, -1, 0), "scopeGrowthP10Percent", "positive_or_zero");
+		refused(assuming(1, 0, 0, -1), "scopeGrowthP90Percent", "positive_or_zero");
+	}
+
+	/**
+	 * The ceiling is where a forecast stops fitting inside the request that asked for it
+	 * — measured, not picked — and past it is a number nobody could act on anyway.
+	 */
+	@Test
+	void refusesAnAssumptionBeyondWhatIsWorthAsking() throws Exception {
+		refused(assuming(1, 201, 0, 0), "teamFactorWorseByPercent", "max");
+		refused(assuming(1, 0, 0, 201), "scopeGrowthP90Percent", "max");
+	}
+
+	/**
+	 * <strong>A fact about the pair, so it names neither box.</strong> Both numbers are
+	 * perfectly good percentages and what is wrong is the relationship between them,
+	 * which is exactly why {@code estimate_out_of_order} exists rather than a field error
+	 * — and why nothing here is swapped into the order the server would have preferred.
+	 */
+	@Test
+	void refusesAGrowthRangeTheWrongWayRound() throws Exception {
+		this.mvc
+			.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
+				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(assuming(1, 0, 60, 20)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("scope_growth_out_of_order"))
+			.andExpect(jsonPath("$.errors").doesNotExist());
+
+		assertThat(this.runs.findAll()).isEmpty();
+	}
+
+	/** A range of the same number twice is a certainty, not a mistake. */
+	@Test
+	void acceptsAGrowthRangeWithBothEndsTheSame() throws Exception {
+		assertThat(forecast(assuming(1, 0, 25, 25)).getScopeGrowthP90Percent()).isEqualByComparingTo("25.00");
+	}
+
 	@Test
 	void refusesAForecastWithNobodyToDoTheWork() throws Exception {
-		refused("{\"capacity\":0}", "capacity", "positive");
-		refused("{\"capacity\":-1}", "capacity", "positive");
+		refused(assuming(0, 0, 0, 0), "capacity", "positive");
+		refused(assuming(-1, 0, 0, 0), "capacity", "positive");
 	}
 
 	@Test
@@ -366,8 +519,8 @@ class ForecastApiTests {
 
 	@Test
 	void refusesMoreRunsThanTheEngineWillDo() throws Exception {
-		refused("{\"capacity\":1,\"sampleCount\":100001}", "sampleCount", "max");
-		refused("{\"capacity\":1,\"sampleCount\":0}", "sampleCount", "positive");
+		refused(ASKING_FOR_TWO_THOUSAND_RUNS.replace("2000", "100001"), "sampleCount", "max");
+		refused(ASKING_FOR_TWO_THOUSAND_RUNS.replace("2000", "0"), "sampleCount", "positive");
 	}
 
 	@Test
@@ -376,7 +529,7 @@ class ForecastApiTests {
 			.perform(post("/api/projects/" + this.umbrellaPlan.getId() + "/forecasts")
 				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"capacity\":1}"))
+				.content(assuming(1, 0, 0, 0)))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("project_not_found"));
 	}
@@ -387,15 +540,15 @@ class ForecastApiTests {
 		this.acmePlan.archive(CREATED_AT);
 		this.projects.save(this.acmePlan);
 
-		assertThat(forecast("{\"capacity\":1}").getP90Hours()).isPositive();
+		assertThat(forecast(1).getP90Hours()).isPositive();
 	}
 
 	// Reading them back -------------------------------------------------------
 
 	@Test
 	void listsThePlansForecastsNewestFirst() throws Exception {
-		ForecastRun first = forecast("{\"capacity\":1}");
-		ForecastRun second = forecast("{\"capacity\":2}");
+		ForecastRun first = forecast(1);
+		ForecastRun second = forecast(2);
 
 		this.mvc
 			.perform(get("/api/projects/" + this.acmePlan.getId() + "/forecasts").header(HttpHeaders.AUTHORIZATION,
@@ -408,7 +561,7 @@ class ForecastApiTests {
 
 	@Test
 	void readsOneForecastByItsIdentifier() throws Exception {
-		ForecastRun run = forecast("{\"capacity\":3}");
+		ForecastRun run = forecast(3);
 
 		this.mvc.perform(get("/api/forecasts/" + run.getId()).header(HttpHeaders.AUTHORIZATION, bearer(this.ada)))
 			.andExpect(status().isOk())
@@ -425,7 +578,7 @@ class ForecastApiTests {
 
 	@Test
 	void aForecastInAnotherOrganisationIsNotFound() throws Exception {
-		ForecastRun run = forecast("{\"capacity\":1}");
+		ForecastRun run = forecast(1);
 
 		this.mvc.perform(get("/api/forecasts/" + run.getId()).header(HttpHeaders.AUTHORIZATION, bearer(this.grace)))
 			.andExpect(status().isNotFound())
@@ -467,7 +620,7 @@ class ForecastApiTests {
 			.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + identity)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"capacity\":1}"))
+				.content(assuming(1, 0, 0, 0)))
 			.andExpect(status().isForbidden());
 	}
 
@@ -480,7 +633,7 @@ class ForecastApiTests {
 			.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
 				.header(HttpHeaders.AUTHORIZATION, stale)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"capacity\":1}"))
+				.content(assuming(1, 0, 0, 0)))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("not_a_member"));
 
@@ -488,6 +641,26 @@ class ForecastApiTests {
 	}
 
 	// Fixtures ----------------------------------------------------------------
+
+	/**
+	 * A forecast that assumes nothing beyond its capacity — no common cause and no
+	 * growth, which is what the engine did before M3b and is now something somebody has
+	 * to say.
+	 */
+	private ForecastRun forecast(int capacity) throws Exception {
+		return forecast(assuming(capacity, 0, 0, 0));
+	}
+
+	/**
+	 * The body of a request for a forecast. Three of a run's five assumptions became
+	 * required in M3b, so there is no shorter honest way to ask for one.
+	 */
+	private static String assuming(int capacity, Number worseByPercent, Number growthP10, Number growthP90) {
+		return """
+				{"capacity":%d,"teamFactorWorseByPercent":%s,\
+				"scopeGrowthP10Percent":%s,"scopeGrowthP90Percent":%s}""".formatted(capacity, worseByPercent, growthP10,
+				growthP90);
+	}
 
 	private ForecastRun forecast(String body) throws Exception {
 		String response = this.mvc

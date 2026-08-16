@@ -83,6 +83,21 @@ public class ForecastRun {
 	@Column(name = "priority_rule", nullable = false, length = 40)
 	private String priorityRule;
 
+	/**
+	 * How much longer everything takes in a bad stretch, as a percentage — the P90 of the
+	 * one multiplier every item in a run shares. Zero says the caller claimed nothing in
+	 * their world has a common cause, which is a claim rather than an absence of one.
+	 */
+	@Column(name = "team_factor_worse_by_percent", nullable = false, precision = 6, scale = 2)
+	private BigDecimal teamFactorWorseByPercent;
+
+	/** How much a plan like this usually grows, as the two ends of a range in percent. */
+	@Column(name = "scope_growth_p10_percent", nullable = false, precision = 6, scale = 2)
+	private BigDecimal scopeGrowthP10Percent;
+
+	@Column(name = "scope_growth_p90_percent", nullable = false, precision = 6, scale = 2)
+	private BigDecimal scopeGrowthP90Percent;
+
 	@Column(name = "engine_version", nullable = false)
 	private int engineVersion;
 
@@ -122,9 +137,10 @@ public class ForecastRun {
 		// for JPA
 	}
 
-	public ForecastRun(Project project, User requestedBy, int capacity, int sampleCount, long seed, int engineVersion,
-			String priorityRule, int itemCount, int estimatedItemCount, Forecast forecast, String inputs,
-			String outputs, Instant createdAt) {
+	public ForecastRun(Project project, User requestedBy, int capacity, int sampleCount,
+			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
+			long seed, int engineVersion, String priorityRule, int itemCount, int estimatedItemCount, Forecast forecast,
+			String inputs, String outputs, Instant createdAt) {
 		// Taken from the project rather than from a caller, so a run cannot be filed
 		// under
 		// one organisation and against another's plan.
@@ -133,6 +149,9 @@ public class ForecastRun {
 		this.requestedBy = requestedBy;
 		this.capacity = capacity;
 		this.sampleCount = sampleCount;
+		this.teamFactorWorseByPercent = teamFactorWorseByPercent;
+		this.scopeGrowthP10Percent = scopeGrowthP10Percent;
+		this.scopeGrowthP90Percent = scopeGrowthP90Percent;
 		this.seed = seed;
 		this.engineVersion = engineVersion;
 		this.priorityRule = priorityRule;
@@ -179,6 +198,18 @@ public class ForecastRun {
 
 	public int getCapacity() {
 		return capacity;
+	}
+
+	public BigDecimal getTeamFactorWorseByPercent() {
+		return teamFactorWorseByPercent;
+	}
+
+	public BigDecimal getScopeGrowthP10Percent() {
+		return scopeGrowthP10Percent;
+	}
+
+	public BigDecimal getScopeGrowthP90Percent() {
+		return scopeGrowthP90Percent;
 	}
 
 	public String getPriorityRule() {

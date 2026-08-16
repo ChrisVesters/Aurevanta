@@ -28,7 +28,7 @@
 | 1 | The team factor ✅ *done* | M3a |
 | 2 | Scope growth ✅ *done* | M3a |
 | 3 | Both at once, and the engine version ✅ *done* | 1, 2 |
-| 4 | Stating the assumptions, and storing them | 3 |
+| 4 | Stating the assumptions, and storing them ✅ *done* | 3 |
 | 5 | Asking the two questions | 4 |
 | 6 | Close out | 1–5 |
 
@@ -521,7 +521,7 @@ before it did.
 
 ---
 
-## Step 4 — Stating the assumptions, and storing them
+## Step 4 — Stating the assumptions, and storing them ✅ *done*
 
 **Goal.** A run says what was assumed, and a stored run keeps saying it.
 
@@ -545,6 +545,59 @@ without pointing at a box. The two retired limitation codes appear on no respons
 zeros still says so — the assumption is reported whether or not it is doing anything.
 
 **Done when** no forecast in the database is missing the account of how it was made.
+
+### As built — where it differs from the above
+
+- **The two limitation codes are retired, not deleted, and deleting them would have destroyed
+  the history this milestone is careful about everywhere else.** `ForecastOutputs` holds
+  `List<ForecastLimitation>` and every M3a run has `no_team_factor` and `no_scope_uncertainty`
+  sitting in its stored `outputs` document — so removing the constants would have made those
+  runs fail to deserialise, taking the whole forecast history with them. The plan says
+  "deleted from the engine's output", and that is exactly what happened: nothing writes them,
+  the constants stay, and their documentation says which milestone retired them. The rule that
+  made this necessary is `ForecastLimitation`'s own — limitations are stored rather than worked
+  out at read time — which was written as a precaution in M3a and became load-bearing here.
+- **The ceiling was measured rather than picked, and it is 200%.** "A sane ceiling" has two
+  possible readings and only one of them bites: every percent of scope growth is items the
+  scheduler runs. At the five hundred a plan may hold, ten thousand runs cost **413ms with no
+  growth, 655ms at 100%, 915ms at 200%, 1.9s at 500% and 3.4s at 1000%** — so 200 is the last
+  value that leaves the two-second budget `m3a-plan.md` decision 8 measured with room in it,
+  and that budget is the whole reason a forecast is answered inside its request. The team
+  factor costs one multiplication and could go further; it shares the bound for want of a
+  reason to differ.
+- **The migration adds a default and then drops it, in two statements.** The backfill has to
+  reach existing rows and must not survive as a rule for future ones: a default left in place
+  would let an insert omit an assumption and be handed one by the database, which is precisely
+  the "a server that picked would be making a claim about a team it has never met" the rest of
+  this milestone refuses. Old rows get a true zero; nothing after may leave the question
+  unanswered.
+- **`@Digits(integer = 4, fraction = 2)` alongside the bounds**, matching `numeric(6, 2)` for
+  the reason M2 put it on an estimate. Without it a team factor of `0.004` passes
+  `@PositiveOrZero`, is used by the engine, and is stored as `0.00` — leaving a run whose
+  columns describe an assumption it did not make and whose replay disagrees with its own
+  percentiles. The same bug M2 found in the same shape.
+- **The replay test now reads the assumptions off the run instead of naming them**, and the run
+  it replays is made with all three non-zero. That converts `aStoredRunReplaysToTheNumbersItReported`
+  from a test that would pass with the columns missing entirely into one that fails if they are
+  not stored, not stored correctly, or not used. Its companion asserts the version 1 case: a run
+  that assumed nothing reads back as `TeamFactor.NONE` and `ScopeGrowth.NONE`, which is what
+  makes replaying a backfilled row the same thing as running the old engine.
+- **Three different numbers in the storage test, on purpose.** Two same-typed adjacent columns
+  would look perfectly well stored if the service handed them over transposed, and nothing else
+  in the suite would notice. A `ForecastAssumptions` record was considered for the same reason
+  and turned down: it would have tidied a sixteen-parameter entity constructor without removing
+  the positional hazard, since the record would be built positionally too. The test removes it.
+- **`scope_growth_out_of_order` refuses rather than swapping the ends**, which is the tempting
+  fix. A range of 60 to 20 is a typo, and reading it as 20 to 60 would forecast against an
+  assumption nobody made while reporting it back as though they had. It is checked before
+  anything is looked up, like `estimate_out_of_order`, and it names no field.
+- **The forecast screen is broken between this step and step 5, and the frontend suite does not
+  notice.** `ForecastPanel` still sends `{capacity, sampleCount}`, so every request it makes now
+  comes back `400` with three `not_null` errors, and `useFormFailure` — which knows nothing of
+  those field names — shows the generic banner. The frontend's 332 tests stay green because they
+  mock `fetch`, which is the "138 green tests said nothing" failure `CLAUDE.md` records in
+  another form. Step 5 is what closes it, and there was no honest way to close it here: filling
+  the three fields in on the client would be the invented default decision 7 exists to refuse.
 
 ---
 

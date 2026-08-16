@@ -46,7 +46,8 @@ class ForecastController {
 	ForecastResponse create(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId,
 			@Valid @RequestBody CreateForecastRequest request) {
 		return described(this.forecasts.run(caller.userId(), caller.tenantId(), projectId, request.capacity(),
-				request.sampleCount()));
+				request.sampleCount(), request.teamFactorWorseByPercent(), request.scopeGrowthP10Percent(),
+				request.scopeGrowthP90Percent()));
 	}
 
 	/**

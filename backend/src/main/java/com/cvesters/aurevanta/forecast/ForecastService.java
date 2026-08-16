@@ -1,5 +1,6 @@
 package com.cvesters.aurevanta.forecast;
 
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ import com.cvesters.aurevanta.problem.ForecastNotFoundException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.NothingToForecastException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
+import com.cvesters.aurevanta.problem.ScopeGrowthOutOfOrderException;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.project.ProjectService;
 import com.cvesters.aurevanta.user.User;
@@ -104,12 +106,25 @@ public class ForecastService {
 	 * exists anywhere: it moves the answer by more than half, and a server that picked
 	 * would be making a claim about a team it has never met.
 	 * @param sampleCount how many runs to simulate, or null for the ordinary ten thousand
+	 * @param teamFactorWorseByPercent how much longer everything takes in a bad stretch.
+	 * Required, and zero is a claim rather than an absence of one.
+	 * @param scopeGrowthP10Percent and {@code scopeGrowthP90Percent}, the two ends of how
+	 * much a plan like this usually grows
+	 * @throws ScopeGrowthOutOfOrderException if the growth range descends
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws ProjectNotFoundException if no project in it has that identifier
 	 * @throws NothingToForecastException if no work in the plan carries an estimate
 	 */
 	@Transactional
-	public ForecastRun run(UUID callerId, UUID tenantId, UUID projectId, int capacity, Integer sampleCount) {
+	public ForecastRun run(UUID callerId, UUID tenantId, UUID projectId, int capacity, Integer sampleCount,
+			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent) {
+		// A fact about the request and nothing else, so it is answered before anything is
+		// looked up — a caller who sent a range the wrong way round learns nothing about
+		// which plans exist by being told so. The same order `estimate_out_of_order`
+		// takes.
+		if (scopeGrowthP90Percent.compareTo(scopeGrowthP10Percent) < 0) {
+			throw new ScopeGrowthOutOfOrderException();
+		}
 		User caller = this.memberships.requireMember(callerId, tenantId).getUser();
 		Project project = this.projects.get(callerId, tenantId, projectId);
 		// Archived work is not going to happen, so it is not forecast — and neither are
@@ -152,17 +167,21 @@ public class ForecastService {
 		ForecastInputs inputs = new ForecastInputs(planned, kept);
 		int runCount = (sampleCount != null) ? sampleCount : Engine.DEFAULT_SAMPLE_COUNT;
 		long seed = ThreadLocalRandom.current().nextLong();
-		// Neither assumption is being made yet, which is what NO_TEAM_FACTOR and
-		// NO_SCOPE_UNCERTAINTY below report. The engine can model both; nobody has
-		// been asked for either number, and picking one here would be a claim about
-		// a team this server has never met. M3b step 4 is where they get asked for.
-		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), capacity, TeamFactor.NONE,
-				ScopeGrowth.NONE, runCount, seed);
+		// Percentages a person typed, turned into the two distributions the engine
+		// models with. Both refuse what they cannot fit, and neither refusal is
+		// reachable from here: the validation above rules out a negative, and the
+		// check at the top rules out a range that descends.
+		TeamFactor teamFactor = TeamFactor.from(teamFactorWorseByPercent.doubleValue());
+		ScopeGrowth scopeGrowth = ScopeGrowth.from(scopeGrowthP10Percent.doubleValue(),
+				scopeGrowthP90Percent.doubleValue());
+		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), capacity, teamFactor, scopeGrowth,
+				runCount, seed);
 		ForecastOutputs outputs = new ForecastOutputs(answer.histogram(),
 				limitations(planned, kept.size() < arrows.size()));
-		return this.runs.save(new ForecastRun(project, caller, capacity, runCount, seed, Engine.VERSION,
-				Schedule.PRIORITY_RULE, work.size(), byItem.size(), answer, ForecastSnapshots.write(inputs),
-				ForecastSnapshots.write(outputs), Instant.now(this.clock)));
+		return this.runs.save(new ForecastRun(project, caller, capacity, runCount, teamFactorWorseByPercent,
+				scopeGrowthP10Percent, scopeGrowthP90Percent, seed, Engine.VERSION, Schedule.PRIORITY_RULE, work.size(),
+				byItem.size(), answer, ForecastSnapshots.write(inputs), ForecastSnapshots.write(outputs),
+				Instant.now(this.clock)));
 	}
 
 	/**
@@ -210,15 +229,20 @@ public class ForecastService {
 	 * What this forecast did not do.
 	 *
 	 * <p>
-	 * The first two are unconditional and describe the engine rather than the plan: M3a
-	 * samples every item independently and forecasts only the work somebody wrote down,
-	 * and both of those make the band narrower than the truth. They are stored rather
-	 * than worked out at read time so that a run made today still says it lacked them
-	 * after M3b has built what they name.
+	 * <strong>Two of these used to be on every run and are on none of them now.</strong>
+	 * {@code no_team_factor} and {@code no_scope_uncertainty} described the engine rather
+	 * than the plan — it sampled every item independently and forecast only the work
+	 * somebody had written down — and M3b is the milestone that removed their cause
+	 * rather than their wording. What is left describes the plan being forecast, which is
+	 * why those two could be retired and these cannot.
+	 *
+	 * <p>
+	 * A run made before that is still carrying them, which is the whole reason
+	 * limitations are stored rather than worked out at read time. They are gone from what
+	 * this writes and not from what it can read.
 	 */
 	private static List<ForecastLimitation> limitations(List<PlannedItem> planned, boolean droppedArrows) {
-		Set<ForecastLimitation> found = EnumSet.of(ForecastLimitation.NO_TEAM_FACTOR,
-				ForecastLimitation.NO_SCOPE_UNCERTAINTY);
+		Set<ForecastLimitation> found = EnumSet.noneOf(ForecastLimitation.class);
 		if (droppedArrows) {
 			found.add(ForecastLimitation.DEPENDENCIES_ON_ARCHIVED_WORK);
 		}

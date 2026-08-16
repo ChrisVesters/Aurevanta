@@ -33,9 +33,14 @@ import com.cvesters.aurevanta.forecast.model.Histogram;
  * nothing at all: the one field that exists to make a run checkable was uncheckable.
  * @param itemCount and {@code estimatedItemCount} are coverage as it was at the moment of
  * the run, which is not necessarily as it is now.
+ * @param teamFactorWorseByPercent and the two ends of {@code scopeGrowth}, sent back
+ * because what produced a number has to travel with it. They are also what tells two runs
+ * of one plan apart: a band that moved because somebody answered these differently is not
+ * a plan that slipped, and M10 compares them precisely so that it does not say otherwise.
  */
 public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID requestedById, String requestedByName,
-		int capacity, int sampleCount, @JsonFormat(shape = JsonFormat.Shape.STRING) long seed, int engineVersion,
+		int capacity, int sampleCount, BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent,
+		BigDecimal scopeGrowthP90Percent, @JsonFormat(shape = JsonFormat.Shape.STRING) long seed, int engineVersion,
 		String priorityRule, int itemCount, int estimatedItemCount, BigDecimal meanHours, BigDecimal p10Hours,
 		BigDecimal p50Hours, BigDecimal p80Hours, BigDecimal p90Hours, BigDecimal p95Hours,
 		List<ForecastLimitation> limitations, Histogram histogram) {
@@ -43,9 +48,11 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 	static ForecastResponse of(ForecastRun run, ForecastOutputs outputs) {
 		return new ForecastResponse(run.getId(), run.getProject().getId(), run.getCreatedAt(),
 				run.getRequestedBy().getId(), run.getRequestedBy().getDisplayName(), run.getCapacity(),
-				run.getSampleCount(), run.getSeed(), run.getEngineVersion(), run.getPriorityRule(), run.getItemCount(),
-				run.getEstimatedItemCount(), run.getMeanHours(), run.getP10Hours(), run.getP50Hours(),
-				run.getP80Hours(), run.getP90Hours(), run.getP95Hours(), outputs.limitations(), outputs.histogram());
+				run.getSampleCount(), run.getTeamFactorWorseByPercent(), run.getScopeGrowthP10Percent(),
+				run.getScopeGrowthP90Percent(), run.getSeed(), run.getEngineVersion(), run.getPriorityRule(),
+				run.getItemCount(), run.getEstimatedItemCount(), run.getMeanHours(), run.getP10Hours(),
+				run.getP50Hours(), run.getP80Hours(), run.getP90Hours(), run.getP95Hours(), outputs.limitations(),
+				outputs.histogram());
 	}
 
 }
