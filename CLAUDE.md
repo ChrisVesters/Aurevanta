@@ -35,6 +35,12 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
+`docs/m4-plan.md` is the next milestone and is **not built**: a confidence control resolving the
+engine's hours into a calendar date. Read its decision 2 before writing any of it — the engine's
+output already has capacity inside it, so the working day it divides by is one worker's and never
+the team's, and getting that wrong produces a date that is wrong by the capacity factor with
+nothing on screen looking amiss.
+
 **A plan is updated as its steps land, not at the end.** Mark the step `✅ *done*` on its
 heading and in the *At a glance* table, and write its `### As built — where it differs from
 the above` in the same change as the code. That section is the point of these documents:

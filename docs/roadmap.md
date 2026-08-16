@@ -616,9 +616,18 @@ and max-operations get awkward. More machinery, less flexibility.
 
 ---
 
-## M4 — A date you can commit to
+## M4 — A date you can commit to — *planned in `m4-plan.md`*
 
 Tier 1 complete. A single confidence control (50 / 80 / 95%) resolving to a calendar date.
+
+`m4-plan.md` breaks it into four steps and answers ten decisions. **The one worth knowing from
+here** is that the working day belongs to *one worker* and never to the team: the engine's output
+is a completion time with capacity already inside it, so dividing by a team's daily total counts
+capacity twice and produces a date wrong by exactly the factor a team is proudest of — with
+nothing on screen looking wrong. The plan also settles that dates are *derived* rather than
+stored, with the calendar rule named on the run the way `priority_rule` is, and that runs made
+before M4 get no date rather than a backfilled one, which is the deliberate opposite of what
+`V13` did.
 
 Nobody asks for a distribution; they ask what date to promise. This also reframes the
 negotiation: "can we go faster?" is answered with "we can commit at lower confidence,"
