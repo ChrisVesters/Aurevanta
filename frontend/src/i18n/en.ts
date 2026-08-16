@@ -232,7 +232,7 @@ export const en = {
       title: 'Forecast',
       lede: 'Simulated from the ranges on the work above. Effort in hours, not dates.',
       loading: 'Loading forecasts…',
-      none: 'No forecast yet. Say how many things can be worked on at once and ask for one.',
+      none: 'No forecast yet. Answer the four questions below and ask for one — none of them has an answer this application can give for you.',
       submit: 'Forecast this plan',
       submitting: 'Simulating…',
       more: 'Advanced',
@@ -242,6 +242,21 @@ export const en = {
           // Not pre-filled, and this hint is why: a box already answered is a box nobody
           // reads, and this is the number that moves the answer most.
           hint: 'Required. The same plan finishes in half the time with twice the people, so nobody can guess this for you.'
+        },
+        // The two hardest questions in the model, asked as percentages because nobody has
+        // an opinion about a log-standard-deviation. Neither is pre-filled, for the reason
+        // capacity is not: a box already answered is a box nobody reads, and answering
+        // these two for somebody would be claiming their last five projects went a way
+        // this application has never seen.
+        teamFactor: {
+          label: 'In a bad stretch, how much longer does everything take?',
+          hint: 'Required, as a percentage. Answer for a stretch bad enough that only one quarter in ten is worse. Zero says nothing ever goes wrong for everybody at once.'
+        },
+        scopeGrowth: {
+          legend: 'How much does a plan like this usually grow?',
+          hint: 'Required, as percentages of the work already listed. Two numbers, because the answer is a range: a usual amount and a bad one. Zero and zero says nothing will be discovered that nobody has thought of.',
+          low: 'Usually at least',
+          high: 'And as much as'
         },
         sampleCount: {
           label: 'Simulated runs',
@@ -259,16 +274,21 @@ export const en = {
         p90: 'Cautious',
         p95: 'Very cautious'
       },
+      // All five, beside the band and never behind a disclosure: a forecast whose
+      // assumptions are one click away is a forecast that gets screenshotted without them.
+      // Zeros read a little flatly here, and that is the honest reading — somebody who
+      // assumed no common cause and no unlisted work said so, and the number says they did.
       assumptions:
-        'Assuming {{capacity}} things under way at once, over {{samples}} simulated runs.',
-      // Beside the number rather than behind a link. Two of them are always present, and
-      // deleting those two is the definition of M3b being finished.
+        'Assuming {{capacity}} things under way at once, up to {{worseBy}}% longer in a bad stretch, and {{growthLow}}–{{growthHigh}}% more work than has been listed — over {{samples}} simulated runs.',
+      // Beside the number rather than behind a link. The first two below are retired:
+      // M3b models what they name, so nothing writes them any more — and the wording stays
+      // because the runs a plan made before it are still on this screen.
       limitations: {
         title: 'What this forecast does not do',
         no_team_factor:
-          'It treats every task as independent. Real projects have bad weeks where everything runs long together, so the true range is wider than this one.',
+          'It treated every task as independent. Real projects have bad weeks where everything runs long together, so the true range was wider than this one.',
         no_scope_uncertainty:
-          'It forecasts only the work already written down. Projects overrun because of work nobody listed more often than because a listed task ran long.',
+          'It forecast only the work already written down. Projects overrun because of work nobody listed more often than because a listed task ran long.',
         unestimated_items:
           'Some work in this plan carries no estimate. It kept its place in the order and counted as no effort, so the answer is short by whatever it holds.',
         inconsistent_estimates:
@@ -280,8 +300,12 @@ export const en = {
       },
       earlier: {
         title: 'Earlier forecasts',
+        // Carries its assumptions, because two runs of one plan made under different ones
+        // are not a date moving — and a list that showed only the numbers would read as
+        // though they were. That is M10's whole problem, arriving early enough to design
+        // around rather than to discover.
         entry:
-          '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, asked for by {{who}}.'
+          '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work, asked for by {{who}}.'
       }
     },
     // Shared by the form that starts a project and the form that changes one, because they
@@ -546,6 +570,11 @@ export const en = {
       // number, and what is wrong is the order they are in.
       estimate_out_of_order:
         'The three numbers must go up: P10 no more than P50, and P50 no more than P90.',
+      // Both numbers are perfectly good percentages and what is wrong is which way round
+      // they are, so this names the pair rather than picking one of the two boxes to
+      // blame — the same reason `estimate_out_of_order` is worded as it is.
+      scope_growth_out_of_order:
+        'The two growth numbers are the wrong way round: the most a plan grows cannot be less than the usual amount.',
       // Which date is missing depends on the status, so this says both rather than pointing
       // at one box and describing half of what is wrong.
       progress_date_required:

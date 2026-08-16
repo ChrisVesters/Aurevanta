@@ -213,8 +213,12 @@ export const DEPENDENCIES: Dependency[] = [
 ];
 
 /**
- * One answer the engine gave. Carries the two limitations every M3a forecast has, because
- * a fixture without them would let a screen that quietly dropped them pass its tests.
+ * One answer the engine gave, with both of M3b's assumptions answered and neither of them
+ * zero — so a screen that dropped them, or that only rendered them when they happened to
+ * be interesting, fails rather than passes.
+ *
+ * It carries a limitation for the same reason: one a plan can still earn, since the two
+ * that described the engine were retired when M3b built what they named.
  */
 export const FORECAST: Forecast = {
   id: '50505050-5050-5050-5050-505050505050',
@@ -224,6 +228,9 @@ export const FORECAST: Forecast = {
   requestedByName: 'Ada',
   capacity: 2,
   sampleCount: 10000,
+  teamFactorWorseByPercent: 30,
+  scopeGrowthP10Percent: 20,
+  scopeGrowthP90Percent: 60,
   // A string, because a seed is sixty-four bits and a JSON number here is a double.
   seed: '-7203484712345678901',
   // Version 2 models the shared team factor and scope growth; a run made without either
@@ -238,7 +245,7 @@ export const FORECAST: Forecast = {
   p80Hours: 41.8,
   p90Hours: 52.6,
   p95Hours: 61.9,
-  limitations: ['no_team_factor', 'no_scope_uncertainty'],
+  limitations: ['inconsistent_estimates'],
   histogram: { fromHours: 8.1, toHours: 96.4, counts: [1, 2, 3] }
 };
 

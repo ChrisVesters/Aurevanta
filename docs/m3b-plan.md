@@ -29,7 +29,7 @@
 | 2 | Scope growth ✅ *done* | M3a |
 | 3 | Both at once, and the engine version ✅ *done* | 1, 2 |
 | 4 | Stating the assumptions, and storing them ✅ *done* | 3 |
-| 5 | Asking the two questions | 4 |
+| 5 | Asking the two questions ✅ *done* | 4 |
 | 6 | Close out | 1–5 |
 
 Steps 1 and 2 are independent of each other and both are pure — the same seam M3a had.
@@ -601,7 +601,7 @@ zeros still says so — the assumption is reported whether or not it is doing an
 
 ---
 
-## Step 5 — Asking the two questions
+## Step 5 — Asking the two questions ✅ *done*
 
 **Goal.** Two more assumptions on screen, in language somebody can answer, next to a number they
 change.
@@ -625,6 +625,49 @@ two numbers rather than as an error. Every string comes from the catalogue.
 
 **Done when** the two hardest questions in the model are the two most visible things on the
 screen.
+
+### As built — where it differs from the above
+
+- **The rule about the disclosure turned out to be structural rather than stylistic.** The plan
+  says the two questions are required and the result's assumptions are not behind a disclosure;
+  what it does not say is that a *required* box may never go inside one. `useFormFailure` keeps
+  the banner quiet when a complaint belongs to a field the visitor can see, and a field inside a
+  collapsed `<details>` is in the DOM and invisible — so a required box in there would answer a
+  refused submission with nothing at all on screen. The sample count is the only thing left
+  behind the disclosure, and it is the only thing that has a right answer for everybody.
+- **The growth range is one `<fieldset>` with one legend and two labelled boxes.** It is one
+  question asked in two numbers, and the refusal for a range the wrong way round belongs to the
+  pair — so the legend carries the question, the labels carry only "usually at least" and "and
+  as much as", and `scope_growth_out_of_order` arrives in the banner naming both rather than
+  marking either box invalid. The same shape `estimate_out_of_order` takes on the estimate form,
+  and the test asserts that neither input is marked.
+- **The two retired limitation codes stayed in the frontend too, and for the same reason they
+  stayed in the enum.** This screen lists every forecast a plan has, not just its newest, so a
+  run made last month still arrives carrying `no_team_factor`. Dropping the wording would have
+  made the panel describe somebody's own history as "something this version cannot describe
+  yet". Their tense changed — "it treats every task as independent" became "it treated" — because
+  they now only ever describe a run that has already happened.
+- **The fixture had to stop being an M3a forecast.** `FORECAST` in `render.tsx` carried the two
+  codes every M3a run had; it now carries an assumption pair that is *not* zero and a limitation
+  a plan can still earn. A fixture whose assumptions were both zero would let a screen that
+  rendered them only when they were interesting pass, and one still carrying retired codes would
+  have been describing a payload the server cannot produce.
+- **`npm run test` passed while `npm run build` did not**, which is worth recording because it
+  is the same lesson twice in one milestone. The interpolation helper first returned
+  `Record<string, string>`, which is assignable to anything and told i18next nothing: the
+  catalogue's typed keys only bite when the object's shape is known. Vitest does not typecheck,
+  so 337 tests were green against a panel that would not compile. The type checker is the test
+  here, and it is only run by the build.
+- **The end-to-end contract was checked by name rather than by driving the app.** The field
+  names in `ASKED_FOR`, in every input's `name`, and in `CreateForecastRequest` were compared
+  directly, as were the response fields the client models against those `ForecastResponse`
+  sends. That is the mismatch neither suite can see — step 4 broke the screen with all 332 tests
+  green — and it is now matched on both sides. It is not the same as having watched the screen
+  work, and it is what was done.
+- **The panel is at 100% branch coverage and was not**, which the coverage gate caught: the
+  `aria-invalid` and field-error branches for the team factor and the low end of the growth
+  range had no test until one was written for them. Rejection branches are the point, and two of
+  four new ones were missing.
 
 ---
 

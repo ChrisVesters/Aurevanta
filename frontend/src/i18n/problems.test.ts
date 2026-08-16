@@ -21,6 +21,7 @@ const BACKEND_CODES = [
   'project_not_found',
   'work_item_not_found',
   'estimate_out_of_order',
+  'scope_growth_out_of_order',
   'progress_date_required',
   'progress_out_of_order',
   'progress_not_applicable',

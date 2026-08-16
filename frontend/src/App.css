@@ -1079,6 +1079,36 @@ button.danger {
   margin-bottom: 4px;
 }
 
+/*
+  One question with two boxes. The legend carries the question and the two labels carry
+  only the ends of the range, so the pair reads as one thing to answer rather than as two
+  unrelated numbers that happen to sit together.
+*/
+.forecast .range {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.forecast .range > legend {
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.forecast .range .pair {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.forecast .range .pair .field {
+  flex: 1 1 140px;
+}
+
 .forecast .advanced > summary {
   font-size: 14px;
   cursor: pointer;

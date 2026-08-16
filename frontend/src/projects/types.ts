@@ -95,13 +95,16 @@ export type Estimate = {
 };
 
 /**
- * What a forecast did not do, and every one of them carries at least two.
+ * What a forecast did not do.
  *
- * **These are not a footnote.** M3a samples every item independently and forecasts only
- * the work somebody wrote down, and both of those make the band narrower than the truth —
- * so a number shown without them is the thing this product exists to replace. They are
- * printed beside the answer rather than behind a link, and M3b removes the first two by
- * building what they name.
+ * **These are not a footnote.** A number shown without them is the thing this product
+ * exists to replace, so they are printed beside the answer rather than behind a link.
+ *
+ * **The first two are retired and still listed here.** M3b models a shared team factor and
+ * scope growth, so nothing writes them any more — but every forecast made before it still
+ * carries them, and this screen shows the runs a plan has accumulated rather than only its
+ * newest. Dropping them from this union would describe a run made last month as saying
+ * something this version cannot understand.
  */
 export type ForecastLimitation =
   | 'no_team_factor'
@@ -136,6 +139,17 @@ export type Forecast = {
   /** How many items the engine was told could be under way at once. */
   capacity: number;
   sampleCount: number;
+  /**
+   * How much longer everything was assumed to take in a bad stretch, as a percentage.
+   *
+   * Zero is a claim rather than a blank: that nothing in this team's world has a common
+   * cause. It travels with the answer because two runs of one plan made under different
+   * assumptions are not a plan that moved.
+   */
+  teamFactorWorseByPercent: number;
+  /** The two ends of how much more work the plan was assumed to turn out to hold. */
+  scopeGrowthP10Percent: number;
+  scopeGrowthP90Percent: number;
   /**
    * A string rather than a number, and deliberately: it is sixty-four bits, and a JSON
    * number is a double here, so as a number it would arrive rounded to something that

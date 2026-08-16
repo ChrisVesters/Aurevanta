@@ -8,7 +8,13 @@ import { describeFailure } from '../i18n/problems';
 import { numberField } from './fields';
 import type { Forecast, ForecastLimitation } from './types';
 
-const ASKED_FOR = ['capacity', 'sampleCount'];
+const ASKED_FOR = [
+  'capacity',
+  'teamFactorWorseByPercent',
+  'scopeGrowthP10Percent',
+  'scopeGrowthP90Percent',
+  'sampleCount'
+];
 
 const LIMITATIONS: ForecastLimitation[] = [
   'no_team_factor',
@@ -26,12 +32,19 @@ const LIMITATIONS: ForecastLimitation[] = [
  * being wrong: a forecast is plausible whether or not it is right, so what is on screen
  * beside the band matters as much as the band.
  *
- * **Three things are therefore never optional here.** The capacity is asked for and not
- * pre-filled, because it moves the answer by more than half and a box already filled in is
- * a box nobody reads. The coverage is stated in words, because a forecast that quietly
- * covers less than the plan is the failure this product exists to prevent. And the
- * limitations are printed next to the number rather than behind a disclosure, because a
- * number seen without its caveats is already in somebody's slide.
+ * **Three things are therefore never optional here.** The assumptions are asked for and
+ * none of them pre-filled, because they move the answer more than anything else on this
+ * screen and a box already filled in is a box nobody reads. The coverage is stated in
+ * words, because a forecast that quietly covers less than the plan is the failure this
+ * product exists to prevent. And the assumptions and limitations alike are printed next to
+ * the number rather than behind a disclosure, because a number seen without its caveats is
+ * already in somebody's slide.
+ *
+ * **Only the sample count sits behind the disclosure, and that is the test of where the
+ * line is.** It is a statement about sampling error rather than about this team, and it
+ * has a right answer for everybody who has not already decided otherwise. Nothing that is
+ * required may go in there: a required box inside a collapsed section is a refusal about a
+ * field the visitor cannot see.
  *
  * **No dates anywhere.** Hours of effort, until M4 makes a working day an assumption
  * somebody states rather than one this screen invents.
@@ -66,16 +79,17 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   }, [request, projectId, reloads, t]);
 
   const run = useCallback(
-    async (capacity: number | null, sampleCount: number | null) => {
+    async (asked: Record<string, number | null>) => {
       setBusy(true);
       asking.clear();
       try {
         await request<Forecast>(`/projects/${projectId}/forecasts`, {
           method: 'POST',
-          // Sent as null rather than left out when nobody opened the disclosure: the
+          // Every box goes as null when it is empty rather than being left out. The
           // server reads an absent sample count as "the ordinary ten thousand", and the
-          // capacity has no reading at all, which is the point of it being required.
-          body: { capacity, sampleCount }
+          // other four have no reading at all — which is the whole point of them being
+          // required, and would be quietly undone by a screen that filled one in.
+          body: asked
         });
         setReloads((count) => count + 1);
       } catch (error) {
@@ -90,8 +104,9 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     void run(
-      numberField(values, 'capacity'),
-      numberField(values, 'sampleCount')
+      Object.fromEntries(
+        ASKED_FOR.map((field) => [field, numberField(values, field)])
+      )
     );
   }
 
@@ -136,6 +151,98 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             <span className="field-error">{asking.fieldErrors.capacity}</span>
           )}
         </span>
+
+        {/*
+          The two questions M3b exists to ask, in the only form anybody can answer them:
+          a percentile of an outcome rather than a parameter of a distribution. Both are
+          required and neither is pre-filled, because zero is a claim — that nothing goes
+          wrong for everybody at once, and that nobody will discover anything — and a
+          claim has to be made rather than inherited from a box somebody left alone.
+        */}
+        <span className="field">
+          <label htmlFor="forecast-team-factor">
+            {t('projects.forecast.fields.teamFactor.label')}
+          </label>
+          <input
+            id="forecast-team-factor"
+            name="teamFactorWorseByPercent"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            max="200"
+            step="5"
+            aria-invalid={
+              asking.fieldErrors.teamFactorWorseByPercent ? true : undefined
+            }
+          />
+          <span className="hint">
+            {t('projects.forecast.fields.teamFactor.hint')}
+          </span>
+          {asking.fieldErrors.teamFactorWorseByPercent && (
+            <span className="field-error">
+              {asking.fieldErrors.teamFactorWorseByPercent}
+            </span>
+          )}
+        </span>
+
+        {/*
+          One question with two boxes, so it is one fieldset with one legend. The refusal
+          for a range the wrong way round belongs to the pair rather than to either of
+          them, and arrives in the banner above for exactly that reason.
+        */}
+        <fieldset className="range">
+          <legend>{t('projects.forecast.fields.scopeGrowth.legend')}</legend>
+          <span className="hint">
+            {t('projects.forecast.fields.scopeGrowth.hint')}
+          </span>
+          <span className="pair">
+            <span className="field">
+              <label htmlFor="forecast-growth-low">
+                {t('projects.forecast.fields.scopeGrowth.low')}
+              </label>
+              <input
+                id="forecast-growth-low"
+                name="scopeGrowthP10Percent"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max="200"
+                step="5"
+                aria-invalid={
+                  asking.fieldErrors.scopeGrowthP10Percent ? true : undefined
+                }
+              />
+              {asking.fieldErrors.scopeGrowthP10Percent && (
+                <span className="field-error">
+                  {asking.fieldErrors.scopeGrowthP10Percent}
+                </span>
+              )}
+            </span>
+
+            <span className="field">
+              <label htmlFor="forecast-growth-high">
+                {t('projects.forecast.fields.scopeGrowth.high')}
+              </label>
+              <input
+                id="forecast-growth-high"
+                name="scopeGrowthP90Percent"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max="200"
+                step="5"
+                aria-invalid={
+                  asking.fieldErrors.scopeGrowthP90Percent ? true : undefined
+                }
+              />
+              {asking.fieldErrors.scopeGrowthP90Percent && (
+                <span className="field-error">
+                  {asking.fieldErrors.scopeGrowthP90Percent}
+                </span>
+              )}
+            </span>
+          </span>
+        </fieldset>
 
         {/*
           Behind a disclosure because it is a statement about sampling error rather than
@@ -221,7 +328,8 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           <p className="assumptions">
             {t('projects.forecast.assumptions', {
               capacity: latest.capacity,
-              samples: latest.sampleCount
+              samples: latest.sampleCount,
+              ...stretchAndGrowth(latest, i18n.language)
             })}
           </p>
 
@@ -249,7 +357,8 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
                       middle: hours(run.p50Hours, i18n.language),
                       high: hours(run.p90Hours, i18n.language),
                       capacity: run.capacity,
-                      who: run.requestedByName
+                      who: run.requestedByName,
+                      ...stretchAndGrowth(run, i18n.language)
                     })}
                   </li>
                 ))}
@@ -263,6 +372,22 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
 }
 
 /**
+ * The two assumptions M3b added, as a run reports them — written once because the band and
+ * the history below it have to describe a run the same way. A reader comparing two entries
+ * is comparing exactly these numbers.
+ */
+function stretchAndGrowth(
+  run: Forecast,
+  locale: string
+): { worseBy: string; growthLow: string; growthHigh: string } {
+  return {
+    worseBy: percent(run.teamFactorWorseByPercent, locale),
+    growthLow: percent(run.scopeGrowthP10Percent, locale),
+    growthHigh: percent(run.scopeGrowthP90Percent, locale)
+  };
+}
+
+/**
  * A quantity of effort, in the reader's own locale.
  *
  * To a tenth of an hour, which is six minutes: the engine answers to the hundredth and the
@@ -270,9 +395,24 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
  * that produced it never had.
  */
 function hours(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
-    value
-  );
+  return decimal(value, locale, 1);
+}
+
+/**
+ * A percentage somebody typed, shown to the hundredth the column keeps — which is all of
+ * it. Unlike an answer, an assumption is not a quantity this application worked out, so
+ * rounding it would be showing somebody a number other than the one they gave.
+ */
+function percent(value: number, locale: string): string {
+  return decimal(value, locale, 2);
+}
+
+function decimal(
+  value: number,
+  locale: string,
+  maximumFractionDigits: number
+): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value);
 }
 
 /**
