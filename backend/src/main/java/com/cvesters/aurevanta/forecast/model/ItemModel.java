@@ -90,6 +90,39 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 	}
 
 	/**
+	 * One draw of what a piece of work like this one would cost, if nobody had started
+	 * it.
+	 *
+	 * <p>
+	 * <strong>The plan is its own reference class.</strong> Scope growth invents items
+	 * that nobody has estimated, and the honest place to get a duration for one is the
+	 * work that has been estimated: new work looks like existing work, stated as an
+	 * assumption rather than assumed silently. One of the plan's estimated items is
+	 * picked, and this is what it is asked.
+	 *
+	 * <p>
+	 * <strong>Not {@link #sample}, and the difference is progress.</strong> That method
+	 * answers what <em>this</em> item has left, so it returns nothing for finished work
+	 * and conditions on hours already spent. Work nobody has thought of has not been
+	 * started and cannot have been finished, so what is wanted here is the estimate
+	 * itself. Which is also why an item may serve as a reference for work it has long
+	 * since stopped being an estimate of.
+	 *
+	 * <p>
+	 * The estimator is still picked at random where several disagree, for the reason
+	 * {@link #sample} does it: disagreement about what this plan's work costs is
+	 * disagreement about what its unlisted work will cost too.
+	 * @throws IllegalArgumentException if nobody estimated this item, which is why the
+	 * reference class is drawn from the items that carry an estimate
+	 */
+	public double sampleAsNewWork(RandomGenerator random) {
+		if (this.estimates.isEmpty()) {
+			throw new IllegalArgumentException("Work nobody estimated says nothing about what new work costs");
+		}
+		return this.estimates.get(random.nextInt(this.estimates.size())).at(random.nextGaussian());
+	}
+
+	/**
 	 * Roughly what this item holds, for ranking it against the others and for nothing
 	 * else.
 	 *

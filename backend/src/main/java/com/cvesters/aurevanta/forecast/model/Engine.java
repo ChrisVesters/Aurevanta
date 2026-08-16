@@ -67,6 +67,9 @@ public final class Engine {
 	/** Enough to draw a curve from, and small enough to store beside the run. */
 	private static final int BUCKETS = 100;
 
+	/** What a run that discovered nothing hands the scheduler. */
+	private static final int[] NOTHING_FOUND = new int[0];
+
 	private Engine() {
 	}
 
@@ -79,13 +82,16 @@ public final class Engine {
 	 * anywhere: it moves the answer by more than half, so somebody has to say it.
 	 * @param teamFactor the common cause every item in a run shares, or
 	 * {@link TeamFactor#NONE} for the independence this product does not believe in
+	 * @param scopeGrowth how much work nobody has written down yet, or
+	 * {@link ScopeGrowth#NONE} to forecast the plan exactly as listed
 	 * @param sampleCount how many runs to simulate
 	 * @param seed stored with the run, and the whole of what makes one reproducible
 	 * @throws IllegalArgumentException if the sample count is not a number of runs this
-	 * engine will do, or if the plan cannot be scheduled
+	 * engine will do, if the plan cannot be scheduled, or if a plan expected to grow
+	 * holds no estimate for the new work to look like
 	 */
 	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
-			int sampleCount, long seed) {
+			ScopeGrowth scopeGrowth, int sampleCount, long seed) {
 		if (sampleCount < 1 || sampleCount > MAX_SAMPLE_COUNT) {
 			throw new IllegalArgumentException(
 					"A forecast runs between 1 and " + MAX_SAMPLE_COUNT + " times, not " + sampleCount);
@@ -97,6 +103,16 @@ public final class Engine {
 			typicalEffortHours[at] = plan[at].typicalEffortHours();
 			underWay[at] = plan[at].status() == WorkItemStatus.IN_PROGRESS;
 		}
+		ItemModel[] reference = referenceClass(plan);
+		if (!ScopeGrowth.NONE.equals(scopeGrowth) && reference.length == 0) {
+			// Unreachable through the API, where `nothing_to_forecast` has already
+			// refused
+			// a plan with no estimate in it — a refusal doing load-bearing work two
+			// milestones away from where it was written, and worth knowing about before
+			// somebody relaxes it. Reachable from a test, which is why it is stated.
+			throw new IllegalArgumentException(
+					"A plan expected to grow needs an estimate for the new work to resemble");
+		}
 		// Everything about the graph is worked out once: it is a property of the plan,
 		// and
 		// re-deriving it ten thousand times would let the ordering drift between runs.
@@ -104,6 +120,7 @@ public final class Engine {
 		RandomGenerator random = new Random(seed);
 		double[] finishes = new double[sampleCount];
 		double[] durations = new double[plan.length];
+		int[] parentOf = NOTHING_FOUND;
 		for (int run = 0; run < sampleCount; run++) {
 			// Once, out here, and applied to everything: a stretch drawn per item
 			// would average itself away and leave the band exactly where
@@ -112,12 +129,49 @@ public final class Engine {
 			// than modelled, and a bad quarter that has not happened yet cannot
 			// reach back and make them longer.
 			double stretch = teamFactor.sample(random);
+			int found = scopeGrowth.sample(plan.length, random);
+			if (found > parentOf.length) {
+				// Kept rather than sized per run: a later run that discovers less work
+				// reads fewer entries of the same arrays, which is what `finish` allowing
+				// a longer durations array is for.
+				parentOf = new int[found];
+				durations = Arrays.copyOf(durations, plan.length + found);
+			}
+			for (int at = 0; at < found; at++) {
+				// New work costs what this plan's work costs, and lands behind a piece of
+				// it chosen with no regard for which — a weaker claim than saying it
+				// lands
+				// on the critical path, or at the end, or nowhere.
+				durations[plan.length + at] = stretch
+						* reference[random.nextInt(reference.length)].sampleAsNewWork(random);
+				parentOf[at] = random.nextInt(plan.length);
+			}
 			for (int at = 0; at < plan.length; at++) {
 				durations[at] = stretch * plan[at].sample(random);
 			}
-			finishes[run] = schedule.finish(durations);
+			finishes[run] = schedule.finish(durations, parentOf, found);
 		}
 		return summarise(finishes);
+	}
+
+	/**
+	 * The work this plan can describe new work by: everything somebody estimated,
+	 * regardless of how far along it is.
+	 *
+	 * <p>
+	 * Finished work is included on purpose. What is wanted is an estimate of a piece of
+	 * this team's work, and an item being done says nothing about how big the next one
+	 * is.
+	 */
+	private static ItemModel[] referenceClass(ItemModel[] plan) {
+		int found = 0;
+		ItemModel[] estimated = new ItemModel[plan.length];
+		for (ItemModel item : plan) {
+			if (!item.estimates().isEmpty()) {
+				estimated[found++] = item;
+			}
+		}
+		return Arrays.copyOf(estimated, found);
 	}
 
 	private static Forecast summarise(double[] finishes) {

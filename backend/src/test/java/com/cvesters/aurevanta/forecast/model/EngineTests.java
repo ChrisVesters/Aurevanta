@@ -49,7 +49,8 @@ class EngineTests {
 		double expectedMean = fits.stream().mapToDouble(LogNormalFit::mean).sum();
 		double expectedVariance = fits.stream().mapToDouble(LogNormalFit::variance).sum();
 
-		Forecast forecast = Engine.run(chainOf(fits), chainLinks(fits.size()), 1, TeamFactor.NONE, MEASURED, SEED);
+		Forecast forecast = Engine.run(chainOf(fits), chainLinks(fits.size()), 1, TeamFactor.NONE, ScopeGrowth.NONE,
+				MEASURED, SEED);
 
 		assertThat(forecast.meanHours()).isCloseTo(expectedMean, withinPercentage(1.0));
 		assertThat(forecast.standardDeviationHours()).isCloseTo(Math.sqrt(expectedVariance), withinPercentage(2.0));
@@ -78,7 +79,8 @@ class EngineTests {
 		double mean = fits.stream().mapToDouble(LogNormalFit::mean).sum();
 		double deviation = Math.sqrt(fits.stream().mapToDouble(LogNormalFit::variance).sum());
 
-		Forecast forecast = Engine.run(chainOf(fits), chainLinks(fits.size()), 1, TeamFactor.NONE, MEASURED, SEED);
+		Forecast forecast = Engine.run(chainOf(fits), chainLinks(fits.size()), 1, TeamFactor.NONE, ScopeGrowth.NONE,
+				MEASURED, SEED);
 
 		assertThat(forecast.p90Hours()).isCloseTo(811.1, withinPercentage(1.0));
 		// And against the closed form itself, since the normal approximation is exact
@@ -99,7 +101,8 @@ class EngineTests {
 			fits.add(LogNormalFit.from(3.0, 12.0));
 		}
 
-		Forecast forecast = Engine.run(chainOf(fits), chainLinks(fits.size()), 1, TeamFactor.NONE, MEASURED, SEED);
+		Forecast forecast = Engine.run(chainOf(fits), chainLinks(fits.size()), 1, TeamFactor.NONE, ScopeGrowth.NONE,
+				MEASURED, SEED);
 
 		assertThat(forecast.p90Hours()).isLessThan(120.0).isGreaterThan(forecast.p50Hours());
 	}
@@ -107,7 +110,7 @@ class EngineTests {
 	@Test
 	void itsPercentilesAscend() {
 		Forecast forecast = Engine.run(chainOf(threeOrdinaryFits()), chainLinks(3), 1, TeamFactor.NONE,
-				Engine.DEFAULT_SAMPLE_COUNT, SEED);
+				ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(forecast.p10Hours()).isLessThan(forecast.p50Hours());
 		assertThat(forecast.p50Hours()).isLessThan(forecast.p80Hours());
@@ -122,8 +125,10 @@ class EngineTests {
 	void theSameSeedForecastsTheSamePlanIdentically() {
 		List<ItemModel> plan = chainOf(threeOrdinaryFits());
 
-		Forecast once = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
-		Forecast again = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast once = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast again = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(again).isEqualTo(once);
 	}
@@ -132,8 +137,10 @@ class EngineTests {
 	void aDifferentSeedForecastsItDifferently() {
 		List<ItemModel> plan = chainOf(threeOrdinaryFits());
 
-		Forecast once = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
-		Forecast again = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED + 1);
+		Forecast once = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast again = Engine.run(plan, chainLinks(3), 2, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED + 1);
 
 		assertThat(again).isNotEqualTo(once);
 	}
@@ -154,9 +161,11 @@ class EngineTests {
 		List<Double> ninetieths = new ArrayList<>();
 
 		for (int attempt = 0; attempt < 10; attempt++) {
-			ninetieths.add(Engine
-				.run(plan, chainLinks(fits.size()), 1, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED + attempt)
-				.p90Hours());
+			ninetieths.add(
+					Engine
+						.run(plan, chainLinks(fits.size()), 1, TeamFactor.NONE, ScopeGrowth.NONE,
+								Engine.DEFAULT_SAMPLE_COUNT, SEED + attempt)
+						.p90Hours());
 		}
 		double middle = ninetieths.stream().mapToDouble(Double::doubleValue).average().orElseThrow();
 
@@ -185,8 +194,8 @@ class EngineTests {
 	 */
 	@Test
 	void aFactorOfNoneForecastsExactlyWhatThisEngineForecastBeforeItHadOne() {
-		Forecast forecast = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT,
-				SEED);
+		Forecast forecast = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(forecast.meanHours()).isEqualTo(35.493596797692184);
 		assertThat(forecast.standardDeviationHours()).isEqualTo(23.933403116517443);
@@ -205,7 +214,7 @@ class EngineTests {
 	 */
 	@Test
 	void aFactorThatStretchesForecastsSomethingElseEntirely() {
-		Forecast stretched = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.from(30.0),
+		Forecast stretched = Engine.run(awkwardPlan(), awkwardLinks(), 2, TeamFactor.from(30.0), ScopeGrowth.NONE,
 				Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(stretched.p90Hours()).isNotEqualTo(62.84338970329079);
@@ -226,7 +235,8 @@ class EngineTests {
 		TeamFactor factor = TeamFactor.from(30.0);
 		LogNormalFit together = new LogNormalFit(fit.mu(), Math.hypot(fit.sigma(), factor.multiplier().sigma()));
 
-		Forecast forecast = Engine.run(List.of(item(List.of(fit))), List.of(), 1, factor, MEASURED, SEED);
+		Forecast forecast = Engine.run(List.of(item(List.of(fit))), List.of(), 1, factor, ScopeGrowth.NONE, MEASURED,
+				SEED);
 
 		assertThat(forecast.meanHours()).isCloseTo(together.mean(), withinPercentage(1.0));
 		assertThat(forecast.standardDeviationHours()).isCloseTo(Math.sqrt(together.variance()), withinPercentage(2.0));
@@ -253,8 +263,8 @@ class EngineTests {
 		List<ItemModel> plan = chainOf(fits);
 		List<Precedence> links = chainLinks(fits.size());
 
-		Forecast alone = Engine.run(plan, links, 1, TeamFactor.NONE, MEASURED, SEED);
-		Forecast together = Engine.run(plan, links, 1, TeamFactor.from(30.0), MEASURED, SEED);
+		Forecast alone = Engine.run(plan, links, 1, TeamFactor.NONE, ScopeGrowth.NONE, MEASURED, SEED);
+		Forecast together = Engine.run(plan, links, 1, TeamFactor.from(30.0), ScopeGrowth.NONE, MEASURED, SEED);
 
 		assertThat(alone.p90Hours()).isCloseTo(209.4, withinPercentage(1.5));
 		assertThat(together.p90Hours()).isCloseTo(222.2, withinPercentage(1.5));
@@ -275,9 +285,9 @@ class EngineTests {
 		List<ItemModel> plan = chainOf(fits);
 		List<Precedence> links = chainLinks(fits.size());
 
-		Forecast none = Engine.run(plan, links, 1, TeamFactor.NONE, MEASURED, SEED);
-		Forecast some = Engine.run(plan, links, 1, TeamFactor.from(30.0), MEASURED, SEED);
-		Forecast lots = Engine.run(plan, links, 1, TeamFactor.from(60.0), MEASURED, SEED);
+		Forecast none = Engine.run(plan, links, 1, TeamFactor.NONE, ScopeGrowth.NONE, MEASURED, SEED);
+		Forecast some = Engine.run(plan, links, 1, TeamFactor.from(30.0), ScopeGrowth.NONE, MEASURED, SEED);
+		Forecast lots = Engine.run(plan, links, 1, TeamFactor.from(60.0), ScopeGrowth.NONE, MEASURED, SEED);
 
 		assertThat(some.p90Hours()).isGreaterThan(none.p90Hours());
 		assertThat(lots.p90Hours()).isGreaterThan(some.p90Hours());
@@ -301,10 +311,130 @@ class EngineTests {
 				WorkItemStatus.IN_PROGRESS, 100.0),
 				new ItemModel(UUID.randomUUID(), threeOrdinaryFits(), WorkItemStatus.DONE, 0.0));
 
-		Forecast forecast = Engine.run(plan, List.of(), 1, TeamFactor.from(200.0), 500, SEED);
+		Forecast forecast = Engine.run(plan, List.of(), 1, TeamFactor.from(200.0), ScopeGrowth.NONE, 500, SEED);
 
 		assertThat(forecast.meanHours()).isZero();
 		assertThat(forecast.p95Hours()).isZero();
+	}
+
+	/**
+	 * <strong>The oracle for decision 4, and it is exact.</strong> One item, and a plan
+	 * certain to double in size: the run finishes at two draws from one distribution, so
+	 * its mean is twice that fit's mean and its variance twice that fit's variance — the
+	 * same closed form the whole of M3a was checked against, now checking that work
+	 * nobody had thought of costs what this plan's work costs.
+	 *
+	 * <p>
+	 * <strong>Measured at 39.918 against 39.922 exactly</strong>, and a standard
+	 * deviation of 2.219 against 2.214. A generator drawing from anything else — the mean
+	 * of the plan, a fixed size, the item it was attached to — misses both.
+	 *
+	 * <p>
+	 * It is also the plan's "a plan of one item still grows": there is nothing else in
+	 * this plan for the new work to hang off, and it grows regardless.
+	 */
+	@Test
+	void newWorkCostsWhatThisPlansWorkCosts() {
+		LogNormalFit fit = LogNormalFit.from(18.0, 22.0);
+
+		Forecast forecast = Engine.run(List.of(item(List.of(fit))), List.of(), 1, TeamFactor.NONE,
+				ScopeGrowth.from(100.0, 100.0), MEASURED, SEED);
+
+		assertThat(forecast.meanHours()).isCloseTo(2.0 * fit.mean(), withinPercentage(1.0));
+		assertThat(forecast.standardDeviationHours()).isCloseTo(Math.sqrt(2.0 * fit.variance()), withinPercentage(2.0));
+	}
+
+	/**
+	 * <strong>Decision 6, measured rather than asserted — and it does not say what the
+	 * plan said it would.</strong> Twenty items growing by a fifth, against the same
+	 * twenty items each a fifth longer: at capacity 1 the two are the same plan, to
+	 * within a tenth of a percent, exactly as the decision predicted. Above capacity 1
+	 * they part company, which is the decision's real claim and the reason the two
+	 * effects are not one effect wearing two hats.
+	 *
+	 * <p>
+	 * <strong>Which of them is worse depends on what the plan is short of, and that is
+	 * the finding.</strong> The decision expected scope to be the heavier of the two once
+	 * there was a capacity constraint. It is heavier only where capacity is plentiful and
+	 * the answer is decided by the longest path — where new work adds a step nothing was
+	 * waiting for. Where capacity binds, a multiplier is heavier, because more smaller
+	 * pieces pack into the same slots better than fewer larger ones do. Two effects with
+	 * different bottlenecks, which is a stronger argument for keeping them apart than
+	 * "one is bigger" ever was.
+	 */
+	@Test
+	void scopeAndAMultiplierMeetAtCapacityOneAndPartCompanyAboveIt() {
+		List<ItemModel> plan = plainPlan(20, 8.0, 40.0);
+		List<ItemModel> stretched = plainPlan(20, 9.6, 48.0);
+		ScopeGrowth aFifthMore = ScopeGrowth.from(20.0, 20.0);
+
+		Forecast grownAlone = Engine.run(plan, List.of(), 1, TeamFactor.NONE, aFifthMore, MEASURED, SEED);
+		Forecast stretchedAlone = Engine.run(stretched, List.of(), 1, TeamFactor.NONE, ScopeGrowth.NONE, MEASURED,
+				SEED);
+		Forecast grownInChains = Engine.run(plan, chainsOfFive(20), 4, TeamFactor.NONE, aFifthMore, MEASURED, SEED);
+		Forecast stretchedInChains = Engine.run(stretched, chainsOfFive(20), 4, TeamFactor.NONE, ScopeGrowth.NONE,
+				MEASURED, SEED);
+		Forecast grownWideOpen = Engine.run(plan, List.of(), 20, TeamFactor.NONE, aFifthMore, MEASURED, SEED);
+		Forecast stretchedWideOpen = Engine.run(stretched, List.of(), 20, TeamFactor.NONE, ScopeGrowth.NONE, MEASURED,
+				SEED);
+
+		assertThat(grownAlone.meanHours()).isCloseTo(stretchedAlone.meanHours(), withinPercentage(0.5));
+		// Four slots and five-long chains: the plan is short of capacity, and a fifth
+		// more
+		// work in smaller pieces fills it better than a fifth longer pieces do.
+		assertThat(grownInChains.meanHours()).isLessThan(stretchedInChains.meanHours() * 0.98);
+		// Room for everything at once: nothing is short of a slot, so what decides the
+		// answer is the longest path — and new work is what adds a step to one.
+		assertThat(grownWideOpen.meanHours()).isGreaterThan(stretchedWideOpen.meanHours() * 1.005);
+	}
+
+	/**
+	 * Every percentile moves out and none of them moves in — the direction that has no
+	 * closed form but is not in any doubt.
+	 */
+	@Test
+	void growingScopePushesEveryPercentileOutAndNeverIn() {
+		List<ItemModel> plan = plainPlan(20, 8.0, 40.0);
+		List<Precedence> links = chainsOfFive(20);
+
+		Forecast listed = Engine.run(plan, links, 4, TeamFactor.NONE, ScopeGrowth.NONE, MEASURED, SEED);
+		Forecast growing = Engine.run(plan, links, 4, TeamFactor.NONE, ScopeGrowth.from(20.0, 60.0), MEASURED, SEED);
+
+		assertThat(growing.p10Hours()).isGreaterThan(listed.p10Hours());
+		assertThat(growing.p50Hours()).isGreaterThan(listed.p50Hours());
+		assertThat(growing.p90Hours()).isGreaterThan(listed.p90Hours());
+		assertThat(growing.p95Hours()).isGreaterThan(listed.p95Hours());
+	}
+
+	/**
+	 * <strong>M3a's {@code nothing_to_forecast} doing load-bearing work two milestones
+	 * later.</strong> New work costs what this plan's work costs, so a plan holding no
+	 * estimate has nothing to answer with — and the refusal that already stops such a
+	 * plan reaching the engine is the reason this can never happen through the API. It is
+	 * stated here because it is exactly the kind of guarantee somebody relaxes without
+	 * knowing what else was resting on it.
+	 */
+	@Test
+	void refusesToGrowAPlanWithNothingEstimatedInIt() {
+		List<ItemModel> nothingCosted = List.of(item(List.of()), item(List.of()));
+
+		assertThatIllegalArgumentException().isThrownBy(() -> Engine.run(nothingCosted, List.of(), 1, TeamFactor.NONE,
+				ScopeGrowth.from(20.0, 60.0), Engine.DEFAULT_SAMPLE_COUNT, SEED));
+		// And forecasts it perfectly happily when nothing is expected to appear.
+		assertThat(Engine
+			.run(nothingCosted, List.of(), 1, TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED)
+			.meanHours()).isZero();
+	}
+
+	@Test
+	void theSameSeedFindsTheSameWorkTwice() {
+		List<ItemModel> plan = plainPlan(10, 8.0, 40.0);
+		ScopeGrowth growth = ScopeGrowth.from(20.0, 60.0);
+
+		Forecast once = Engine.run(plan, chainsOfFive(10), 3, TeamFactor.from(30.0), growth, 2_000, SEED);
+		Forecast again = Engine.run(plan, chainsOfFive(10), 3, TeamFactor.from(30.0), growth, 2_000, SEED);
+
+		assertThat(again).isEqualTo(once);
 	}
 
 	@Test
@@ -315,8 +445,10 @@ class EngineTests {
 		}
 		List<ItemModel> plan = chainOf(fits);
 
-		Forecast alone = Engine.run(plan, List.of(), 1, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
-		Forecast together = Engine.run(plan, List.of(), 10, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast alone = Engine.run(plan, List.of(), 1, TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT,
+				SEED);
+		Forecast together = Engine.run(plan, List.of(), 10, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(together.p90Hours()).isLessThan(alone.p90Hours() / 2.0);
 	}
@@ -324,7 +456,7 @@ class EngineTests {
 	@Test
 	void everyRunLandsInExactlyOneBucket() {
 		Forecast forecast = Engine.run(chainOf(threeOrdinaryFits()), chainLinks(3), 1, TeamFactor.NONE,
-				Engine.DEFAULT_SAMPLE_COUNT, SEED);
+				ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
 		Histogram shape = forecast.histogram();
 
 		assertThat(shape.counts()).hasSize(100);
@@ -343,7 +475,7 @@ class EngineTests {
 		List<ItemModel> plan = List.of(new ItemModel(UUID.randomUUID(), List.of(), WorkItemStatus.NOT_STARTED, 0.0),
 				new ItemModel(UUID.randomUUID(), threeOrdinaryFits(), WorkItemStatus.DONE, 0.0));
 
-		Forecast forecast = Engine.run(plan, List.of(), 1, TeamFactor.NONE, 500, SEED);
+		Forecast forecast = Engine.run(plan, List.of(), 1, TeamFactor.NONE, ScopeGrowth.NONE, 500, SEED);
 
 		assertThat(forecast.meanHours()).isZero();
 		assertThat(forecast.standardDeviationHours()).isZero();
@@ -356,9 +488,10 @@ class EngineTests {
 		List<LogNormalFit> ordinary = threeOrdinaryFits();
 		List<ItemModel> plan = List.of(item(List.of(ordinary.get(0))), item(List.of()), item(List.of(ordinary.get(1))));
 
-		Forecast apart = Engine.run(plan, List.of(), 3, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast apart = Engine.run(plan, List.of(), 3, TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT,
+				SEED);
 		Forecast inOrder = Engine.run(plan, List.of(new Precedence(0, 1, 0.0), new Precedence(1, 2, 0.0)), 3,
-				TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
+				TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(inOrder.p90Hours()).isGreaterThan(apart.p90Hours());
 	}
@@ -380,11 +513,11 @@ class EngineTests {
 		List<Precedence> inOrder = List.of(new Precedence(0, 1, 0.0));
 
 		Forecast waiting = Engine.run(List.of(item(List.of(fit)), item(List.of(fit))), inOrder, 2, TeamFactor.NONE,
-				Engine.DEFAULT_SAMPLE_COUNT, SEED);
+				ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
 		Forecast underWay = Engine.run(
 				List.of(item(List.of(fit)),
 						new ItemModel(UUID.randomUUID(), List.of(fit), WorkItemStatus.IN_PROGRESS, 6.0)),
-				inOrder, 2, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
+				inOrder, 2, TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
 
 		assertThat(underWay.meanHours()).isLessThan(waiting.meanHours());
 		// Not merely shorter: the two now overlap, so the plan costs about the longer of
@@ -394,7 +527,8 @@ class EngineTests {
 
 	@Test
 	void aSingleRunIsAForecastOfSorts() {
-		Forecast forecast = Engine.run(chainOf(threeOrdinaryFits()), chainLinks(3), 1, TeamFactor.NONE, 1, SEED);
+		Forecast forecast = Engine.run(chainOf(threeOrdinaryFits()), chainLinks(3), 1, TeamFactor.NONE,
+				ScopeGrowth.NONE, 1, SEED);
 
 		assertThat(forecast.meanHours()).isPositive();
 		assertThat(forecast.standardDeviationHours()).isZero();
@@ -405,9 +539,10 @@ class EngineTests {
 	void refusesANumberOfRunsItWillNotDo() {
 		List<ItemModel> plan = chainOf(threeOrdinaryFits());
 
-		assertThatIllegalArgumentException().isThrownBy(() -> Engine.run(plan, List.of(), 1, TeamFactor.NONE, 0, SEED));
 		assertThatIllegalArgumentException()
-			.isThrownBy(() -> Engine.run(plan, List.of(), 1, TeamFactor.NONE, Engine.MAX_SAMPLE_COUNT + 1, SEED));
+			.isThrownBy(() -> Engine.run(plan, List.of(), 1, TeamFactor.NONE, ScopeGrowth.NONE, 0, SEED));
+		assertThatIllegalArgumentException().isThrownBy(() -> Engine.run(plan, List.of(), 1, TeamFactor.NONE,
+				ScopeGrowth.NONE, Engine.MAX_SAMPLE_COUNT + 1, SEED));
 	}
 
 	@Test
@@ -416,9 +551,9 @@ class EngineTests {
 
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> Engine.run(plan, List.of(new Precedence(0, 1, 0.0), new Precedence(1, 0, 0.0)), 1,
-					TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED));
-		assertThatIllegalArgumentException()
-			.isThrownBy(() -> Engine.run(plan, List.of(), 0, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED));
+					TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED));
+		assertThatIllegalArgumentException().isThrownBy(() -> Engine.run(plan, List.of(), 0, TeamFactor.NONE,
+				ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED));
 	}
 
 	/**
@@ -453,10 +588,11 @@ class EngineTests {
 			}
 		}
 		// Warmed first, because the first call measures the JIT rather than the engine.
-		Engine.run(plan, links, 10, TeamFactor.NONE, 200, SEED);
+		Engine.run(plan, links, 10, TeamFactor.NONE, ScopeGrowth.NONE, 200, SEED);
 
 		long before = System.nanoTime();
-		Forecast forecast = Engine.run(plan, links, 10, TeamFactor.NONE, Engine.DEFAULT_SAMPLE_COUNT, SEED);
+		Forecast forecast = Engine.run(plan, links, 10, TeamFactor.NONE, ScopeGrowth.NONE, Engine.DEFAULT_SAMPLE_COUNT,
+				SEED);
 		long took = System.nanoTime() - before;
 
 		assertThat(forecast.p90Hours()).isPositive();
@@ -482,6 +618,26 @@ class EngineTests {
 
 	private static List<Precedence> awkwardLinks() {
 		return List.of(new Precedence(0, 1, 0.0), new Precedence(1, 2, 4.0), new Precedence(0, 3, 0.0));
+	}
+
+	/** One estimate each, nothing started, nothing joined up. */
+	private static List<ItemModel> plainPlan(int items, double p10, double p90) {
+		List<LogNormalFit> fits = new ArrayList<>(items);
+		for (int at = 0; at < items; at++) {
+			fits.add(LogNormalFit.from(p10, p90));
+		}
+		return chainOf(fits);
+	}
+
+	/** The shape a real plan of any size has: several short chains, side by side. */
+	private static List<Precedence> chainsOfFive(int items) {
+		List<Precedence> links = new ArrayList<>();
+		for (int at = 0; at < items; at++) {
+			if (at % 5 != 0) {
+				links.add(new Precedence(at - 1, at, 0.0));
+			}
+		}
+		return links;
 	}
 
 	private static List<LogNormalFit> threeOrdinaryFits() {

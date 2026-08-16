@@ -307,6 +307,52 @@ class ItemModelTests {
 			.isThrownBy(() -> new ItemModel(UUID.randomUUID(), null, WorkItemStatus.NOT_STARTED, 0.0));
 	}
 
+	// What this item says about work nobody has thought of yet -----------------
+
+	/**
+	 * <strong>The reference class is the estimate, not what is left of it.</strong> Work
+	 * nobody has thought of has not been started, so an item serving as the model for it
+	 * is asked what it was estimated at — never what it has left, which is what
+	 * {@link ItemModel#sample} answers and which would be zero for exactly the finished
+	 * work that makes the best reference.
+	 */
+	@Test
+	void newWorkIsDrawnFromTheEstimateRatherThanFromWhatIsLeftOfIt() {
+		LogNormalFit fit = LogNormalFit.from(8.0, 40.0);
+		ItemModel finished = item(WorkItemStatus.DONE, 0.0, fit);
+		ItemModel wellOverrun = item(WorkItemStatus.IN_PROGRESS, 200.0, fit);
+
+		assertThat(finished.sample(new Random(SEED))).isZero();
+		assertThat(mean(newWorkLike(finished))).isCloseTo(fit.mean(), withinPercentage(1.0));
+		assertThat(mean(newWorkLike(wellOverrun))).isCloseTo(fit.mean(), withinPercentage(1.0));
+	}
+
+	@Test
+	void newWorkLikeAnItemTwoPeopleEstimatedIsAMixtureOfBoth() {
+		ItemModel argued = item(WorkItemStatus.NOT_STARTED, 0.0, LogNormalFit.from(2.0, 3.0),
+				LogNormalFit.from(40.0, 60.0));
+		double[] drawn = newWorkLike(argued);
+
+		assertThat(least(drawn)).isLessThan(4.0);
+		assertThat(most(drawn)).isGreaterThan(30.0);
+	}
+
+	@Test
+	void refusesToDescribeNewWorkByWorkNobodyEstimated() {
+		ItemModel uncosted = item(WorkItemStatus.NOT_STARTED, 0.0);
+
+		assertThatIllegalArgumentException().isThrownBy(() -> uncosted.sampleAsNewWork(new Random(SEED)));
+	}
+
+	private static double[] newWorkLike(ItemModel reference) {
+		RandomGenerator random = new Random(SEED);
+		double[] values = new double[DRAWS];
+		for (int index = 0; index < values.length; index++) {
+			values[index] = reference.sampleAsNewWork(random);
+		}
+		return values;
+	}
+
 	private static ItemModel item(WorkItemStatus status, double spent, LogNormalFit... estimates) {
 		return new ItemModel(UUID.randomUUID(), List.of(estimates), status, spent);
 	}

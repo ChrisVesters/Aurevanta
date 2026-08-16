@@ -271,12 +271,103 @@ class ScheduleTests {
 		assertThatIllegalArgumentException().isThrownBy(() -> Schedule.of(List.of(), new double[3], new boolean[2], 1));
 	}
 
+	/**
+	 * <strong>Too few is refused; too many is a caller reusing its room.</strong> This
+	 * asked for exactly one duration per item until scope growth arrived, and a run that
+	 * discovers eleven pieces of work followed by one that discovers three reads fewer
+	 * entries of the same array rather than allocating a smaller one. Handing over a draw
+	 * from the wrong plan is still caught, because that draw is short.
+	 */
 	@Test
-	void refusesADrawWithTheWrongNumberOfDurations() {
+	void refusesADrawWithTooFewDurations() {
 		Schedule plan = schedule(3, 1);
 
 		assertThatIllegalArgumentException().isThrownBy(() -> plan.finish(new double[2]));
-		assertThatIllegalArgumentException().isThrownBy(() -> plan.finish(new double[4]));
+		assertThatIllegalArgumentException().isThrownBy(() -> plan.finish(new double[3], new int[] { 0 }, 1));
+	}
+
+	// Work nobody had thought of ---------------------------------------------
+
+	/**
+	 * <strong>Where it lands is the whole of decision 3, and this is that decision as
+	 * arithmetic.</strong> The same discovered four hours costs the plan four hours or
+	 * nothing at all, depending only on which piece of work it was found behind: hung off
+	 * the ten-hour task it runs from ten to fourteen, and hung off the three-hour one it
+	 * fits inside the time the plan was taking anyway.
+	 */
+	@Test
+	void discoveredWorkWaitsForWhateverItWasFoundBehind() {
+		Schedule plan = schedule(2, 10);
+		double[] durations = { 10, 3, 4 };
+
+		assertThat(plan.finish(durations, new int[] { 0 }, 1)).isCloseTo(14.0, within(EXACT));
+		assertThat(plan.finish(durations, new int[] { 1 }, 1)).isCloseTo(10.0, within(EXACT));
+		assertThat(plan.finish(durations)).isCloseTo(10.0, within(EXACT));
+	}
+
+	/**
+	 * <strong>Decision 6's mechanism, in four numbers.</strong> Two slots and three tasks
+	 * of 2, 5 and 5 hours finish at 7. Discover three hours more behind the first of them
+	 * and the plan finishes at 8 — not because the new work was on the end, but because
+	 * it took the slot the five-hour task would otherwise have had to itself. That is the
+	 * thing a multiplier on every duration cannot express, and the reason scope growth is
+	 * modelled as items rather than as a number.
+	 */
+	@Test
+	void discoveredWorkTakesASlotFromWhatWasWaitingForOne() {
+		Schedule plan = schedule(3, 2);
+		double[] durations = { 2, 5, 5, 3 };
+
+		assertThat(plan.finish(durations)).isCloseTo(7.0, within(EXACT));
+		assertThat(plan.finish(durations, new int[] { 0 }, 1)).isCloseTo(8.0, within(EXACT));
+	}
+
+	/**
+	 * Two pieces found behind one task are two ordinary pieces of work: side by side
+	 * where there is room, and one after the other where there is not.
+	 */
+	@Test
+	void twoThingsFoundBehindOneTaskQueueUpLikeAnythingElse() {
+		double[] durations = { 2, 3, 4 };
+		int[] behindTheFirst = { 0, 0 };
+
+		assertThat(schedule(1, 2).finish(durations, behindTheFirst, 2)).isCloseTo(6.0, within(EXACT));
+		assertThat(schedule(1, 1).finish(durations, behindTheFirst, 2)).isCloseTo(9.0, within(EXACT));
+	}
+
+	/**
+	 * <strong>Discovered work is picked up after everything somebody planned</strong>,
+	 * and this is the one arrangement where that is visible rather than merely true. The
+	 * parent is already under way, so it finishes at half an hour and releases five hours
+	 * of new work while the one-hour task is still waiting for the only slot. The planned
+	 * task goes first, its twenty-hour wait starts at 1.5 and the plan ends at 22.5; had
+	 * the new work jumped the queue the wait would have started at 6.5 and the answer
+	 * would be 27.5.
+	 */
+	@Test
+	void plannedWorkIsPickedUpBeforeWorkDiscoveredAMomentAgo() {
+		Schedule plan = Schedule.of(List.of(edge(1, 2, 20.0)), new double[] { 1, 1, 1 },
+				new boolean[] { true, false, false }, 1);
+
+		assertThat(plan.finish(new double[] { 0.5, 1, 1, 5 }, new int[] { 0 }, 1)).isCloseTo(22.5, within(EXACT));
+	}
+
+	/** Nothing discovered is the plan exactly as it was, which is what M3a forecast. */
+	@Test
+	void discoveringNothingIsTheSamePlan() {
+		Schedule plan = schedule(3, 2, edge(0, 1));
+		double[] durations = { 4, 5, 6 };
+
+		assertThat(plan.finish(durations, new int[] { 2 }, 0)).isEqualTo(plan.finish(durations));
+	}
+
+	@Test
+	void refusesWorkFoundBehindSomethingThatIsNotInThePlan() {
+		Schedule plan = schedule(2, 1);
+		double[] durations = { 1, 1, 1 };
+
+		assertThatIllegalArgumentException().isThrownBy(() -> plan.finish(durations, new int[] { 2 }, 1));
+		assertThatIllegalArgumentException().isThrownBy(() -> plan.finish(durations, new int[] { -1 }, 1));
 	}
 
 	@Test

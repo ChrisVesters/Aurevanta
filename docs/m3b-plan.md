@@ -26,7 +26,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | The team factor ✅ *done* | M3a |
-| 2 | Scope growth | M3a |
+| 2 | Scope growth ✅ *done* | M3a |
 | 3 | Both at once, and the engine version | 1, 2 |
 | 4 | Stating the assumptions, and storing them | 3 |
 | 5 | Asking the two questions | 4 |
@@ -132,6 +132,13 @@ changes nothing about how many can run at once. New items **compete for slots**:
 plan longer *and* they make everything else wait. At capacity 1 the two converge, which is worth
 knowing and worth having as a test; at any realistic capacity they are measurably different
 effects on the same total.
+
+> *Both halves of that were measured in step 2, and the second half is not what this paragraph
+> assumes. They converge at capacity 1 to a tenth of a percent, and above it **either one can be
+> the heavier** — the multiplier where capacity binds, scope where the answer is decided by the
+> longest path. See step 2's `### As built`; the conclusion below is strengthened rather than
+> weakened, because two effects loading different bottlenecks are even less substitutable than
+> two effects of different sizes.*
 
 That is the whole justification for modelling scope as items rather than as a number, and it is
 only available because M3a made the aggregator a scheduler.
@@ -356,7 +363,7 @@ existed.
 
 ---
 
-## Step 2 — Scope growth
+## Step 2 — Scope growth ✅ *done*
 
 **Goal.** The forecast stops assuming somebody thought of everything.
 
@@ -382,6 +389,76 @@ does**, which is decision 6 as an assertion. A plan of one item still grows.
 
 **Done when** the larger of the two uncertainty sources is in the model, in the place `roadmap.md`
 said it had to be given.
+
+### As built — where it differs from the above
+
+- **Decision 6 is right that they separate and wrong about which way, and that is the finding
+  of this step.** The prediction was that scope growth would be the heavier of the two once
+  capacity binds. Measured on twenty tasks, a fifth more scope against a fifth longer
+  durations: at capacity 1 the two agree to a tenth of a percent, exactly as predicted. Above
+  it, **which one is heavier depends on what the plan is short of.** Where capacity binds — four
+  slots, chains of five — the multiplier is heavier by 10% (174.5 against 158.7), because more
+  smaller pieces pack into fixed slots better than fewer larger ones. Where there is room for
+  everything at once, scope is heavier (74.7 against 73.6), because new work adds a step to a
+  path and a multiplier only stretches the steps already there. **This is a better argument for
+  keeping them apart than the plan's was**: they do not merely differ in size, they load
+  different bottlenecks, so no single parameter can stand in for both. The test asserts all
+  three measurements and says so.
+- **What is fitted is the growth *multiplier*, not the growth percentage.** Decision 5 says a
+  range in percent, fitted, and multiplied by the item count; that reading cannot take a low end
+  of zero, because a log-normal never reaches it — and "usually it does not grow, but sometimes
+  by 40%" is among the most honest answers anybody gives. Fitting `1 + p/100` accepts it, makes
+  `from(0, 0)` come out as `NONE` with no special case anywhere, and is what
+  `product-concept.md`'s own "a distribution to sample from and **multiply through**" describes.
+  The price is that a range starting at zero puts a tenth of its draws below a multiplier of 1,
+  which this model reads as no growth rather than as a plan that shrank — so **a stated P10 of
+  0% means exactly one run in ten finds nothing, by construction.** That is a property worth
+  having and it is asserted.
+- **`sampleCount` is called `sample`**, because `Engine.run` already has a `sampleCount` meaning
+  the number of runs and the two would have sat three lines apart meaning different things. It
+  also lines up with `TeamFactor.sample`.
+- **Discovered work is a per-run argument to a schedule still prepared once**, which is the
+  design decision the step needed and the plan did not name. Rebuilding the graph every run
+  would mean a transitive closure ten thousand times, which is minutes rather than
+  milliseconds. It works because a discovered item is always a leaf hanging off one existing
+  item: nothing it adds can close a loop, nothing waits behind it, so `Schedule.of` is untouched
+  and `finish(durations, parentOf, found)` carries the difference.
+- **Two consequences of that, both of which are decision 7 rather than convenience.** Planned
+  priorities do not move when work lands behind them — a key that shifted with a draw would
+  leave two forecasts of one plan ordered differently and unable to be compared, which is the
+  rule `typicalEffortHours` was written for. And discovered work sorts last: it has nothing
+  waiting behind it, so it ties with every planned leaf, and among ties the plan works on what
+  it wrote down first. Both follow from the existing rule; neither is an exception to it.
+- **`finish` asks for *at least* one duration per item where it used to demand exactly one.** A
+  run that discovers eleven pieces of work followed by one that discovers three reads fewer
+  entries of the same array rather than allocating a smaller one, which is what keeps the
+  zero-growth path allocating nothing at all. A draw from the wrong plan is still refused,
+  because that draw is short.
+- **`ItemModel` grew a second draw method**, `sampleAsNewWork`. `sample` answers what *this*
+  item has left, so it returns zero for finished work and conditions on hours already spent —
+  and finished work is a perfectly good description of what a new piece of work costs. Two
+  questions, two methods; using the wrong one would have made new work free in exactly the
+  plans that have the most evidence about it.
+- **New work attaches uniformly among *all* items, including finished ones**, which is decision
+  3 read literally. Work landing behind something already done is ready at once, which is the
+  "unattached, ready at time zero" position decision 3 rejected — arriving through the back door
+  for the finished fraction of a plan. It is left as written because the refinement that fixes
+  it is the one decision 3 already names and declines: weighting the choice by remaining effort
+  gives finished work a weight of zero and does this for free.
+- **The engine refuses to grow a plan with nothing estimated in it**, since new work costs what
+  this plan's work costs and such a plan has nothing to answer with. Unreachable through the
+  API — `nothing_to_forecast` is what makes it so, two milestones after it was written for
+  another reason entirely — and reachable from a test, which is the same distinction
+  `LogNormalFit.from` draws.
+- **The oracle for decision 4 came out exact.** One item and a plan certain to double is two
+  draws from one distribution, so the mean is twice the fit's mean and the variance twice its
+  variance: **39.918 sampled against 39.922, and a standard deviation of 2.219 against 2.214.**
+  A generator drawing from the plan's average, or from a fixed size, or from the item it
+  attached to, misses both.
+- **The budget is still comfortable: about 560ms** for five hundred items and ten thousand runs
+  with *both* parameters on, against the two seconds decision 8 of `m3a-plan.md` allowed. It was
+  300ms without them, and the difference is scheduling the two hundred extra items a 20–60%
+  growth range discovers each run.
 
 ---
 

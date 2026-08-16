@@ -27,6 +27,15 @@ import java.util.List;
  * decision 7 exists to prevent.
  *
  * <p>
+ * <strong>Scope growth is the one thing that varies per run, and it is why it enters as
+ * leaves.</strong> Work nobody had thought of is discovered afresh in every run, so it
+ * cannot be part of what is prepared once — but each piece hangs off a single existing
+ * item and holds nothing up behind it, which means no edge it adds can close a loop and
+ * no priority it takes can displace anything. So {@link #finish(double[], int[], int)}
+ * takes it as an argument, and the graph walk, the topological order and the ranking all
+ * stay exactly what the plan made them.
+ *
+ * <p>
  * <strong>Immutable, and therefore safe to run from several threads.</strong> Every scrap
  * of per-run state is local to {@link #finish}. That is what makes parallelising runs an
  * available lever if step 4's wall-clock budget is ever missed.
@@ -51,6 +60,11 @@ public final class Schedule {
 	 * second rule would be a second constant, and the runs would say which they had.
 	 */
 	public static final String PRIORITY_RULE = "most_work_waiting";
+
+	/** No work was discovered behind this item, or none at all. */
+	private static final int NOTHING = -1;
+
+	private static final int[] NOTHING_FOUND = new int[0];
 
 	private final int itemCount;
 
@@ -158,18 +172,71 @@ public final class Schedule {
 	 * unfinished item to be waiting on another unfinished item, and that is a cycle.
 	 * {@link #of} has already refused those, so a guard here would be a branch no input
 	 * could reach.
-	 * @throws IllegalArgumentException if there is not exactly one duration per item
+	 * @throws IllegalArgumentException if there is not a duration for every item
 	 */
 	public double finish(double[] durations) {
-		if (durations.length != this.itemCount) {
+		return finish(durations, NOTHING_FOUND, 0);
+	}
+
+	/**
+	 * When the plan finishes, given one draw of how long each piece of work takes and one
+	 * draw of the work nobody had thought of.
+	 *
+	 * <p>
+	 * <strong>Discovered work is ordinary work in every respect but three.</strong> It
+	 * occupies a slot, it delays whatever was waiting for one, and it is scheduled by the
+	 * same rule as everything else. What it does not do is come before anything somebody
+	 * planned: each piece hangs off exactly one existing item, with no lag and nothing
+	 * behind it. That is why it needs no cycle check and no second topological pass — an
+	 * edge into a brand new leaf cannot close a loop — and it is the reason this can be a
+	 * per-run argument to a schedule that was prepared once.
+	 *
+	 * <p>
+	 * <strong>It is picked up last among equals, and that follows from the rule rather
+	 * than being an exception to it.</strong> Priority is the work waiting behind an
+	 * item, and nothing waits behind work discovered a moment ago, so it sorts with the
+	 * other leaves; among those the plan works on what it wrote down first, and this was
+	 * written down last. What it deliberately does <em>not</em> do is lift its parent up
+	 * the order for holding it: the priority key is a property of the plan, settled
+	 * identically in every run, and a key that moved with a draw would leave two
+	 * forecasts of one plan ordered differently and unable to be compared.
+	 * @param durations one per item and then one per discovered piece of work, in that
+	 * order. It may be longer than that, since a caller reuses the room a previous run
+	 * needed.
+	 * @param parentOf which existing item each discovered piece hangs off
+	 * @param found how many of {@code parentOf} to read
+	 * @throws IllegalArgumentException if there are not enough durations, or a parent is
+	 * not an item in this plan
+	 */
+	public double finish(double[] durations, int[] parentOf, int found) {
+		int total = this.itemCount + found;
+		if (durations.length < total) {
 			throw new IllegalArgumentException(
-					"The plan has " + this.itemCount + " items and " + durations.length + " durations");
+					"The plan has " + total + " pieces of work and " + durations.length + " durations");
+		}
+		// Only the priority order has to grow: discovered work is ranked below every
+		// planned item, so its position in the order is its own index and the head of
+		// this
+		// array is untouched. Nothing else here is asked about it by index — it is let go
+		// by its parent rather than by counting predecessors down.
+		int[] order = Arrays.copyOf(this.order, total);
+		int[] firstFound = new int[this.itemCount];
+		int[] nextFound = new int[found];
+		Arrays.fill(firstFound, NOTHING);
+		for (int at = found - 1; at >= 0; at--) {
+			int parent = parentOf[at];
+			require(parent, this.itemCount);
+			order[this.itemCount + at] = this.itemCount + at;
+			// Built backwards so that two pieces landing on one parent are let go in the
+			// order they were discovered.
+			nextFound[at] = firstFound[parent];
+			firstFound[parent] = at;
 		}
 		int[] awaiting = this.predecessorCount.clone();
 		double[] readyAt = new double[this.itemCount];
-		BitSet startable = new BitSet(this.itemCount);
-		Timeline running = new Timeline(this.itemCount);
-		Timeline lagging = new Timeline(this.itemCount);
+		BitSet startable = new BitSet(total);
+		Timeline running = new Timeline(total);
+		Timeline lagging = new Timeline(total);
 		int inFlight = 0;
 		int finished = 0;
 		double now = 0.0;
@@ -186,7 +253,7 @@ public final class Schedule {
 			}
 		}
 
-		while (finished < this.itemCount) {
+		while (finished < total) {
 			// Whatever fits, highest priority first — which is the lowest set bit,
 			// because the items were sorted into priority order once, when the plan was
 			// prepared.
@@ -196,7 +263,7 @@ public final class Schedule {
 					break;
 				}
 				startable.clear(position);
-				int item = this.order[position];
+				int item = order[position];
 				running.add(now + durations[item], item);
 				inFlight++;
 			}
@@ -210,7 +277,15 @@ public final class Schedule {
 				inFlight--;
 				finished++;
 				completion = now;
-				release(item, now, awaiting, readyAt, startable, lagging);
+				if (item < this.itemCount) {
+					release(item, now, awaiting, readyAt, startable, lagging);
+					// Whatever this run discovered behind this item can begin. No lag,
+					// and
+					// nothing waits on it in turn, so there is nothing else to hand on.
+					for (int at = firstFound[item]; at >= 0; at = nextFound[at]) {
+						startable.set(this.itemCount + at);
+					}
+				}
 			}
 		}
 		return completion;

@@ -26,6 +26,7 @@ import com.cvesters.aurevanta.forecast.model.Engine;
 import com.cvesters.aurevanta.forecast.model.Forecast;
 import com.cvesters.aurevanta.forecast.model.LogNormalFit;
 import com.cvesters.aurevanta.forecast.model.Schedule;
+import com.cvesters.aurevanta.forecast.model.ScopeGrowth;
 import com.cvesters.aurevanta.forecast.model.TeamFactor;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
@@ -151,12 +152,12 @@ public class ForecastService {
 		ForecastInputs inputs = new ForecastInputs(planned, kept);
 		int runCount = (sampleCount != null) ? sampleCount : Engine.DEFAULT_SAMPLE_COUNT;
 		long seed = ThreadLocalRandom.current().nextLong();
-		// No common cause yet, which is what NO_TEAM_FACTOR below reports. The
-		// engine can model one; nobody has been asked for the number, and picking
-		// one here would be a claim about a team this server has never met. M3b
-		// step 4 is where it gets asked for.
-		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), capacity, TeamFactor.NONE, runCount,
-				seed);
+		// Neither assumption is being made yet, which is what NO_TEAM_FACTOR and
+		// NO_SCOPE_UNCERTAINTY below report. The engine can model both; nobody has
+		// been asked for either number, and picking one here would be a claim about
+		// a team this server has never met. M3b step 4 is where they get asked for.
+		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), capacity, TeamFactor.NONE,
+				ScopeGrowth.NONE, runCount, seed);
 		ForecastOutputs outputs = new ForecastOutputs(answer.histogram(),
 				limitations(planned, kept.size() < arrows.size()));
 		return this.runs.save(new ForecastRun(project, caller, capacity, runCount, seed, Engine.VERSION,
