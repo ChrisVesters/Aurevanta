@@ -1,18 +1,18 @@
 # Aurevanta — Concepts and Planned Features
 
-> **Status: design intent, and now partly built.** As of 2026-08-15 the schema this
+> **Status: design intent, and now partly built.** As of 2026-08-16 the schema this
 > document implies exists and something reads it: M0–M1a built tenancy, identity and teams,
 > **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
 > with an estimator, progress and actuals, and a precedence graph, with the plainest possible
-> UI to fill them — and **M3a built the engine**. `roadmap.md` sequences the rest and is newer
-> than this document wherever the two disagree.
+> UI to fill them — and **M3 built the engine, both halves of it**. `roadmap.md` sequences the
+> rest and is newer than this document wherever the two disagree.
 >
 > **The core principle below is no longer only an argument.** Ranges are fitted to log-normals,
 > sampled ten thousand times, scheduled over the precedence graph at a stated capacity, and
-> read off as a band; every run is stored with its seed so it can be replayed exactly. What is
-> not built is the part that makes the band wide enough to believe: **there is no shared team
-> factor and no scope uncertainty**, which is M3b, and every forecast says so on screen rather
-> than leaving it to this document. Tier 2 and everything after it is still design intent. Two
+> read off as a band; every run is stored with its seed so it can be replayed exactly. **The
+> two sections this document argues hardest for are now arithmetic**: *Unknown unknowns
+> dominate the error* and *Independence is a lie* are built, marked below, and asked as two
+> questions on the forecast screen. Tier 2 and everything after it is still design intent. Two
 > of the *Open questions* at the end were answered by M2 and are marked as such; the rest
 > stand.
 
@@ -143,7 +143,7 @@ Elicitation deserves a real design as a first-class feature, not a form. It is a
 a P90 only 1.5× the P50 can be flagged — that pattern almost always means the estimator
 has not thought about what could go wrong.
 
-### Unknown unknowns dominate the error
+### Unknown unknowns dominate the error ✅ *built by M3b*
 
 Projects rarely overrun because known tasks exceeded their P90. They overrun because of
 work nobody listed. Every ticket can be estimated well and the project can still be 100%
@@ -155,7 +155,18 @@ usually the larger, and it is estimable from history — if the last five projec
 40–90% in ticket count, that is a distribution to sample from and multiply through.
 Ignoring it is why other tools produce forecasts that look precise and land wrong.
 
-### Independence is a lie
+> **Built, and one sentence above needed sharpening to build it.** "Multiply through" is
+> exactly right for a sum and not available in a schedule: unknown work needs a *position*.
+> Each discovered item attaches as a successor to a uniformly chosen existing one, so it
+> becomes ready when that item finishes and competes for capacity like everything else —
+> `m3b-plan.md` decision 3 records the three positions rejected and why. The range is asked for
+> as two percentages on the forecast screen, the count is sampled per run, and the fractional
+> part is rounded stochastically so that a plan of ten items growing 4% grows four times in
+> ten rather than never. Estimating it from history is still ahead: M8 is where a team's own
+> plans start answering this question, and the rule then is **propose from history, never
+> default**.
+
+### Independence is a lie ✅ *built by M3b*
 
 Naive Monte Carlo samples each task independently, so good and bad luck cancel out and
 the project band comes out implausibly tight. Reality has common causes: if the team is
@@ -164,6 +175,14 @@ short-staffed or the codebase fights back, everything runs long together.
 Sampling a single shared **team factor** per simulation run and applying it across all
 tasks captures most of this at very little cost, and widens the band to something
 believable.
+
+> **Built, and "very little cost" was accurate — one multiplication per item.** The factor is
+> log-normal with its median pinned to exactly 1, so it widens the band without moving the
+> centre; a factor with a *mean* of 1 would have quietly dragged every forecast down. It is
+> asked for as the only form of the question anybody can answer — *in a bad stretch, how much
+> longer does everything take?* — and read as the factor's own P90. It multiplies what each
+> item has **left**, never what it has already cost: hours already spent are measured, and no
+> multiplier belongs on a measurement.
 
 ### Merge bias
 

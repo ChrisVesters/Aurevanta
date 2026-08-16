@@ -86,7 +86,7 @@ describe('ForecastPanel', () => {
 
     expect(
       await screen.findByText(
-        'No forecast yet. Answer the four questions below and ask for one — none of them has an answer this application can give for you.'
+        'No forecast yet. Answer the questions below and ask for one — not one of them has an answer this application can give for you.'
       )
     ).toBeInTheDocument();
   });

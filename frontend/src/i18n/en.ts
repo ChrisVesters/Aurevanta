@@ -232,7 +232,7 @@ export const en = {
       title: 'Forecast',
       lede: 'Simulated from the ranges on the work above. Effort in hours, not dates.',
       loading: 'Loading forecasts…',
-      none: 'No forecast yet. Answer the four questions below and ask for one — none of them has an answer this application can give for you.',
+      none: 'No forecast yet. Answer the questions below and ask for one — not one of them has an answer this application can give for you.',
       submit: 'Forecast this plan',
       submitting: 'Simulating…',
       more: 'Advanced',

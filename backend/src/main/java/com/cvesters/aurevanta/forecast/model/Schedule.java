@@ -214,23 +214,34 @@ public final class Schedule {
 			throw new IllegalArgumentException(
 					"The plan has " + total + " pieces of work and " + durations.length + " durations");
 		}
-		// Only the priority order has to grow: discovered work is ranked below every
-		// planned item, so its position in the order is its own index and the head of
-		// this
-		// array is untouched. Nothing else here is asked about it by index — it is let go
-		// by its parent rather than by counting predecessors down.
-		int[] order = Arrays.copyOf(this.order, total);
-		int[] firstFound = new int[this.itemCount];
-		int[] nextFound = new int[found];
-		Arrays.fill(firstFound, NOTHING);
-		for (int at = found - 1; at >= 0; at--) {
-			int parent = parentOf[at];
-			require(parent, this.itemCount);
-			order[this.itemCount + at] = this.itemCount + at;
-			// Built backwards so that two pieces landing on one parent are let go in the
-			// order they were discovered.
-			nextFound[at] = firstFound[parent];
-			firstFound[parent] = at;
+		// A run that discovered nothing does none of this, which is what keeps the
+		// degenerate case as cheap as it was before there was anything to discover — the
+		// path every forecast takes whose owner answered zero. The three arrays below are
+		// each the length of the plan or of what it found, so building them
+		// unconditionally
+		// would add two passes over the whole plan to every one of ten thousand runs.
+		int[] order = this.order;
+		int[] firstFound = NOTHING_FOUND;
+		int[] nextFound = NOTHING_FOUND;
+		if (found > 0) {
+			// Only the priority order has to grow: discovered work is ranked below every
+			// planned item, so its position in the order is its own index and the head of
+			// this array is untouched. Nothing else here is asked about it by index — it
+			// is
+			// let go by its parent rather than by counting predecessors down.
+			order = Arrays.copyOf(this.order, total);
+			firstFound = new int[this.itemCount];
+			nextFound = new int[found];
+			Arrays.fill(firstFound, NOTHING);
+			for (int at = found - 1; at >= 0; at--) {
+				int parent = parentOf[at];
+				require(parent, this.itemCount);
+				order[this.itemCount + at] = this.itemCount + at;
+				// Built backwards so that two pieces landing on one parent are let go in
+				// the order they were discovered.
+				nextFound[at] = firstFound[parent];
+				firstFound[parent] = at;
+			}
 		}
 		int[] awaiting = this.predecessorCount.clone();
 		double[] readyAt = new double[this.itemCount];
@@ -282,8 +293,12 @@ public final class Schedule {
 					// Whatever this run discovered behind this item can begin. No lag,
 					// and
 					// nothing waits on it in turn, so there is nothing else to hand on.
-					for (int at = firstFound[item]; at >= 0; at = nextFound[at]) {
-						startable.set(this.itemCount + at);
+					// The
+					// guard is what lets a run that found nothing carry no list at all.
+					if (found > 0) {
+						for (int at = firstFound[item]; at >= 0; at = nextFound[at]) {
+							startable.set(this.itemCount + at);
+						}
 					}
 				}
 			}

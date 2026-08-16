@@ -70,10 +70,6 @@ class ForecastApiTests {
 
 	private static final Instant CREATED_AT = Instant.parse("2026-08-14T09:00:00Z");
 
-	private static final String ASKING_FOR_TWO_THOUSAND_RUNS = """
-			{"capacity":1,"sampleCount":2000,"teamFactorWorseByPercent":0,\
-			"scopeGrowthP10Percent":0,"scopeGrowthP90Percent":0}""";
-
 	@Autowired
 	private MockMvc mvc;
 
@@ -264,7 +260,7 @@ class ForecastApiTests {
 
 	@Test
 	void theCallerMaySayHowManyRunsToDo() throws Exception {
-		assertThat(forecast(ASKING_FOR_TWO_THOUSAND_RUNS).getSampleCount()).isEqualTo(2000);
+		assertThat(forecast(assuming(1, 0, 0, 0, 2000)).getSampleCount()).isEqualTo(2000);
 	}
 
 	// Coverage and limitations ------------------------------------------------
@@ -519,8 +515,8 @@ class ForecastApiTests {
 
 	@Test
 	void refusesMoreRunsThanTheEngineWillDo() throws Exception {
-		refused(ASKING_FOR_TWO_THOUSAND_RUNS.replace("2000", "100001"), "sampleCount", "max");
-		refused(ASKING_FOR_TWO_THOUSAND_RUNS.replace("2000", "0"), "sampleCount", "positive");
+		refused(assuming(1, 0, 0, 0, 100_001), "sampleCount", "max");
+		refused(assuming(1, 0, 0, 0, 0), "sampleCount", "positive");
 	}
 
 	@Test
@@ -656,10 +652,21 @@ class ForecastApiTests {
 	 * required in M3b, so there is no shorter honest way to ask for one.
 	 */
 	private static String assuming(int capacity, Number worseByPercent, Number growthP10, Number growthP90) {
+		return assuming(capacity, worseByPercent, growthP10, growthP90, null);
+	}
+
+	/**
+	 * The same, for the one field a caller may leave out — {@code null} asks for the
+	 * ordinary ten thousand runs by saying nothing, which is a different request from one
+	 * naming a number and has to be sent as one.
+	 */
+	private static String assuming(int capacity, Number worseByPercent, Number growthP10, Number growthP90,
+			Integer sampleCount) {
+		String runs = (sampleCount != null) ? ",\"sampleCount\":" + sampleCount : "";
 		return """
-				{"capacity":%d,"teamFactorWorseByPercent":%s,\
-				"scopeGrowthP10Percent":%s,"scopeGrowthP90Percent":%s}""".formatted(capacity, worseByPercent, growthP10,
-				growthP90);
+				{"capacity":%d%s,"teamFactorWorseByPercent":%s,\
+				"scopeGrowthP10Percent":%s,"scopeGrowthP90Percent":%s}""".formatted(capacity, runs, worseByPercent,
+				growthP10, growthP90);
 	}
 
 	private ForecastRun forecast(String body) throws Exception {

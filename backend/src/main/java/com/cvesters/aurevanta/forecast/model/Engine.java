@@ -77,6 +77,14 @@ public final class Engine {
 	 * plan may hold, this many runs is seconds rather than milliseconds. What actually
 	 * stops one member tying up a server is a limit on how many forecasts run at once,
 	 * and that is not built.
+	 *
+	 * <p>
+	 * <strong>M3b moved that number without moving this one.</strong> Scope growth makes
+	 * every run schedule the items it discovered as well as the ones somebody listed, so
+	 * the worst case a caller can ask for went from about three seconds to about nine.
+	 * The bound stays where it is because it was never the thing protecting the server —
+	 * the ceiling on the growth percentages is set from the *single-forecast* budget, and
+	 * the concurrency limit that would actually protect it is still not built.
 	 */
 	public static final int MAX_SAMPLE_COUNT = 100_000;
 

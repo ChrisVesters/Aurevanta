@@ -97,7 +97,17 @@ public record ScopeGrowth(LogNormalFit multiplier) {
 	 * <strong>{@link #NONE} draws nothing at all</strong>, for the reason
 	 * {@link TeamFactor#sample} does: a parameter that changes no number must also cost
 	 * no randomness, or every draw after it shifts and a version 1 run stops replaying.
-	 * @param items how many pieces of work the plan holds today
+	 *
+	 * <p>
+	 * <strong>Growth already realised is not deducted, and cannot be.</strong> The count
+	 * is a share of the plan as it stands, which is right for a plan forecast near its
+	 * start and generous for one that has already grown — part of what it is being told
+	 * to expect has arrived and been written down, and nothing here knows what the plan
+	 * looked like when it began. Finished work counts towards the base for the same
+	 * reason: the question is how much a plan like this one turns out to hold, not how
+	 * much of it is left. Both stop being guesses once M8 can read a plan's own history,
+	 * which is the answer decision 3 gives to weighting where new work lands as well.
+	 * @param items how many pieces of work the plan holds today, finished ones included
 	 */
 	public int sample(int items, RandomGenerator random) {
 		if (NONE.equals(this)) {

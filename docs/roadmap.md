@@ -1,10 +1,11 @@
 # Aurevanta — Feature Roadmap
 
-> **Status: proposal, as of 2026-08-06; last revised 2026-08-15.** `product-concept.md`
+> **Status: proposal, as of 2026-08-06; last revised 2026-08-16.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2 and **M3a** exist in code, so there is now a
-> forecast — knowingly too tight, and saying so on its own face. The next thing built is
-> **M3b**, which is what makes the band believable rather than merely honest.
+> has to be decided first*. M0, M1, M1a, M2 and **all of M3** exist in code, so **the product
+> exists**: a plan with ranges in it produces a band that models common cause and unlisted
+> work, and states every assumption that produced it. Everything from here is a lens on that
+> number — the first of them is **M4**, which turns hours into dates.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -332,14 +333,16 @@ exactly the state M3 exists to end.
 
 ---
 
-## M3 — The simulation engine ⭐ *the product* — M3a ✅ *done*
+## M3 — The simulation engine ⭐ *the product* ✅ *done*
 
 Fit → sample → aggregate. Everything else is a view over this.
 
-**M3a is built; M3b is planned and is not.** A plan with ranges in it now produces a band, and
-the two effects that band is missing are named on every forecast it produces — which is the
-shape this split was chosen to have, rather than a half-finished milestone quietly reporting a
-whole answer.
+**Both halves are built, so the thing this whole document is ordered around exists.** A plan
+with ranges in it produces a band; that band models the common cause that makes good and bad
+luck stop cancelling, and the work nobody has written down yet; and the five assumptions
+behind it are printed beside it rather than behind a disclosure. The two limitation codes M3a
+shipped in order to be honest about what it was missing are emitted by nothing — which was
+always the definition of this milestone being finished.
 
 `m3a-plan.md` breaks **M3a** into seven steps and answers twelve decisions, four of which this
 section did not know it was carrying: what to do when several people have estimated one item,
@@ -365,12 +368,14 @@ sliding-date detector and the movement decomposition in the icebox both need it.
 > kept, and the history M10 reads started accumulating on its first day. A run is written once
 > and never updated, like an estimate.
 
-> **Split, as this note asked, and both halves are planned.** `m3a-plan.md` is **M3a** —
+> **Split, as this note asked, and both halves are now built.** `m3a-plan.md` is **M3a** —
 > fitting, sampling, the graph scheduler with one global capacity, forecast-run persistence and
 > the plainest way to ask for a forecast. `m3b-plan.md` is **M3b** — the shared team factor and
 > scope uncertainty. Two builds, two plans, written together: the worry this note records is
 > that correlation modelling gets *rushed to finish the milestone*, and a plan written in
-> advance is the defence against that rather than a cause of it.
+> advance was the defence against that rather than a cause of it. **It held**: M3b took six
+> steps of its own and one of its decisions was overturned by measurement along the way, which
+> is not a thing that happens to work being rushed to a finish.
 >
 > **The line is not where it first looks**, which is the one thing worth carrying up from those
 > plans. The tempting cut is "the engine, then the refinements"; the defensible one is *what can
@@ -391,7 +396,7 @@ sliding-date detector and the movement decomposition in the icebox both need it.
   completion per run. Not a sum: a sum is the special case where every item is one long
   chain. See "the aggregator is a scheduler" below.
 
-**M3b — planned, not built:**
+**M3b — built:**
 
 - **Shared team factor** — one factor sampled per run and applied across all items.
   Without it, good and bad luck cancel out and the band comes out implausibly tight.
@@ -442,24 +447,79 @@ against the failure mode this milestone actually has.
   stopped being true in M2 and it kept working by luck of test ordering. Fixed in all eighteen
   classes.
 
-**What M3b inherits.**
+**What M3b inherited, and what became of it.**
 
-- **Two limitation codes it exists to delete.** Every forecast M3a produces reports
-  `no_team_factor` and `no_scope_uncertainty` on screen beside the band. M3b is done when those
-  two codes stop being emitted, which is a sharper finish line than "the model is better".
-- **The equivalence test.** M3b's first test replays an M3a run with both new parameters at zero
-  and asserts byte-identical output. That test silently pins **everything M3a did differently
-  from its own bullets**, so `m3a-plan.md`'s per-step *As built* sections are its specification
-  as much as its history — the truncated in-progress draw, the ordering of the priority key, the
-  histogram's bucket edges, and the generator itself.
-- **`Engine.VERSION` and the snapshot format.** A run stores its inputs, its seed and its engine
-  version; M3b changes the model, so it bumps the version, and old runs keep replaying to the
-  numbers they were published with.
+- **Two limitation codes it existed to delete.** Every forecast M3a produced reported
+  `no_team_factor` and `no_scope_uncertainty` beside the band. Nothing emits either now.
+  *They were retired rather than deleted*: the constants stay because every run made before
+  M3b still carries them in its stored `outputs`, and an enum missing a value that exists in
+  stored JSON is a forecast that cannot be read at all.
+- **The equivalence test.** Written in M3b step 1 rather than step 3, as its plan asked. Since
+  M3a's engine no longer exists to call, it is the seven numbers M3a produced — captured from
+  that build before a line of M3b was written — asserted for exact equality. It pins everything
+  M3a did differently from its own bullets, and it held at every step.
+- **`Engine.VERSION` and the snapshot format.** Version 2, and version 1 is version 2 with both
+  parameters at zero — draw for draw, because a parameter that changes no number also takes no
+  draw. `V13` backfills the three new columns with zeros, which is a true record of what those
+  runs assumed rather than a placeholder, so nothing became read-only history.
 
-**What M4 inherits.** Nothing in M3a knows what a date is: the engine, the table, the API and
+### As built — M3b
+
+Two pure classes beside the four M3a left, no new package, one migration, three new request
+fields and two more questions on the panel. The ten decisions in `m3b-plan.md` survived, one of
+them by being **measured and found to point the other way**.
+
+- **Decision 6 was right that the two effects separate and wrong about which is heavier.** It
+  predicted scope growth would outweigh a duration multiplier once capacity binds. Measured on
+  twenty tasks: at capacity 1 the two agree to a tenth of a percent, exactly as predicted; where
+  capacity binds the *multiplier* is heavier by 10% (174.5 against 158.7), because more smaller
+  pieces pack into fixed slots better than fewer larger ones; where capacity is plentiful scope
+  is heavier, because new work adds a step to a path and a multiplier only stretches the steps
+  already there. **They load different bottlenecks**, which is a stronger reason to keep them
+  apart than "one is bigger" ever was.
+- **The 209.4 → 222.2 figure in the table below reproduces**, and recovering it needed a fact
+  this document did not record: it never said which factor produced 222.2. Solving for it gives
+  a P90 of 1.30 — a 30% stretch, which is the worked example `m3b-plan.md` decision 2 already
+  used. Both halves of that row are now a single test from one plan and one seed.
+- **Scope growth fits the *multiplier*, not the percentage.** A log-normal cannot reach zero, so
+  fitting the percentage directly would refuse "usually it does not grow, but sometimes by 40%"
+  — one of the more honest answers anybody gives. Fitting `1 + p/100` accepts it and makes a
+  range of 0–0 the degenerate case with no special code path. A stated low end of 0% therefore
+  means exactly one run in ten discovers nothing, by construction.
+- **Stochastic rounding, because rounding to nearest has a bias with a direction.** Ten items
+  growing 4% is 0.4 new items, which rounds to none in every run for ever. Taking the whole part
+  and adding one more with probability equal to the fraction makes the mean count the number
+  that was sampled — and makes a small plan sometimes grow and sometimes not, which is the
+  design rather than a fault.
+- **Discovered work is a per-run argument to a schedule still prepared once.** Rebuilding the
+  graph every run would mean a transitive closure ten thousand times. It works because a
+  discovered item is always a leaf hanging off one existing item: no edge it adds can close a
+  loop, and no priority it takes can displace anything, so the ranking stays a property of the
+  plan exactly as decision 7 requires.
+- **The ceiling on all three assumptions is 200%, and it was measured.** Every percent of scope
+  growth is items the scheduler runs: at five hundred items and ten thousand runs, 413ms with no
+  growth, 915ms at 200%, 1.9s at 500%, 3.4s at 1000%. 200 is the last value that leaves the
+  two-second budget with room in it.
+- **The screen was broken for one step, and no test noticed.** Making the three fields required
+  on the server left the panel sending a body the API refuses; all 332 frontend tests stayed
+  green because they mock `fetch`. The next step fixed it, and the contract is now checked by
+  comparing field names across the seam — which is the one mismatch neither suite can see.
+
+**What M8, M9 and M5 inherit.** Both of M3b's parameters are **asked of a person now and
+derivable from history later**, and that is a feature waiting on data rather than on a decision.
+M8's calibration record says how wide a team's bad stretches actually were; M9's throughput says
+the same thing from another direction; M8's own history of plans says how much they grew. The
+rule to keep when that data exists is the one this milestone spent a decision on: **propose from
+history, never default.** A number the server filled in is a claim about a team nobody made, and
+the whole reason these are required is that zero is a claim too. M5 inherits the framing — a
+percentile of an outcome rather than a parameter of a distribution — which is the only form of
+either question a person can answer, and which arrived here early because there was no other way
+to ask it.
+
+**What M4 inherits.** Nothing in M3 knows what a date is: the engine, the table, the API and
 the panel are all in hours of effort, and the working-day assumption M4 needs has deliberately
 not been invented anywhere it could be inherited by accident. M4 is the first place it gets
-made, and the note in that section — keep it crude and **visible** — is the whole of what M3a
+made, and the note in that section — keep it crude and **visible** — is the whole of what M3
 was protecting.
 
 **What M6 inherits.** A run stores its seed, its inputs and its engine version, so per-item
@@ -525,6 +585,13 @@ closed form returns *the same number*, because summed variances assume independe
 |---|---|---|
 | 10 wide tasks, independent | 209.4 | 214.0 |
 | 10 wide tasks, **shared team factor** | **222.2** | **214.0** |
+
+> **Both rows are now a test, and reproducing them needed one fact this table did not
+> record**: which factor produced 222.2. Solving for it gives a P90 of **1.30** — a 30%
+> stretch, the same worked example `m3b-plan.md` decision 2 uses. The engine lands on both
+> numbers to within a percent from one plan and one seed. A measurement is only an oracle
+> while every parameter that produced it is written down, which is the lesson to carry to the
+> next table like this one.
 
 A common cause moved the real answer by 13 days and the formula could not see it. Scope
 uncertainty (a random *number* of items) and merge bias (max of random variables, now part
@@ -793,9 +860,14 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
 - **Discrete risk register** — "the vendor API may slip: 30% likely, adds 10–20 days."
   These are Bernoulli events, not duration variance, and real projects fail on them. A few
   lines in the sampler.
-- **Correlated estimates** — beyond M3's single global team factor: items sharing a
-  component, a person, or an unknown technology fail together. A correlation group is a
-  modest step up from one shared factor.
+- **Correlation groups** — items sharing a component, a person, or an unknown technology fail
+  together. **This is now precisely one step beyond a thing that exists**: M3b's global team
+  factor is one log-normal multiplier drawn per run and applied to every remaining duration, and
+  a group is the same multiplier drawn per group and applied to its members. The sampling is a
+  few lines. What it actually costs is a *grouping somebody has to define* — schema, a way to
+  put an item in a group, and a screen to do it on — plus a second question to ask per group,
+  which is the part M5 says is hard. One shared factor already captures most of the effect,
+  which is why this stays here rather than moving up.
 - **Learning curves and ramp-up** — a new joiner does not deliver at full rate on day one,
   and adding people to a late project has a known cost. Only meaningful once M11 exists.
 
@@ -1155,19 +1227,22 @@ M1a earned its place in that sequence only because it was cheap *then*: a small 
 becomes a link-breaking one the moment M2 puts a slug in a URL. It was never more important
 than the engine — nothing is — it was just perishable, and it is now spent.
 
-**M1, M1a, M2 and M3a are all done, so that sequence is spent.** Something now reads the schema:
-a plan with ranges in it produces a band, with its assumptions and its five missing pieces
-printed beside the number. **What is next is M3b**, already planned in `m3b-plan.md` — the
-shared team factor and scope uncertainty, which are the two of those five that are a model
-rather than a disclosure, and which the band is measurably too tight without (209.4 against
-222.2 at the P90, in the table under M3).
+**M1, M1a, M2 and all of M3 are done, so that sequence is spent and the product exists.** A plan
+with ranges in it produces a band that models common cause and unlisted work, with its five
+assumptions printed beside the number — and the two disclosures M3a shipped in place of those
+models are emitted by nothing.
 
-The temptation from here is no longer CRUD screens; it is the *plan-entry UI that already
-exists and looks bad*. It is meant to. M5 replaces what it asks, and the interface rework is
-recorded under *Future*; neither is the engine. The second temptation is now M4, because a date
-is what people actually ask for and the conversion looks like arithmetic — but it imports a
-working-day assumption, and M3b is the milestone that makes the number being converted
-believable in the first place.
+**What is next is M4**, and the reason it is next has changed rather than the ordering. It was
+the *second* temptation while M3b was outstanding, because a date is what people actually ask
+for and the conversion looks like arithmetic while the number being converted was knowingly too
+tight. That objection is spent: the band is now believable, so turning it into something a
+person outside the team can act on is the next thing worth doing. What M4 must not do is what
+makes it tempting — the working-day assumption it imports has to stay crude and visible rather
+than becoming the first number in this product a server picked.
+
+The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
+is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;
+neither is the engine.
 
 ### Was blocked on a decision — settled, and then built
 
@@ -1188,15 +1263,22 @@ All seven are now in the schema.
 
 Honest about where this plan is weakest, rather than discovering it mid-build:
 
-- ~~**M3 is oversized**~~ *Split into M3a and M3b by `m3a-plan.md`, and M3a is now built* —
-  which is what retires this rather than the split itself. The line held under construction:
-  M3a is the half a closed form can verify, and it was verified against one to five thousandths
-  of a percent before anything downstream of it existed.
+- ~~**M3 is oversized**~~ *Split into M3a and M3b by `m3a-plan.md`, and both are now built* —
+  which is what retires this rather than the split itself. The line held under construction in
+  both directions: M3a is the half a closed form can verify, and it was verified against one to
+  five thousandths of a percent before anything downstream of it existed; M3b then had to be
+  proved in pieces, and its three narrower oracles all held — exactness for one item under a
+  factor, the published 209.4 → 222.2 figure, and byte-identical equivalence with M3a at zero.
 - ~~**Scope uncertainty has no agreed position in a graph**~~ *Answered in `m3b-plan.md`
-  decision 3*: new work attaches as a successor to a uniformly chosen existing item. Appending
-  at the end, loading the critical path and inflating durations were each rejected with a
-  reason, the last of them because a multiplier is indistinguishable from the team factor and
-  would be one effect counted twice.
+  decision 3 and then built*: new work attaches as a successor to a uniformly chosen existing
+  item, becomes ready when that item finishes, and competes for capacity like everything else.
+  Appending at the end, loading the critical path and inflating durations were each rejected
+  with a reason, the last of them because a multiplier is indistinguishable from the team
+  factor and would be one effect counted twice. **The claim it makes is the weakest of the
+  four** — that unknown work is as likely to land anywhere as anywhere else — and the
+  refinement that would sharpen it is named and not built: weight the choice by remaining
+  effort, so new work lands where the work is. That is one line and it needs data nobody has
+  yet, which is the same answer M8 gives to everything else on this list.
 - ~~**The plan-entry UI is barely scoped.**~~ *Resolved by building it.* The worry was that
   "minimal" was undefined and that dependency editing would quietly consume weeks. What
   minimal turned out to mean is two screens: a list of plans, and a plan whose work is a

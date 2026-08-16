@@ -8,6 +8,13 @@ import { describeFailure } from '../i18n/problems';
 import { numberField } from './fields';
 import type { Forecast, ForecastLimitation } from './types';
 
+/**
+ * Every box on this form, which is two duties in one list and they are the same list on
+ * purpose: `useFormFailure` needs the names the visitor can actually see, and the request
+ * body is exactly what was asked for. Every one of them is a number the server wants under
+ * that name, so a field added here is sent — and anything that is *not* a number would have
+ * to be built into the body some other way rather than added to this.
+ */
 const ASKED_FOR = [
   'capacity',
   'teamFactorWorseByPercent',
@@ -419,8 +426,10 @@ function decimal(
  * What a limitation means, in this application's own words.
  *
  * A code this version does not recognise still gets a line rather than being dropped. It
- * means the server is ahead of the browser — M3b adds one — and quietly showing nothing
- * would be the one failure decision 12 exists to prevent, arriving through the back door.
+ * means the server is ahead of the browser, which is the direction this pair versions in,
+ * and quietly showing nothing would be the one failure decision 12 exists to prevent
+ * arriving through the back door. The two codes M3b retired go the other way and are still
+ * described here, because a run made before it is still a run this screen lists.
  */
 function describeLimitation(
   t: TFunction,

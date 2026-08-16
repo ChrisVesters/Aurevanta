@@ -10,25 +10,30 @@ Licensed GPL-3.0.
 designing schema or domain logic. It is design intent, not a description of existing code.
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
-are not unique) and M2 (the estimation schema) are built. `docs/m1-plan.md`,
-`docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was done and where each
-departed from its own brief — M1a most of all, since it corrected M0 by a different route than
-the one it was written to take.
+are not unique), M2 (the estimation schema) and M3 (the simulation engine) are built.
+`docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
+done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
+different route than the one it was written to take.
 
 `docs/m3a-plan.md` and `docs/m3b-plan.md` are the two halves of M3, the simulation engine —
-which `roadmap.md` calls the product and everything before it was built to feed. **M3a is
-built and M3b is not**: a plan with ranges in it produces a band, and the two effects that
-band is missing are named on every forecast it makes. Read both before touching
-anything under `forecast`, because almost all of the risk is in decisions rather than in code:
-what happens when two people estimate the same task differently, what an unestimated item does
-to a graph it sits in the middle of, what "remaining work" means for a task already under way,
-and where newly discovered work attaches. **The failure mode here is not a crash but a plausible
-number**, which is why the engine is pure functions with an oracle behind every one of them.
+which `roadmap.md` calls the product and everything before it was built to feed. **Both are
+built**, so a plan with ranges in it produces a band that models the common cause making good
+and bad luck stop cancelling, and the work nobody has written down yet. Read both before
+touching anything under `forecast`, because almost all of the risk is in decisions rather than
+in code: what happens when two people estimate the same task differently, what an unestimated
+item does to a graph it sits in the middle of, what "remaining work" means for a task already
+under way, and where newly discovered work attaches. **The failure mode here is not a crash but
+a plausible number**, which is why the engine is pure functions with an oracle behind every one
+of them.
 
 **They are two builds and one design**, split where a whole-plan closed form stops being
 available: M3a is proved against arithmetic that exists outside this codebase, and M3b — the
 shared team factor and scope growth — is proved in pieces, the strongest of which is that
-setting its two parameters to zero must reproduce an M3a run byte for byte.
+setting its two parameters to zero reproduces an M3a run byte for byte. **`m3b-plan.md` is the
+one to read for how a plan should be argued with**: its decision 6 predicted which of the two
+effects would be the heavier, the build measured it, and the measurement pointed the other way
+— so the `### As built` section says so and the decision came out stronger, because two effects
+that load different bottlenecks are even less substitutable than two of different sizes.
 
 **A plan is updated as its steps land, not at the end.** Mark the step `✅ *done*` on its
 heading and in the *At a glance* table, and write its `### As built — where it differs from
@@ -819,12 +824,12 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   it is a question-design problem rather than a styling one — so styling it is the one change
   that cannot help.
 
-## Forecasting: the engine, and the four decisions inside it
+## Forecasting: the engine, and the decisions inside it
 
 - **`forecast.model` is separated by *purity*, not by feature, and it is the only package in
-  this application that is.** `Normal`, `LogNormalFit`, `ItemModel`, `Precedence`, `Schedule`,
-  `Engine`, `Forecast` and `Histogram` hold no Spring, no JPA and no I/O: they are functions
-  over primitives. `forecast` beside it is an ordinary feature package — entity, repository,
+  this application that is.** `Normal`, `LogNormalFit`, `ItemModel`, `TeamFactor`,
+  `ScopeGrowth`, `Precedence`, `Schedule`, `Engine`, `Forecast` and `Histogram` hold no Spring,
+  no JPA and no I/O: they are functions over primitives. `forecast` beside it is an ordinary feature package — entity, repository,
   service, controller, responses — that reaches the other four domain packages through their
   services. **The failure mode here is not a crash but a plausible number**, and the seam is
   what makes the arithmetic checkable against sums that exist outside this codebase. The
@@ -850,7 +855,42 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   - **Capacity is required and has no default.** `roadmap.md` measured it moving the P90 by
     70%, and a default would be a claim about a team made by a server that has never met
     them. The box on screen is empty for the same reason: a box already filled in is a box
-    nobody reads.
+    nobody reads. **The two M3b assumptions are required on the same grounds and one sharper
+    one**: they *have* a neutral value, zero, and zero is a claim — that nothing in this
+    team's world has a common cause, and that no unlisted work will ever appear. Defaulting
+    to it would ship M3a's model under M3b's name with the notices that admitted to it
+    deleted.
+- **The two M3b effects are different effects and merging them would count one twice.** A
+  shared team factor makes each item longer; scope growth makes more of them. Under a summing
+  aggregator those are the same thing — which is why modelling scope as a multiplier is
+  rejected in `m3b-plan.md` decision 3, since two multipliers compose into one. **They
+  separate only because the aggregator is a scheduler**: new items compete for slots, so they
+  make the plan longer *and* make everything else wait. Measured, they load different
+  bottlenecks — where capacity binds a multiplier is heavier, because more smaller pieces pack
+  better; where capacity is plentiful scope is heavier, because it adds a step to a path.
+  Whoever proposes collapsing them into "one uncertainty number" is proposing to delete that.
+- **The team factor's median is pinned to exactly 1, and this is the quietest thing in the
+  engine.** `TeamFactor` holds a `LogNormalFit` whose `mu` must be zero and refuses one that
+  is not. A multiplier with a *mean* of 1 has a median below it, so it would drag the centre
+  of every forecast down while claiming only to widen it — no test would fail and no number
+  would look wrong. The estimates already carry the central case; a factor whose job is
+  common-cause spread must leave the middle alone and pull the tails apart.
+- **A parameter set to none must consume no randomness.** `TeamFactor.NONE` and
+  `ScopeGrowth.NONE` take no draw at all rather than drawing and discarding. A draw that
+  changed no number would still advance the generator, shift every subsequent number in the
+  run, and silently unreplay every forecast stored before that parameter existed — with
+  nothing failing to say so. It is invisible in review; the tests that guard it assert the
+  generator's next value is untouched, and each has a mirror asserting a live parameter does
+  spend a draw, so neither passes because `sample` does nothing.
+- **Either a version bump keeps the old engine inside the new one, or every earlier run
+  becomes a record that can be read and never replayed.** `Engine.VERSION` is 2, and version 1
+  is version 2 with both parameters at zero — draw for draw, which is what the rule above
+  buys. `V13` backfilled the three assumption columns with zeros, and that is a *true* record
+  of what those runs assumed rather than a placeholder. A future change that cannot be reduced
+  to a parameter setting — a different fit, a different scheduler — does not get to pretend:
+  it bumps the version, old runs become read-only history, and M10 has to be told, because
+  comparing runs across an incomparable bump is how a tool reports a date sliding when nothing
+  moved.
 - **A run is written once and never updated, like an estimate.** `forecast_runs` stores its
   resolved inputs, its seed, its sample count, its capacity, its priority rule and
   `Engine.VERSION`, so any run can be replayed exactly — which is what M6 gets its per-item
@@ -873,11 +913,19 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   and a seed that is nearly right reproduces nothing. `jsonPath().value` re-reads a document
   as the expected type, so `isString()` is what actually pins it.
 - **Every forecast reports what it did not do, and the screen prints it beside the number.**
-  Five codes today, two of which (`no_team_factor`, `no_scope_uncertainty`) M3b exists to
-  delete. The panel renders a code it has never heard of rather than dropping it: the server
-  is what versions ahead here, and silently showing nothing is that rule failing through the
-  back door. **A band without its caveats is this product's own failure mode with a chart on
-  it**, which is why they are not behind a disclosure.
+  Three codes are emitted, and they are all properties of the plan rather than of the model.
+  The panel renders a code it has never heard of rather than dropping it: the server is what
+  versions ahead here, and silently showing nothing is that rule failing through the back
+  door. **A band without its caveats is this product's own failure mode with a chart on it**,
+  which is why they are not behind a disclosure — and neither are the five assumptions, for
+  the same reason.
+- **`no_team_factor` and `no_scope_uncertainty` are retired, not deleted, and the difference
+  is the history.** M3b models what they name, so nothing writes them; the constants stay in
+  `ForecastLimitation` and their wording stays in the frontend catalogue, because every run
+  made before M3b still carries them in its stored `outputs` — and an enum missing a value
+  that exists in stored JSON is a forecast that cannot be deserialised at all. That is why
+  limitations are stored on the run rather than worked out when it is read: a limitation
+  derived at read time would have made every M3a run silently claim a model it never had.
 - **Any member may forecast**, like everything else in the domain. A plan with nothing
   estimated is refused with `nothing_to_forecast` (`422`) and **no row is written** — a
   refusal that had stored a run would leave the history holding a forecast nobody received.

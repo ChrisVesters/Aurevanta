@@ -30,7 +30,7 @@
 | 3 | Both at once, and the engine version ✅ *done* | 1, 2 |
 | 4 | Stating the assumptions, and storing them ✅ *done* | 3 |
 | 5 | Asking the two questions ✅ *done* | 4 |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 Steps 1 and 2 are independent of each other and both are pure — the same seam M3a had.
 
@@ -671,7 +671,7 @@ screen.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 - `roadmap.md`: mark M3b done and, with it, **M3** — the product exists. Retire the "scope
   uncertainty has no agreed position in a graph" thin spot by recording the answer and the three
@@ -687,6 +687,73 @@ screen.
   mean-1 factor would silently move every forecast; and decision 9's rule about version bumps.
 - `product-concept.md`: its *Independence is a lie* and *Unknown unknowns dominate the error*
   sections stop being design intent.
+
+### As built — where it differs from the above
+
+- **One of these edits is a correction to `roadmap.md` rather than a status update.** Its
+  209.4 → 222.2 table never said which factor produced 222.2, so the figure it holds up as the
+  most valuable kind of test — a number produced outside this codebase — was not reproducible
+  as written. The parameter was recovered by solving for it (a P90 of 1.30), the table now
+  carries it, and the note says the general thing: **a measurement is only an oracle while
+  every parameter that produced it is written down.** That is worth more than the row.
+- **`CLAUDE.md` got two rules the step did not ask for**, both because they are invisible in
+  review and neither would fail a test if broken. *A parameter set to none must consume no
+  randomness* — a draw that changes no number still advances the generator and unreplays every
+  stored forecast. And *retired is not deleted* — the two limitation codes stay in the enum and
+  in the frontend catalogue because runs made before M3b still carry them, and an enum missing
+  a value present in stored JSON is a forecast that cannot be read at all. The step asked for
+  the composition rule, the median-1 pinning and the version-bump rule; those are there too.
+- **The thin spot was already struck through before this step ran**, having been answered when
+  `m3b-plan.md` was written. What it needed was the difference between answered and built, plus
+  the one thing the entry was missing: that the claim it settles on is the *weakest* of the four
+  positions, and that the refinement which would sharpen it — weighting attachment by remaining
+  effort — is named and deliberately not built.
+- **The reason M4 is next changed, rather than the ordering.** `roadmap.md` had M4 recorded as a
+  *temptation to resist*: a date is what people ask for, the conversion looks like arithmetic,
+  and the number being converted was knowingly too tight. That objection is spent, so the
+  paragraph now says why the same milestone is the right next thing — and keeps the part that
+  still holds, which is that the working-day assumption M4 imports must stay crude and visible
+  rather than becoming the first number in this product a server picked.
+- **The icebox entry for correlation groups was made *less* encouraging, not more.** It read as
+  "a modest step up from one shared factor", which is true of the sampling and false of the
+  feature: the arithmetic is a few lines, and what it actually costs is a grouping somebody has
+  to define — schema, a way to put an item in a group, a screen — plus one more question to ask
+  per group, which is the part M5 says is hard. Being one step from a thing that exists is a
+  reason to describe the step accurately, not a reason to move it up.
+
+### The review after the close-out
+
+A pass over everything M3b touched, after it was all in. No modelling error survived it, which
+is the thing that mattered; what it did find was one efficiency regression, one caveat nobody
+had written down, and three pieces of sloppiness.
+
+- **The degenerate path was doing scope-growth work it had no scope growth for.** `finish` built
+  the per-parent lists and copied the priority order on *every* run, discovered items or not —
+  two passes over the whole plan added to the path every forecast takes whose owner answered
+  zero, in the method whose own heap is hand-written to avoid boxing. Guarded on `found > 0`:
+  **measured 359ms → 344ms** at five hundred items and ten thousand runs, consistently, with the
+  golden equivalence test still exact. Smaller than it looked worth — 4%, not the 25% suspected —
+  and kept because a path that does no work for a feature it is not using is the right shape
+  regardless.
+- **Growth is a share of the plan as it stands, and growth already realised is not deducted.**
+  Nothing in the model knows what a plan looked like when it began, so a plan that has already
+  grown is told to expect the full percentage again, and finished work counts towards the base.
+  Both are defensible — the question asked is how much a plan like this one turns out to hold —
+  and neither was written down anywhere. Now recorded on `ScopeGrowth.sample`, alongside the
+  same answer decision 3 gives: it stops being a guess when M8 can read a plan's own history.
+- **`MAX_SAMPLE_COUNT`'s javadoc quoted a cost M3b had changed.** The worst case a caller can ask
+  for went from roughly three seconds to roughly nine, because every run now schedules what it
+  discovered as well. The bound stays — it was never what protects the server — but a comment
+  stating a measured number that has moved is worse than no comment.
+- **`ASKED_FOR` had quietly acquired a second duty**: it names the fields `useFormFailure` knows
+  about *and* is now what the request body is built from. That is true and stable for this form,
+  and it was implicit. Said out loud on the constant instead.
+- **The empty state claimed four questions.** There are four required boxes and three questions —
+  the growth range is one question with two ends, which is the whole reason it is a `fieldset`
+  with one legend. The count is gone rather than corrected, since it would go stale again.
+- **A test built one request body by string surgery on another** (`.replace("2000", "0")`), which
+  works only while that substring appears once. Replaced with an overload that takes the sample
+  count, so there is one template and no cleverness.
 
 ---
 
