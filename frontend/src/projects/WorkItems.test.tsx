@@ -482,7 +482,14 @@ describe('WorkItems', () => {
         `/api/items/${WORK_ITEMS[0].id}/estimates`,
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ p10Hours: 3, p50Hours: 5, p90Hours: 12 })
+          body: JSON.stringify({
+            p10Hours: 3,
+            p50Hours: 5,
+            p90Hours: 12,
+            // The form that asks says how it asked, so the row can be partitioned
+            // by it later. It is `three_point` until the questions change.
+            method: 'three_point'
+          })
         })
       )
     );
@@ -526,7 +533,8 @@ describe('WorkItems', () => {
           body: JSON.stringify({
             p10Hours: null,
             p50Hours: 5,
-            p90Hours: null
+            p90Hours: null,
+            method: 'three_point'
           })
         })
       )

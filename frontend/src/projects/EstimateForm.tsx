@@ -7,7 +7,18 @@ export type EstimateValues = {
   p10Hours: number | null;
   p50Hours: number | null;
   p90Hours: number | null;
+  method: string;
 };
+
+/**
+ * How this form asks, said by the form that asks it.
+ *
+ * The server cannot observe how a browser put a question, so it has to be told — and it is
+ * told by the component that knows, rather than by the caller that merely posts. That is
+ * what makes the answer true: when this form is replaced, the name changes here, in the
+ * same edit as the questions it describes.
+ */
+const METHOD = 'three_point';
 
 type EstimateFormProps = {
   id: string;
@@ -51,7 +62,8 @@ export function EstimateForm({
     onSubmit({
       p10Hours: numberField(values, 'p10Hours'),
       p50Hours: numberField(values, 'p50Hours'),
-      p90Hours: numberField(values, 'p90Hours')
+      p90Hours: numberField(values, 'p90Hours'),
+      method: METHOD
     });
   }
 

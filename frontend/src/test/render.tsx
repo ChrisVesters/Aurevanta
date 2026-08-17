@@ -180,6 +180,7 @@ export const ESTIMATES: Estimate[] = [
     consistency: 0.833,
     inconsistent: false,
     overconfident: false,
+    method: 'three_point',
     createdAt: '2026-08-13T10:00:00Z'
   },
   {
@@ -193,6 +194,7 @@ export const ESTIMATES: Estimate[] = [
     consistency: 1,
     inconsistent: false,
     overconfident: false,
+    method: 'three_point',
     createdAt: '2026-08-13T11:00:00Z'
   }
 ];
@@ -209,6 +211,7 @@ export const COLLEAGUES_ESTIMATE: Estimate = {
   consistency: 1,
   inconsistent: false,
   overconfident: false,
+  method: 'three_point',
   createdAt: '2026-08-13T12:00:00Z'
 };
 

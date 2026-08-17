@@ -106,6 +106,13 @@ export type Estimate = {
    * would become a specification people learn to type.
    */
   overconfident: boolean;
+  /**
+   * How the three numbers were asked for. The only thing about an estimate the server
+   * stores rather than derives, because it is the only one that leaves no trace in the
+   * numbers — and it is what lets M8 eventually ask whether changing the question changed
+   * how often a band contained the truth.
+   */
+  method: string;
   createdAt: string;
 };
 

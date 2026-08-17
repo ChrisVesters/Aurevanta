@@ -221,7 +221,7 @@ class EstimateApiTests {
 			.perform(patch("/api/items/" + this.migration.getId() + "/estimates")
 				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"p10Hours\":1,\"p50Hours\":2,\"p90Hours\":3}"))
+				.content("{\"p10Hours\":1,\"p50Hours\":2,\"p90Hours\":3,\"method\":\"three_point\"}"))
 			.andExpect(status().isMethodNotAllowed());
 	}
 
@@ -314,9 +314,71 @@ class EstimateApiTests {
 			.perform(post("/api/items/" + this.migration.getId() + "/estimates")
 				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"p10Hours\":3,\"p90Hours\":12}"))
+				.content("{\"p10Hours\":3,\"p90Hours\":12,\"method\":\"three_point\"}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.errors.p50Hours.code").value("not_null"));
+	}
+
+	// How it was asked for ----------------------------------------------------
+
+	/**
+	 * <strong>The only thing about an estimate that is stored rather than
+	 * derived.</strong> Whether a range is worth questioning is arithmetic over the three
+	 * numbers; how the question was put leaves no trace in them at all, so a server that
+	 * was not told can never find out.
+	 */
+	@Test
+	void anEstimateRecordsHowItWasAskedFor() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "12", Elicitation.SURPRISE_FRAMED).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.method").value("surprise_framed"));
+
+		assertThat(this.estimates.findAll()).singleElement()
+			.extracting(Estimate::getElicitationMethod)
+			.isEqualTo("surprise_framed");
+		current(this.ada).andExpect(jsonPath("$[0].method").value("surprise_framed"));
+	}
+
+	/**
+	 * <strong>Refused rather than stored, because the value of this column is exactly its
+	 * trustworthiness.</strong> A row claiming to have been collected a way nobody has
+	 * ever collected one would corrupt the one partition M8 can use to say whether
+	 * changing the question changed anything — and it would look like data.
+	 */
+	@Test
+	void refusesAMethodThisServerHasNeverCollectedAnEstimateBy() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "12", "vibes").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("unknown_elicitation_method"))
+			.andExpect(jsonPath("$.errors").doesNotExist());
+
+		assertThat(this.estimates.findAll()).isEmpty();
+	}
+
+	/**
+	 * Checked before the item is looked up, like the ordering above and for the same
+	 * reason: it is a fact about the request alone.
+	 */
+	@Test
+	void refusesAnUnknownMethodWithoutSayingWhetherTheItemExists() throws Exception {
+		this.mvc
+			.perform(post("/api/items/" + UUID.randomUUID() + "/estimates")
+				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"p10Hours\":3,\"p50Hours\":5,\"p90Hours\":12,\"method\":\"vibes\"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("unknown_elicitation_method"));
+	}
+
+	@Test
+	void refusesARequestThatDoesNotSayHowItWasAskedFor() throws Exception {
+		this.mvc
+			.perform(post("/api/items/" + this.migration.getId() + "/estimates")
+				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"p10Hours\":3,\"p50Hours\":5,\"p90Hours\":12}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.method.code").value("not_null"));
+
+		assertThat(this.estimates.findAll()).isEmpty();
 	}
 
 	/**
@@ -329,7 +391,7 @@ class EstimateApiTests {
 			.perform(post("/api/items/" + UUID.randomUUID() + "/estimates")
 				.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
 				.contentType(MediaType.APPLICATION_JSON)
-				.content("{\"p10Hours\":5,\"p50Hours\":3,\"p90Hours\":12}"))
+				.content("{\"p10Hours\":5,\"p50Hours\":3,\"p90Hours\":12,\"method\":\"three_point\"}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("estimate_out_of_order"));
 	}
@@ -374,7 +436,7 @@ class EstimateApiTests {
 			.perform(
 					post("/api/items/" + this.migration.getId() + "/estimates").header(HttpHeaders.AUTHORIZATION, stale)
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"p10Hours\":3,\"p50Hours\":5,\"p90Hours\":12}"))
+						.content("{\"p10Hours\":3,\"p50Hours\":5,\"p90Hours\":12,\"method\":\"three_point\"}"))
 			.andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("not_a_member"));
 
@@ -442,8 +504,17 @@ class EstimateApiTests {
 
 	private ResultActions estimate(Membership caller, WorkItem item, String p10, String p50, String p90)
 			throws Exception {
+		return estimate(caller, item, p10, p50, p90, Elicitation.THREE_POINT);
+	}
+
+	/**
+	 * The same, naming the way the three were asked for. Three boxes is what every case
+	 * above is doing, since that is still the only form on screen until step 3.
+	 */
+	private ResultActions estimate(Membership caller, WorkItem item, String p10, String p50, String p90, String method)
+			throws Exception {
 		RecordEstimateRequest request = new RecordEstimateRequest(new BigDecimal(p10), new BigDecimal(p50),
-				new BigDecimal(p90));
+				new BigDecimal(p90), method);
 		return this.mvc
 			.perform(post("/api/items/" + item.getId() + "/estimates").header(HttpHeaders.AUTHORIZATION, bearer(caller))
 				.contentType(MediaType.APPLICATION_JSON)

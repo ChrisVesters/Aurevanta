@@ -32,7 +32,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | What makes an estimate worth questioning ✅ *done* | M3 |
-| 2 | Recording how a range was asked for | M2 |
+| 2 | Recording how a range was asked for ✅ *done* | M2 |
 | 3 | One question at a time, in the order that stops them anchoring | 1, 2 |
 | 4 | The review, and the bet | 3 |
 | 5 | Close out | 1–4 |
@@ -365,7 +365,7 @@ and the forecast suite can no longer disagree.
 
 ---
 
-## Step 2 — Recording how a range was asked for
+## Step 2 — Recording how a range was asked for ✅ *done*
 
 **Goal.** Every estimate says which question produced it, so that M8 can eventually say whether
 the question mattered.
@@ -388,6 +388,50 @@ insert that omits it fails rather than being assigned one.
 
 **Done when** the calibration question M8 will ask is answerable from the rows rather than from a
 deploy date.
+
+### As built — where it differs from the above
+
+**The backfill got a migration test, which the bullets did not ask for and `V13` never had.**
+`EstimateElicitationMigrationTests` brings the database to `V14`, inserts an estimate of the shape
+that version produced — three numbers and no word about how they were asked for — migrates to
+`V15`, and asserts it reads back as `three_point`. It then asserts the two halves of the second
+statement: an insert omitting the column now fails, and `information_schema` reports no default to
+inherit. The reason it is worth the fixture chain (tenant → user → project → work item → estimate)
+is that this column's entire value is its trustworthiness: a backfill that quietly missed rows, or
+a default that let later rows be handed a method nobody stated, would **corrupt** the evidence
+rather than lose it, and corrupted evidence still looks like data. `V13` made the same kind of
+claim about every row in `forecast_runs` and nothing has ever checked it.
+
+**That test also absorbed two of the step's own bullets**, which as written could not both be
+true. "A row written before this milestone reads back as `three_point` — asserted against a row
+inserted directly, since nothing can create one through the API any more" was written assuming
+step 3 had landed: today the API still records `three_point`, because the form still asks three
+boxes. And "an insert that omits it fails" cannot be asserted against the same directly-inserted
+row that the backfill is supposed to have filled in. Splitting them across the migration boundary
+is what makes both testable, and it is a better test than either bullet described.
+
+**The frontend was kept working rather than broken until step 3.** M4's step 2 left the browser
+sending a request the server refused, and said so. Here that was avoidable and avoiding it is more
+honest: the existing three-box form genuinely *is* `three_point`, so it says so from today.
+`EstimateForm` owns the constant — the component that asks is the one that knows how it asked, so
+when the questions change in step 3 the name changes in the same edit. A caller that merely posts
+could not have made that claim truthfully.
+
+**The wire calls it `method` and the column calls it `elicitation_method`**, which the bullets left
+open. A field inside an estimate document needs no qualifier; a column sitting beside `created_at`
+in a table of estimates does. The request and the response use the same name as each other, which
+mattered more than matching the column the way `priorityRule` does.
+
+**`Elicitation.require` returns `void` and throws**, rather than returning a normalised value: the
+service already holds the string, and a method that hands back what it was given invites somebody
+to think it changed something.
+
+**Three pre-existing tests needed their raw JSON bodies widened**, and one of them is worth
+noticing: `refusesAnOutOfOrderEstimateWithoutSayingWhetherTheItemExists` began failing with
+`validation_failed` rather than `estimate_out_of_order`, because a body missing the new required
+field is refused by Bean Validation before the service runs at all. That is correct behaviour and
+a reminder of the ordering: field validation, then document-level facts about the request, then
+anything that looks a row up.
 
 ---
 

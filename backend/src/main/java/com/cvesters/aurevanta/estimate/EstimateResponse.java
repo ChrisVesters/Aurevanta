@@ -37,10 +37,15 @@ import com.cvesters.aurevanta.forecast.model.EstimateQuality;
  * constant, so keeping it would freeze today's threshold into rows that outlive it.
  * @param inconsistent and {@code overconfident} are what a screen renders. They are
  * advice and never a refusal — the estimate is stored exactly as given, flagged or not.
+ * @param method how this range was asked for. Read off the row rather than assumed, so an
+ * estimate written under a form this version no longer has still says which one it was —
+ * the same rule a forecast's {@code calendarRule} follows. Called {@code method} here and
+ * {@code elicitation_method} in the column, because a field inside an estimate needs no
+ * qualifier and a column beside {@code created_at} does.
  */
 public record EstimateResponse(UUID id, UUID itemId, UUID estimatorId, String estimatorName, BigDecimal p10Hours,
 		BigDecimal p50Hours, BigDecimal p90Hours, double consistency, boolean inconsistent, boolean overconfident,
-		Instant createdAt) {
+		String method, Instant createdAt) {
 
 	public static EstimateResponse of(Estimate estimate) {
 		EstimateQuality quality = EstimateQuality.of(estimate.getP10Hours().doubleValue(),
@@ -48,7 +53,7 @@ public record EstimateResponse(UUID id, UUID itemId, UUID estimatorId, String es
 		return new EstimateResponse(estimate.getId(), estimate.getWorkItem().getId(), estimate.getEstimator().getId(),
 				estimate.getEstimator().getDisplayName(), estimate.getP10Hours(), estimate.getP50Hours(),
 				estimate.getP90Hours(), quality.consistency(), quality.inconsistent(), quality.overconfident(),
-				estimate.getCreatedAt());
+				estimate.getElicitationMethod(), estimate.getCreatedAt());
 	}
 
 }

@@ -15,6 +15,7 @@ import com.cvesters.aurevanta.membership.MembershipService;
 import com.cvesters.aurevanta.problem.EstimateOutOfOrderException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
+import com.cvesters.aurevanta.problem.UnknownElicitationMethodException;
 import com.cvesters.aurevanta.problem.WorkItemNotFoundException;
 import com.cvesters.aurevanta.project.ProjectService;
 import com.cvesters.aurevanta.user.User;
@@ -64,14 +65,22 @@ public class EstimateService {
 	 * Any member may, including for work somebody else estimated a minute ago: estimation
 	 * is a team activity, and two people disagreeing is signal rather than a conflict to
 	 * refuse. Their estimates sit side by side, one current per person.
+	 * @param method how the three were asked for, which the server cannot observe and so
+	 * has to be told — {@link Elicitation} says which names it records
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws WorkItemNotFoundException if no item in it has that identifier
 	 * @throws EstimateOutOfOrderException if the three points do not ascend
+	 * @throws UnknownElicitationMethodException if the method names nothing this server
+	 * records
 	 */
 	@Transactional
 	public Estimate record(UUID callerId, UUID tenantId, UUID itemId, BigDecimal p10Hours, BigDecimal p50Hours,
-			BigDecimal p90Hours) {
+			BigDecimal p90Hours, String method) {
 		requireAscending(p10Hours, p50Hours, p90Hours);
+		// A fact about the request alone, like the order above and answered in the same
+		// place: a caller who named a method that does not exist learns nothing about
+		// which items exist by being told so.
+		Elicitation.require(method);
 		// The estimator comes off the membership that just proved the caller belongs
 		// here,
 		// rather than from a second lookup by the identifier in their token: the row is
@@ -80,7 +89,7 @@ public class EstimateService {
 		User estimator = this.memberships.requireMember(callerId, tenantId).getUser();
 		WorkItem item = this.items.get(callerId, tenantId, itemId);
 		return this.estimates
-			.save(new Estimate(item, estimator, p10Hours, p50Hours, p90Hours, Instant.now(this.clock)));
+			.save(new Estimate(item, estimator, p10Hours, p50Hours, p90Hours, method, Instant.now(this.clock)));
 	}
 
 	/**

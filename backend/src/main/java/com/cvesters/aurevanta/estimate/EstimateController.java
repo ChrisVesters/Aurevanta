@@ -45,7 +45,7 @@ class EstimateController {
 	EstimateResponse record(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID itemId,
 			@Valid @RequestBody RecordEstimateRequest request) {
 		return EstimateResponse.of(this.estimates.record(caller.userId(), caller.tenantId(), itemId, request.p10Hours(),
-				request.p50Hours(), request.p90Hours()));
+				request.p50Hours(), request.p90Hours(), request.method()));
 	}
 
 	/**

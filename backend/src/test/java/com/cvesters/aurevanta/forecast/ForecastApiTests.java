@@ -25,6 +25,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.cvesters.aurevanta.TestcontainersConfiguration;
 import com.cvesters.aurevanta.dependency.Dependency;
 import com.cvesters.aurevanta.dependency.DependencyRepository;
+import com.cvesters.aurevanta.estimate.Elicitation;
 import com.cvesters.aurevanta.estimate.Estimate;
 import com.cvesters.aurevanta.estimate.EstimateRepository;
 import com.cvesters.aurevanta.forecast.model.Engine;
@@ -920,7 +921,7 @@ class ForecastApiTests {
 
 	private Estimate estimate(WorkItem item, String p10, String p50, String p90) {
 		return this.estimates.save(new Estimate(item, this.ada.getUser(), new BigDecimal(p10), new BigDecimal(p50),
-				new BigDecimal(p90), CREATED_AT));
+				new BigDecimal(p90), Elicitation.THREE_POINT, CREATED_AT));
 	}
 
 	private String bearer(Membership caller) {

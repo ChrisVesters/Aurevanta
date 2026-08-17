@@ -24,11 +24,19 @@ import jakarta.validation.constraints.Positive;
  * What is <em>not</em> here is the order the three have to be in. That is not a fact
  * about any one field, so it is refused as {@code estimate_out_of_order} rather than
  * reported against a box chosen arbitrarily.
+ *
+ * @param method how the three were asked for, from {@link Elicitation}. Required, and it
+ * is the one field on this request that says nothing about the work — a server cannot
+ * observe how a browser put a question, so the browser has to say. Whether the name is
+ * one this server records is refused as {@code unknown_elicitation_method} rather than as
+ * a malformed field: the string is perfectly well formed and simply names nothing.
  */
 public record RecordEstimateRequest(@NotNull @Positive @Digits(integer = 10, fraction = 2) BigDecimal p10Hours,
 
 		@NotNull @Positive @Digits(integer = 10, fraction = 2) BigDecimal p50Hours,
 
-		@NotNull @Positive @Digits(integer = 10, fraction = 2) BigDecimal p90Hours) {
+		@NotNull @Positive @Digits(integer = 10, fraction = 2) BigDecimal p90Hours,
+
+		@NotNull String method) {
 
 }

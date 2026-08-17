@@ -69,6 +69,18 @@ public class Estimate {
 	@Column(name = "p90_hours", nullable = false, precision = 12, scale = 2)
 	private BigDecimal p90Hours;
 
+	/**
+	 * How these three numbers were asked for — one of the names in {@link Elicitation}.
+	 *
+	 * <p>
+	 * The only thing about an estimate that is stored rather than derived, and the
+	 * asymmetry is the point: whether a range is worth questioning is arithmetic over the
+	 * three columns above, but how the question was put leaves no trace in them at all.
+	 * Every row written before M5 says {@code three_point}, which is what it was.
+	 */
+	@Column(name = "elicitation_method", nullable = false, length = 40)
+	private String elicitationMethod;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt;
 
@@ -77,7 +89,7 @@ public class Estimate {
 	}
 
 	public Estimate(WorkItem workItem, User estimator, BigDecimal p10Hours, BigDecimal p50Hours, BigDecimal p90Hours,
-			Instant createdAt) {
+			String elicitationMethod, Instant createdAt) {
 		// Taken from the item rather than from a caller, so an estimate cannot be filed
 		// under one organisation and against another's work.
 		this.tenant = workItem.getTenant();
@@ -86,6 +98,7 @@ public class Estimate {
 		this.p10Hours = p10Hours;
 		this.p50Hours = p50Hours;
 		this.p90Hours = p90Hours;
+		this.elicitationMethod = elicitationMethod;
 		this.createdAt = createdAt;
 	}
 
@@ -111,6 +124,10 @@ public class Estimate {
 
 	public BigDecimal getP90Hours() {
 		return p90Hours;
+	}
+
+	public String getElicitationMethod() {
+		return elicitationMethod;
 	}
 
 	public Instant getCreatedAt() {
