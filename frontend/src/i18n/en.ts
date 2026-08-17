@@ -378,7 +378,11 @@ export const en = {
         // ordinary problem catalogue, like every other refusal: the server sends a code
         // and `describeFailure` finds the wording. A second copy here would be a second
         // sentence to keep in step.
-        unknown: 'Work no longer in this plan'
+        unknown: 'Work no longer in this plan',
+        // A kind of source this version has never heard of. The server versions ahead of
+        // the browser, and labelling it as one of the kinds we do know would be worse than
+        // saying nothing — the same rule the limitations list keeps.
+        unknownKind: 'Something this version of the app cannot describe yet'
       },
       earlier: {
         title: 'Earlier forecasts',

@@ -898,6 +898,30 @@ describe('ForecastPanel', () => {
     expect(ranking?.textContent).not.toMatch(/%/);
   });
 
+  /**
+   * The server versions ahead of the browser, so a kind this build has never heard of says
+   * so rather than being labelled as one of the kinds it does know. Falling through to the
+   * item branch would have called it "work no longer in this plan", which is not merely
+   * unhelpful but wrong — the same back door the limitations list is closed against.
+   */
+  it('describes a source kind this version has never heard of', async () => {
+    await open(
+      [FORECAST],
+      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }]
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+
+    expect(
+      await screen.findByText(
+        'Something this version of the app cannot describe yet'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Work no longer in this plan')).toBeNull();
+  });
+
   /** Named and marked rather than hidden, the way an arrow into archived work is. */
   it('names work that has been put away since the run', async () => {
     await open(
@@ -939,6 +963,49 @@ describe('ForecastPanel', () => {
       )
     ).toBeInTheDocument();
     expect(screen.queryByText('What the spread is made of')).toBeNull();
+  });
+
+  /**
+   * <strong>The slowest request this panel makes, so the likeliest to outlive it.</strong>
+   * Working out a breakdown replays the whole run — half a second at the largest plan — and
+   * nothing arriving after somebody has navigated away may touch a panel that has gone.
+   * This is the same guard the plan's forecast list already keeps; the breakdown was the
+   * one request in the panel that did not, and it is the one that needed it most.
+   */
+  it('ignores a breakdown that arrives after the panel has gone', async () => {
+    storeAccessToken();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url === '/api/auth/me'
+        ? Promise.resolve(jsonResponse(200, ACCOUNT))
+        : url === CONTRIBUTIONS_URL
+          ? new Promise<Response>((resolve, reject) => {
+              settle = resolve;
+              fail = reject;
+            })
+          : Promise.resolve(jsonResponse(200, [FORECAST]))
+    );
+
+    const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    await screen.findByRole('heading', { name: 'Forecast' });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+    answered.unmount();
+    settle(jsonResponse(200, CONTRIBUTIONS));
+
+    const refused = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    await screen.findByRole('heading', { name: 'Forecast' });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+    refused.unmount();
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() =>
+      expect(screen.queryByText('What the spread is made of')).toBeNull()
+    );
   });
 
   it('says nothing about earlier forecasts when this is the only one', async () => {

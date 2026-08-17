@@ -49,7 +49,13 @@ public final class Contributions implements RunObserver {
 	/** The co-moment of each source with the outcome. */
 	private final double[] together;
 
-	/** One row, reused: the engine's durations plus the two sources beside them. */
+	/**
+	 * One row, reused, for the run-shaped
+	 * {@link #observed(double[], int, double, double, double)} below: the plan's
+	 * durations with the two sources beside them copied on the end. Allocated by every
+	 * accumulator including the ones built generically, which costs a handful of doubles
+	 * and keeps one constructor rather than two.
+	 */
 	private final double[] watched;
 
 	private double meanOutcome;

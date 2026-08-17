@@ -2,14 +2,15 @@
 
 > **Status: proposal, as of 2026-08-06; last revised 2026-08-17.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4** and **M5** exist in code,
-> so **Tier 1 is complete and its inputs have been dealt with**: a plan with ranges in it
-> produces a band that models common cause and unlisted work, states every assumption that
-> produced it, and resolves to a date at a confidence somebody chooses. That was this
-> document's own bar for beating a spreadsheet — a Monte Carlo rollup and a ship date at a
-> confidence level — and both now exist. M5 then replaced the question those ranges are
-> collected by, which is the one thing that decides whether any of it means anything.
-> Everything from here is a further lens on that number rather than the first one.
+> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5** and **M6** exist in
+> code, so **Tier 1 is complete, its inputs have been dealt with, and Tier 2 is half built**: a
+> plan with ranges in it produces a band that models common cause and unlisted work, states every
+> assumption that produced it, and resolves to a date at a confidence somebody chooses. That was
+> this document's own bar for beating a spreadsheet — a Monte Carlo rollup and a ship date at a
+> confidence level — and both now exist. M5 then replaced the question those ranges are collected
+> by, which is the one thing that decides whether any of it means anything, and M6 made the band
+> say what it is made of. Everything from here is a further lens on that number rather than the
+> first one.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -762,7 +763,7 @@ across a whole plan extends something that exists rather than reimplementing a r
 
 ---
 
-## M6 — Variance contribution — *planned in `m6-plan.md`*
+## M6 — Variance contribution ✅ *done* — *planned in `m6-plan.md`*
 
 Rank items by contribution to the *spread*, not by size. A 20-day task estimated 18–22 is
 nearly risk-free; a 5-day task estimated 2–30 wrecks the forecast.
@@ -786,6 +787,13 @@ would be five million numbers a table would have to carry for every button press
 about 300ms. What M6 must not do is change the model without bumping `Engine.VERSION`, since a
 replay that no longer reproduces its own stored percentiles is what the persistence test in
 `ForecastApiTests` exists to catch.
+
+> **Discharged, and the version did not move.** Watching the engine is an observer told after
+> every draw that takes none of its own, so the same seed produces byte-identical percentiles
+> whether anybody is listening or not — asserted, because that assertion is the whole argument
+> that `Engine.VERSION` need not move. Measured at the largest plan this product supports, the
+> accumulator costs nothing: 489 ms to replay five hundred items over ten thousand runs, 491 ms
+> with the ranking being worked out as it goes.
 
 `m6-plan.md` breaks it into five steps and answers ten decisions, and it **turns that last
 sentence into a runtime guard**: the endpoint replays a run, compares the six figures it produces
@@ -813,6 +821,29 @@ wrong in the third decimal on a plan of a million hours and returns **NaN** on o
 which is not valid JSON. Welford's co-moment update is five lines and accurate to 1e-12 in the
 case that breaks it.
 
+**What shipped.** `GET /api/forecasts/{runId}/contributions` replays a stored run, ranks every
+source of its spread, and adds no column to any table. The panel loads it only when somebody asks
+— half a second is cheap for a reader who wants it and rude to charge everybody who opened the
+page — and shows a bar per source with **no percentage anywhere**, because a share that reads as
+a percentage is one somebody will add up.
+
+**What M7 inherits, and the line between them.** M7 reads this ranking; it does not extend it.
+Ranking what widens a plan is not proposing what to cut, and the section below already says why
+the second needs machinery the first does not: a cut has to be evaluated by re-running the
+schedule without it, because removing an item off the deciding path buys no time at all. What M6
+hands over is the cheap half of that — the ranking that says which candidates are worth
+re-running — and the seam that makes it possible, which is that a stored run can be replayed
+exactly.
+
+**What M10 inherits.** Two things, and the second is the larger. **Criticality is a different
+question**: "how often is this item on the path that decides the finish" can be high for an item
+that contributes nothing, because an item that never varies decides the finish in every run and
+widens nothing. Conflating the two produces a ranking that means neither, so M10 measures its own
+thing inside the scheduler. And the **replay guard** is what lets any cross-run comparison be
+trusted at all: M10 compares runs, and a comparison across an engine change is how a tool reports
+a date sliding when nothing moved. M6 made "does this still come out the same?" a question the
+server asks rather than one a test asks once.
+
 ---
 
 ## M7 — Inverse queries
@@ -826,7 +857,11 @@ planning.
 
 **Revisit for the graph.** Cutting an item off the critical path buys no time at all, so
 naive "rank by size" scope suggestions will be wrong. Candidate cuts have to be evaluated
-by re-running the schedule without them. That is more expensive — and once M11 lands, the
+by re-running the schedule without them. **M6 built the cheap half of that**: its ranking says
+which items the finish actually moves with, which is the shortlist worth re-running rather than
+the whole plan — and its replay machinery is how a candidate gets evaluated at all. What M7 must
+not do is mistake the ranking for the answer: a high contribution says an item widens the band,
+not that removing it buys a date. That is more expensive — and once M11 lands, the
 answer space widens from "what do I cut?" to include "what if we add a person?", which uses
 the same machinery.
 
@@ -904,7 +939,11 @@ because both came from the team.
 - **The critical path is probabilistic** — with uncertainty, no single path is *the*
   critical one. Report how often each path drives completion (criticality index); a path
   that is critical in 40% of runs is a different management problem from one that is
-  critical in 99%.
+  critical in 99%. **Not the same thing as M6's ranking, and the difference matters**: an item
+  that never varies can decide the finish in every single run and widen the band by nothing at
+  all. Criticality is measured inside the scheduler and answers "what is holding this up";
+  contribution is measured against the outcome and answers "what is making this uncertain".
+  Conflating them gives a number that means neither.
 
 ---
 
@@ -1023,6 +1062,13 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
 - **Backtesting** — replay a team's historical data and show what Aurevanta would have said
   six months ago versus what happened. The fastest way to earn trust from a sceptic, and it
   needs no new modelling.
+- **A proper variance decomposition** — Sobol or ANOVA indices, which partition the spread
+  including the interactions between sources, and so *would* add up to a whole where M6's
+  squared correlations deliberately do not. Turned down there rather than forgotten: it costs at
+  least a re-run per source where the ranking costs one for the whole plan, and the ranking is
+  the honest ninety percent. Worth revisiting only when somebody asks a question the ranking
+  cannot answer — "how much of the spread is the team factor *on its own*, with the items held
+  still" is the shape of that question.
 - **Estimate hygiene warnings** — flag estimates gone stale, ranges pasted identically
   across items, and clustering on 3/5/8. Extends M5's overconfidence check from single
   estimates to patterns across a plan. **Both single-estimate checks now exist** as
@@ -1326,7 +1372,11 @@ Threaded through the above rather than scheduled as a block.
   actually bounds what one member can make this server do: `Engine.MAX_SAMPLE_COUNT` is a
   bound on absurdity rather than a promise of speed, and the simulation runs *inside* the
   request's transaction, so a few large forecasts at once occupy database connections as well
-  as processors.
+  as processors. **M6 widened that surface and it is worth saying so**: a contributions
+  request replays a whole run, measured at about half a second at five hundred items, and
+  unlike asking for a forecast it is a `GET` that any reader can repeat as fast as they can
+  click. The limit is the fix; making one endpoint non-transactional would only move half the
+  problem and leave two shapes of the same code.
 - **API documentation** — OpenAPI, once the domain endpoints exist and are stable.
 
 ### Security debt
@@ -1407,20 +1457,21 @@ with itself to within a few percent and sits just outside the ratio rule. So the
 as a backstop and the *question order* shipped as the defence, and anybody who had shipped only
 the checks would have shipped the part that measurably does not work.
 
-**What is next is M6**, and the ordering principle at the top of this document is why. Tier 2 is
-analysis over an engine that already exists, and variance contribution is the most defensible
-thing in the product — point-estimate tools cannot produce it at all. It also needs no new
-schema and no new modelling: a run stores its seed, its inputs and its engine version, so
-per-item contribution comes from **replaying** a stored forecast rather than from hoarding five
-million sampled numbers per button press.
+**M6 is spent, and it cost no schema at all.** Variance contribution comes from replaying a
+stored run rather than from any column, which is what M3a's seed was kept for and the first
+feature to spend it — so it answers for every forecast this product has ever produced rather than
+only for the ones made since. Both traps that section warned about held: the ranking is measured
+against project completion rather than computed from variances in isolation, and the model did
+not move to make the measurement easier. `Engine.VERSION` is still 2.
 
-**What M6 must not do is the thing that would be easiest.** With a summing model, contribution
-was each item's share of total variance; with a scheduler it is not, and computing it that way
-would produce a confident ranking that is wrong for exactly the items a merge point makes
-matter. It has to be measured against *project completion* across runs. The other trap is
-changing the model to make the measurement easier: a replay that no longer reproduces its own
-stored percentiles is what `ForecastApiTests` exists to catch, and `Engine.VERSION` is what to
-move if the model genuinely has to.
+**What is next is M7**, and the ordering principle is why: it is the last of Tier 2, it reads
+what M6 built, and it is the step that turns a reporting surface into something opened *during*
+planning. **The trap is already named in its own section and worth repeating here**: a high
+contribution says an item widens the band, not that removing it buys a date. Cutting something
+off the deciding path buys nothing, so a candidate cut has to be evaluated by re-running the
+schedule without it — M6's ranking is the shortlist worth re-running, and its replay machinery is
+how each candidate gets run. What M7 must not become is a scope-editing screen: it proposes, and
+somebody else decides.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;

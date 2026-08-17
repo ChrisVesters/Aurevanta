@@ -5,9 +5,9 @@
 > **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
 > with an estimator, progress and actuals, and a precedence graph, with the plainest possible
 > UI to fill them — **M3 built the engine, both halves of it**, **M4 turned its hours into a
-> date at a chosen confidence**, and **M5 replaced the question those estimates are collected
-> by**. `roadmap.md` sequences the rest and is newer than this document wherever the two
-> disagree.
+> date at a chosen confidence**, **M5 replaced the question those estimates are collected by**,
+> and **M6 made the band say what it is made of**. `roadmap.md` sequences the rest and is newer
+> than this document wherever the two disagree.
 >
 > **The core principle below is no longer only an argument.** Ranges are fitted to log-normals,
 > sampled ten thousand times, scheduled over the precedence graph at a stated capacity, and
@@ -16,9 +16,9 @@
 > dominate the error* and *Independence is a lie* are built, marked below, and asked as two
 > questions on the forecast screen. **Both of Tier 1 is built** — the rollup and the ship date
 > — so the bar this document set for beating a spreadsheet has been met, and *The input problem
-> is harder than the maths* is mostly built too; Tier 2 and everything after it is still design
-> intent. Two of the *Open questions* at the end were answered by M2 and are marked as such; the
-> rest stand.
+> is harder than the maths* is mostly built too. **Tier 2 is half built**: variance contribution
+> exists and inverse queries do not. Tier 3 and everything after it is still design intent. Two
+> of the *Open questions* at the end were answered by M2 and are marked as such; the rest stand.
 
 ## Purpose
 
@@ -97,13 +97,37 @@ a calendar date. This also reframes stakeholder negotiation: "can we go faster" 
 > 25" does not, and it gets pasted into a plan with the assumption behind it left in the
 > browser.
 
-### Tier 2 — analysis over the same engine, no new schema
+### Tier 2 — analysis over the same engine, no new schema *(half built)*
 
-**Variance contribution.** Rank tasks by their contribution to the *spread* of the
-project outcome, not by duration. A 20-day task estimated 18–22 is nearly risk-free; a
+**Variance contribution. ✅ *built by M6*** Rank tasks by their contribution to the *spread* of
+the project outcome, not by duration. A 20-day task estimated 18–22 is nearly risk-free; a
 5-day task estimated 2–30 is what wrecks the forecast. Directly answers "what should I
 spike next to tighten the plan," and is the most defensible feature in the product —
 point-estimate tools cannot produce it.
+
+> **Built, 2026-08-17, and it cost no schema.** Each item's sampled duration is correlated with
+> the plan's completion across every run — by replaying the stored forecast out of its own seed,
+> which is what M3a kept a seed for. So it answers for every forecast this product has ever made
+> rather than only for the ones since.
+>
+> **Two things this paragraph did not know it was claiming.** The first is that "contribution to
+> the spread" reads as a percentage and **is not one**: the squared correlations sum to exactly 1
+> only for a chain worked by one person with no common cause, and in any real forecast the shared
+> team factor makes everything move with everything, so they sum to well over one. A pie chart of
+> them would show a plan accounting for three hundred percent of its own uncertainty — precisely
+> the precise-looking wrong number this document exists to complain about — so it is a ranking
+> with a bar, and no percentage appears anywhere.
+>
+> The second is that **two of the rows are not tasks.** The shared team factor and the work nobody
+> has listed are both sources of spread and either can dominate; a report that ranked only tasks
+> would answer "which of these should I spike" while hiding that the honest answer is sometimes
+> "none of them, because what is widening this plan is not on the list".
+>
+> **And "rank by duration" is not the only wrong answer — so is "rank by variance".** Measured: an
+> item with *forty-five times* the variance of any other in its plan accounted for 1.2% of the
+> spread, because it sat beside the chain that actually decided the finish, while each of the five
+> narrow links on that chain accounted for about 18%. A summing model would have sent somebody to
+> spike the one thing least worth touching.
 
 **Inverse queries.** Run the question backwards: not "when will this finish" but "what do
 I cut to hit 1 November at 85% confidence?", ranking candidate scope removals by the

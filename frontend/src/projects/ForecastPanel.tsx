@@ -121,6 +121,8 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   const [spread, setSpread] = useState<Contribution[] | null>(null);
   const [spreadFailure, setSpreadFailure] = useState<string | null>(null);
   const [breakingDown, setBreakingDown] = useState(false);
+  /** Which run somebody has asked about, which is what starts the work below. */
+  const [explaining, setExplaining] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<Confidence>(USUAL_CONFIDENCE);
   const asking = useFormFailure(ASKED_FOR);
 
@@ -162,6 +164,7 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
         // last one stops being true the moment this lands.
         setSpread(null);
         setSpreadFailure(null);
+        setExplaining(null);
       } catch (error) {
         asking.report(error);
       }
@@ -170,24 +173,36 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
     [request, projectId, asking]
   );
 
-  const breakDown = useCallback(
-    async (runId: string) => {
-      setBreakingDown(true);
-      setSpreadFailure(null);
-      try {
-        setSpread(
-          await request<Contribution[]>(`/forecasts/${runId}/contributions`)
-        );
-      } catch (error) {
+  // An effect rather than a handler, and the reason is the half second it takes: this is by
+  // far the slowest request this panel makes, so it is by far the likeliest to be still in
+  // flight when somebody navigates away. Nothing arriving afterwards may touch a panel that
+  // has gone — the rule every other request here already follows.
+  useEffect(() => {
+    if (explaining === null) {
+      return undefined;
+    }
+    let cancelled = false;
+    setBreakingDown(true);
+    request<Contribution[]>(`/forecasts/${explaining}/contributions`)
+      .then((ranked) => {
+        if (!cancelled) {
+          setSpread(ranked);
+          setBreakingDown(false);
+        }
+      })
+      .catch((error: unknown) => {
         // Including the one refusal this endpoint has of its own: a run the engine no
         // longer reproduces is not explained at all, because a ranking from a different
         // model is an exact ranking of a plan nobody forecast.
-        setSpreadFailure(describeFailure(t, error));
-      }
-      setBreakingDown(false);
-    },
-    [request, t]
-  );
+        if (!cancelled) {
+          setSpreadFailure(describeFailure(t, error));
+          setBreakingDown(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [explaining, request, t]);
 
   function ask(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -543,7 +558,7 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
                   type="button"
                   className="secondary"
                   disabled={breakingDown}
-                  onClick={() => void breakDown(latest.id)}
+                  onClick={() => setExplaining(latest.id)}
                 >
                   {breakingDown
                     ? t('projects.forecast.contributions.loading')
@@ -706,18 +721,25 @@ function calendarOf(
  * product deletes an item.
  */
 function describeSource(t: TFunction, source: Contribution): string {
+  if (source.kind === 'item') {
+    if (source.title === null) {
+      return t('projects.forecast.contributions.unknown');
+    }
+    return source.archived
+      ? t('projects.forecast.contributions.archived', { title: source.title })
+      : source.title;
+  }
   if (source.kind === 'discovered_work') {
     return t('projects.forecast.contributions.discoveredWork');
   }
   if (source.kind === 'team_factor') {
     return t('projects.forecast.contributions.teamFactor');
   }
-  if (source.title === null) {
-    return t('projects.forecast.contributions.unknown');
-  }
-  return source.archived
-    ? t('projects.forecast.contributions.archived', { title: source.title })
-    : source.title;
+  // A kind this version has never heard of, which the types say cannot happen and the
+  // server is free to send: it is what versions ahead here. Falling through to the item
+  // branch would have labelled it "work no longer in this plan", which is not merely
+  // unhelpful but wrong — the same back door `describeLimitation` is closed against.
+  return t('projects.forecast.contributions.unknownKind');
 }
 
 /**

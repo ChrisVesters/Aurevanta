@@ -11,9 +11,11 @@ designing schema or domain logic. It is design intent, not a description of exis
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
 are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
-commit to) and M5 (elicitation) are built. M4 completed **Tier 1** — the roadmap's own bar for
-beating a spreadsheet, being a Monte Carlo rollup and a ship date at a confidence level — and M5
-then replaced the question the ranges feeding it are collected by.
+commit to), M5 (elicitation) and M6 (variance contribution) are built. M4 completed **Tier 1** —
+the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup and a ship date at a
+confidence level — M5 then replaced the question the ranges feeding it are collected by, and M6
+made the band say what it is made of. **Tier 2 is half built**: M7's inverse queries are what
+remain.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -38,11 +40,11 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
-`docs/m6-plan.md` is the next milestone and is **not built**: ranking what a plan holds by how
-much it widens the forecast. It adds **no column and no migration** — it replays a stored run,
-which is what M3a's seed was for — and it does not move `Engine.VERSION`. Read its decision 3
-before rendering any of it: the obvious presentation is percentages, and they sum to well over
-one, because M3b's shared factor makes everything move with everything.
+`docs/m6-plan.md` is variance contribution, and is **built**: ranking what a plan holds by how
+much it widens the forecast. It added **no column and no migration** and did not move
+`Engine.VERSION`. **Read its decision 3 before rendering any of it** — the obvious presentation
+is percentages, and they sum to well over one, because M3b's shared factor makes everything move
+with everything.
 
 `docs/m5-plan.md` is elicitation, and is **built**: three boxes became three questions asked one
 at a time, so that three numbers stop being 3/5/8. **Read the measurement at the top before
@@ -1000,11 +1002,12 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   moved.
 - **A run is written once and never updated, like an estimate.** `forecast_runs` stores its
   resolved inputs, its seed, its sample count, its capacity, its priority rule and
-  `Engine.VERSION`, so any run can be replayed exactly — which is what M6 gets its per-item
-  contribution from instead of storing a duration vector per item per run, and what M10 reads
-  to see a date sliding. `ForecastApiTests` replays a stored snapshot and asserts it
-  reproduces its stored percentiles: **that is the test that fails the day somebody changes
-  the model without bumping the version.**
+  `Engine.VERSION`, so any run can be replayed exactly — which is where M6 gets its per-item
+  contribution instead of storing a duration vector per item per run, and what M10 reads to see
+  a date sliding. `ForecastApiTests` replays a stored snapshot and asserts it reproduces its
+  stored percentiles: **that is the test that fails the day somebody changes the model without
+  bumping the version** — and M6 made the same comparison a runtime guard, so a run that no
+  longer reproduces is refused rather than explained.
 - **The generator is `java.util.Random`, deliberately.** It is the only one in the JDK whose
   algorithms are written into its *contract* rather than only its implementation.
   `SplittableRandom` is faster and takes its Gaussian from a default method nothing promises
@@ -1084,3 +1087,57 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   about. The confidence control (50 / 80 / 95%) reads percentiles already in the response, so
   moving it sends **no request** — that is the feature rather than an optimisation, since the
   trade only reads as a trade when both numbers are two readings of one forecast.
+
+### Variance contribution: a ranking, and never a share
+
+- **The number is a squared correlation, and it is not a partition.** Each source's sampled
+  value is correlated with the plan's completion across every run; the square of that is what
+  the ranking is by. **They sum to exactly 1 only for a chain at capacity one with no common
+  cause** — the summing model this product deliberately stopped using, and the closed-form
+  oracle `ContributionsTests` is built on. In any real forecast M3b's team factor multiplies
+  every item by the same draw, so everything moves with everything and the shares add to well
+  over one. **Nothing may render them as percentages**: a bar per source, and the panel says in
+  a line that they overlap and why. A screen showing a plan accounting for three hundred percent
+  of its own uncertainty is this product's own failure mode with a chart on it.
+- **Three kinds of row, and the two that are not items are what make the ranking honest.** The
+  shared team factor and the work nobody has listed are both sources of spread, either can
+  dominate, and when one does the true answer to "what should I spike" is that no estimate below
+  it is the problem. A source nobody *modelled* gets **no row at all** rather than a row reading
+  zero — it never varied so it measures as nothing either way, but zero invites a reader to
+  conclude their team has no common cause when what they did was decline to model one. Decided
+  from what the run stored, which is the rule a run made before there was a calendar follows.
+- **Nothing is stored, and that is what makes it work on the past.** The per-item durations come
+  from replaying the run out of its own seed, which is what M3a kept a seed for. The decisive
+  argument is not the five million numbers a column would hold: a stored contribution would only
+  ever explain runs made after it existed, and a derived one explains every forecast this
+  product has ever produced. `V16` would be a mistake — see `m6-plan.md` decision 1.
+- **A replay must prove itself before it explains anything.** `ForecastService.contributionsTo`
+  compares the replay's six figures against the six on the row and refuses with
+  `forecast_replay_mismatch` on any difference. That is `ForecastApiTests`' persistence assertion
+  promoted into a runtime guard, and it needs no list of replayable engine versions: it asks the
+  only question that matters — *does this still come out the same?* — so it catches a version
+  bump, a JDK generator change and an accidental edit to the sampler alike. A ranking from a
+  different model is not a rougher ranking of this plan, it is an exact ranking of a plan nobody
+  forecast, and it would look entirely reasonable.
+- **Watching the engine takes no draw and moves no version.** `Engine.run` has an overload taking
+  a `RunObserver`, called after everything that draws; `RunObserver.NONE` is the no-op the
+  ordinary form delegates with, the way `Schedule.finish(durations)` delegates with
+  `NOTHING_FOUND`. The test that says the version need not move is byte-identity: the same seed
+  produces an equal `Forecast` with an observer attached and without. Measured at five hundred
+  items and ten thousand runs, the accumulator costs nothing — 489 ms against 491 ms.
+- **Welford's co-moments, because the obvious formula returns NaN on a large plan.** Accumulating
+  `Σx`, `Σx²` and `Σxy` and subtracting at the end is wrong in the third decimal on a plan of a
+  million hours — enough to reorder a ranking whose whole purpose is the order — and on a plan of
+  a billion the subtraction goes negative and `sqrt` gives `NaN`, which is not valid JSON. A
+  million hours is reachable: `@Digits(integer = 10, fraction = 2)` lets one estimate be ten
+  billion. `ContributionsTests` keeps the naive formula and asserts it fails, so putting it back
+  is a failing test rather than a tidier-looking method.
+- **A source with no variance contributes exactly zero, and that is the ordinary case** — an item
+  nobody estimated, work already finished, and an estimate of three identical numbers all produce
+  it. The correlation is `0/0`, and a `NaN` would sort unpredictably through a ranking and fail
+  to serialise at all.
+- **Titles come off the plan as it stands, because the snapshot never held one.** `ForecastInputs`
+  stores identifiers and no title on purpose — M10 diffs those snapshots and a rename is not a
+  thing that moved — so the response resolves names from the live and archived listings. Work put
+  away since is named and marked; work the plan no longer holds at all says so rather than
+  rendering a blank.

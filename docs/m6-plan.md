@@ -34,7 +34,7 @@
 | 2 | The engine says what each run did ✅ *done* | 1 |
 | 3 | Replaying a run, and refusing to when it is not the same one ✅ *done* | 2 |
 | 4 | What to spike next, on screen ✅ *done* | 3 |
-| 5 | Close out | 1–4 |
+| 5 | Close out ✅ *done* | 1–4 |
 
 **M6 adds no columns and no migration.** That is worth noticing before somebody adds one: the
 alternative to replaying is storing a duration per item per run, which at 500 items and 10,000
@@ -534,6 +534,104 @@ ranking's own text is checked against `/%/` — because a share that reads as a 
 somebody will add up, and these sum to well over one. The fixture is deliberately not in plan
 order and its shares add to 1.2, so a panel that rendered what it was given in the order it
 arrived would fail, and one that showed a total would be visibly wrong.
+
+---
+
+## Step 5 — Close out ✅ *done*
+
+> **This section did not exist when the plan was written**, and the *At a glance* table promised
+> it for four steps. Written now, from what the milestone turned out to be — which is the honest
+> version, and is also why the plan is updated as its steps land rather than at the end.
+
+- `roadmap.md`: mark M6 done. Discharge its own last sentence — *what M6 must not do is change the
+  model without bumping `Engine.VERSION`* — which is now enforced at runtime rather than trusted.
+- `roadmap.md`: record what M7 inherits. It is the one milestone that reads this ranking, and the
+  two are deliberately not the same thing: ranking what widens a plan is not proposing what to
+  cut, and M7's own note about evaluating cuts by re-running the schedule is what keeps them
+  apart.
+- `roadmap.md`: record what M10 inherits — criticality is a *different question* with a different
+  answer, and the replay guard is the thing that lets any of M10's cross-run comparisons be
+  trusted.
+- `roadmap.md`: put the variance decomposition in the icebox with decision 10's reason, so that
+  "the shares do not add up" has a recorded answer rather than being rediscovered as a defect.
+- `product-concept.md`: *Variance contribution* stops being design intent, with the two things
+  the section did not know it was claiming — that the shares are not a partition, and that two of
+  the rows are not tasks.
+- `CLAUDE.md`: a contribution is a ranking and never a share; three kinds of row and why the two
+  non-items are what make it honest; a replay must prove itself before it explains anything;
+  nothing is stored and that is what makes it work on the past; watching the engine takes no draw
+  and moves no version.
+
+### As built — where it differs from the above
+
+**The bullets above were written now, and that is the departure worth naming first.** The plan
+shipped with an *At a glance* table promising five steps and a body holding four — the close-out
+section simply was not written, and nothing noticed until it was time to do it. Every other
+milestone's step 5 existed before its step 1 did. What that cost is small (the work was obvious
+from what M6 turned out to be) and what it risks is not: a close-out written after the fact is a
+close-out that can only record what was done, never check it against what was promised. The M5
+plan is the counter-example — its step 5 listed four documents in advance, and doing it turned up
+three more places that had quietly stopped being true.
+
+**`CLAUDE.md` got eight bullets rather than five**, because three facts a reader needs in the same
+breath were not on the list: that a source with no variance is exactly zero and that this is the
+ordinary case rather than an edge one; that titles come off the live plan because the snapshot
+never held one; and the measurement itself — 489 ms against 491 ms — since "the accumulator is
+free" is the fact that makes "on demand" a courtesy rather than a workaround.
+
+**Two things had quietly stopped being true and were not on the list.** `CLAUDE.md`'s note on
+`forecast_runs` said a replay is *what M6 gets its contribution from*, written when M6 was a
+future tense; it now also says M6 turned the same comparison into a runtime guard. And both
+status headers claimed Tier 2 as design intent — it is half built, and saying so is the whole
+point of a status line.
+
+**The variance decomposition went to the icebox with its question attached.** Decision 10 turned
+Sobol down for costing a re-run per source, but "the shares do not add up" will be raised again by
+whoever first wants a pie chart — so the icebox entry names the shape of the question that would
+justify it: *how much of the spread is the team factor on its own, with the items held still.*
+Recorded as a deferred alternative rather than left to be rediscovered as a defect.
+
+**M10's criticality bullet gained the distinction rather than a cross-reference.** It would have
+been enough to write "not the same as M6"; what it says instead is why — an item that never varies
+can decide the finish in every single run and widen the band by nothing at all. That sentence is
+the whole reason the two features cannot share a measurement, and it belongs where somebody will
+be tempted to merge them.
+
+### The review pass — what a read of the whole milestone changed
+
+**One real bug, and it was in the slowest thing on the panel.** Loading a breakdown had no
+unmount guard: it was written as a handler where every other request in the file is an effect
+with a `cancelled` flag, and it is the request most likely to outlive the panel — half a second
+against a few milliseconds for everything else. Somebody navigating away mid-replay would have
+had a ranking painted onto a component that had gone, or onto the next plan they opened. It is an
+effect keyed on "which run somebody asked about" now, matching `EstimateForm`'s quality lookup
+exactly, with a test that unmounts mid-flight and resolves and rejects afterwards.
+
+**One wrong answer waiting for the server to version ahead.** `describeSource` handled the two
+non-item kinds and let everything else fall through to the item branch — so a kind this build had
+never heard of would have rendered as *"Work no longer in this plan"*, which is not merely
+unhelpful but false. This file already keeps the rule, ten lines away, for limitation codes: *the
+server is what versions ahead here, and silently showing the wrong thing is that rule failing
+through the back door.* The item branch is explicit now and an unknown kind says so, tested the
+way the unknown limitation already is.
+
+**One finding recorded rather than fixed, and the reason is that half a fix is worse.**
+`contributionsTo` is `@Transactional(readOnly = true)` and runs a five-hundred-millisecond
+simulation inside it, holding a pooled connection for CPU work. That is exactly what the
+roadmap's *Operations* bullet already describes for forecasts — and M6 widened it, because unlike
+asking for a forecast this is a `GET` any reader can repeat as fast as they can click. Making
+this one endpoint non-transactional would leave two shapes of the same code and fix half the
+problem; the concurrency limit that bullet already names is the actual fix. The bullet now says
+so.
+
+**What was checked and found sound.** The snapshot's item order and `Contributions.ofItem`'s index
+are the same order, because `toModels` walks the snapshot and the engine preserves it. A share is
+a square so it cannot be negative, and the bar clamps at 100% for the perfectly-correlated case.
+The run-shaped `observed` cannot overrun the engine's durations array, since the engine passes its
+own plan length. And the suite was run three times end to end after the fixes: 371 passing each
+time, with one transient failure in an unrelated file that passed in isolation and did not recur —
+the second time that has happened during a review pass on this machine, which is worth watching
+even though nothing in either milestone touches those files.
 
 ---
 
