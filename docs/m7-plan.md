@@ -32,7 +32,7 @@
 |---|---|---|
 | 1 | Reading a date backwards, and counting the runs that beat it ✅ *done* | M4, M6 |
 | 2 | A cut that moves no other draw ✅ *done* | M3 |
-| 3 | What one cut buys | 1, 2 |
+| 3 | What one cut buys ✅ *done* | 1, 2 |
 | 4 | The shortest list that gets there | 3 |
 | 5 | On screen | 4 |
 | 6 | Close out | 1–5 |
@@ -378,7 +378,7 @@ four lines in `ItemModel.sample`: take the draw, then throw it away.
 
 ---
 
-## Step 3 — What one cut buys
+## Step 3 — What one cut buys ✅ *done*
 
 **Goal.** For a named set of candidates, what each is worth on its own.
 
@@ -403,6 +403,52 @@ held is refused. Thirteen candidates are refused with the budget in the message.
 writes nothing, and a run in another organisation is `forecast_not_found`.
 
 **Done when** "what is this worth dropping?" has a measured answer per candidate.
+
+### As built — where it differs from the above
+
+**Decision 9's budget was measured, and at the scale ceiling it is six seconds.** Baseline plus
+twelve cuts, five hundred items, ten thousand runs: **6.3 s**. That is the honest number and it
+is over any comfortable request budget — a typical fifty-item plan is nearer half a second, so the
+cost is the plan's size times the evaluations, exactly as decision 9 says.
+
+The cap stays at twelve, and the reasoning is the one decision 9 already set out: **if the budget
+gives, it gives on the number of candidates, which is visible, and never on the sample count,
+which is not.** Halving the runs would halve the cost and put the paired spread back to 1.9 points
+— most of what a cut is worth — so the search would rank by luck while looking exactly as
+confident. What actually fixes six seconds is the per-tenant concurrency limit `roadmap.md`
+already records as missing, and eventually doing this out of band. **Step 5 inherits a consequence
+of it**: a screen that fires this off and shows nothing for six seconds looks broken, so the
+waiting has to be visible.
+
+**One refusal became three, and each is a different thing to be told.** The bullets name them
+together; they are `forecast_has_no_calendar` (422 — the run cannot be asked about a date at all,
+the same shape `nothing_to_forecast` takes), `candidate_not_in_forecast` (400 — a fact about what
+the request names), and `too_many_candidates` (400, carrying the number). The last is a
+document-level refusal rather than `@Size(max = 12)` on the list, which would have produced the
+`max_size` code — whose wording is *"use no more than 12 characters"*, because that constraint has
+only ever bounded strings.
+
+**`ForecastRun.hasReadableCalendar()` now states a rule that was written twice.** M4's response
+tests `WorkingCalendar.RULE.equals(getCalendarRule())` to decide whether to publish dates, and an
+inverse query has to ask the same question before turning a date into hours. Two copies would be
+two chances for one to start reading a run through a calendar it was not made with.
+
+**The three-way naming was extracted, and the coverage gate is what found it.** `contributionsTo`
+and `cutsFor` both turn "the item, or nothing" into a title and an archived flag, and the second
+copy had no test for either edge — the ranking's tests cover them and the cuts' did not. Rather
+than write two more near-identical cases, the logic is `titleOf` and `isArchived`, stated once and
+covered once. Three-way logic written twice is two chances for one copy to start rendering a
+missing item as a blank.
+
+**One replay does two jobs.** The baseline evaluation *is* the replay whose six figures are
+checked against the row, so proving the engine still reproduces the run costs nothing beyond the
+work already being done. It also means the guard fires before any candidate is simulated, so a run
+that cannot be explained cannot be advised on either.
+
+**The wire is in percentages throughout**, converted once at the service boundary. The model deals
+in shares from 0 to 1 the way `Contribution.shareOfSpread` does; nobody asks for a date at 0.85
+confidence, and a request in percent with an answer in fractions would be two units in one
+feature.
 
 ---
 

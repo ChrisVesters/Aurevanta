@@ -25,10 +25,13 @@ import com.cvesters.aurevanta.estimate.EstimateService;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEdge;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEstimate;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedItem;
+import com.cvesters.aurevanta.forecast.model.ConfidenceBy;
 import com.cvesters.aurevanta.forecast.model.Contributions;
 import com.cvesters.aurevanta.forecast.model.Engine;
 import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.forecast.model.Forecast;
+import com.cvesters.aurevanta.forecast.model.ItemModel;
+import com.cvesters.aurevanta.forecast.model.RunObserver;
 import com.cvesters.aurevanta.forecast.model.Schedule;
 import com.cvesters.aurevanta.forecast.model.ScopeGrowth;
 import com.cvesters.aurevanta.forecast.model.TeamFactor;
@@ -36,12 +39,15 @@ import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
 import com.cvesters.aurevanta.membership.MembershipService;
+import com.cvesters.aurevanta.problem.CandidateNotInForecastException;
+import com.cvesters.aurevanta.problem.ForecastHasNoCalendarException;
 import com.cvesters.aurevanta.problem.ForecastNotFoundException;
 import com.cvesters.aurevanta.problem.ForecastReplayMismatchException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.NothingToForecastException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
 import com.cvesters.aurevanta.problem.ScopeGrowthOutOfOrderException;
+import com.cvesters.aurevanta.problem.TooManyCandidatesException;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.project.ProjectService;
 import com.cvesters.aurevanta.user.User;
@@ -254,25 +260,13 @@ public class ForecastService {
 				scopeGrowth, run.getSampleCount(), run.getSeed(), measured);
 		requireSameRun(run, replayed);
 
-		// Titles come off the plan as it stands, not off the run: the snapshot never held
-		// one, and somebody reading a ranking is being told what to go and do. Both
-		// listings, because work put away since is still work this run was about.
-		UUID projectId = run.getProject().getId();
-		Map<UUID, WorkItem> named = new HashMap<>();
-		for (WorkItem live : this.items.list(callerId, tenantId, projectId, false)) {
-			named.put(live.getId(), live);
-		}
-		Map<UUID, WorkItem> shelved = new HashMap<>();
-		for (WorkItem away : this.items.list(callerId, tenantId, projectId, true)) {
-			shelved.put(away.getId(), away);
-		}
+		Map<UUID, WorkItem> named = titlesIn(callerId, tenantId, run.getProject().getId());
 
 		List<ContributionResponse> ranked = new ArrayList<>(inputs.items().size() + 2);
 		for (int at = 0; at < inputs.items().size(); at++) {
 			UUID itemId = inputs.items().get(at).id();
-			WorkItem still = named.getOrDefault(itemId, shelved.get(itemId));
-			ranked.add(ContributionResponse.of(itemId, (still != null) ? still.getTitle() : null,
-					shelved.containsKey(itemId), measured.ofItem(at)));
+			WorkItem still = named.get(itemId);
+			ranked.add(ContributionResponse.of(itemId, titleOf(still), isArchived(still), measured.ofItem(at)));
 		}
 		if (!ScopeGrowth.NONE.equals(scopeGrowth)) {
 			ranked.add(ContributionResponse.of(ContributionKind.DISCOVERED_WORK, measured.ofDiscoveredWork()));
@@ -284,6 +278,156 @@ public class ForecastService {
 		// second caller sorting it a second way would be a second answer to one question.
 		ranked.sort(Comparator.comparingDouble(ContributionResponse::shareOfSpread).reversed());
 		return List.copyOf(ranked);
+	}
+
+	/**
+	 * What each of a named set of cuts would buy against a date, largest first.
+	 *
+	 * <p>
+	 * <strong>Every candidate is a whole simulation, and there is no way round
+	 * it.</strong> The aggregator is a scheduler, so what cutting something buys depends
+	 * on whether it was ever on the path that decided the finish — an item off it buys
+	 * nothing however large it is, and no arithmetic over one item's estimate can say
+	 * which case it is in.
+	 *
+	 * <p>
+	 * <strong>Every run of every candidate uses the same random numbers as the
+	 * baseline.</strong> A cut item still takes its draws and is worth nothing, so the
+	 * two sides are paired and the difference between them is the cut rather than the
+	 * luck. Measured, that halves the noise: the same plan re-seeded moves the answer by
+	 * more than a point at ten thousand runs, and a cut worth having buys about five.
+	 *
+	 * <p>
+	 * <strong>What comes back is what each buys <em>on its own</em>, and they do not
+	 * add.</strong> Two cuts on one chain overlap; two on separate branches leave the
+	 * later one deciding. The set that reaches a bar has to be searched for and measured,
+	 * which is a different question from this one.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws ForecastNotFoundException if no run in it has that identifier
+	 * @throws TooManyCandidatesException if more work is offered than a request may weigh
+	 * @throws ForecastHasNoCalendarException if the run was made before there was one
+	 * @throws CandidateNotInForecastException if the run was never about that work
+	 * @throws ForecastReplayMismatchException if replaying it does not reproduce it
+	 */
+	@Transactional(readOnly = true)
+	public CutOptionsResponse cutsFor(UUID callerId, UUID tenantId, UUID runId, LocalDate by, int confidence,
+			List<UUID> candidates) {
+		// A fact about the request alone, answered before anything is looked up or run.
+		if (candidates.size() > CutsRequest.MOST_CANDIDATES) {
+			throw new TooManyCandidatesException(CutsRequest.MOST_CANDIDATES);
+		}
+		ForecastRun run = get(callerId, tenantId, runId);
+		if (!run.hasReadableCalendar()) {
+			throw new ForecastHasNoCalendarException();
+		}
+		ForecastInputs inputs = inputsOf(run);
+		List<Integer> cutting = positionsOf(candidates, inputs);
+		BigDecimal budget = WorkingCalendar.hoursBy(run.getStartsOn(), by, run.getWorkingHoursPerDay());
+
+		List<ItemModel> plan = inputs.toModels();
+		ConfidenceBy baseline = new ConfidenceBy(budget.doubleValue());
+		// One replay does two jobs: it establishes the baseline every cut is measured
+		// against, and it proves this engine still reproduces the run it is about to give
+		// advice on.
+		requireSameRun(run, replay(run, inputs, plan, baseline));
+
+		Map<UUID, WorkItem> named = titlesIn(callerId, tenantId, run.getProject().getId());
+		List<CutResponse> weighed = new ArrayList<>(cutting.size());
+		for (int at : cutting) {
+			List<ItemModel> without = new ArrayList<>(plan);
+			without.set(at, without.get(at).asCut());
+			ConfidenceBy counted = new ConfidenceBy(budget.doubleValue());
+			replay(run, inputs, without, counted);
+			UUID itemId = inputs.items().get(at).id();
+			WorkItem still = named.get(itemId);
+			double reached = percent(counted);
+			weighed.add(new CutResponse(itemId, titleOf(still), isArchived(still), reached, reached - percent(baseline),
+					reached >= confidence));
+		}
+		// Largest first, because the order is the answer — the same reason a contribution
+		// ranking is sorted here rather than by whoever draws it.
+		weighed.sort(Comparator.comparingDouble(CutResponse::buys).reversed());
+		return new CutOptionsResponse(budget, percent(baseline), percent(baseline) >= confidence, cutting.size() + 1,
+				List.copyOf(weighed));
+	}
+
+	/**
+	 * Where each candidate sits in the plan the run was made of.
+	 *
+	 * <p>
+	 * Resolved before anything is simulated, because a candidate the run never held is a
+	 * fact about the request — and because evaluating it would otherwise answer the
+	 * question with the baseline, which reads as "this buys you nothing" rather than as
+	 * "this is not what you think it is".
+	 */
+	private static List<Integer> positionsOf(List<UUID> candidates, ForecastInputs inputs) {
+		Map<UUID, Integer> position = new HashMap<>();
+		for (int at = 0; at < inputs.items().size(); at++) {
+			position.put(inputs.items().get(at).id(), at);
+		}
+		List<Integer> cutting = new ArrayList<>(candidates.size());
+		for (UUID candidate : candidates) {
+			Integer at = position.get(candidate);
+			if (at == null) {
+				throw new CandidateNotInForecastException();
+			}
+			cutting.add(at);
+		}
+		return cutting;
+	}
+
+	/**
+	 * The run again, exactly as it was made, with something watching it go past — and
+	 * with whatever the caller has imagined away.
+	 */
+	private static Forecast replay(ForecastRun run, ForecastInputs inputs, List<ItemModel> plan, RunObserver watching) {
+		return Engine.run(plan, inputs.toPrecedences(), run.getCapacity(),
+				TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue()), ScopeGrowth
+					.from(run.getScopeGrowthP10Percent().doubleValue(), run.getScopeGrowthP90Percent().doubleValue()),
+				run.getSampleCount(), run.getSeed(), watching);
+	}
+
+	/**
+	 * A share of runs as the percentage a person typed, converted once at this boundary —
+	 * the model deals in shares and nobody asks for a date at 0.85 confidence.
+	 */
+	private static double percent(ConfidenceBy counted) {
+		return counted.share() * 100.0;
+	}
+
+	/**
+	 * What the plan calls its work now, live and archived alike.
+	 *
+	 * <p>
+	 * Both listings, because work put away since a run is still work that run was about —
+	 * and titles come off the plan rather than the snapshot, which never held one.
+	 */
+	/**
+	 * What a run's work is called now, or nothing where the plan no longer holds it.
+	 *
+	 * <p>
+	 * Stated once because two answers name the same work — a contribution ranking and a
+	 * list of cuts — and three-way logic written twice is two chances for one copy to
+	 * start rendering a missing item as a blank.
+	 */
+	private static String titleOf(WorkItem still) {
+		return (still != null) ? still.getTitle() : null;
+	}
+
+	/** Whether it has been put away since, which is said rather than hidden. */
+	private static boolean isArchived(WorkItem still) {
+		return still != null && still.getArchivedAt() != null;
+	}
+
+	private Map<UUID, WorkItem> titlesIn(UUID callerId, UUID tenantId, UUID projectId) {
+		Map<UUID, WorkItem> named = new HashMap<>();
+		for (WorkItem live : this.items.list(callerId, tenantId, projectId, false)) {
+			named.put(live.getId(), live);
+		}
+		for (WorkItem away : this.items.list(callerId, tenantId, projectId, true)) {
+			named.put(away.getId(), away);
+		}
+		return named;
 	}
 
 	/**

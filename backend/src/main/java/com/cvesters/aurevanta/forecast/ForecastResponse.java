@@ -94,7 +94,7 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 	 * this response somebody could act on without knowing what it claims.
 	 */
 	private static LocalDate dateOf(ForecastRun run, BigDecimal hours) {
-		if (!WorkingCalendar.RULE.equals(run.getCalendarRule())) {
+		if (!run.hasReadableCalendar()) {
 			return null;
 		}
 		return WorkingCalendar.finishOn(run.getStartsOn(), hours, run.getWorkingHoursPerDay());

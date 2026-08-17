@@ -661,6 +661,172 @@ class ForecastApiTests {
 			.andExpect(status().isForbidden());
 	}
 
+	// What it would take to hit a date ----------------------------------------
+
+	/**
+	 * <strong>Cutting what was never on the deciding path buys nothing, and cutting what
+	 * was buys a great deal.</strong> That is the whole reason a candidate is simulated
+	 * rather than ranked by size — no arithmetic over one item's estimate can say which
+	 * case it is in, because the answer depends on what else the plan is doing at the
+	 * time.
+	 */
+	@Test
+	void whatACutBuysDependsOnWhetherItWasHoldingThePlanUp() throws Exception {
+		WorkItem aside = this.items
+			.save(new WorkItem(this.acmePlan, "Something small on its own", null, CREATED_AT.plusSeconds(2)));
+		estimate(aside, "1.00", "2.00", "3.00");
+		this.dependencies.save(new Dependency(this.migration, this.rollout, new BigDecimal("0.00"), CREATED_AT));
+		ForecastRun run = forecast(assuming(2, 0, 0, 0));
+
+		JsonNode answer = parsed(cuts(run, MONDAY.plusDays(4), 80, this.migration.getId(), aside.getId()).andReturn()
+			.getResponse()
+			.getContentAsString());
+
+		assertThat(buysFor(answer, this.migration.getId())).isGreaterThan(1.0);
+		assertThat(buysFor(answer, aside.getId())).isLessThan(1.0);
+	}
+
+	/**
+	 * <strong>Decision 6, made executable, and it is the correction this milestone made
+	 * to `roadmap.md`.</strong> An estimate of three identical numbers never varies, so
+	 * M6 reports it as contributing exactly nothing to the spread — and cutting it
+	 * removes the same hours from every single run. A shortlist drawn from the
+	 * contribution ranking would have hidden the best thing on this plan to drop.
+	 */
+	@Test
+	void workThatNeverVariesContributesNothingAndStillBuysTime() throws Exception {
+		WorkItem certain = this.items
+			.save(new WorkItem(this.acmePlan, "Twenty hours, we are sure", null, CREATED_AT.plusSeconds(2)));
+		estimate(certain, "20.00", "20.00", "20.00");
+		this.dependencies.save(new Dependency(this.migration, certain, new BigDecimal("0.00"), CREATED_AT));
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode ranked = parsed(contributions(run).andReturn().getResponse().getContentAsString());
+		JsonNode answer = parsed(
+				cuts(run, MONDAY.plusDays(9), 80, certain.getId()).andReturn().getResponse().getContentAsString());
+
+		for (JsonNode source : ranked) {
+			if (certain.getId().toString().equals(source.get("itemId").asString())) {
+				assertThat(source.get("shareOfSpread").asDouble()).isEqualTo(0.0);
+			}
+		}
+		assertThat(buysFor(answer, certain.getId())).isGreaterThan(1.0);
+	}
+
+	/**
+	 * The date became a number of hours through the run's own calendar, and the answer
+	 * says which — M4's rule about a stated assumption arriving beside the number it
+	 * produced, in the one place where the number is a recommendation.
+	 */
+	@Test
+	void theAnswerSaysWhatTheDateCameTo() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode answer = parsed(cuts(run, MONDAY.plusDays(4), 80).andReturn().getResponse().getContentAsString());
+
+		assertThat(answer.get("targetHours").decimalValue())
+			.isEqualByComparingTo(WorkingCalendar.hoursBy(MONDAY, MONDAY.plusDays(4), new BigDecimal(WORKING_DAY)));
+		assertThat(answer.get("simulations").asInt()).isEqualTo(1);
+		assertThat(answer.get("cuts")).isEmpty();
+	}
+
+	/** Asking with nothing to drop is the one question that needs no candidates. */
+	@Test
+	void aPlanWithPlentyOfTimeSaysTheBarIsAlreadyMet() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		cuts(run, MONDAY.plusDays(200), 80).andExpect(status().isOk())
+			.andExpect(jsonPath("$.meets").value(true))
+			.andExpect(jsonPath("$.baselineConfidence").value(100.0));
+	}
+
+	@Test
+	void aRunMadeBeforeThereWasACalendarCannotBeAskedAboutADate() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		this.database.update("update forecast_runs set starts_on = null, working_hours_per_day = null,"
+				+ " calendar_rule = null where id = ?", run.getId());
+
+		cuts(run, MONDAY.plusDays(4), 80).andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.code").value("forecast_has_no_calendar"));
+	}
+
+	/**
+	 * Work the run was never about cannot be cut from it — and evaluating it anyway would
+	 * have answered with the baseline, which reads as "this buys you nothing" rather than
+	 * as "this is not what you think it is".
+	 */
+	@Test
+	void refusesToCutWorkTheForecastWasNeverAbout() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		WorkItem since = this.items
+			.save(new WorkItem(this.acmePlan, "Written down afterwards", null, CREATED_AT.plusSeconds(9)));
+
+		cuts(run, MONDAY.plusDays(4), 80, since.getId()).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("candidate_not_in_forecast"));
+	}
+
+	/**
+	 * Each thing weighed costs a whole simulation, so the bound is stated rather than
+	 * discovered as a timeout — and refused rather than truncated, since the thirteenth
+	 * might have been the one worth dropping.
+	 */
+	@Test
+	void refusesMoreCandidatesThanItWillWeighAtOnce() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		UUID[] tooMany = new UUID[13];
+		for (int at = 0; at < tooMany.length; at++) {
+			tooMany[at] = this.migration.getId();
+		}
+
+		cuts(run, MONDAY.plusDays(4), 80, tooMany).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("too_many_candidates"))
+			.andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("12")));
+	}
+
+	@Test
+	void weighingCutsWritesNothing() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		cuts(run, MONDAY.plusDays(4), 80, this.migration.getId()).andExpect(status().isOk());
+
+		assertThat(this.runs.findAll()).singleElement()
+			.satisfies((unchanged) -> assertThat(unchanged.getP90Hours()).isEqualByComparingTo(run.getP90Hours()));
+	}
+
+	@Test
+	void refusesToWeighCutsAgainstARunItNoLongerReproduces() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		this.database.update("update forecast_runs set p50_hours = p50_hours + 1 where id = ?", run.getId());
+
+		cuts(run, MONDAY.plusDays(4), 80, this.migration.getId()).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("forecast_replay_mismatch"));
+	}
+
+	@Test
+	void cannotWeighCutsAgainstAnotherOrganisationsForecast() throws Exception {
+		ForecastRun run = forecast(1);
+
+		this.mvc
+			.perform(post("/api/forecasts/" + run.getId() + "/cuts")
+				.header(HttpHeaders.AUTHORIZATION, bearer(this.grace))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"by\":\"2026-08-21\",\"confidence\":80,\"candidates\":[]}"))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("forecast_not_found"));
+	}
+
+	@Test
+	void refusesACutsRequestThatDoesNotSayWhatItWants() throws Exception {
+		ForecastRun run = forecast(1);
+
+		this.mvc
+			.perform(post("/api/forecasts/" + run.getId() + "/cuts").header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"confidence\":80,\"candidates\":[]}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.by.code").value("not_null"));
+	}
+
 	// The calendar ------------------------------------------------------------
 
 	@Test
@@ -1109,6 +1275,27 @@ class ForecastApiTests {
 			.getContentAsString();
 		UUID id = UUID.fromString(this.json.readTree(response).get("id").asString());
 		return this.runs.findById(id).orElseThrow();
+	}
+
+	private ResultActions cuts(ForecastRun run, LocalDate by, int confidence, UUID... candidates) throws Exception {
+		StringBuilder named = new StringBuilder();
+		for (UUID candidate : candidates) {
+			named.append(named.isEmpty() ? "" : ",").append('"').append(candidate).append('"');
+		}
+		return this.mvc
+			.perform(post("/api/forecasts/" + run.getId() + "/cuts").header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"by\":\"" + by + "\",\"confidence\":" + confidence + ",\"candidates\":[" + named + "]}"));
+	}
+
+	/** What the answer says one candidate is worth, in percentage points. */
+	private static double buysFor(JsonNode answer, UUID itemId) {
+		for (JsonNode cut : answer.get("cuts")) {
+			if (itemId.toString().equals(cut.get("itemId").asString())) {
+				return cut.get("buys").asDouble();
+			}
+		}
+		throw new AssertionError("no cut was weighed for " + itemId);
 	}
 
 	private ResultActions contributions(ForecastRun run) throws Exception {

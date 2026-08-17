@@ -89,6 +89,25 @@ class ForecastController {
 		return this.forecasts.contributionsTo(caller.userId(), caller.tenantId(), runId);
 	}
 
+	/**
+	 * What it would take to hit a date, weighed against this run.
+	 *
+	 * <p>
+	 * <strong>A POST that writes nothing</strong>, and one because the body carries a
+	 * list of identifiers — a dozen of them do not belong in a URL. The same shape
+	 * {@code /api/estimates/quality} already takes, and for the same reason.
+	 *
+	 * <p>
+	 * It proposes and decides nothing. Acting on the answer means archiving work on the
+	 * plan screen, where somebody can see what else it is connected to.
+	 */
+	@PostMapping("/api/forecasts/{runId}/cuts")
+	CutOptionsResponse cuts(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID runId,
+			@Valid @RequestBody CutsRequest request) {
+		return this.forecasts.cutsFor(caller.userId(), caller.tenantId(), runId, request.by(), request.confidence(),
+				request.candidates());
+	}
+
 	private ForecastResponse described(ForecastRun run) {
 		return ForecastResponse.of(run, this.forecasts.outputsOf(run));
 	}

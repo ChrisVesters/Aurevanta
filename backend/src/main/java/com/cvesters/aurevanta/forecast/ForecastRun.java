@@ -260,6 +260,20 @@ public class ForecastRun {
 		return priorityRule;
 	}
 
+	/**
+	 * Whether this run's dates can be worked out by the calendar this code implements.
+	 *
+	 * <p>
+	 * Stated once because two things ask it: the response, which reports no dates for a
+	 * run it cannot resolve, and an inverse query, which cannot turn a target date into
+	 * hours for one. The rule is the stored rule's name rather than the presence of the
+	 * other two columns — a run resolves under the calendar it was made with, and one
+	 * made under a name this code has never heard of must not be read through today's.
+	 */
+	boolean hasReadableCalendar() {
+		return com.cvesters.aurevanta.forecast.model.WorkingCalendar.RULE.equals(this.calendarRule);
+	}
+
 	/** Null for every run made before a calendar existed, and that is a true record. */
 	public LocalDate getStartsOn() {
 		return startsOn;
