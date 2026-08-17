@@ -162,6 +162,117 @@ class WorkingCalendarTests {
 				SIX_HOUR_DAY.multiply(BigDecimal.valueOf(4))));
 	}
 
+	// Reading a date backwards -------------------------------------------------
+
+	/**
+	 * <strong>The oracle, and it is a round trip rather than a comparison.</strong> The
+	 * budget that fits by a day is exactly the budget that finishes on it: hand
+	 * {@code hoursBy} back to {@code finishOn} and the same day comes out, for every
+	 * working day of a fortnight. Two functions that disagreed at a boundary would put a
+	 * plan on the wrong side of a date it had just met, and nothing else in this suite
+	 * would notice.
+	 */
+	@Test
+	void theBudgetThatFitsByADayIsTheBudgetThatFinishesOnIt() {
+		for (int ahead = 0; ahead < 14; ahead++) {
+			LocalDate wanted = MONDAY.plusDays(ahead);
+			if (wanted.getDayOfWeek().getValue() > 5) {
+				continue;
+			}
+			BigDecimal budget = WorkingCalendar.hoursBy(MONDAY, wanted, SIX_HOUR_DAY);
+
+			assertThat(WorkingCalendar.finishOn(MONDAY, budget, SIX_HOUR_DAY)).as("by %s", wanted).isEqualTo(wanted);
+		}
+	}
+
+	/** And the other direction: a hundredth of an hour more does not fit. */
+	@Test
+	void oneHundredthOfAnHourMoreThanTheBudgetMissesTheDay() {
+		for (int ahead = 0; ahead < 14; ahead++) {
+			LocalDate wanted = MONDAY.plusDays(ahead);
+			if (wanted.getDayOfWeek().getValue() > 5) {
+				continue;
+			}
+			BigDecimal over = WorkingCalendar.hoursBy(MONDAY, wanted, SIX_HOUR_DAY).add(new BigDecimal("0.01"));
+
+			assertThat(WorkingCalendar.finishOn(MONDAY, over, SIX_HOUR_DAY)).as("by %s", wanted).isAfter(wanted);
+		}
+	}
+
+	/** Wanting it done on the day it starts is one working day's worth of work. */
+	@Test
+	void wantingItDoneOnTheFirstDayIsOneDaysBudget() {
+		assertThat(WorkingCalendar.hoursBy(MONDAY, MONDAY, SIX_HOUR_DAY)).isEqualByComparingTo("6.00");
+	}
+
+	/**
+	 * Nobody works the weekend, so a plan asked for "by Sunday" has exactly the budget it
+	 * has by Friday — the mirror of a Saturday start beginning on the Monday.
+	 */
+	@Test
+	void aWeekendTargetCountsToTheFridayBeforeIt() {
+		BigDecimal byFriday = WorkingCalendar.hoursBy(MONDAY, LocalDate.of(2026, 8, 21), SIX_HOUR_DAY);
+
+		assertThat(WorkingCalendar.hoursBy(MONDAY, SATURDAY.plusDays(7), SIX_HOUR_DAY)).isEqualByComparingTo(byFriday);
+		assertThat(WorkingCalendar.hoursBy(MONDAY, SUNDAY.plusDays(7), SIX_HOUR_DAY)).isEqualByComparingTo(byFriday);
+	}
+
+	/**
+	 * A target before work begins is no budget rather than a negative one — and
+	 * {@code finishOn} agrees, since even no work at all finishes on the first working
+	 * day rather than before it.
+	 */
+	@Test
+	void wantingItDoneBeforeItStartsIsNoBudgetAtAll() {
+		assertThat(WorkingCalendar.hoursBy(MONDAY, MONDAY.minusDays(1), SIX_HOUR_DAY)).isEqualByComparingTo("0");
+		assertThat(WorkingCalendar.hoursBy(MONDAY, MONDAY.minusDays(30), SIX_HOUR_DAY)).isEqualByComparingTo("0");
+		assertThat(WorkingCalendar.finishOn(MONDAY, BigDecimal.ZERO, SIX_HOUR_DAY)).isAfter(MONDAY.minusDays(1));
+	}
+
+	/** A weekend start counts from the Monday, exactly as it does the other way round. */
+	@Test
+	void aWeekendStartBudgetsFromTheMonday() {
+		BigDecimal fromMonday = WorkingCalendar.hoursBy(MONDAY, MONDAY.plusDays(4), SIX_HOUR_DAY);
+
+		assertThat(WorkingCalendar.hoursBy(SATURDAY, MONDAY.plusDays(4), SIX_HOUR_DAY))
+			.isEqualByComparingTo(fromMonday);
+	}
+
+	/**
+	 * Ten weeks counted rather than walked, and the arithmetic holds across the weeks it
+	 * skips: fifty working days at six hours is three hundred.
+	 */
+	@Test
+	void tenWeeksOfBudgetIsTenWeeksOfWorkingDays() {
+		assertThat(WorkingCalendar.hoursBy(MONDAY, MONDAY.plusDays(67), SIX_HOUR_DAY)).isEqualByComparingTo("300.00");
+	}
+
+	/**
+	 * The week is counted by whole weeks from the epoch, and the epoch was a Thursday —
+	 * so a date before it divides the wrong way unless the division floors. An off-by-one
+	 * there is a whole working week, and only for dates nobody will ever type, which is
+	 * exactly the kind of thing that goes unnoticed.
+	 */
+	@Test
+	void theCountHoldsForDatesBeforeTheEpoch() {
+		LocalDate longAgo = LocalDate.of(1969, 6, 2);
+
+		assertThat(longAgo.getDayOfWeek()).isEqualTo(java.time.DayOfWeek.MONDAY);
+		assertThat(WorkingCalendar.hoursBy(longAgo, longAgo.plusDays(4), SIX_HOUR_DAY)).isEqualByComparingTo("30.00");
+		assertThat(WorkingCalendar.finishOn(longAgo, new BigDecimal("30.00"), SIX_HOUR_DAY))
+			.isEqualTo(longAgo.plusDays(4));
+	}
+
+	@Test
+	void refusesToBudgetAgainstAWorkingDayNobodyCouldWork() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> WorkingCalendar.hoursBy(MONDAY, MONDAY.plusDays(4), BigDecimal.ZERO));
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> WorkingCalendar.hoursBy(MONDAY, MONDAY.plusDays(4), new BigDecimal("25")));
+		assertThatNullPointerException().isThrownBy(() -> WorkingCalendar.hoursBy(null, MONDAY, SIX_HOUR_DAY));
+		assertThatNullPointerException().isThrownBy(() -> WorkingCalendar.hoursBy(MONDAY, null, SIX_HOUR_DAY));
+	}
+
 	@Test
 	void refusesAWorkingDayThatHoldsNothingOrLessThanNothing() {
 		assertThatIllegalArgumentException()

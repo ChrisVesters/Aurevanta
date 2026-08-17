@@ -30,7 +30,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | Reading a date backwards, and counting the runs that beat it | M4, M6 |
+| 1 | Reading a date backwards, and counting the runs that beat it ✅ *done* | M4, M6 |
 | 2 | A cut that moves no other draw | M3 |
 | 3 | What one cut buys | 1, 2 |
 | 4 | The shortest list that gets there | 3 |
@@ -258,7 +258,7 @@ is visible, rather than on the sample count, which is not.
 
 ---
 
-## Step 1 — Reading a date backwards, and counting the runs that beat it
+## Step 1 — Reading a date backwards, and counting the runs that beat it ✅ *done*
 
 **Goal.** A target date becomes a number of hours, and a forecast can say what share of its runs
 came in under one.
@@ -280,6 +280,43 @@ whose ends are worth pinning.
 
 **Done when** "will this plan hit 1 November?" is a question about hours that the engine can
 already answer.
+
+### As built — where it differs from the above
+
+**The oracle turned out to be an exact round trip rather than a pair of inequalities.** The
+bullets describe checking `h <= hoursBy(...)` and that one hundredth more lands later; what is
+actually true is stronger and simpler — **`finishOn(start, hoursBy(start, d), d)` is `d`
+exactly**, for every working day, because `hoursBy` returns whole days' worth and `finishOn`
+divides by the same day with a ceiling that has nothing to round. Both tests walk a fortnight
+rather than a single case, and the second still asserts that a hundredth of an hour more misses.
+An exact identity is a much better thing to have than a bound, and it was there for the taking.
+
+**One case the bullets did not name, and it is the one that would have been wrong.** The working
+days between two dates are counted rather than walked — five per whole week, the way `finishOn`
+already counts — and that arithmetic divides the epoch day by seven. **Epoch day zero was a
+Thursday and `/` truncates towards zero**, so a date before 1970 lands a whole working week out.
+`Math.floorDiv` is the fix and `theCountHoldsForDatesBeforeTheEpoch` is the test. Nobody will type
+1969 into this product; the point is that the failure is a week, is silent, and costs one word to
+prevent.
+
+**`ConfidenceBy` counts rather than reading a percentile**, which the bullets left implicit and
+which is worth stating: a forecast keeps five percentiles, and answering "what share beat this
+budget" from those would mean interpolating between two of them — precision the sampling does not
+have, and the reason `Engine.at` takes the nearest rank in the first place.
+
+**Its oracle is the engine's own percentiles**, which the step did not think to ask for. The P80
+*is* the hours eight runs in ten came in under, so counting them has to land on eight in ten —
+two ways of asking one question meeting on one number, checked at the P10, P50, P80 and P95 to
+within a thousandth. That is a stronger footing than the hand-built cases beside it, and it is
+what says the counter and the sampler agree about what a percentile means.
+
+**A budget of exactly nothing is a real question and is accepted**; a negative one is refused.
+"Can this be done before it starts?" is what a target date before the start becomes, and the
+answer is no rather than an error — which is also what `hoursBy` returns for it, so the two agree
+without either knowing about the other.
+
+**`finishOn` lost four lines to a shared `requireWorkingDay`.** Both functions bound the working
+day the same way, and two copies of a bound are two chances to move one.
 
 ---
 

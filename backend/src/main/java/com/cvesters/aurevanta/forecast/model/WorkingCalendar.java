@@ -94,14 +94,7 @@ public final class WorkingCalendar {
 	public static LocalDate finishOn(LocalDate startsOn, BigDecimal hours, BigDecimal hoursPerDay) {
 		Objects.requireNonNull(startsOn, "A date has to start somewhere");
 		Objects.requireNonNull(hours, "There is no date without an amount of work");
-		Objects.requireNonNull(hoursPerDay, "A date needs to know what a working day holds");
-		if (hoursPerDay.signum() <= 0) {
-			throw new IllegalArgumentException(
-					"A working day has to hold something, but held " + hoursPerDay + " hours");
-		}
-		if (hoursPerDay.compareTo(LONGEST_DAY) > 0) {
-			throw new IllegalArgumentException("A day holds 24 hours at the very most, but was told " + hoursPerDay);
-		}
+		requireWorkingDay(hoursPerDay);
 		if (hours.signum() < 0) {
 			throw new IllegalArgumentException("A plan cannot hold less work than none, but held " + hours + " hours");
 		}
@@ -121,6 +114,48 @@ public final class WorkingCalendar {
 	}
 
 	/**
+	 * How much work fits between a start and a day somebody wants it done by — the
+	 * inverse of {@link #finishOn}, and the whole of what turns "can we hit 1 November?"
+	 * into a question about hours that a forecast can already answer.
+	 *
+	 * <p>
+	 * <strong>The two have to agree exactly at the boundary, and that is the
+	 * test.</strong> A budget of this many hours finishes on precisely the day it was
+	 * asked about, and one hundredth of an hour more finishes later —
+	 * {@code WorkingCalendarTests} asserts the round trip in both directions, because two
+	 * functions that disagreed about a boundary would put a plan on the wrong side of a
+	 * date it had just met.
+	 *
+	 * <p>
+	 * <strong>A target on a weekend counts to the Friday before it.</strong> Nobody works
+	 * the weekend, so a plan asked to be done "by Sunday" has exactly the budget it has
+	 * by Friday — and saying otherwise would hand it two days of work nobody is going to
+	 * do. That is the mirror of a Saturday <em>start</em> beginning on the Monday.
+	 *
+	 * <p>
+	 * A target before work begins is no budget at all rather than a negative one. Nothing
+	 * can be finished before it is started, and {@link #finishOn} agrees: even no work at
+	 * all finishes on the first working day.
+	 * @param startsOn the day work begins, or the weekend before it
+	 * @param by the day somebody wants it done by
+	 * @param hoursPerDay what <em>one</em> person's working day holds
+	 * @throws IllegalArgumentException if the working day is not positive or is longer
+	 * than a day holds
+	 */
+	public static BigDecimal hoursBy(LocalDate startsOn, LocalDate by, BigDecimal hoursPerDay) {
+		Objects.requireNonNull(startsOn, "A budget has to start somewhere");
+		Objects.requireNonNull(by, "A budget has to end somewhere");
+		requireWorkingDay(hoursPerDay);
+		LocalDate first = nextWorkingDay(startsOn);
+		LocalDate last = previousWorkingDay(by);
+		if (last.isBefore(first)) {
+			return BigDecimal.ZERO;
+		}
+		long days = workingDaysTo(last) - workingDaysTo(first) + 1;
+		return hoursPerDay.multiply(BigDecimal.valueOf(days));
+	}
+
+	/**
 	 * The first day on or after this one that anybody works.
 	 */
 	private static LocalDate nextWorkingDay(LocalDate day) {
@@ -129,6 +164,42 @@ public final class WorkingCalendar {
 			case SUNDAY -> day.plusDays(1);
 			default -> day;
 		};
+	}
+
+	/** The last day on or before this one that anybody works. */
+	private static LocalDate previousWorkingDay(LocalDate day) {
+		return switch (day.getDayOfWeek()) {
+			case SATURDAY -> day.minusDays(1);
+			case SUNDAY -> day.minusDays(2);
+			default -> day;
+		};
+	}
+
+	/**
+	 * How many working days have passed before this one, counted rather than walked.
+	 *
+	 * <p>
+	 * Five per whole week plus the position within the current one, which makes the gap
+	 * between two working days a subtraction however far apart they are — the same reason
+	 * {@link #finishOn} counts weeks instead of stepping through them. The epoch day is
+	 * shifted by three because day zero was a Thursday, and {@code floorDiv} rather than
+	 * {@code /} because a date before 1970 divides the wrong way otherwise: an off-by-one
+	 * there would be a whole working week, and only for plans nobody will ever type.
+	 */
+	private static long workingDaysTo(LocalDate workingDay) {
+		long weeks = Math.floorDiv(workingDay.toEpochDay() + 3, 7);
+		return weeks * WORKING_DAYS_IN_A_WEEK + workingDay.getDayOfWeek().getValue() - 1;
+	}
+
+	private static void requireWorkingDay(BigDecimal hoursPerDay) {
+		Objects.requireNonNull(hoursPerDay, "A date needs to know what a working day holds");
+		if (hoursPerDay.signum() <= 0) {
+			throw new IllegalArgumentException(
+					"A working day has to hold something, but held " + hoursPerDay + " hours");
+		}
+		if (hoursPerDay.compareTo(LONGEST_DAY) > 0) {
+			throw new IllegalArgumentException("A day holds 24 hours at the very most, but was told " + hoursPerDay);
+		}
 	}
 
 }
