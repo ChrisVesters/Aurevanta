@@ -116,6 +116,27 @@ public final class Engine {
 	 */
 	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
 			ScopeGrowth scopeGrowth, int sampleCount, long seed) {
+		return run(items, edges, capacity, teamFactor, scopeGrowth, sampleCount, seed, RunObserver.NONE);
+	}
+
+	/**
+	 * The same forecast, with something watching each run go past.
+	 *
+	 * <p>
+	 * <strong>Watching changes nothing, and that is the property to keep.</strong> The
+	 * observer is told after every draw has been taken and it draws nothing itself, so
+	 * the same seed produces the same numbers whether anybody is listening or not —
+	 * {@code EngineTests} asserts it byte for byte. That is why M6 needs no version bump:
+	 * an engine that can be watched is the same engine.
+	 *
+	 * <p>
+	 * The two-argument shape above delegates here with {@link RunObserver#NONE}, the way
+	 * {@link Schedule#finish(double[])} delegates to the form that takes discovered work.
+	 * @param observer told what each run drew and when the plan finished because of it
+	 * @see #run(List, List, int, TeamFactor, ScopeGrowth, int, long)
+	 */
+	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
+			ScopeGrowth scopeGrowth, int sampleCount, long seed, RunObserver observer) {
 		if (sampleCount < 1 || sampleCount > MAX_SAMPLE_COUNT) {
 			throw new IllegalArgumentException(
 					"A forecast runs between 1 and " + MAX_SAMPLE_COUNT + " times, not " + sampleCount);
@@ -153,6 +174,7 @@ public final class Engine {
 			// than modelled, and a bad quarter that has not happened yet cannot
 			// reach back and make them longer.
 			double stretch = teamFactor.sample(random);
+			double discovered = 0.0;
 			int found = scopeGrowth.sample(plan.length, random);
 			if (found > parentOf.length) {
 				// Kept rather than sized per run: a later run that discovers less work
@@ -169,11 +191,16 @@ public final class Engine {
 				durations[plan.length + at] = stretch
 						* reference[random.nextInt(reference.length)].sampleAsNewWork(random);
 				parentOf[at] = random.nextInt(plan.length);
+				discovered += durations[plan.length + at];
 			}
 			for (int at = 0; at < plan.length; at++) {
 				durations[at] = stretch * plan[at].sample(random);
 			}
 			finishes[run] = schedule.finish(durations, parentOf, found);
+			// After every draw this run takes, and taking none of its own. An observer
+			// that moved a single number off the generator would unreplay every forecast
+			// stored before it, which is M3b's rule arriving in a second place.
+			observer.observed(durations, plan.length, discovered, stretch, finishes[run]);
 		}
 		return summarise(finishes);
 	}

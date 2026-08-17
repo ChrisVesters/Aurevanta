@@ -28,7 +28,18 @@ package com.cvesters.aurevanta.forecast.model;
  * adding a billion to every number changes nothing, and so does multiplying by sixty.
  * {@code ContributionsTests} asserts both, because they are what the naive formula loses.
  */
-public final class Contributions {
+public final class Contributions implements RunObserver {
+
+	/**
+	 * The two sources a forecast has that are not items, and the reason a ranking of
+	 * items alone would be dishonest: either can dominate, and when one does the true
+	 * answer to "which task should I spike" is "none of them".
+	 *
+	 * <p>
+	 * They sit after the plan's own items so that an item's index is its position in the
+	 * plan, which is what lets the identifiers come back off the stored snapshot.
+	 */
+	private static final int BESIDE_THE_ITEMS = 2;
 
 	private final double[] mean;
 
@@ -37,6 +48,9 @@ public final class Contributions {
 
 	/** The co-moment of each source with the outcome. */
 	private final double[] together;
+
+	/** One row, reused: the engine's durations plus the two sources beside them. */
+	private final double[] watched;
 
 	private double meanOutcome;
 
@@ -56,6 +70,7 @@ public final class Contributions {
 		this.mean = new double[sources];
 		this.spread = new double[sources];
 		this.together = new double[sources];
+		this.watched = new double[sources];
 	}
 
 	/**
@@ -117,6 +132,69 @@ public final class Contributions {
 	/** How many runs have been seen, which is what makes an empty accumulator legible. */
 	public int runs() {
 		return this.runs;
+	}
+
+	// Watching a forecast ------------------------------------------------------
+
+	/**
+	 * An accumulator shaped for a plan: one source per item, and two more for the things
+	 * that move a forecast without being items.
+	 * @param items how many pieces of work the plan wrote down
+	 */
+	public static Contributions forRun(int items) {
+		return new Contributions(items + BESIDE_THE_ITEMS);
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>
+	 * The plan's durations are read out of the engine's own array — which may be longer,
+	 * because a run that discovered work schedules it in the same array — and the two
+	 * sources beside them are added on the end. Nothing is allocated: the row handed to
+	 * the accumulator is the same one every run.
+	 */
+	@Override
+	public void observed(double[] durations, int items, double discoveredHours, double stretch, double completion) {
+		if (items + BESIDE_THE_ITEMS != this.watched.length) {
+			throw new IllegalArgumentException(
+					"This forecast has " + (this.watched.length - BESIDE_THE_ITEMS) + " items and was shown " + items);
+		}
+		System.arraycopy(durations, 0, this.watched, 0, items);
+		this.watched[items] = discoveredHours;
+		this.watched[items + 1] = stretch;
+		observed(this.watched, completion);
+	}
+
+	/** What the plan's own work accounted for, by its position in the plan. */
+	public Contribution ofItem(int item) {
+		return of(item);
+	}
+
+	/**
+	 * What the work nobody had listed accounted for, taken together.
+	 *
+	 * <p>
+	 * Together rather than one by one, because discovered work is different work in every
+	 * run and there is no thing to rank. Its total is a series like any other, and on a
+	 * plan expected to grow it is frequently the largest of them —
+	 * {@code product-concept.md} is explicit that scope growth is usually the bigger of
+	 * the two uncertainty sources.
+	 */
+	public Contribution ofDiscoveredWork() {
+		return of(this.watched.length - BESIDE_THE_ITEMS);
+	}
+
+	/**
+	 * What the one multiplier every item in a run shared accounted for.
+	 *
+	 * <p>
+	 * The most useful row in the report when it is the largest: it says that no estimate
+	 * on the list is the problem, and that the plan's spread is a claim somebody made
+	 * about how bad a bad quarter is.
+	 */
+	public Contribution ofTeamFactor() {
+		return of(this.watched.length - 1);
 	}
 
 }
