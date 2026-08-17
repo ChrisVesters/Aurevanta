@@ -485,6 +485,10 @@ export function WorkItems({ projectId }: { projectId: string }) {
                   estimate={mine.get(item.id)}
                   busy={busy}
                   banner={estimating.message}
+                  // The form asks one question at a time, so a refusal usually belongs to
+                  // a box on a screen the visitor is not looking at. It needs the code to
+                  // know which question to bring back.
+                  code={estimating.code}
                   fieldErrors={estimating.fieldErrors}
                   onSubmit={(values) => void estimate(item.id, values)}
                   onCancel={() => openRow(null)}

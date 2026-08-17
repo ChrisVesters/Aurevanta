@@ -33,7 +33,7 @@
 |---|---|---|
 | 1 | What makes an estimate worth questioning ✅ *done* | M3 |
 | 2 | Recording how a range was asked for ✅ *done* | M2 |
-| 3 | One question at a time, in the order that stops them anchoring | 1, 2 |
+| 3 | One question at a time, in the order that stops them anchoring ✅ *done* | 1, 2 |
 | 4 | The review, and the bet | 3 |
 | 5 | Close out | 1–4 |
 
@@ -435,7 +435,7 @@ anything that looks a row up.
 
 ---
 
-## Step 3 — One question at a time, in the order that stops them anchoring
+## Step 3 — One question at a time, in the order that stops them anchoring ✅ *done*
 
 **Goal.** The form asks three questions in decision 2's order, one at a time, and sends
 `surprise_framed`.
@@ -460,6 +460,50 @@ form regresses. A colleague's range is not on screen at any step. Every string c
 catalogue.
 
 **Done when** nobody can answer the middle first.
+
+### As built — where it differs from the above
+
+**A refused submission navigates, which the bullets did not mention and the form cannot work
+without.** On a one-question-at-a-time form the box a complaint belongs to is almost never the one
+in view, and `useFormFailure` suppresses the banner precisely because the field *is* one this form
+renders — so without this, a refused `p10Hours` would be rendered on a screen nobody is looking at
+and nothing would appear at all. Two rules: a complaint about a field brings that field's own
+question back, and `estimate_out_of_order` returns to the first question, because it belongs to
+all three and reading them in order is the only way to see it. The second uses the `code`
+`useFormFailure` hands back, which its own doc says exists for "the rarer case where one particular
+failure has an *action* attached" — this is the second such case, after sign-in's confirmation
+link.
+
+**Every step submits, so Enter moves somebody on rather than sending a third of an answer.** The
+"Next" button is a submit button and `handle` advances instead of posting until the last question.
+The obvious alternative — a `type="button"` Next — leaves Enter posting one answer and two blanks
+from question one, which the server would refuse for two fields the visitor has not been asked
+about yet.
+
+**`numberFrom` was split out of `numberField`.** A form that no longer renders the boxes it is
+submitting cannot read them out of `FormData`, and re-deriving "an empty box is nothing, not zero"
+at a second call site is exactly how the two come to disagree — which is the bug `numberField`'s
+own comment exists to describe. One rule, two callers.
+
+**The catalogue's `fields: { p10Hours: 'P10', … }` block was deleted rather than left unused**, and
+that is decision 9 landing in the one place it can be enforced: the test setup fails any test that
+renders a key with no translation, so a percentile label cannot quietly come back as a "clearer"
+one. The assertion that no step renders `/\bP(10|50|90)\b/` is the belt to that brace.
+
+**The tests write the three questions out as literals** rather than importing them from the
+catalogue. That is deliberate duplication: a wording change has to be made in two places, and the
+*order* is then asserted against text a reader can check by eye rather than against an array the
+component also owns.
+
+**A progress line was added** — "Question 1 of 3" — which the bullets did not ask for. With one
+question on screen and no answers visible, there is otherwise nothing at all that says where
+somebody is or how much is left.
+
+**The three answers are not yet seen together anywhere**, and that is step 4's to fix. Decision 3
+says they appear at the review; until it exists, the last question submits directly. That makes
+the current state slightly worse than the end state in one specific way — a range whose good case
+is above its bad case is refused by the server rather than caught on screen — which the navigation
+rule above is what makes survivable in the meantime.
 
 ---
 

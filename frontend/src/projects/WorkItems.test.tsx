@@ -36,6 +36,18 @@ const THREE_ITEMS: WorkItem[] = [
   }
 ];
 
+/**
+ * The three questions, as somebody reads them — and in the order they are asked, which is
+ * the whole of what makes this form different from the three boxes it replaced. They are
+ * written out rather than looked up so that a change to the wording has to be made here
+ * too, deliberately: these strings are the milestone.
+ */
+const BAD_CASE =
+  'Think of a version of this that goes badly — not a disaster, just a bad week. What number would make you genuinely surprised to have gone over?';
+const GOOD_CASE =
+  'Now the version where everything goes right. What is the least this could take?';
+const TYPICAL_CASE = 'And what do you actually expect it to take?';
+
 describe('WorkItems', () => {
   const fetchMock = mockFetch();
 
@@ -74,6 +86,37 @@ describe('WorkItems', () => {
       route: `/app/projects/${PROJECT_ID}`
     });
     await screen.findByRole('heading', { name: 'Work' });
+  }
+
+  /** Opening the estimate form on the first task, which is what every case below does. */
+  async function openEstimate() {
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Estimate Migrate the auth service'
+      })
+    );
+  }
+
+  /**
+   * Walking the three questions in the order they are asked and submitting. An empty
+   * string leaves that question unanswered, which is a different thing from zero and is
+   * what the server has to be told apart.
+   */
+  async function answerTheThree(bad: string, good: string, typical: string) {
+    for (const [question, answer] of [
+      [BAD_CASE, bad],
+      [GOOD_CASE, good],
+      [TYPICAL_CASE, typical]
+    ] as const) {
+      if (answer !== '') {
+        await userEvent.type(screen.getByLabelText(question), answer);
+      }
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: question === TYPICAL_CASE ? 'Save estimate' : 'Next'
+        })
+      );
+    }
   }
 
   it('lists the work in the plan', async () => {
@@ -462,20 +505,99 @@ describe('WorkItems', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * <strong>The order is the milestone, and this is what holds it.</strong> The bad case
+   * is asked first because it is the only one of the three with nothing above it; the
+   * middle is asked last because the fit does not use it and it is the number people
+   * answer fastest. A form that asked them in any other order would pass every other test
+   * in this file.
+   */
+  it('asks the bad case first, the good case second and the typical one last', async () => {
+    await open();
+    await openEstimate();
+
+    expect(screen.getByLabelText(BAD_CASE)).toBeInTheDocument();
+    expect(screen.queryByLabelText(GOOD_CASE)).toBeNull();
+    expect(screen.queryByLabelText(TYPICAL_CASE)).toBeNull();
+
+    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByLabelText(GOOD_CASE)).toBeInTheDocument();
+    expect(screen.queryByLabelText(BAD_CASE)).toBeNull();
+    // The whole point of one at a time: the answer just given is not on screen to
+    // anchor the next one, and a hidden input holding it would be no better.
+    expect(screen.queryByDisplayValue('12')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByLabelText(TYPICAL_CASE)).toBeInTheDocument();
+    expect(screen.queryByLabelText(GOOD_CASE)).toBeNull();
+  });
+
+  /**
+   * The percentile names are what invite somebody to reason about tail probability, which
+   * nobody can do. They appear nowhere on this form, and this is the assertion that fails
+   * the day one comes back as a "clearer" label.
+   */
+  it('never names a percentile while a question is being answered', async () => {
+    await open();
+    await openEstimate();
+
+    for (const question of [BAD_CASE, GOOD_CASE, TYPICAL_CASE]) {
+      expect(screen.getByLabelText(question)).toBeInTheDocument();
+      expect(screen.queryByText(/\bP(10|50|90)\b/)).toBeNull();
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: question === TYPICAL_CASE ? 'Cancel' : 'Next'
+        })
+      );
+    }
+  });
+
+  /** Going back is revision rather than anchoring, so that step keeps its own answer. */
+  it('keeps each answer when somebody steps back and forward again', async () => {
+    await open();
+    await openEstimate();
+
+    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.type(screen.getByLabelText(GOOD_CASE), '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getByLabelText(GOOD_CASE)).toHaveValue(3);
+  });
+
+  /**
+   * <strong>Decision 10.</strong> Two people who anchored on each other are not two
+   * estimates, and the band they produce is confidently narrow for a reason nothing
+   * downstream can see. Bob's 10/20/40 is on the row's summary as a name and nowhere near
+   * the boxes.
+   */
+  it('never shows a colleague’s numbers while somebody is answering', async () => {
+    await open(WORK_ITEMS, ESTIMATES);
+    await openEstimate();
+
+    for (const question of [BAD_CASE, GOOD_CASE, TYPICAL_CASE]) {
+      expect(screen.getByLabelText(question)).toBeInTheDocument();
+      for (const his of ['10', '20', '40']) {
+        expect(screen.queryByDisplayValue(his)).toBeNull();
+      }
+      if (question !== TYPICAL_CASE) {
+        await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+      }
+    }
+  });
+
   it('records a three-point estimate against the item', async () => {
     await open();
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Estimate Migrate the auth service'
-      })
-    );
+    await openEstimate();
 
-    await userEvent.type(screen.getByLabelText('P10'), '3');
-    await userEvent.type(screen.getByLabelText('P50'), '5');
-    await userEvent.type(screen.getByLabelText('P90'), '12');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Save estimate' })
-    );
+    await answerTheThree('12', '3', '5');
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -486,26 +608,26 @@ describe('WorkItems', () => {
             p10Hours: 3,
             p50Hours: 5,
             p90Hours: 12,
-            // The form that asks says how it asked, so the row can be partitioned
-            // by it later. It is `three_point` until the questions change.
-            method: 'three_point'
+            // The form that asks says how it asked, so the row can be partitioned by it
+            // later — which is the only way M8 can ever say whether this milestone
+            // changed anything.
+            method: 'surprise_framed'
           })
         })
       )
     );
   });
 
-  /** Revising starts from what that person last said, not from three empty boxes. */
+  /** Revising starts from what that person last said, not from three empty questions. */
   it('opens with the reader’s current estimate already in it', async () => {
     await open(WORK_ITEMS, ESTIMATES);
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Estimate Migrate the auth service'
-      })
-    );
+    await openEstimate();
 
-    expect(screen.getByLabelText('P10')).toHaveValue(3);
-    expect(screen.getByLabelText('P90')).toHaveValue(12);
+    expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByLabelText(GOOD_CASE)).toHaveValue(3);
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByLabelText(TYPICAL_CASE)).toHaveValue(5);
   });
 
   /**
@@ -515,16 +637,9 @@ describe('WorkItems', () => {
    */
   it('sends an untouched box as nothing rather than as no hours', async () => {
     await open();
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Estimate Migrate the auth service'
-      })
-    );
+    await openEstimate();
 
-    await userEvent.type(screen.getByLabelText('P50'), '5');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Save estimate' })
-    );
+    await answerTheThree('', '', '5');
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -534,7 +649,7 @@ describe('WorkItems', () => {
             p10Hours: null,
             p50Hours: 5,
             p90Hours: null,
-            method: 'three_point'
+            method: 'surprise_framed'
           })
         })
       )
@@ -542,39 +657,35 @@ describe('WorkItems', () => {
   });
 
   /**
-   * The refusal that belongs to no single box: each number is fine and the order is not,
-   * so it arrives in the banner rather than against a field chosen arbitrarily.
+   * <strong>The refusal that belongs to no single box, on a form where no box is in
+   * view.</strong> Each number is fine and the order is not, so it arrives in the banner —
+   * and a banner about three numbers the visitor cannot see is useless, so the form goes
+   * back to the first question for them to read their own answers in order.
    */
-  it('says so when the three numbers do not go up', async () => {
+  it('says so when the three numbers do not go up, and goes back to the first question', async () => {
     await open();
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Estimate Migrate the auth service'
-      })
-    );
+    await openEstimate();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(400, { code: 'estimate_out_of_order' })
     );
 
-    await userEvent.type(screen.getByLabelText('P10'), '5');
-    await userEvent.type(screen.getByLabelText('P50'), '3');
-    await userEvent.type(screen.getByLabelText('P90'), '12');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Save estimate' })
-    );
+    await answerTheThree('12', '5', '3');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /The three numbers must go up/
     );
+    expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
   });
 
-  it('puts a complaint about one number against that box', async () => {
+  /**
+   * And a complaint that <em>does</em> belong to one box brings that box's own question
+   * back, rather than being rendered on a screen nobody is looking at. `useFormFailure`
+   * suppresses the banner because the field is one this form renders — which is only true
+   * once the form has navigated to it.
+   */
+  it('brings back the question a refused number was answered on', async () => {
     await open();
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Estimate Migrate the auth service'
-      })
-    );
+    await openEstimate();
     fetchMock.mockResolvedValueOnce(
       jsonResponse(400, {
         code: 'validation_failed',
@@ -582,28 +693,22 @@ describe('WorkItems', () => {
       })
     );
 
-    await userEvent.type(screen.getByLabelText('P10'), '0');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Save estimate' })
-    );
+    await answerTheThree('12', '0', '5');
 
     expect(
       await screen.findByText('Use a number greater than zero.')
     ).toBeInTheDocument();
+    expect(screen.getByLabelText(GOOD_CASE)).toHaveValue(0);
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('closes the estimate form when it is cancelled', async () => {
     await open();
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: 'Estimate Migrate the auth service'
-      })
-    );
+    await openEstimate();
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.queryByLabelText('P10')).toBeNull();
+    expect(screen.queryByLabelText(BAD_CASE)).toBeNull();
   });
 
   /**

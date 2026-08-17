@@ -414,11 +414,32 @@ export const en = {
         // question about calendars and who is available, and that is a later milestone's
         // to answer rather than something to bake into what somebody types here.
         hint: 'In hours of effort — how much work it is, not how long it will be before it is done.',
-        fields: {
-          p10Hours: 'P10',
-          p50Hours: 'P50',
-          p90Hours: 'P90'
+        // One question at a time, and the percentile names appear in none of them. "P90"
+        // asks somebody to reason about tail probability, which nobody can do; surprise is
+        // a thing people recognise. The three boxes these replaced produced 3/5/8 without
+        // anybody thinking, and no check can catch that — a Fibonacci triple agrees with
+        // itself almost perfectly. The order is the defence, so it is fixed: the bad case
+        // is the only one of the three with nothing above it, and it is answered before
+        // any number is on screen to anchor it.
+        steps: {
+          bad: {
+            question:
+              'Think of a version of this that goes badly — not a disaster, just a bad week. What number would make you genuinely surprised to have gone over?',
+            hint: 'Asked first and on its own. It is the number teams get wrong most often, and the only one with nothing above it.'
+          },
+          good: {
+            question:
+              'Now the version where everything goes right. What is the least this could take?',
+            hint: 'Not an impossible case — the one where nothing gets in the way.'
+          },
+          typical: {
+            question: 'And what do you actually expect it to take?',
+            hint: 'The middle: as likely to come in under as over.'
+          }
         },
+        progress: 'Question {{step}} of {{total}}',
+        back: 'Back',
+        next: 'Next',
         submit: 'Save estimate',
         submitting: 'Saving…',
         cancel: 'Cancel',

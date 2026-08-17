@@ -619,8 +619,10 @@ button.link {
 }
 
 /*
-  Three boxes, opened in place under the task they describe. Deliberately plain: making
-  this form good is elicitation, which is a milestone rather than a stylesheet.
+  One question at a time, opened in place under the task it is about. Still plain — how
+  everything looks is its own piece of work — but no longer three boxes: what this form
+  asks is the milestone, and the answer to the previous question is deliberately not on
+  screen while the next one is being answered.
 */
 .estimate-form {
   display: flex;
@@ -630,15 +632,20 @@ button.link {
   padding-top: 10px;
   border-top: 1px dashed var(--border);
 
-  .points {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
   .field {
     flex: 1;
     min-width: 96px;
+  }
+
+  /*
+    Where somebody is, since there is only ever one question in front of them. It sits
+    with the buttons rather than above the question, so that nothing between the question
+    and the box competes with it.
+  */
+  .progress {
+    margin-right: auto;
+    font-size: 13px;
+    color: var(--muted);
   }
 
   input {

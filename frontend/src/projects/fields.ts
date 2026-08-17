@@ -21,6 +21,19 @@ export function optionalField(form: FormData, name: string): string | null {
  * would be told their estimate must be more than zero about a field they never touched.
  */
 export function numberField(form: FormData, name: string): number | null {
-  const value = textField(form, name).trim();
-  return value === '' ? null : Number(value);
+  return numberFrom(textField(form, name));
+}
+
+/**
+ * The same rule, for a box whose value a component is holding itself rather than reading
+ * out of a submitted form.
+ *
+ * Split out rather than written twice because the bug is in the *rule*, not in where the
+ * string came from: a form that asks one question at a time cannot use `FormData` for the
+ * answers it is no longer rendering, and re-deriving "empty means nothing, not zero" at the
+ * second call site is exactly how the two come to disagree.
+ */
+export function numberFrom(value: string): number | null {
+  const typed = value.trim();
+  return typed === '' ? null : Number(typed);
 }
