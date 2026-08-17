@@ -698,7 +698,7 @@ team.
 
 ---
 
-## M5 — Elicitation that produces honest ranges
+## M5 — Elicitation that produces honest ranges — *planned in `m5-plan.md`*
 
 Not polish. The maths is easy; getting truthful ranges out of humans is the actual product.
 
@@ -710,6 +710,27 @@ Not polish. The maths is easy; getting truthful ranges out of humans is the actu
   Reference-class forecasting, and it improves as history accumulates.
 - **Overconfidence warnings** — flag a P90 less than ~1.5× the P50; that pattern almost
   always means nobody thought about what could go wrong.
+
+`m5-plan.md` breaks it into five steps and answers ten decisions, and it opens with a
+measurement that reorders the four bullets above. **Both checks were run against the failure
+they exist to catch, and neither catches it**: 3/5/8 has a consistency of 1.02 and a P90/P50 of
+1.60, so it clears the ratio rule and agrees with itself almost perfectly — as do 2/3/5, 5/8/13
+and 1/2/3. The canonical garbage is *coherent* garbage, invisible to any test that can be run on
+three numbers in isolation. So the warnings are a backstop and **the question order is the
+defence**: the unbounded end first, the middle last, one on screen at a time, because the fault
+is that the three were never separately thought about and that leaves no trace in what was
+stored.
+
+**Comparative framing moves to M8**, where a reference class exists. Today the only comparison
+available is against other *estimates*, which is a guess against a guess and would spread
+anchoring across a whole plan rather than within one item.
+
+**M5's failure mode is that it cannot fail visibly.** Every milestone so far had an oracle — a
+closed form, a byte-identical degenerate case, a calendar anybody can count on their fingers —
+and this one has a hypothesis about human judgement that nothing in the repository can settle.
+That is why the plan stores `elicitation_method` on every estimate: M8's calibration record is
+the only instrument that can ever say whether changing the question changed anything, and it can
+only say it if the rows on each side of this milestone are labelled.
 
 ---
 
@@ -1317,6 +1338,13 @@ that decides whether any of it means anything. The three-box estimate form is on
 obviously bad, and it now feeds a number somebody will paste into a plan as a date. **A date
 makes M5 more urgent rather than less**: garbage that carried a probability was bad, and garbage
 that carries a day of the week is worse, because a date is the thing people act on.
+
+**It is planned, in `m5-plan.md`, and planning it moved one of its own bullets.** The
+overconfidence warning this section proposes does not catch 3/5/8 — nor 2/3/5, 5/8/13 or 1/2/3 —
+and neither does the consistency check the engine already reports. Every Fibonacci triple agrees
+with itself to within a few percent and sits just outside the ratio rule. That is worth knowing
+before building: the checks are worth having and they are not the milestone, and anybody who
+ships them and calls M5 done will have shipped the part that measurably does not work.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;

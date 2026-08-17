@@ -37,6 +37,12 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
+`docs/m5-plan.md` is the next milestone and is **not built**: replacing what the estimate form
+*asks*, so three numbers stop being 3/5/8. Read the measurement at the top before touching
+anything about estimate quality — **neither of the two checks the roadmap proposes catches the
+failure they exist to catch**, because every Fibonacci triple agrees with itself to within a few
+percent and clears the ratio rule. The warnings are a backstop; the question order is the defence.
+
 `docs/m4-plan.md` is the calendar, and is **built**: a confidence control resolving the engine's
 hours into a date. **Read its decision 2 before touching anything that divides hours by a day** —
 the engine's output already has capacity inside it, so the working day is one worker's and never
