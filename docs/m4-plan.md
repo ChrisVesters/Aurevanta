@@ -29,7 +29,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | The calendar, as a pure function | M3 |
+| 1 | The calendar, as a pure function ✅ *done* | M3 |
 | 2 | Stating a calendar, and storing what was stated | 1 |
 | 3 | A date on screen, and the trade behind it | 2 |
 | 4 | Close out | 1–3 |
@@ -233,7 +233,7 @@ cannot see is one they will mistake for a result.*
 
 ---
 
-## Step 1 — The calendar, as a pure function
+## Step 1 — The calendar, as a pure function ✅ *done*
 
 **Goal.** Hours become a day, by arithmetic somebody can check on their fingers.
 
@@ -256,6 +256,38 @@ arguments: more hours never finishes earlier, a longer working day never finishe
 working day of zero, of a negative, and of twenty-five are each refused.
 
 **Done when** a date can be produced from hours without anything having been assumed in private.
+
+### As built — where it differs from the above
+
+**Four refusals rather than two.** The bullets name a working day that is not positive and one
+longer than a day holds. `finishOn` also refuses **negative hours**, and rejects a null for each
+of its three arguments. Neither is reachable from step 2's caller — a percentile column is
+non-negative by construction and the request will be validated before it gets here — but the
+ceiling reads a negative as *zero days* and would return the start date, which is this codebase's
+own rule about silently dropping input seen from the model side: a date arriving in place of a
+failure is worse than the failure, because nothing downstream can tell it apart from an answer.
+Each has a test, so the branch gate is paid rather than avoided.
+
+**Twenty-four is allowed and twenty-five is not**, which the bullets left open. The boundary had
+to be somewhere and step 2 already puts it there — `@Max(24)` on the request — so the two agree
+rather than the model being looser than the API that guards it.
+
+**The capacity assertion from decision 2 drives `Schedule` directly**, which the step's own test
+list did not say and decision 2 did. Eight six-hour items finish in 48 hours at capacity 1 and 12
+at capacity 4; both are converted at a **six**-hour day, giving eight working days and two. The
+last line of that test is the one that matters: converting the capacity-4 hours at a
+*twenty-four*-hour day — the team's total, the wrong reading — produces a different, earlier date,
+and the test asserts the two are not the same. That is the bug written down beside the code that
+avoids it, since it is the one no ordinary assertion can see.
+
+**`WorkingCalendar.RULE` has a test of its own**, which reads as tautological and is not: step 2
+stores that string on every run and step 3 reads it back, so the name is a wire value rather than
+an implementation detail, and changing it is a migration rather than a rename.
+
+**One method was written and deleted before it shipped.** An `isWorkingDay` predicate is the
+obvious companion to `finishOn` and nothing calls it — the weekend skip is internal to the
+arithmetic. A public method with no caller is a branch the coverage gate cannot honestly close
+and a second answer to "what is a working day" waiting for M11 to disagree with.
 
 ---
 
