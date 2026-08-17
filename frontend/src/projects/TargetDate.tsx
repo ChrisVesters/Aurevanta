@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
-import type { TFunction } from 'i18next';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
@@ -54,7 +53,7 @@ const MOST_CANDIDATES = 12;
  * status has room for.
  */
 export function TargetDate({ run }: { run: Forecast }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { request } = useAuth();
   /** The plan's own work, which is where a candidate comes from. Null until it lands. */
   const [work, setWork] = useState<WorkItem[] | null>(null);
@@ -273,7 +272,7 @@ export function TargetDate({ run }: { run: Forecast }) {
         </p>
       </form>
 
-      {answer && <Answer answer={answer} locale={i18n.language} t={t} />}
+      {answer && <Answer answer={answer} />}
     </div>
   );
 }
@@ -285,15 +284,10 @@ export function TargetDate({ run }: { run: Forecast }) {
  * nobody needs when it is — and a screen that led with a list of work to drop would have
  * proposed a sacrifice before mentioning it was unnecessary.
  */
-function Answer({
-  answer,
-  locale,
-  t
-}: {
-  answer: CutOptions;
-  locale: string;
-  t: TFunction;
-}) {
+function Answer({ answer }: { answer: CutOptions }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language;
+
   return (
     <div className="answer">
       <p className="standing">

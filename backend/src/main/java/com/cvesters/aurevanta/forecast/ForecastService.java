@@ -252,13 +252,12 @@ public class ForecastService {
 	public List<ContributionResponse> contributionsTo(UUID callerId, UUID tenantId, UUID runId) {
 		ForecastRun run = get(callerId, tenantId, runId);
 		ForecastInputs inputs = inputsOf(run);
-		TeamFactor teamFactor = TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue());
-		ScopeGrowth scopeGrowth = ScopeGrowth.from(run.getScopeGrowthP10Percent().doubleValue(),
-				run.getScopeGrowthP90Percent().doubleValue());
 		Contributions measured = Contributions.forRun(inputs.items().size());
-		Forecast replayed = Engine.run(inputs.toModels(), inputs.toPrecedences(), run.getCapacity(), teamFactor,
-				scopeGrowth, run.getSampleCount(), run.getSeed(), measured);
-		requireSameRun(run, replayed);
+		// The same replay an inverse query makes, through the same method: two ways of
+		// re-running one stored forecast would eventually be one right way and one that
+		// had
+		// stopped being told about a parameter.
+		requireSameRun(run, replay(run, inputs, inputs.toModels(), measured));
 
 		Map<UUID, WorkItem> named = titlesIn(callerId, tenantId, run.getProject().getId());
 
@@ -268,10 +267,10 @@ public class ForecastService {
 			WorkItem still = named.get(itemId);
 			ranked.add(ContributionResponse.of(itemId, titleOf(still), isArchived(still), measured.ofItem(at)));
 		}
-		if (!ScopeGrowth.NONE.equals(scopeGrowth)) {
+		if (!ScopeGrowth.NONE.equals(scopeGrowthOf(run))) {
 			ranked.add(ContributionResponse.of(ContributionKind.DISCOVERED_WORK, measured.ofDiscoveredWork()));
 		}
-		if (!TeamFactor.NONE.equals(teamFactor)) {
+		if (!TeamFactor.NONE.equals(teamFactorOf(run))) {
 			ranked.add(ContributionResponse.of(ContributionKind.TEAM_FACTOR, measured.ofTeamFactor()));
 		}
 		// Ranked here rather than by whoever draws it: the order *is* the feature, and a
@@ -331,10 +330,12 @@ public class ForecastService {
 		// advice on.
 		requireSameRun(run, replay(run, inputs, plan, baseline));
 
+		double stands = percent(baseline);
+
 		Map<UUID, WorkItem> named = titlesIn(callerId, tenantId, run.getProject().getId());
 		// Round one of the search and the answer to "what is each worth on its own" are
-		// the
-		// same simulations, so they are run once and read twice.
+		// one
+		// set of simulations, so they are run once and read twice.
 		Map<Integer, Double> alone = new HashMap<>();
 		List<CutResponse> weighed = new ArrayList<>(cutting.size());
 		for (int at : cutting) {
@@ -342,17 +343,17 @@ public class ForecastService {
 			alone.put(at, reached);
 			UUID itemId = inputs.items().get(at).id();
 			WorkItem still = named.get(itemId);
-			weighed.add(new CutResponse(itemId, titleOf(still), isArchived(still), reached, reached - percent(baseline),
+			weighed.add(new CutResponse(itemId, titleOf(still), isArchived(still), reached, reached - stands,
 					reached >= confidence));
 		}
 		// Largest first, because the order is the answer — the same reason a contribution
 		// ranking is sorted here rather than by whoever draws it.
 		weighed.sort(Comparator.comparingDouble(CutResponse::buys).reversed());
 
-		Search search = new Search(run, inputs, plan, budget, confidence, named, cutting, alone, percent(baseline));
+		Search search = new Search(run, inputs, plan, budget, confidence, named, cutting, alone, stands);
 		CutPlanResponse together = search.run();
-		return new CutOptionsResponse(budget, percent(baseline), percent(baseline) >= confidence, search.simulations(),
-				List.copyOf(weighed), together);
+		return new CutOptionsResponse(budget, stands, stands >= confidence, search.simulations(), List.copyOf(weighed),
+				together);
 	}
 
 	/**
@@ -504,6 +505,15 @@ public class ForecastService {
 	 * fact about the request — and because evaluating it would otherwise answer the
 	 * question with the baseline, which reads as "this buys you nothing" rather than as
 	 * "this is not what you think it is".
+	 *
+	 * <p>
+	 * <strong>The same work named twice is one candidate.</strong> Nothing is discarded
+	 * by that — a second mention asks no second question — where weighing it twice would
+	 * spend a simulation to repeat an answer, put the same row in the ranking twice, and
+	 * let the greedy search below "cut" one item at two of its steps. The screen cannot
+	 * produce a duplicate, since candidates are ticked rather than typed; the API is the
+	 * contract this holds up. The count is still taken over what the request named,
+	 * because that is what the caller has to shorten.
 	 */
 	private static List<Integer> positionsOf(List<UUID> candidates, ForecastInputs inputs) {
 		Map<UUID, Integer> position = new HashMap<>();
@@ -516,7 +526,9 @@ public class ForecastService {
 			if (at == null) {
 				throw new CandidateNotInForecastException();
 			}
-			cutting.add(at);
+			if (!cutting.contains(at)) {
+				cutting.add(at);
+			}
 		}
 		return cutting;
 	}
@@ -526,10 +538,27 @@ public class ForecastService {
 	 * with whatever the caller has imagined away.
 	 */
 	private static Forecast replay(ForecastRun run, ForecastInputs inputs, List<ItemModel> plan, RunObserver watching) {
-		return Engine.run(plan, inputs.toPrecedences(), run.getCapacity(),
-				TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue()), ScopeGrowth
-					.from(run.getScopeGrowthP10Percent().doubleValue(), run.getScopeGrowthP90Percent().doubleValue()),
+		return Engine.run(plan, inputs.toPrecedences(), run.getCapacity(), teamFactorOf(run), scopeGrowthOf(run),
 				run.getSampleCount(), run.getSeed(), watching);
+	}
+
+	/**
+	 * The two M3b assumptions a run stored, as the engine takes them.
+	 *
+	 * <p>
+	 * Read off the row in one place because two readings would eventually be one reading
+	 * and one stale one — and the stale one would replay a plan nobody forecast while
+	 * looking entirely reasonable. A contribution ranking needs them a second time for
+	 * something else: whether either was modelled at all decides whether it gets a row,
+	 * and a source nobody modelled must get none rather than one reading zero.
+	 */
+	private static TeamFactor teamFactorOf(ForecastRun run) {
+		return TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue());
+	}
+
+	private static ScopeGrowth scopeGrowthOf(ForecastRun run) {
+		return ScopeGrowth.from(run.getScopeGrowthP10Percent().doubleValue(),
+				run.getScopeGrowthP90Percent().doubleValue());
 	}
 
 	/**
@@ -547,6 +576,17 @@ public class ForecastService {
 	 * Both listings, because work put away since a run is still work that run was about —
 	 * and titles come off the plan rather than the snapshot, which never held one.
 	 */
+	private Map<UUID, WorkItem> titlesIn(UUID callerId, UUID tenantId, UUID projectId) {
+		Map<UUID, WorkItem> named = new HashMap<>();
+		for (WorkItem live : this.items.list(callerId, tenantId, projectId, false)) {
+			named.put(live.getId(), live);
+		}
+		for (WorkItem away : this.items.list(callerId, tenantId, projectId, true)) {
+			named.put(away.getId(), away);
+		}
+		return named;
+	}
+
 	/**
 	 * What a run's work is called now, or nothing where the plan no longer holds it.
 	 *
@@ -562,17 +602,6 @@ public class ForecastService {
 	/** Whether it has been put away since, which is said rather than hidden. */
 	private static boolean isArchived(WorkItem still) {
 		return still != null && still.getArchivedAt() != null;
-	}
-
-	private Map<UUID, WorkItem> titlesIn(UUID callerId, UUID tenantId, UUID projectId) {
-		Map<UUID, WorkItem> named = new HashMap<>();
-		for (WorkItem live : this.items.list(callerId, tenantId, projectId, false)) {
-			named.put(live.getId(), live);
-		}
-		for (WorkItem away : this.items.list(callerId, tenantId, projectId, true)) {
-			named.put(away.getId(), away);
-		}
-		return named;
 	}
 
 	/**

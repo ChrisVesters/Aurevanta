@@ -11,11 +11,12 @@ designing schema or domain logic. It is design intent, not a description of exis
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
 are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
-commit to), M5 (elicitation) and M6 (variance contribution) are built. M4 completed **Tier 1** —
-the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup and a ship date at a
-confidence level — M5 then replaced the question the ranges feeding it are collected by, and M6
-made the band say what it is made of. **Tier 2 is half built**: M7's inverse queries are what
-remain.
+commit to), M5 (elicitation), M6 (variance contribution) and M7 (inverse queries) are built. M4
+completed **Tier 1** — the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup
+and a ship date at a confidence level — M5 then replaced the question the ranges feeding it are
+collected by, M6 made the band say what it is made of, and M7 ran the question backwards.
+**Tier 2 is complete**; M8 (actuals and calibration) is next, and is the first milestone that can
+say whether any of it is any good.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -40,13 +41,14 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
-`docs/m7-plan.md` is the next milestone and is **not built**: inverse queries — what to cut to
-hit a date at a confidence. **Read its decision 2 before touching anything about it.** A cut is
-modelled as a draw taken and *discarded*, never as an item removed and never by emptying its
-estimates: `ItemModel.sample` returns from `weighsNothing()` before it draws, so a weightless item
-takes no draws and every later item is sampled from a different place in the stream. Measured, the
-noise then lands in the same range as the effect being measured and the ranking becomes a coin
-flip that looks exactly like an answer.
+`docs/m7-plan.md` is inverse queries, and is **built**: what to cut to hit a date at a confidence.
+Like M6 it added **no column, no migration and no engine behaviour**, and `Engine.VERSION` is
+still 2. **Read its decision 2 before touching anything about it.** A cut is modelled as a draw
+taken and *discarded*, never as an item removed and never by emptying its estimates:
+`ItemModel.sample` returns from `weighsNothing()` before it draws, so a weightless item takes no
+draws and every later item is sampled from a different place in the stream. Measured, the noise
+then lands in the same range as the effect being measured and the ranking becomes a coin flip that
+looks exactly like an answer.
 
 `docs/m6-plan.md` is variance contribution, and is **built**: ranking what a plan holds by how
 much it widens the forecast. It added **no column and no migration** and did not move
@@ -1148,4 +1150,51 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   stores identifiers and no title on purpose — M10 diffs those snapshots and a rename is not a
   thing that moved — so the response resolves names from the live and archived listings. Work put
   away since is named and marked; work the plan no longer holds at all says so rather than
-  rendering a blank.
+  rendering a blank. `describeWork` on the frontend and `titleOf`/`isArchived` on the backend are
+  that same three-way rule stated once on each side, shared by the ranking and the cuts.
+
+### Inverse queries: what to cut, and the pairing that makes it an answer
+
+- **A cut is a draw taken and *discarded*, and this is the sharpest thing in M7.** `ItemModel`
+  carries a `cut` flag; `asCut()` sets it and `sample` still draws exactly as it would have, then
+  returns zero. The two obvious alternatives are both wrong and the second is silent: **removing
+  the item** shortens the loop and renumbers every edge, and **emptying its estimates** makes
+  `sample` return from `weighsNothing()` *before* `random.nextInt`, so a weightless item takes no
+  draws and the generator runs ahead by two per run. Measured, the resulting noise lands in the
+  same range as the effect being measured — a cut worth having buys about five points, and an
+  unpaired comparison moves by four — so the ranking becomes a coin flip that looks exactly like
+  an answer. `CutTests.cuttingOneItemMovesNoOtherNumberInTheRun` is what says it does not: every
+  other item, every run, byte for byte.
+- **The priority order must not move either**, which is why `typicalEffortHours` ignores the flag.
+  A cut that reordered the scheduler's queue would leave the counterfactual differing from its
+  baseline in two ways at once, with nothing able to say which produced the difference.
+- **The caller names the candidates, and the server proposes none.** Which work is negotiable is a
+  judgement about value and nothing in this schema records any — a four-week task a regulator
+  requires is not a candidate and a two-day nicety is. It also bounds the cost honestly, since
+  every candidate is a whole simulation. **M6's ranking is not the shortlist**, and `roadmap.md`
+  said it was until M7 corrected it: an item that never varies contributes nothing to the spread
+  and is frequently the best thing to drop. **The same work named twice is one candidate** — a
+  second mention asks no second question, and weighing it twice would rank one item in two rows
+  and let the search cut it at two of its steps, reporting one sacrifice as two.
+- **The numbers never add, and here that matters more than it did in M6.** Every figure is a
+  percentage with a plus sign in front of it, so a column of them reads as arithmetic waiting to
+  happen. Two cuts on one chain shorten the same path; two on separate branches leave the later
+  one deciding. So the singles are labelled *what this buys on its own*, **the cumulative answer
+  is searched for and measured at every step**, and nothing on screen puts the two in one column.
+- **The search is greedy and says so.** Best single, then the best of what is left *with that one
+  already cut*. Round one of it **is** the singles — run once and read twice, so the two can never
+  drift. It stops for one of three reasons and the answer names which: the bar was met, the
+  candidates ran out, or the simulation budget did. **`BUDGET_SPENT` is not a defensive branch**;
+  twelve candidates that never reach the bar would be seventy-nine runs, `MOST_SIMULATIONS` is 40,
+  and a search reporting the best thing it happened to look at without saying so is the failure
+  mode of every heuristic.
+- **Nothing is written, and that is what lets it answer about the past.** `cutsFor` is
+  `readOnly`; every counterfactual is a replay of a stored run out of its own seed, and forty
+  simulations can go past for one question without `forecast_runs` gaining a row. `roadmap.md`
+  worried this milestone would fill that table with hypotheticals and turn M10's sliding-date
+  detector into a history of things nobody planned; it did not, and M11 inherits the answer.
+- **It weighs and never decides.** `POST /api/forecasts/{runId}/cuts` changes nothing; acting on
+  the answer means archiving work on the plan screen, where somebody can see what else it is
+  connected to. The tick list on `TargetDate` offers only work the run was about — compared by
+  `createdAt`, since the snapshot holds no item list — because a refusal about a box the screen
+  has just invited somebody to tick is a trap rather than a check.

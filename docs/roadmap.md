@@ -2,15 +2,16 @@
 
 > **Status: proposal, as of 2026-08-06; last revised 2026-08-17.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5** and **M6** exist in
-> code, so **Tier 1 is complete, its inputs have been dealt with, and Tier 2 is half built**: a
-> plan with ranges in it produces a band that models common cause and unlisted work, states every
-> assumption that produced it, and resolves to a date at a confidence somebody chooses. That was
-> this document's own bar for beating a spreadsheet — a Monte Carlo rollup and a ship date at a
-> confidence level — and both now exist. M5 then replaced the question those ranges are collected
-> by, which is the one thing that decides whether any of it means anything, and M6 made the band
-> say what it is made of. Everything from here is a further lens on that number rather than the
-> first one.
+> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5**, **M6** and **M7**
+> exist in code, so **Tier 1 and Tier 2 are both complete**: a plan with ranges in it produces a
+> band that models common cause and unlisted work, states every assumption that produced it, and
+> resolves to a date at a confidence somebody chooses. That was this document's own bar for
+> beating a spreadsheet — a Monte Carlo rollup and a ship date at a confidence level — and both
+> now exist. M5 then replaced the question those ranges are collected by, which is the one thing
+> that decides whether any of it means anything; M6 made the band say what it is made of; and M7
+> ran the question backwards, which is what turns a reporting surface into something opened
+> *during* planning. Everything from here is a further lens on that number rather than the first
+> one.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -847,7 +848,7 @@ server asks rather than one a test asks once.
 
 ---
 
-## M7 — Inverse queries — *planned in `m7-plan.md`*
+## M7 — Inverse queries ✅ *done* — *planned in `m7-plan.md`*
 
 Run the question backwards: not "when will this finish" but "what do I cut to hit
 1 November at 85% confidence?", ranking candidate scope removals by the confidence each
@@ -892,6 +893,41 @@ two cuts on one chain buy barely more than one. The cumulative answer is searche
 at every step rather than inferred from the singles. That is more expensive — and once M11 lands, the
 answer space widens from "what do I cut?" to include "what if we add a person?", which uses
 the same machinery.
+
+**What shipped.** `POST /api/forecasts/{runId}/cuts` takes a date, a confidence and up to twelve
+candidates the caller names, and answers with three things: what each candidate buys **on its
+own**, a set of them that reaches the bar with the confidence after every step, and **why the
+search stopped**. It adds no column, no migration and no engine behaviour — one flag on
+`ItemModel`, which the engine already read, and M6's `RunObserver`, which already existed. The
+screen is a tick list over the plan's own work, and the two lists are stacked under separate
+headings rather than tabled, because columns side by side are how somebody comes to add one to
+the other.
+
+**Two numbers this milestone put on the table.** The search budget is **forty simulations**: at
+five hundred items each is half a second, twelve candidates that never reach the bar would be
+seventy-nine of them, and forty is three times the cost of weighing the candidates once. So a
+narrow shortlist searches deeper than a wide one — five candidates never reach the budget at all,
+twelve stop after three steps — and **running out of budget is a distinct ending that the answer
+names**, because a search reporting the best thing it happened to look at without saying so is the
+failure mode of every heuristic. The other number is step 3's honest cost: **6.3 s** for a
+baseline plus twelve cuts at the scale ceiling. The cap stays at twelve rather than the sample
+count coming down, exactly as this document's own rule says — if the budget gives, it gives on
+what is visible.
+
+**What M11 inherits.** "What if we add a person?" is this machinery with `capacity` as the lever
+instead of a cut: a stored run replayed under a changed parameter, counted against the same hours
+budget, with the same paired comparison making the difference readable. It is **a parameter change
+on a replayed run rather than a second feature** — which is why M11's own bullet can say it falls
+straight out of here. The two limits M7 states are what it inherits alongside: capacity is not a
+draw, so a counterfactual over it does not disturb the stream at all, but M11's real availability
+arrives as a **new calendar rule name** and a run made under the old one still answers under the
+old one.
+
+**What M10 inherits.** A target date and a confidence are now things a plan can hold an opinion
+about, which is precisely what a plain-language sentence needs: "85% likely by 20 November" is
+M4's reading, and "and here is what it would take" is this. M10 also inherits the shape of the
+honest refusal — a run this engine no longer reproduces is not advised on at all, since a
+recommendation from a different model is an exact answer about a plan nobody forecast.
 
 ---
 
@@ -1261,18 +1297,26 @@ somebody asked twice; M10's sliding-date detector walks successive runs and its 
 decomposition diffs two of them. Both readers assume every row is a person deliberately
 re-forecasting the same plan.
 
-**M7 breaks that assumption and M11 breaks it harder.** Inverse queries rank candidate scope
-cuts by re-running the schedule without each one, and "what if we hire someone?" sweeps a
+**M7 threatened that assumption and M11 threatens it harder.** Inverse queries rank candidate
+scope cuts by re-running the schedule without each one, and "what if we hire someone?" sweeps a
 capacity — dozens of runs to answer one question. Landing those in the same table gives the
 detector a history that is mostly hypotheticals, and gives the diff two runs that were never
 about the same plan.
 
-**So the question is what a run is *for*, and it is cheap to answer now and awkward
+**So the question is what a run is *for*, and it was cheap to answer then and awkward
 afterwards.** Either a scenario is never persisted — the engine is pure and a run costs about
 300ms, so nothing forces a row — or the table gains a kind and every reader of history filters
 on it. What must not happen is the third outcome, where scenarios are stored because storing
 was the code path that already existed, and the detector degrades with nobody able to say from
 which release.
+
+> **M7 took the first of the two, and `ForecastApiTests` holds it there.** A cuts request writes
+> nothing at all: every counterfactual is a replay of a run that already exists, in memory, out
+> of its own stored seed. Forty simulations can go past for one question and `forecast_runs`
+> gains no row — so the history stays what it has always been, a record of somebody deliberately
+> asking twice. **M11 inherits the answer rather than the question**, and the case that would
+> reopen it is a scenario somebody wants to keep and come back to, which is a different feature
+> and needs the kind column this section describes.
 
 ### Deleting a person
 
@@ -1492,18 +1536,27 @@ only for the ones made since. Both traps that section warned about held: the ran
 against project completion rather than computed from variances in isolation, and the model did
 not move to make the measurement easier. `Engine.VERSION` is still 2.
 
-**What is next is M7**, and the ordering principle is why: it is the last of Tier 2, it reads
-what M6 built, and it is the step that turns a reporting surface into something opened *during*
-planning. **It is planned, in `m7-plan.md`, and planning it corrected this document twice.** A
-high contribution says an item widens the band, not that removing it buys a date — and M6's
-ranking is *not* the shortlist worth re-running, because an item that never varies contributes
-nothing to the spread and is frequently the best thing to cut. What M7 hands the caller instead is
-the question "which of these are you willing to drop?", because which work is negotiable is a
-judgement about value that this server holds none of.
+**M7 is spent, and with it Tier 2.** It is the step that turns a reporting surface into something
+opened *during* planning, and **planning it corrected this document twice**: a high contribution
+says an item widens the band, not that removing it buys a date, and M6's ranking is *not* the
+shortlist worth re-running, because an item that never varies contributes nothing to the spread
+and is frequently the best thing to cut. What M7 hands the caller instead is the question "which
+of these are you willing to drop?", because which work is negotiable is a judgement about value
+that this server holds none of.
 
-**What M7 must not become is a scope-editing screen**: it proposes, and somebody else decides —
-on the plan screen, where archiving already exists and where somebody can see what else the work
-is connected to.
+**It did not become a scope-editing screen.** It proposes, and somebody else decides — on the plan
+screen, where archiving already exists and where somebody can see what else the work is connected
+to. The tick list is over the plan's own work and nothing on that panel changes anything.
+
+**And the thing it was most likely to get quietly wrong, it did not.** A cut is a draw taken and
+*discarded*, never an item removed and never an estimate emptied — which is the difference between
+a ranking and a coin flip that looks exactly like a ranking, and which no test downstream of it
+would have announced. `Engine.VERSION` is still 2.
+
+**What is next is M8**, and the ordering principle is why: everything built so far is a claim
+about the future that nothing has yet checked against what happened. M8 is the first milestone
+that can tell whether any of it is any good — and M5 shipped `elicitation_method` specifically so
+that M8 can split its calibration record by how the question was put.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;

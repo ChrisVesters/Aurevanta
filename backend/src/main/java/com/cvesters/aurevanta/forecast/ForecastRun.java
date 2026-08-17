@@ -10,6 +10,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.cvesters.aurevanta.forecast.model.Forecast;
+import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.tenant.Tenant;
 import com.cvesters.aurevanta.user.User;
@@ -271,7 +272,7 @@ public class ForecastRun {
 	 * made under a name this code has never heard of must not be read through today's.
 	 */
 	boolean hasReadableCalendar() {
-		return com.cvesters.aurevanta.forecast.model.WorkingCalendar.RULE.equals(this.calendarRule);
+		return WorkingCalendar.RULE.equals(this.calendarRule);
 	}
 
 	/** Null for every run made before a calendar existed, and that is a true record. */

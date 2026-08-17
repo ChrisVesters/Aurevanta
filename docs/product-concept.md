@@ -1,13 +1,14 @@
 # Aurevanta — Concepts and Planned Features
 
-> **Status: design intent, and Tier 1 is now built.** As of 2026-08-17 the schema this
+> **Status: design intent, and Tiers 1 and 2 are now built.** As of 2026-08-17 the schema this
 > document implies exists and something reads it: M0–M1a built tenancy, identity and teams,
 > **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
 > with an estimator, progress and actuals, and a precedence graph, with the plainest possible
 > UI to fill them — **M3 built the engine, both halves of it**, **M4 turned its hours into a
 > date at a chosen confidence**, **M5 replaced the question those estimates are collected by**,
-> and **M6 made the band say what it is made of**. `roadmap.md` sequences the rest and is newer
-> than this document wherever the two disagree.
+> **M6 made the band say what it is made of**, and **M7 turned it into "what would it take to hit
+> this date?"**. `roadmap.md` sequences the rest and is newer than this document wherever the two
+> disagree.
 >
 > **The core principle below is no longer only an argument.** Ranges are fitted to log-normals,
 > sampled ten thousand times, scheduled over the precedence graph at a stated capacity, and
@@ -16,9 +17,12 @@
 > dominate the error* and *Independence is a lie* are built, marked below, and asked as two
 > questions on the forecast screen. **Both of Tier 1 is built** — the rollup and the ship date
 > — so the bar this document set for beating a spreadsheet has been met, and *The input problem
-> is harder than the maths* is mostly built too. **Tier 2 is half built**: variance contribution
-> exists and inverse queries do not. Tier 3 and everything after it is still design intent. Two
-> of the *Open questions* at the end were answered by M2 and are marked as such; the rest stand.
+> is harder than the maths* is mostly built too. **Tier 2 is built as well**: variance
+> contribution says what the band is made of, and inverse queries run the question backwards, so
+> the usage pattern this document describes — something opened *during* planning rather than a
+> reporting surface — is the one the product now has. Tier 3 and everything after it is still
+> design intent. Two of the *Open questions* at the end were answered by M2 and are marked as
+> such; the rest stand.
 
 ## Purpose
 
@@ -97,7 +101,7 @@ a calendar date. This also reframes stakeholder negotiation: "can we go faster" 
 > 25" does not, and it gets pasted into a plan with the assumption behind it left in the
 > browser.
 
-### Tier 2 — analysis over the same engine, no new schema *(half built)*
+### Tier 2 — analysis over the same engine, no new schema ✅ *built*
 
 **Variance contribution. ✅ *built by M6*** Rank tasks by their contribution to the *spread* of
 the project outcome, not by duration. A 20-day task estimated 18–22 is nearly risk-free; a
@@ -129,10 +133,35 @@ point-estimate tools cannot produce it.
 > narrow links on that chain accounted for about 18%. A summing model would have sent somebody to
 > spike the one thing least worth touching.
 
-**Inverse queries.** Run the question backwards: not "when will this finish" but "what do
-I cut to hit 1 November at 85% confidence?", ranking candidate scope removals by the
+**Inverse queries. ✅ *built by M7*** Run the question backwards: not "when will this finish" but
+"what do I cut to hit 1 November at 85% confidence?", ranking candidate scope removals by the
 confidence each one buys. This changes the usage pattern from reporting surface to
 something opened during planning.
+
+> **Built, 2026-08-17, and like M6 it cost no schema.** The target date becomes hours through the
+> run's own calendar, and every candidate is measured by replaying that stored run with the work
+> imagined away — nothing is written, so this answers about forecasts made long before it existed.
+>
+> **The paragraph above hides the decision the whole feature turns on.** A cut cannot be modelled
+> by taking the item out of the plan, and — worse, because it is silent — it cannot be modelled by
+> emptying its estimates: an item that weighs nothing takes no draws, so every later item in the
+> run is sampled from a different place in the random stream. Measured, that noise lands in the
+> same range as the effect being measured, and the ranking becomes a coin flip that looks exactly
+> like an answer. **A cut item keeps its estimates, takes its draws, and is worth nothing**, so
+> both sides of the comparison see the same random numbers.
+>
+> **And the answer is two answers, deliberately kept apart.** What each candidate buys *on its own*
+> may never be added up: two cuts on one chain shorten the same path and buy barely more than one,
+> and two on separate branches leave the later of them deciding. So the set that reaches the date
+> is **searched for and measured at every step**, and the screen never puts the two in one column.
+> This is the same trap as M6's shares, in a form far more tempting to fall into, because every
+> figure is a percentage with a plus sign in front of it.
+>
+> **What it deliberately is not** is a scope editor. It weighs what somebody names and says what
+> each is worth; deciding is done on the plan screen, where the work can be seen in context. Which
+> work is negotiable is a judgement about value, and nothing in this schema records any — so a
+> server that proposed its own candidates would be recommending that somebody delete work for
+> happening to sit on the deciding path.
 
 ### Tier 3 — requires accumulated history
 

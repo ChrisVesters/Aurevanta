@@ -213,7 +213,7 @@ describe('TargetDate', () => {
 
     expect(
       await screen.findByText(
-        'That date is 18 hours of work under this run’s own calendar, measured over 4 runs of the plan.'
+        "That date is 18 hours of work under this run's own calendar, measured over 4 runs of the plan."
       )
     ).toBeInTheDocument();
   });
@@ -280,7 +280,7 @@ describe('TargetDate', () => {
 
     expect(
       await screen.findByText(
-        'This forecast was made before any of the work now in this plan, so there is nothing here it could weigh.'
+        'None of the work now in this plan was in this forecast, so there is nothing here it could weigh. Ask for a new forecast and there will be.'
       )
     ).toBeInTheDocument();
     expect(asking()).toBeDisabled();
@@ -306,7 +306,7 @@ describe('TargetDate', () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
-        'This forecast was made before any of the work now in this plan, so there is nothing here it could weigh.'
+        'None of the work now in this plan was in this forecast, so there is nothing here it could weigh. Ask for a new forecast and there will be.'
       )
     ).toBeNull();
   });
@@ -413,7 +413,7 @@ describe('TargetDate', () => {
     }
 
     expect(
-      screen.getByText(/That is as many as can be weighed at once/)
+      screen.getByText(/is as many as can be weighed at once/)
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Task 12')).toBeDisabled();
     // Untickable, not unclickable: what is already chosen can still be given back.

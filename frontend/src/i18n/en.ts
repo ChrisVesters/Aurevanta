@@ -421,11 +421,14 @@ export const en = {
         candidates: {
           legend: 'What could be dropped?',
           hint: 'Only you can say. A task a regulator requires is not a candidate however large it is.',
-          none: 'This forecast was made before any of the work now in this plan, so there is nothing here it could weigh.',
+          // True of both ways it can happen: a forecast older than everything now listed,
+          // and a plan whose work has all been put away since. Neither is a state to
+          // apologise for, and both have the same way out.
+          none: 'None of the work now in this plan was in this forecast, so there is nothing here it could weigh. Ask for a new forecast and there will be.',
           // Stopped at the limit rather than refused afterwards: being told to untick three
           // would be being asked to guess which three mattered.
           limit:
-            'That is as many as can be weighed at once — each one is a whole simulation. Untick something to try a different {{most}}.'
+            '{{most}} is as many as can be weighed at once — each one is a whole simulation. Untick one to put something else on the list.'
         },
         submit: 'What would it take?',
         submitting: 'Weighing what each would buy…',
@@ -435,11 +438,11 @@ export const en = {
           // sacrifice before mentioning it was unnecessary.
           met: 'This plan already gets there: {{confidence}}% of its runs came in by that date.',
           short:
-            'As it stands, {{confidence}}% of this plan’s runs came in by that date.',
+            "As it stands, {{confidence}}% of this plan's runs came in by that date.",
           // The stated assumption beside the number it produced, which is M4's rule
           // arriving in the one place where the number is a recommendation.
           budget:
-            'That date is {{hours}} hours of work under this run’s own calendar, measured over {{simulations}} runs of the plan.'
+            "That date is {{hours}} hours of work under this run's own calendar, measured over {{simulations}} runs of the plan."
         },
         // The answer to act on: a set that was searched for and measured at every step.
         together: {

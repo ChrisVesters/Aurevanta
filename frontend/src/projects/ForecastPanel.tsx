@@ -628,8 +628,14 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             spread, because everything it says is derived from the band above and inherits
             every caveat printed there — a list of work to drop is the most quotable thing
             this product emits, and the caveats have to have been passed on the way down.
+
+            Keyed on the run, so asking for a new forecast starts the question again rather
+            than leaving a list of work to drop that was measured against the previous one.
+            That is the same rule the breakdown above keeps by clearing itself, arrived at
+            the other way: here the whole panel — the date, the ticks and the answer — was
+            about a run that is no longer on screen.
           */}
-          <TargetDate run={latest} />
+          <TargetDate key={latest.id} run={latest} />
 
           {earlier.length > 0 && (
             <div className="earlier">

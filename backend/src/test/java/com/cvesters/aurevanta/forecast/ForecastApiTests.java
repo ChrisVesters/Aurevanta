@@ -766,6 +766,43 @@ class ForecastApiTests {
 	}
 
 	/**
+	 * <strong>The two bounds have to agree, and nothing else would notice them
+	 * drifting.</strong> Round one of the search is the candidates weighed on their own,
+	 * and it is already paid for by the time the budget is first consulted — so a
+	 * candidate limit raised past the simulation budget would spend more than the budget
+	 * allows without ever reaching the check that says so. The margin has to leave room
+	 * for a second round as well, or the search could never take a step it had not
+	 * already taken.
+	 */
+	@Test
+	void theCandidateLimitLeavesRoomForTheSearchToRun() {
+		assertThat(CutsRequest.MOST_SIMULATIONS).isGreaterThan(CutsRequest.MOST_CANDIDATES + 1);
+	}
+
+	/**
+	 * <strong>The same work named twice is one candidate.</strong> A second mention asks
+	 * no second question, and weighing it twice would spend a simulation to repeat an
+	 * answer, put one item in the ranking twice, and let the search "cut" it at two of
+	 * its steps — which would read as two sacrifices for the price of one.
+	 */
+	@Test
+	void weighsWorkNamedTwiceOnlyOnce() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode answer = parsed(
+				cuts(run, MONDAY.plusDays(2), 100, this.migration.getId(), this.migration.getId(), this.rollout.getId())
+					.andReturn()
+					.getResponse()
+					.getContentAsString());
+
+		assertThat(answer.get("cuts")).hasSize(2);
+		// The baseline plus two candidates, not three, and then one more for the second
+		// round of the search.
+		assertThat(answer.get("simulations").asInt()).isEqualTo(4);
+		assertThat(answer.get("together").get("steps")).hasSize(2);
+	}
+
+	/**
 	 * Each thing weighed costs a whole simulation, so the bound is stated rather than
 	 * discovered as a timeout — and refused rather than truncated, since the thirteenth
 	 * might have been the one worth dropping.

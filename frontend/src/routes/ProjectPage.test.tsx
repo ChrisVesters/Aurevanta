@@ -50,6 +50,34 @@ describe('ProjectPage', () => {
     );
   }
 
+  /**
+   * Whatever this page's next *write* is refused with, answered by what the request is
+   * rather than by which turn it takes.
+   *
+   * **`mockResolvedValueOnce` was the wrong tool and it hid a passing test.** This page
+   * loads five resources, and the settle above waits only for the project — so a queued
+   * "next response" was sometimes eaten by one of the four still in flight, which then
+   * showed the very same refusal in *its* own banner while the write it was meant for
+   * quietly succeeded. The assertion passed either way; only the coverage gate noticed,
+   * because the branch it was written for stopped running about half the time.
+   */
+  function refuseWrites(problem: Record<string, unknown>, status = 400) {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method !== undefined && init.method !== 'GET'
+          ? jsonResponse(status, problem)
+          : url === '/api/auth/me'
+            ? jsonResponse(200, ACCOUNT)
+            : url.endsWith('/items') ||
+                url.endsWith('/estimates') ||
+                url.endsWith('/dependencies') ||
+                url.endsWith('/forecasts')
+              ? jsonResponse(200, [])
+              : jsonResponse(200, PROJECTS[0])
+      )
+    );
+  }
+
   it('shows what the project is called and what it covers', async () => {
     await open();
 
@@ -161,12 +189,10 @@ describe('ProjectPage', () => {
   it('says so when a change is refused', async () => {
     await open();
     await screen.findByRole('heading', { name: 'Q3 platform work' });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(400, {
-        code: 'validation_failed',
-        errors: { name: { code: 'not_blank' } }
-      })
-    );
+    refuseWrites({
+      code: 'validation_failed',
+      errors: { name: { code: 'not_blank' } }
+    });
 
     await userEvent.clear(screen.getByLabelText('Project name'));
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
@@ -179,9 +205,7 @@ describe('ProjectPage', () => {
   it('says so when archiving is refused', async () => {
     await open();
     await screen.findByRole('heading', { name: 'Q3 platform work' });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(404, { code: 'project_not_found' })
-    );
+    refuseWrites({ code: 'project_not_found' }, 404);
 
     await userEvent.click(
       screen.getByRole('button', { name: 'Archive this project' })

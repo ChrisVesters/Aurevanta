@@ -1,5 +1,9 @@
 # M7 — Inverse queries: implementation plan
 
+> **Built, 2026-08-17.** All six steps are done and each carries its own *As built* section.
+> `Engine.VERSION` is still 2, no migration was added, and nothing a cuts request does is written
+> down. With this, **Tier 2 is complete.**
+>
 > **Scope.** `roadmap.md` M7: run the question backwards. Not *when will this finish* but **what
 > do I cut to hit 1 November at 85%**, with each candidate ranked by the confidence it actually
 > buys. Excluded: adding people rather than removing work (M11 — same machinery, a different
@@ -35,7 +39,7 @@
 | 3 | What one cut buys ✅ *done* | 1, 2 |
 | 4 | The shortest list that gets there ✅ *done* | 3 |
 | 5 | On screen ✅ *done* | 4 |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 **M7 adds no columns and no migration**, for M6's reason: everything is evaluated against a
 stored run, replayed from its own seed. It also adds no engine behaviour — one flag on
@@ -599,7 +603,7 @@ the work request and giving a ticked candidate back.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 - `roadmap.md`: mark M7 done, and with it **Tier 2** — variance contribution and inverse queries
   were the whole of it.
@@ -615,6 +619,107 @@ the work request and giving a ticked candidate back.
 - `CLAUDE.md`: a cut is a draw discarded so the comparison is paired; the priority order never
   moves; the numbers never add; the cumulative answer is computed; candidates come from the
   caller and never from the server.
+
+### As built — where it differs from the above
+
+All six bullets are done, and two of them turned out to be larger than they read.
+
+**Correcting the M7 note was already done, in step 0.** The blockquote in `roadmap.md` that says
+M6's ranking is not the shortlist was written while this plan was — the correction is only worth
+anything if it lands before somebody builds from the wrong sentence, not after. What close-out
+added was the tense: the section now reports what shipped rather than what to watch for.
+
+**A seventh thing needed correcting, and this step found it.** `roadmap.md`'s *Which forecast runs
+are history* section says M7 "breaks the assumption" that every row in `forecast_runs` is somebody
+deliberately re-forecasting, and sets out two ways to answer it. **M7 took the first — nothing is
+persisted at all** — so that section now records the answer rather than leaving an open question
+whose premise stopped being true. It matters because M10's sliding-date detector reads that table,
+and an open question about it reads as a hazard that has not been dealt with.
+
+**What M11 and M10 inherit went into `roadmap.md`'s M7 section rather than into theirs**, which is
+where M6 put the same thing and is the right place: a milestone's own section is what somebody
+reads when they get to it, and a note about the future left in a future section is a note nobody
+finds until it is too late to shape the work. M11's is that "what if we add a person" is a
+parameter change on a replayed run rather than a second feature; M10's is that a target date and a
+confidence are now things a plan can hold an opinion about.
+
+**`CLAUDE.md` gained a section rather than a paragraph.** The five rules the bullet lists are five
+different ways of getting this feature quietly wrong, and four of them look like simplifications
+from the outside — which is the same reason the M3a decisions have a section of their own. It sits
+under *Forecasting* beside variance contribution, since both are lenses on a replayed run and both
+turn on the same rule about numbers that must not be added.
+
+---
+
+## The review pass — what a read of the whole milestone changed
+
+Six steps written one after another leave seams that only a read of the whole thing finds. Two of
+these were defects, and both would have shipped looking entirely reasonable.
+
+**Naming the same work twice was weighed twice, ranked twice, and cut twice.** `positionsOf`
+resolved candidates in the order given and kept duplicates, so a request naming one item twice
+spent two simulations to produce two identical rows in the ranking — and, worse, put that index
+into the search's `remaining` list twice, letting the greedy search "cut" one piece of work at two
+of its steps. **One sacrifice reported as two, with a confidence figure that was real.** The screen
+cannot produce a duplicate, since candidates are ticked rather than typed, which is exactly why
+nothing found it: the API is the contract, and the form is one caller of it. It is now
+de-duplicated with the first mention keeping its place, and the count still taken over what the
+request named, since that is what a caller has to shorten. `weighsWorkNamedTwiceOnlyOnce` asserts
+two candidates and four simulations from three named.
+
+**A new forecast left the previous answer on screen.** `TargetDate` held the date, the ticks and
+the answer, and `ForecastPanel` re-rendered it with a new `run` without resetting any of them — so
+asking for a fresh forecast left **a list of work to drop that had been measured against a run no
+longer displayed**. It is the same staleness the contributions panel clears itself for, arriving
+through a whole component rather than one section, and the fix is to key the panel on the run: a
+different run is a different question. The test for it fails without the key, which was checked
+rather than assumed.
+
+**Two ways to replay one stored run had appeared.** Step 3 added `replay`, and `contributionsTo`
+went on building its own `Engine.run` call by hand — so a parameter added to a run in future would
+be passed by one of them and not the other. That fails loudly rather than silently, since M6's
+guard compares the replay against the row, but it fails as *"this forecast cannot be broken
+down"*, which is a poor way to learn that a replay had stopped being told about something. Both now
+go through `replay`, and the two M3b assumptions are read off the row by `teamFactorOf` and
+`scopeGrowthOf` — needed twice, because whether either was modelled at all is what decides whether
+it gets a contribution row.
+
+**A stranded Javadoc block, from extracting the helpers in step 3.** `titlesIn` lost its
+documentation to `titleOf`, which then carried two comment blocks in a row — the first of them
+describing a method three lines further down. Nothing warns about that.
+
+**A bound with no test, and it is the awkward kind.** Round one of the search is already paid for
+by the time the simulation budget is first consulted, so a candidate limit raised past that budget
+would overspend it without ever reaching the check that refuses.
+`theCandidateLimitLeavesRoomForTheSearchToRun` asserts the two constants keep their
+relationship, since nothing else would notice them drifting apart.
+
+**Two catalogue sentences were untrue in a case they render in.** "This forecast was made before
+any of the work now in this plan" is false when the plan's work has all been *archived* since —
+which is the other way that list comes out empty — so it now says what is true of both and what to
+do about it. And "untick something to try a different 12" was a sentence with a number where a
+noun belongs.
+
+**Smaller things.** `ForecastRun.hasReadableCalendar` referred to `WorkingCalendar` by its fully
+qualified name rather than importing it. `Answer` took `t` and `locale` as props though it is a
+component, so it reads its own. `percent(baseline)` was recomputed four times in one method. Two
+new strings used curly apostrophes where the catalogue uses straight ones.
+
+**And a coverage flicker turned out to be a test passing for the wrong reason.** One run reported a
+single uncovered statement in `ProjectPage`, a file this milestone does not touch; the next was
+clean. It was the same statement every time — the branch behind *"says so when archiving is
+refused"* — and a test cannot pass without running the line that produces the message it asserts.
+It could, because the refusal was queued with `mockResolvedValueOnce`: **that page loads five
+resources and the test waits only for the project**, so the queued 404 was sometimes eaten by one
+of the four still in flight, which then showed the identical refusal in *its own* banner while the
+archive it was meant for quietly succeeded. This codebase already has the rule — *a test double
+that answers every URL alike is a lying double* — and this is its other half: **a double that
+answers by turn is lying about which request it answered.** Both refusal tests now key on the
+request, and the statement stays covered across three consecutive runs.
+
+**Both suites, both coverage gates.** 805 backend tests and 390 frontend, 0 of 623 backend branches
+missed, and 100% of the frontend's statements, branches, functions and lines — stable, which is
+the part that took a fix rather than a re-run.
 
 ---
 

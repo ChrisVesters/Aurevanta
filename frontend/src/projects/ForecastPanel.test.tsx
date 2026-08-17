@@ -5,6 +5,7 @@ import { ForecastPanel } from './ForecastPanel';
 import {
   ACCOUNT,
   CONTRIBUTIONS,
+  CUT_OPTIONS,
   FORECAST,
   PROJECTS,
   WORK_ITEMS,
@@ -19,6 +20,7 @@ const PROJECT_ID = PROJECTS[0].id;
 const FORECASTS_URL = `/api/projects/${PROJECT_ID}/forecasts`;
 const CONTRIBUTIONS_URL = `/api/forecasts/${FORECAST.id}/contributions`;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
+const CUTS_URL = `/api/forecasts/${FORECAST.id}/cuts`;
 
 describe('ForecastPanel', () => {
   const fetchMock = mockFetch();
@@ -43,7 +45,9 @@ describe('ForecastPanel', () => {
                 // happened to go out first.
                 url === ITEMS_URL
                 ? jsonResponse(200, WORK_ITEMS)
-                : jsonResponse(404)
+                : url === CUTS_URL
+                  ? jsonResponse(200, CUT_OPTIONS)
+                  : jsonResponse(404)
       )
     );
   }
@@ -810,6 +814,47 @@ describe('ForecastPanel', () => {
         .parentElement as HTMLElement
     );
     expect(history.queryByText(/-hour days from/)).toBeNull();
+  });
+
+  // What it would take to hit a date ---------------------------------------
+
+  /**
+   * <strong>A list of work to drop belongs to the run it was measured against.</strong>
+   * Asking for a new forecast leaves the previous answer describing a run that is no longer
+   * on screen — the same staleness the breakdown clears itself for, arriving through the
+   * whole panel rather than one section of it. It is keyed on the run, so a new one starts
+   * the question again.
+   */
+  it('starts the target question again when a new forecast lands', async () => {
+    await open([FORECAST]);
+    await userEvent.type(
+      screen.getByLabelText('We want it done by'),
+      '2026-09-30'
+    );
+    await userEvent.type(
+      screen.getByLabelText('How sure do you need to be?'),
+      '85'
+    );
+    await userEvent.click(await screen.findByLabelText(WORK_ITEMS[0].title));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'What would it take?' })
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'What it would take' })
+    ).toBeInTheDocument();
+
+    answer([{ ...FORECAST, id: '60606060-6060-6060-6060-606060606060' }]);
+    await answerTheAssumptions('2', '30', '20', '60');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Forecast this plan' })
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: 'What it would take' })
+      ).toBeNull()
+    );
+    expect(screen.getByLabelText('We want it done by')).toHaveValue('');
   });
 
   // What the spread is made of ---------------------------------------------
