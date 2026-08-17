@@ -30,8 +30,11 @@ import com.cvesters.aurevanta.item.WorkItemStatus;
  * means nobody has estimated this — see {@link #sample}.
  * @param spentHours effort already recorded against it, or zero where nobody measured
  * any, which will be most of the time.
+ * @param cut whether this item is being imagined away — see {@link #asCut()}. Never true
+ * for anything a stored run was made of: a cut is a question somebody asked about a
+ * forecast, not a forecast anybody made.
  */
-public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus status, double spentHours) {
+public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus status, double spentHours, boolean cut) {
 
 	/**
 	 * The most probability the conditional draw below will admit is still ahead.
@@ -43,6 +46,11 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 	 * defined without changing any answer a person could notice.
 	 */
 	private static final double ALMOST_CERTAIN = Math.nextDown(1.0);
+
+	/** An ordinary item, which is every item a forecast was ever made of. */
+	public ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus status, double spentHours) {
+		this(id, estimates, status, spentHours, false);
+	}
 
 	public ItemModel {
 		Objects.requireNonNull(id, "An item must say which item it is");
@@ -86,7 +94,50 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 			return 0.0;
 		}
 		LogNormalFit fit = this.estimates.get(random.nextInt(this.estimates.size()));
-		return (this.spentHours > 0.0) ? remainderAfterWhatIsSpent(fit, random) : fit.at(random.nextGaussian());
+		double drawn = (this.spentHours > 0.0) ? remainderAfterWhatIsSpent(fit, random) : fit.at(random.nextGaussian());
+		// Drawn and then thrown away, which is the whole of how a cut works — see
+		// asCut().
+		return this.cut ? 0.0 : drawn;
+	}
+
+	/**
+	 * The same item, imagined away: it costs nothing and it still takes every draw it
+	 * would have taken.
+	 *
+	 * <p>
+	 * <strong>Taking the draw is the point, and it is the least obvious line in this
+	 * milestone.</strong> An inverse query asks what a plan would look like without a
+	 * piece of work, and the only honest way to answer is to run it again — but two runs
+	 * with different random numbers differ by more than most cuts are worth. Measured: at
+	 * ten thousand runs the same plan re-seeded moves the answer by more than a point,
+	 * and a cut worth having buys about five. So the counterfactual has to use the
+	 * <em>same</em> numbers as the run it is compared with, and that only holds if the
+	 * generator is left in exactly the same place. An item that drew nothing would let
+	 * every item after it sample from somewhere else in the stream, and nothing anywhere
+	 * would fail.
+	 *
+	 * <p>
+	 * That rules out the two implementations anybody would try first. Taking the item out
+	 * of the plan shortens the loop and renumbers every edge. Emptying its estimates is
+	 * worse because it is silent: {@link #sample} returns from {@code weighsNothing()}
+	 * <em>before it draws</em>, so a weightless item costs the generator nothing and the
+	 * whole comparison quietly stops being paired.
+	 *
+	 * <p>
+	 * <strong>{@link #typicalEffortHours()} is deliberately not affected.</strong> That
+	 * is what the scheduler ranks by, and a cut that reordered the queue would leave the
+	 * counterfactual differing from its baseline in two ways with no way to tell which
+	 * produced the difference. The item keeps a place it no longer deserves and loses
+	 * nothing by it: taking no time, it finishes the instant it starts.
+	 *
+	 * <p>
+	 * {@link #sampleAsNewWork} is not affected either. A cut item is still an example of
+	 * what this team's work costs, and dropping it from that reference class would move
+	 * every draw taken from it — as well as being untrue, since imagining a task away
+	 * says nothing about the size of the ones nobody has thought of.
+	 */
+	public ItemModel asCut() {
+		return new ItemModel(this.id, this.estimates, this.status, this.spentHours, true);
 	}
 
 	/**

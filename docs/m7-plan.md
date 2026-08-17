@@ -31,7 +31,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | Reading a date backwards, and counting the runs that beat it ✅ *done* | M4, M6 |
-| 2 | A cut that moves no other draw | M3 |
+| 2 | A cut that moves no other draw ✅ *done* | M3 |
 | 3 | What one cut buys | 1, 2 |
 | 4 | The shortest list that gets there | 3 |
 | 5 | On screen | 4 |
@@ -320,7 +320,7 @@ day the same way, and two copies of a bound are two chances to move one.
 
 ---
 
-## Step 2 — A cut that moves no other draw
+## Step 2 — A cut that moves no other draw ✅ *done*
 
 **Goal.** An item can be made worthless without moving a single number anywhere else.
 
@@ -340,6 +340,41 @@ must *not* change are asserted directly: the priority order is identical with an
 and so is the number of items discovered by scope growth.
 
 **Done when** a counterfactual differs from its baseline in exactly one respect.
+
+### As built — where it differs from the above
+
+**The factory is `asCut()`, not `cut()`, and the compiler decided that.** A record component
+named `cut` owns the accessor `cut()`, so a method of that name returning an `ItemModel` will not
+compile. Given the choice of which reading to keep, the predicate won: `item.cut()` reads as a
+command and is a question, while `item.asCut()` reads as what it is — the same item, as a cut.
+A five-minute detour, recorded because the naming collision is the kind of thing that gets
+resolved by renaming the *component* to something vaguer, and the component's name is the one that
+appears in the constructor everywhere.
+
+**The paired-draw test walks every item, not one.** The bullets ask for "a plan with one item
+cut"; what is asserted is every item in turn, over two thousand runs, against a fixture built to
+exercise **every path `sample` can take** — a plain estimate, two estimators disagreeing, work
+under way with hours against it, finished work, and work nobody costed. That matters because the
+paths draw *different numbers of times*: the conditional draw for work under way takes a
+`nextDouble` the ordinary path does not, and the two-estimator case takes a `nextInt` over a
+larger range. A cut that preserved one path and not another would be caught by exactly one of
+those five columns.
+
+**The shared stretch and the discovered count are checked as well**, which the bullets mention
+only for scope growth. Both come off the generator *before* the plan does, so a cut that disturbed
+either would have disturbed everything after it — they are the cheapest possible canary and they
+cost one field each on the recorded run.
+
+**Two properties were added that the bullets did not name.** A cut item still answers
+`sampleAsNewWork` identically, because it remains part of the reference class scope growth draws
+from — dropping it would move every draw taken from that class, and would be untrue besides, since
+imagining a task away says nothing about the size of the ones nobody has thought of. And cutting
+work that already weighed nothing — finished, or never costed — is a no-op down to the last bit,
+which is what says the flag invents no draws where there were none.
+
+**`Engine` and `Schedule` are untouched**, as the step required, and the coverage report confirms
+both are still fully exercised by the tests that were already there. The whole of the mechanism is
+four lines in `ItemModel.sample`: take the draw, then throw it away.
 
 ---
 
