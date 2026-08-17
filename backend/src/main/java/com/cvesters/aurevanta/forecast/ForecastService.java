@@ -25,8 +25,8 @@ import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEdge;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEstimate;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedItem;
 import com.cvesters.aurevanta.forecast.model.Engine;
+import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.forecast.model.Forecast;
-import com.cvesters.aurevanta.forecast.model.LogNormalFit;
 import com.cvesters.aurevanta.forecast.model.Schedule;
 import com.cvesters.aurevanta.forecast.model.ScopeGrowth;
 import com.cvesters.aurevanta.forecast.model.TeamFactor;
@@ -64,17 +64,6 @@ import com.cvesters.aurevanta.user.User;
  */
 @Service
 public class ForecastService {
-
-	/**
-	 * How far a stated middle may sit from the one its own two ends imply before the run
-	 * mentions it. A quarter either way — far enough that 3/5/8 and its neighbours pass
-	 * unremarked, close enough to catch somebody who put 10 in the middle of 5 and 40.
-	 *
-	 * <p>
-	 * It changes nothing about the forecast. The fit uses the ends whatever the middle
-	 * says; this only decides whether the answer arrives with a note attached.
-	 */
-	private static final double CONSISTENT_ENOUGH = 0.25;
 
 	private final ForecastRunRepository runs;
 
@@ -278,11 +267,17 @@ public class ForecastService {
 	 * Whether somebody's middle number sits a long way from the one their own two ends
 	 * imply — which says the three were not thought about together, and nothing else. The
 	 * estimate is used exactly as given either way.
+	 *
+	 * <p>
+	 * Asked of {@link EstimateQuality} rather than worked out here, so that a forecast
+	 * and the plan screen cannot come to different conclusions about one estimate. The
+	 * threshold that used to be a constant in this class is now beside the arithmetic it
+	 * bounds.
 	 */
 	private static boolean arguesWithItself(PlannedEstimate range) {
-		LogNormalFit fit = LogNormalFit.from(range.p10Hours().doubleValue(), range.p90Hours().doubleValue());
-		double agreement = fit.consistency(range.p50Hours().doubleValue());
-		return Math.abs(agreement - 1.0) > CONSISTENT_ENOUGH;
+		return EstimateQuality
+			.of(range.p10Hours().doubleValue(), range.p50Hours().doubleValue(), range.p90Hours().doubleValue())
+			.inconsistent();
 	}
 
 }

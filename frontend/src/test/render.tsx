@@ -162,6 +162,11 @@ export const ARCHIVED_WORK_ITEM: WorkItem = {
 /**
  * What Ada last said about the first item, and Bob about it too — one current estimate per
  * person, which is the shape the schema is built for even though M2 shows it plainly.
+ *
+ * The three quality fields carry what the server would actually compute for these ranges,
+ * rather than convenient values: 3/12 implies a middle of 6 against a stated 5, which is
+ * within a quarter, and none of the three bands is tight. A fixture that claimed otherwise
+ * would be a double more opinionated than the thing it stands in for.
  */
 export const ESTIMATES: Estimate[] = [
   {
@@ -172,6 +177,9 @@ export const ESTIMATES: Estimate[] = [
     p10Hours: 3,
     p50Hours: 5,
     p90Hours: 12,
+    consistency: 0.833,
+    inconsistent: false,
+    overconfident: false,
     createdAt: '2026-08-13T10:00:00Z'
   },
   {
@@ -182,6 +190,9 @@ export const ESTIMATES: Estimate[] = [
     p10Hours: 10,
     p50Hours: 20,
     p90Hours: 40,
+    consistency: 1,
+    inconsistent: false,
+    overconfident: false,
     createdAt: '2026-08-13T11:00:00Z'
   }
 ];
@@ -195,6 +206,9 @@ export const COLLEAGUES_ESTIMATE: Estimate = {
   p10Hours: 1,
   p50Hours: 2,
   p90Hours: 4,
+  consistency: 1,
+  inconsistent: false,
+  overconfident: false,
   createdAt: '2026-08-13T12:00:00Z'
 };
 

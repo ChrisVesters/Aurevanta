@@ -33,6 +33,7 @@ import com.cvesters.aurevanta.user.UserRepository;
 import com.cvesters.aurevanta.user.UserRole;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.closeTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -130,6 +131,45 @@ class EstimateApiTests {
 			.andExpect(jsonPath("$.p50Hours").value(5.0))
 			.andExpect(jsonPath("$.p90Hours").value(12.0))
 			.andExpect(jsonPath("$.createdAt").isNotEmpty());
+	}
+
+	/**
+	 * <strong>An estimate says what is odd about it, and is stored anyway.</strong> The
+	 * flags are advice — a tight band is sometimes exactly right — so nothing here is a
+	 * refusal, and the row is written whatever they say. 5/10/40 implies a middle of 14.1
+	 * against a stated 10, which is far enough to mention.
+	 */
+	@Test
+	void anEstimateCarriesWhatIsWorthQuestioningAboutIt() throws Exception {
+		estimate(this.ada, this.migration, "5", "10", "40").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.consistency").value(closeTo(0.707, 0.001)))
+			.andExpect(jsonPath("$.inconsistent").value(true))
+			.andExpect(jsonPath("$.overconfident").value(false));
+	}
+
+	/**
+	 * <strong>And the estimate this milestone is named after says nothing is wrong with
+	 * it.</strong> That is the measurement `m5-plan.md` opens with, asserted at the seam
+	 * somebody would actually meet it: 3/5/8 is coherent garbage, and a screen reading
+	 * these flags will show no warning at all. The question order is the defence; these
+	 * two are a backstop.
+	 */
+	@Test
+	void theCanonicalGarbageIsReportedAsPerfectlyFine() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "8").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.consistency").value(closeTo(1.021, 0.001)))
+			.andExpect(jsonPath("$.inconsistent").value(false))
+			.andExpect(jsonPath("$.overconfident").value(false));
+	}
+
+	/** A band too tight to have been thought about, flagged on the way back out. */
+	@Test
+	void aTightBandIsReportedOnTheCurrentEstimatesToo() throws Exception {
+		estimate(this.ada, this.migration, "6", "10", "14").andExpect(status().isCreated());
+
+		current(this.ada).andExpect(jsonPath("$.length()").value(1))
+			.andExpect(jsonPath("$[0].overconfident").value(true))
+			.andExpect(jsonPath("$[0].inconsistent").value(false));
 	}
 
 	/**

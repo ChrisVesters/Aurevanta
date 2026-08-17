@@ -28,6 +28,7 @@ import com.cvesters.aurevanta.dependency.DependencyRepository;
 import com.cvesters.aurevanta.estimate.Estimate;
 import com.cvesters.aurevanta.estimate.EstimateRepository;
 import com.cvesters.aurevanta.forecast.model.Engine;
+import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.forecast.model.Forecast;
 import com.cvesters.aurevanta.forecast.model.Schedule;
 import com.cvesters.aurevanta.forecast.model.ScopeGrowth;
@@ -352,6 +353,29 @@ class ForecastApiTests {
 
 		assertThat(this.forecasts.outputsOf(forecast(1)).limitations())
 			.contains(ForecastLimitation.INCONSISTENT_ESTIMATES);
+	}
+
+	/**
+	 * <strong>A forecast and the plan screen cannot come to different conclusions about
+	 * one estimate.</strong> Both ask {@link EstimateQuality}, so this asserts the
+	 * limitation against what that function says rather than against a number written out
+	 * here — which is what stops the two drifting if the threshold ever moves. The two
+	 * ranges are chosen either side of it and the test does not say which is which.
+	 */
+	@Test
+	void thePlanReportsAnInconsistentEstimateExactlyWhenTheEstimateItselfDoes() throws Exception {
+		for (String[] range : new String[][] { { "8.00", "16.00", "40.00" }, { "5.00", "10.00", "40.00" } }) {
+			this.estimates.deleteAll();
+			this.runs.deleteAll();
+			estimate(this.migration, range[0], range[1], range[2]);
+			boolean odd = EstimateQuality
+				.of(Double.parseDouble(range[0]), Double.parseDouble(range[1]), Double.parseDouble(range[2]))
+				.inconsistent();
+
+			assertThat(this.forecasts.outputsOf(forecast(1))
+				.limitations()
+				.contains(ForecastLimitation.INCONSISTENT_ESTIMATES)).as(String.join("/", range)).isEqualTo(odd);
+		}
 	}
 
 	/**

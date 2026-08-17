@@ -31,7 +31,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | What makes an estimate worth questioning | M3 |
+| 1 | What makes an estimate worth questioning ✅ *done* | M3 |
 | 2 | Recording how a range was asked for | M2 |
 | 3 | One question at a time, in the order that stops them anchoring | 1, 2 |
 | 4 | The review, and the bet | 3 |
@@ -301,7 +301,7 @@ is the point rather than an input.
 
 ---
 
-## Step 1 — What makes an estimate worth questioning
+## Step 1 — What makes an estimate worth questioning ✅ *done*
 
 **Goal.** The two checks exist as arithmetic, in one place, and an estimate carries what they say.
 
@@ -325,6 +325,43 @@ for exactly the estimates `EstimateQuality` flags, so the two can no longer drif
 
 **Done when** no two places in this application can disagree about whether one estimate is worth
 questioning.
+
+### As built — where it differs from the above
+
+**The flags are named `inconsistent` and `overconfident`**, which the bullets left open, and the
+second name is a claim about a *range* rather than about a person — the javadoc says so, because
+"overconfident" is the roadmap's word and it describes a pattern that usually means nobody thought
+about the bad case and sometimes means they know the work. `EstimateQuality` is a record of the
+three derived values with a static `of`, matching `LogNormalFit`'s posture in the same package
+rather than storing the three inputs and recomputing the fit once per accessor.
+
+**The measurement is in the suite twice, at two altitudes, and that is deliberate.**
+`EstimateQualityTests.theCanonicalGarbagePassesBothChecks` carries all four Fibonacci triples with
+their ratios in the assertion, so anybody who "fixes" a threshold has to come and read why it is
+where it is. `EstimateApiTests.theCanonicalGarbageIsReportedAsPerfectlyFine` asserts the same
+thing at the seam where somebody would actually meet it — 3/5/8 comes back over HTTP saying
+nothing is wrong with it. A test that asserts a failure is unusual enough to be worth naming: it
+is the plan's central claim, and if it ever stops holding, the milestone's design has changed and
+somebody should notice.
+
+**One test the bullets asked for was written as a loop over both sides of the threshold rather
+than as a fixed expectation.** `thePlanReportsAnInconsistentEstimateExactlyWhenTheEstimateItselfDoes`
+asks `EstimateQuality` what it thinks and asserts the forecast's limitation matches, for two ranges
+either side of the bound — so moving `CONSISTENT_ENOUGH` moves both together and the test does not
+have to be edited to stay true. Asserting a hard-coded "this one is flagged" in both places would
+have been two expectations to keep in step, which is the duplication decision 6 exists to remove,
+reintroduced in the tests.
+
+**The frontend `Estimate` type and its three fixtures were updated**, which step 1 did not ask for
+and step 4 would otherwise have had to do. The type is a description of the wire and the wire
+changed; leaving it behind would be a small lie for three steps. The fixtures carry what the server
+would really compute for those ranges rather than convenient values — a double more opinionated
+than the thing it stands in for is the failure `CLAUDE.md` already records about `fetch` and empty
+bodies. Nothing renders them yet.
+
+**`ForecastService` lost a constant and a `LogNormalFit` import** and reads both from
+`EstimateQuality` now. That is the whole of decision 6 landing, and it is why the estimate suite
+and the forecast suite can no longer disagree.
 
 ---
 

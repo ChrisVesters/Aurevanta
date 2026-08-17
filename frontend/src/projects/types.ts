@@ -91,6 +91,21 @@ export type Estimate = {
   p10Hours: number;
   p50Hours: number;
   p90Hours: number;
+  /**
+   * How far the stated middle sits from the one the two ends imply, as a ratio. A
+   * diagnostic rather than something to print — it is what makes {@link inconsistent}
+   * explicable — and derived by the server so that the browser cannot come to a different
+   * conclusion about the same estimate.
+   */
+  consistency: number;
+  /** Whether that ratio is far enough from 1 to be worth mentioning. */
+  inconsistent: boolean;
+  /**
+   * Whether the band is too tight to have been thought about. Both of these are advice and
+   * never a refusal: a tight range is sometimes exactly right, and a rule that blocked one
+   * would become a specification people learn to type.
+   */
+  overconfident: boolean;
   createdAt: string;
 };
 
