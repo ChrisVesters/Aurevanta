@@ -1,11 +1,13 @@
 # Aurevanta — Feature Roadmap
 
-> **Status: proposal, as of 2026-08-06; last revised 2026-08-16.** `product-concept.md`
+> **Status: proposal, as of 2026-08-06; last revised 2026-08-17.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2 and **all of M3** exist in code, so **the product
-> exists**: a plan with ranges in it produces a band that models common cause and unlisted
-> work, and states every assumption that produced it. Everything from here is a lens on that
-> number — the first of them is **M4**, which turns hours into dates.
+> has to be decided first*. M0, M1, M1a, M2, **all of M3** and **M4** exist in code, so
+> **Tier 1 is complete**: a plan with ranges in it produces a band that models common cause
+> and unlisted work, states every assumption that produced it, and resolves to a date at a
+> confidence somebody chooses. That was this document's own bar for beating a spreadsheet —
+> a Monte Carlo rollup and a ship date at a confidence level — and both now exist.
+> Everything from here is a further lens on that number rather than the first one.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -522,6 +524,11 @@ not been invented anywhere it could be inherited by accident. M4 is the first pl
 made, and the note in that section — keep it crude and **visible** — is the whole of what M3
 was protecting.
 
+> **Spent, and M3 stayed in hours throughout.** M4 put the calendar in `forecast.model` beside
+> the engine rather than inside it, so `Engine` still never sees a working day and
+> `Engine.VERSION` is still 2. That is the shape this note was holding open: a calendar change
+> must not be readable as a model change, and it now cannot be.
+
 **What M6 inherits.** A run stores its seed, its inputs and its engine version, so per-item
 contribution can be obtained by **replaying** a run rather than by storing a sampled vector per
 item per run. `Forecast` already carries a standard deviation, which step 4 added because the
@@ -616,9 +623,12 @@ and max-operations get awkward. More machinery, less flexibility.
 
 ---
 
-## M4 — A date you can commit to — *planned in `m4-plan.md`*
+## M4 — A date you can commit to ✅ *done* — *planned in `m4-plan.md`*
 
-Tier 1 complete. A single confidence control (50 / 80 / 95%) resolving to a calendar date.
+**Tier 1 is complete.** A single confidence control (50 / 80 / 95%) resolves the engine's hours
+into a calendar date, under a working day somebody states and the run keeps. This document's own
+bar for beating a spreadsheet was a Monte Carlo rollup and a ship date at a confidence level;
+both exist, and everything after this is analysis over the same engine.
 
 `m4-plan.md` breaks it into four steps and answers ten decisions. **The one worth knowing from
 here** is that the working day belongs to *one worker* and never to the team: the engine's output
@@ -629,13 +639,54 @@ stored, with the calendar rule named on the run the way `priority_rule` is, and 
 before M4 get no date rather than a backfilled one, which is the deliberate opposite of what
 `V13` did.
 
+**The smallest surface of any milestone since M1a, and it stayed that way.** Nothing here touches
+`Engine`, `Schedule` or any run that has already happened: `WorkingCalendar` is a pure function
+beside the engine, the three new columns are nullable and unbackfilled, and the five dates are
+derived on the way out. `Engine.VERSION` is still 2, which is the property that matters — a
+calendar is not a model, so adjusting one must never invalidate a stored forecast's numbers.
+
+**Two things this built that the section above did not ask for.** The rule name stored on a run
+is what *decides* whether that run gets dates at all, so a run made under a calendar the code
+cannot resolve reports its hours and says so rather than being read through today's rule — the
+alternative makes a rule change indistinguishable from a plan that moved, silently, which is the
+one failure M10 cannot recover from. And the whole frontend suite now runs in `America/New_York`,
+because a date bug that only appears west of the meridian is invisible in a suite that runs in
+UTC.
+
+**What M11 inherits.** The working day is a *stated* number today and becomes a derived one when
+real availability arrives — and that arrives as a **new calendar rule name**, never as an edit to
+`five_day_week`. Every run made under this one keeps resolving under it, which is what stops a
+holiday calendar landing in M11 from silently moving every date this product has ever published.
+`WorkingCalendar.RULE` and `ForecastRun.calendar_rule` are the whole of the mechanism; M11 adds a
+constant and a branch, and `m4-plan.md`'s decision 3 is the argument for why it must.
+
+**What M10 inherits.** Every run now carries a date *and* the calendar that produced it, which is
+exactly what a sliding-date detector needs to tell a plan that moved from a calendar that changed.
+Without the second half, two forecasts read under six- and eight-hour days would look like two
+weeks of slip. This is the same reason M3b's assumptions are columns rather than prose, and it now
+covers the number M10 actually reports.
+
 Nobody asks for a distribution; they ask what date to promise. This also reframes the
 negotiation: "can we go faster?" is answered with "we can commit at lower confidence,"
 which is the honest trade rather than a capitulation.
 
+> **Built as one control over one run.** Moving between 50, 80 and 95 changes the date on screen
+> with **no request going out** — all five percentiles are already in the response — which is not
+> an optimisation but the whole of the reframing: the trade only reads as a trade if both numbers
+> are two readings of one forecast rather than two forecasts. It also means the confidence is not
+> stored on a run, because there is no such thing as the confidence a forecast was *made* at.
+
 *Note:* effort → calendar date needs at least a crude working-day assumption. Keep it
 crude and **visible**, and replace it in M11 when real capacity arrives. An assumption
 users cannot see is one they will mistake for a result.
+
+> **Honoured, and the visible half took more care than the crude half.** The working day is one
+> required box with a hint saying whose day it is, and it is printed back beside every date it
+> produced — in the assumptions sentence and in each line of the history — never behind a
+> disclosure. The crude half is `five_day_week`: Monday to Friday, no holidays, no part-time
+> anybody. What made this note worth writing is the failure it names, and the defence against it
+> is not a test: a date is the first thing this product emits that *looks like a fact*, since an
+> hours band advertises that it came out of a model and "Aug 25" does not.
 
 **M3a kept this out on purpose, so M4 is where it enters.** The engine, `forecast_runs`, the
 API and the forecast panel are in hours of effort throughout, and there is no working day
@@ -766,7 +817,11 @@ because both came from the team.
 - **Plain-language output** — "85% likely to finish between 12 October and 20 November."
 - **Burn-up with a confidence cone**, narrowing as work completes.
 - **Forecast history**, and from it a **sliding-date detector**: warn when successive
-  re-forecasts keep moving out rather than converging.
+  re-forecasts keep moving out rather than converging. **M4 made this answerable in dates
+  rather than only in hours**, and it did the harder half too: each run stores the calendar it
+  was read under, so a detector can tell a plan that moved from a working day that changed. A
+  comparison across runs made under different calendars — or across an `Engine.VERSION` bump —
+  is the way this feature reports a slide that never happened.
 - **Merge bias, surfaced explicitly** — the graph makes this a number rather than a
   talking point. Where parallel branches must both finish, expected completion is later
   than either alone, and it compounds at every join. Simulation gets it free; spreadsheets
@@ -794,7 +849,11 @@ engine.
 - **Availability** — working days, holidays, part-time allocation. Unglamorous and the
   place where forecasts quietly stop matching reality if it is skipped.
 - **Duration from effort** — with an allocation, M2's stored effort finally converts to
-  duration honestly, replacing M4's crude working-day assumption.
+  duration honestly, replacing M4's crude working-day assumption. **As a new calendar rule
+  name, never as an edit to `five_day_week`**: every run M4 produced stored the rule it was
+  read under precisely so that a better calendar arriving here cannot move a date that was
+  already published. A run under a rule the code no longer implements reports its hours and
+  says so, rather than being resolved under the wrong one.
 - **"What if we hire someone?"** — the most compelling question this unlocks, and it falls
   straight out of M7's inverse-query machinery once capacity is a variable.
 
@@ -1097,8 +1156,12 @@ rows meant — which is exactly why adding a unit column *now*, against a need n
 nothing.
 
 - **Days, weeks, ideal-hours — free, and already provided for.** The same quantity rescaled;
-  `m2-plan.md` already stores hours and lets the UI show days. The multiplier is a setting,
-  and M11 is where a working day acquires a length anyway.
+  `m2-plan.md` already stores hours and lets the UI show days. The multiplier is a setting —
+  and M4 has since given a working day a length, though **not one this can borrow**: that
+  number is stated per *run* and stored on it, because it is an assumption a forecast was made
+  under rather than a display preference. A unit setting reading it would make every historical
+  estimate rescale when somebody edited a working day, which is the failure `m4-plan.md`'s
+  decision 5 exists to prevent.
 - **Story points — moderate, and the cost is not in the schema.** The migration is a column
   rename plus a unit on the *project* (never on the estimate: multi-estimator means several
   estimates aggregate on one item, and mixed units there is undefined aggregation). The work
@@ -1236,18 +1299,24 @@ M1a earned its place in that sequence only because it was cheap *then*: a small 
 becomes a link-breaking one the moment M2 puts a slug in a URL. It was never more important
 than the engine — nothing is — it was just perishable, and it is now spent.
 
-**M1, M1a, M2 and all of M3 are done, so that sequence is spent and the product exists.** A plan
-with ranges in it produces a band that models common cause and unlisted work, with its five
-assumptions printed beside the number — and the two disclosures M3a shipped in place of those
-models are emitted by nothing.
+**M1, M1a, M2, all of M3 and M4 are done, so that sequence is spent and Tier 1 exists.** A plan
+with ranges in it produces a band that models common cause and unlisted work, with its six
+assumptions printed beside the number, and resolves to a date at a confidence somebody chooses —
+and the two disclosures M3a shipped in place of those models are emitted by nothing.
 
-**What is next is M4**, and the reason it is next has changed rather than the ordering. It was
-the *second* temptation while M3b was outstanding, because a date is what people actually ask
-for and the conversion looks like arithmetic while the number being converted was knowingly too
-tight. That objection is spent: the band is now believable, so turning it into something a
-person outside the team can act on is the next thing worth doing. What M4 must not do is what
-makes it tempting — the working-day assumption it imports has to stay crude and visible rather
-than becoming the first number in this product a server picked.
+**M4 is spent, and it did not become what made it tempting.** The worry was that a date is what
+people actually ask for while the conversion looks like arithmetic, so the working-day assumption
+would arrive as the first number in this product a server picked. It did not: it is a required
+box with no default, printed beside every date it produced, stored on the run under a named rule
+so that a better calendar in M11 cannot move a date already published.
+
+**What is next is M5**, and the ordering principle at the top of this document is why rather than
+any new argument. Tier 2 is the tempting direction — variance contribution and inverse queries
+are both analysis over an engine that already exists — but the elicitation problem is the one
+that decides whether any of it means anything. The three-box estimate form is on screen, it is
+obviously bad, and it now feeds a number somebody will paste into a plan as a date. **A date
+makes M5 more urgent rather than less**: garbage that carried a probability was bad, and garbage
+that carries a day of the week is worse, because a date is the thing people act on.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;

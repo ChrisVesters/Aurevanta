@@ -233,7 +233,11 @@ export const en = {
       title: 'Forecast',
       lede: 'Simulated from the ranges on the work above, then read onto a calendar you state.',
       loading: 'Loading forecasts…',
-      none: 'No forecast yet. Answer the questions below and ask for one — not one of them has an answer this application can give for you.',
+      // Every box but one is a claim about this team that nobody here can make for them.
+      // The exception is the start date, which is filled in because what day it is is a
+      // fact rather than a claim — so this says "almost none" rather than "not one", which
+      // it used to and which the calendar made untrue.
+      none: 'No forecast yet. Answer the questions below and ask for one — almost none of them has an answer this application can give for you.',
       submit: 'Forecast this plan',
       submitting: 'Simulating…',
       more: 'Advanced',
@@ -318,8 +322,10 @@ export const en = {
         p90: 'Cautious',
         p95: 'Very cautious'
       },
-      // All five, beside the band and never behind a disclosure: a forecast whose
+      // Five of the six, beside the band and never behind a disclosure: a forecast whose
       // assumptions are one click away is a forecast that gets screenshotted without them.
+      // The sixth is the calendar, in its own sentence below because a run made before M4
+      // has none and this paragraph would otherwise need writing twice.
       // Zeros read a little flatly here, and that is the honest reading — somebody who
       // assumed no common cause and no unlisted work said so, and the number says they did.
       assumptions:
@@ -699,7 +705,8 @@ export const en = {
       // dependency than the one this product models.
       positive_or_zero: 'Use zero or a number greater than it.',
       // A ceiling on a quantity rather than on a length, which is what `max_size` is for.
-      // The only one so far is how many runs a forecast may simulate.
+      // How many runs a forecast may simulate, how far either uncertainty parameter is
+      // worth asking, and how many hours a day can hold.
       max: 'Use no more than {{value}}.',
       // The bounds come from the constraint, so this sentence never repeats them.
       digits: 'Use at most {{fraction}} decimal places.',

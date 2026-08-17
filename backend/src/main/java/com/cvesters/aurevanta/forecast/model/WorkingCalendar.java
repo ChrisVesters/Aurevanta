@@ -52,8 +52,19 @@ public final class WorkingCalendar {
 	 */
 	public static final String RULE = "five_day_week";
 
-	/** Nobody's day holds more than this, whatever they type. */
-	private static final BigDecimal LONGEST_DAY = BigDecimal.valueOf(24);
+	/**
+	 * Nobody's day holds more than this, whatever they type.
+	 *
+	 * <p>
+	 * Published so that the request taking a working day can refuse at the same bound
+	 * rather than at a second copy of the number. The <em>check</em> belongs in both
+	 * places — one so the refusal arrives against the box somebody typed in, one so this
+	 * function cannot be handed nonsense by a caller that skipped it — but the bound
+	 * itself is a fact about days and gets stated once.
+	 */
+	public static final int LONGEST_DAY_HOURS = 24;
+
+	private static final BigDecimal LONGEST_DAY = BigDecimal.valueOf(LONGEST_DAY_HOURS);
 
 	private static final int WORKING_DAYS_IN_A_WEEK = 5;
 

@@ -98,7 +98,7 @@ describe('ForecastPanel', () => {
 
     expect(
       await screen.findByText(
-        'No forecast yet. Answer the questions below and ask for one — not one of them has an answer this application can give for you.'
+        'No forecast yet. Answer the questions below and ask for one — almost none of them has an answer this application can give for you.'
       )
     ).toBeInTheDocument();
   });
@@ -203,6 +203,9 @@ describe('ForecastPanel', () => {
       )
     ).toBeInTheDocument();
     expect(screen.queryByText(/Dates assume/)).toBeNull();
+    // And no control, because there is nothing for it to choose between. Three buttons
+    // that visibly change nothing read as a broken screen.
+    expect(screen.queryByRole('radio', { name: '95%' })).toBeNull();
   });
 
   /**
@@ -228,6 +231,12 @@ describe('ForecastPanel', () => {
       await screen.findByText(
         'No date for this one: it was made under a calendar this version of the app cannot read.'
       )
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '95%' })).toBeNull();
+    // Its calendar is still stated, unlike the case above: the run *has* one, and what is
+    // missing is this version's ability to resolve it rather than the assumption itself.
+    expect(
+      screen.getByText(/Dates assume work starts Aug 17, 2026/)
     ).toBeInTheDocument();
   });
 

@@ -3,6 +3,8 @@ package com.cvesters.aurevanta.forecast;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
+
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotNull;
@@ -57,7 +59,10 @@ import jakarta.validation.constraints.PositiveOrZero;
  * counts it twice and produces a date wrong by exactly that factor, with the band
  * unchanged and nothing on screen looking amiss. Required for the same reason capacity
  * is: it turns a model's output into something a person will act on, and a box already
- * answered is a box nobody reads.
+ * answered is a box nobody reads. Its ceiling is
+ * {@link WorkingCalendar#LONGEST_DAY_HOURS}, checked here as well as there so the refusal
+ * arrives against the box somebody typed in — the check is worth having twice, the number
+ * is not.
  */
 public record CreateForecastRequest(@NotNull @Positive Integer capacity,
 
@@ -72,14 +77,8 @@ public record CreateForecastRequest(@NotNull @Positive Integer capacity,
 
 		@NotNull LocalDate startsOn,
 
-		@NotNull @Positive @Max(LONGEST_DAY) @Digits(integer = 2, fraction = 2) BigDecimal workingHoursPerDay) {
-
-	/**
-	 * A day holds twenty-four hours whoever is working it, and the bound is here rather
-	 * than only in {@code WorkingCalendar} so that the refusal arrives against the box
-	 * somebody typed in.
-	 */
-	static final int LONGEST_DAY = 24;
+		@NotNull @Positive @Max(WorkingCalendar.LONGEST_DAY_HOURS) @Digits(integer = 2,
+				fraction = 2) BigDecimal workingHoursPerDay) {
 
 	/**
 	 * As far as any of these three is worth asking, and the one of the two reasons that

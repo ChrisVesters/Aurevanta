@@ -32,7 +32,7 @@
 | 1 | The calendar, as a pure function ✅ *done* | M3 |
 | 2 | Stating a calendar, and storing what was stated ✅ *done* | 1 |
 | 3 | A date on screen, and the trade behind it ✅ *done* | 2 |
-| 4 | Close out | 1–3 |
+| 4 | Close out ✅ *done* | 1–3 |
 
 **M4 adds no sampling.** The engine already stores P10, P50, P80, P90 and P95 — P80 is there
 because `m3a-plan.md`'s step 4 knew this milestone's control was 50/80/95, and that "a percentile
@@ -458,7 +458,7 @@ would make the hours read as the headline and the date as a footnote. Nothing el
 
 ---
 
-## Step 4 — Close out
+## Step 4 — Close out ✅ *done*
 
 - `roadmap.md`: mark M4 done, and with it **Tier 1** — the roadmap's own bar for "beats a
   spreadsheet" is a Monte Carlo rollup and a ship date at a confidence level, and both now exist.
@@ -472,6 +472,95 @@ would make the hours read as the headline and the date as a footnote. Nothing el
 - `CLAUDE.md`: the working day is one worker's and capacity is already in the number; the
   division is exact because a day boundary is a step; a date is derived and the rule is stored;
   and runs made before a calendar existed have none.
+
+### As built — where it differs from the above
+
+**Every bullet landed, and two notes were discharged that this list did not name.** `roadmap.md`
+carries two `>` blocks under M4 that this step had no entry for, because both were promises the
+*previous* milestone made rather than facts this one recorded: M3's *What M4 inherits* said the
+working-day assumption had deliberately not been invented anywhere it could be inherited by
+accident, and M4's own *Note* said keep it crude and **visible**. Each now says how it was
+honoured, in the place a reader meets the promise rather than in the section that kept it. The
+second is the one worth having: the crude half is three columns and a five-day week, and the
+visible half took most of the care.
+
+**Three places said something that had quietly stopped being true**, and none of them was on the
+list:
+
+- The **icebox item on alternative units** said a working day acquires a length in M11. It has
+  one now — and the note says explicitly that a unit setting must *not* borrow it, because M4's
+  number is stated per run and stored on it. A display multiplier reading a per-run assumption
+  would rescale every historical estimate the moment somebody edited a working day, which is the
+  failure decision 5 exists to prevent, arriving through a door nobody was watching.
+- **`CLAUDE.md`'s date rule** said `started_on` and `completed_on` were "the only ones in this
+  schema". `forecast_runs.starts_on` is a third, and it is the same argument reaching the other
+  way — a day the caller *states* rather than reports, because an instant is not a date without a
+  timezone.
+- **`product-concept.md`'s *Deferred* note** bundled working days with people, allocation and
+  holidays as one deferral. M4 took the last clause alone, and the As-built note says what made
+  it separable: the assumption is *stated per forecast* rather than modelled, so nothing has to
+  know who is working when.
+
+**`CLAUDE.md` gained a section rather than four bullets.** The four facts named above are joined
+by two more that a reader needs in the same breath — the stored rule name is what decides whether
+a run resolves at all, and the date is the headline while the hours stay — so they sit together
+under *The calendar: hours become a date, and the date is derived* rather than scattered through
+the forecasting section. A seventh convention went elsewhere on purpose: the frontend suite
+running in `America/New_York` is a testing rule, not a forecasting one, and it belongs beside "a
+test double that answers every URL alike is a lying double".
+
+**The roadmap's "what I would build next" now says M5**, which this step did not ask for and
+which the document would have gone on answering wrongly. The argument is not new but it is
+sharper for M4 having landed: elicitation was already scheduled early because three boxes labelled
+P10/P50/P90 produce garbage carrying a probability — and that garbage now carries a *day of the
+week*, which is worse, because a date is the thing people act on.
+
+### The review pass — what a read of the whole milestone changed
+
+Six changes after close-out, recorded here rather than folded back into the steps because they
+happened afterwards and the point of these sections is when a thing was decided.
+
+**One behaviour changed.** The confidence control was rendered on a run with **no dates**, where
+it changed nothing whatever was clicked. Three buttons that visibly do nothing read as a broken
+screen, where the line beneath already says exactly what is missing and why — so the control is
+now absent rather than inert, gated on the selected date being present, which is the direct form
+of "has this run anything to choose between". Both no-date cases assert it is gone.
+
+**One test gap that no assertion could see.** `ForecastResponse` is built from **thirty-one
+positional arguments**, and `p10Date` paired with `p50Hours` would still ascend, still differ from
+its neighbours, and pass every case in the class — the ordering assertion cannot detect a
+mis-pairing that preserves order. `everyDateIsTheOneItsOwnPercentileProduces` now checks each of
+the five against the hours on its own column. The record's own test comment warned about exactly
+this shape of mistake for the percentages; the dates had inherited the risk without the guard.
+
+**One duplicated number.** `24` was a named constant in `WorkingCalendar` *and* in
+`CreateForecastRequest`, two places that must agree with nothing to make them. It is now
+`WorkingCalendar.LONGEST_DAY_HOURS`, referenced by the `@Max`. The *check* is still in both places
+deliberately — one so the refusal arrives against the box somebody typed in, one so the function
+cannot be handed nonsense by a caller that skipped it — but a bound is a fact about days and gets
+stated once.
+
+**Three strings that M4 had quietly made untrue**, none of them in any step's diff:
+
+- *"not one of them has an answer this application can give for you"* on the empty forecast panel.
+  The start date now has one, so it reads "almost none" — and the comment above it says why the
+  exception is a fact rather than a claim.
+- *"All five, beside the band"* on the assumptions catalogue entry. Five of six, with the sixth in
+  its own sentence and the reason for the split named.
+- *"Two of these are always here"* on the limitations block, which **M3b** made false rather than
+  M4 — it retired the two codes that described the engine. Fixed while the file was open.
+
+A fourth was checked and left: `max: 'Use no more than {{value}}.'` said its only user was the
+sample count, which the M3b percentages had already outgrown; its comment now lists all four.
+
+**What was checked and found sound**, since that is worth as much as the list above:
+`CODE_PRECEDENCE` already ranks `positive`, `max` and `digits`, so the two constraint pairs a
+working day can break at once (`-100.5` breaks positive *and* digits; `999.999` breaks max *and*
+digits) resolve deterministically and need no new entry. Every validation code the new fields can
+emit already has a catalogue entry. The `finishOn` weekend arithmetic was walked by hand from each
+weekday and each remainder. And `Engine.VERSION` is still 2, with
+`aStoredRunReplaysToTheNumbersItReported` untouched and passing, which is the assertion that the
+calendar never reached the model.
 
 ---
 

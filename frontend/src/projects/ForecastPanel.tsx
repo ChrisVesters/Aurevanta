@@ -177,6 +177,10 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   const latest = runs?.[0];
   const earlier = runs?.slice(1) ?? [];
   const calendar = latest ? calendarOf(latest, i18n.language) : null;
+  // All five are absent together, so the one being read answers "has this run any dates at
+  // all" — which is what decides whether there is anything for the control to choose
+  // between, and is a different question from whether a calendar was stated.
+  const chosenDate = latest ? latest[DATE_AT[confidence]] : null;
 
   return (
     <section className="forecast">
@@ -416,24 +420,30 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             visible: lower confidence, earlier date, same plan, no request. Two dates that
             come out the same are short plans rounding to one day rather than a control
             that has stopped working — the band is in hours and the calendar is in days.
+
+            It is absent, rather than disabled, on a run that has no dates to choose
+            between: three buttons that visibly change nothing read as a broken screen,
+            where the line beneath says exactly what is missing and why.
           */}
-          <fieldset className="confidence">
-            <legend>{t('projects.forecast.confidence.legend')}</legend>
-            <span className="choices">
-              {CONFIDENCES.map((level) => (
-                <label key={level} htmlFor={`forecast-confidence-${level}`}>
-                  <input
-                    id={`forecast-confidence-${level}`}
-                    type="radio"
-                    name="confidence"
-                    checked={level === confidence}
-                    onChange={() => setConfidence(level)}
-                  />
-                  {t('projects.forecast.confidence.option', { value: level })}
-                </label>
-              ))}
-            </span>
-          </fieldset>
+          {chosenDate !== null && (
+            <fieldset className="confidence">
+              <legend>{t('projects.forecast.confidence.legend')}</legend>
+              <span className="choices">
+                {CONFIDENCES.map((level) => (
+                  <label key={level} htmlFor={`forecast-confidence-${level}`}>
+                    <input
+                      id={`forecast-confidence-${level}`}
+                      type="radio"
+                      name="confidence"
+                      checked={level === confidence}
+                      onChange={() => setConfidence(level)}
+                    />
+                    {t('projects.forecast.confidence.option', { value: level })}
+                  </label>
+                ))}
+              </span>
+            </fieldset>
+          )}
 
           <p className="date">
             {describeDate(t, latest, confidence, i18n.language)}
@@ -492,9 +502,11 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           )}
 
           {/*
-            Beside the number, never behind a link. Two of these are always here because
-            they describe the engine rather than the plan, and a band reported without them
-            is narrower than the truth by an amount nobody on this screen could guess.
+            Beside the number, never behind a link. Every one of these is a property of the
+            plan rather than of the engine — the two that described the engine were retired
+            by M3b, which removed their cause rather than their wording — and a band
+            reported without them is narrower than the truth by an amount nobody on this
+            screen could guess.
           */}
           <div className="limitations">
             <h3>{t('projects.forecast.limitations.title')}</h3>

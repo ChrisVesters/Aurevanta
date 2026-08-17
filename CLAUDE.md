@@ -10,7 +10,9 @@ Licensed GPL-3.0.
 designing schema or domain logic. It is design intent, not a description of existing code.
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
-are not unique), M2 (the estimation schema) and M3 (the simulation engine) are built.
+are not unique), M2 (the estimation schema), M3 (the simulation engine) and M4 (a date you can
+commit to) are built, which completes **Tier 1** — the roadmap's own bar for beating a
+spreadsheet, being a Monte Carlo rollup and a ship date at a confidence level.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -35,11 +37,13 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
-`docs/m4-plan.md` is the next milestone and is **not built**: a confidence control resolving the
-engine's hours into a calendar date. Read its decision 2 before writing any of it — the engine's
-output already has capacity inside it, so the working day it divides by is one worker's and never
-the team's, and getting that wrong produces a date that is wrong by the capacity factor with
-nothing on screen looking amiss.
+`docs/m4-plan.md` is the calendar, and is **built**: a confidence control resolving the engine's
+hours into a date. **Read its decision 2 before touching anything that divides hours by a day** —
+the engine's output already has capacity inside it, so the working day is one worker's and never
+the team's, and getting that wrong produces a date wrong by exactly the capacity factor with
+nothing on screen looking amiss. Its decision 7 is the other one worth knowing: the division is
+exact `BigDecimal` because a day boundary is a step function, so a double is not off by a
+rounding error but by a whole day.
 
 **A plan is updated as its steps land, not at the end.** Mark the step `✅ *done*` on its
 heading and in the *At a glance* table, and write its `### As built — where it differs from
@@ -192,6 +196,13 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **A test double that answers every URL alike is a lying double.** A signed-in page
   restores the session *and* loads the switcher's options; answering both with one payload
   handed the switcher an account and crashed it. Mock by URL, not in bulk.
+- **The frontend suite runs in `America/New_York`**, set as `test.env.TZ` in `vite.config.ts`,
+  and it is deliberate rather than incidental. Every date this product shows is a *day* with no
+  time of day in it, and the way that breaks is `new Date(iso)` reading a bare date as UTC
+  midnight — which displays the day before for every reader west of the meridian and is
+  invisible in a suite that runs in UTC. `formatDay` and `todayHere` in `src/projects/dates.ts`
+  are the two halves of getting it right, one reading and one writing; running west is what
+  makes a regression in either a failing test rather than a bug half the planet sees.
 - Actuator exposes only `health` and `info`.
 
 ## The verification gate
@@ -662,13 +673,17 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Its own endpoint** — `PATCH /api/items/{id}/progress` — rather than more fields on the
   item. Rewording a task is planning and saying it finished on Tuesday is reporting, and
   keeping them apart stops a rename from overwriting the dates M8 reads.
-- **`started_on` and `completed_on` are dates, and they are the only ones in this schema.**
-  Everything else records a moment the *server* observed; these record a day a *person*
-  reports. There is no time of day in "we finished it on the twelfth", and storing one
-  invents the part nobody claimed — midnight UTC reads back as the eleventh for every reader
-  west of the meridian. `<input type="date">` hands back exactly what the column holds, and
-  `formatDay` builds a date from its parts rather than through `new Date(iso)`, which would
-  reintroduce the same shift in the last step before a person sees it.
+- **`started_on` and `completed_on` are dates, and `forecast_runs.starts_on` is the only
+  other one in this schema.** Everything else records a moment the *server* observed; these
+  record a day a *person* reports or states. There is no time of day in "we finished it on the
+  twelfth", and storing one invents the part nobody claimed — midnight UTC reads back as the
+  eleventh for every reader west of the meridian. `<input type="date">` hands back exactly what
+  the column holds, and `formatDay` builds a date from its parts rather than through
+  `new Date(iso)`, which would reintroduce the same shift in the last step before a person sees
+  it. **`todayHere` is that argument reaching the other way**: a forecast's start is stated by
+  the caller because an instant is not a date without a timezone and the only one a server can
+  pick is its own, and the browser's pre-fill builds from local parts because `toISOString()`
+  reports tomorrow after seven in the evening in New York.
 - **A state that needs a date and did not get one is refused, never stamped with the
   server's clock** (`progress_date_required`). M8 and M10 read these dates and neither can
   tell one somebody reported from one the server guessed while nobody was looking. Which box
@@ -834,8 +849,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 - **`forecast.model` is separated by *purity*, not by feature, and it is the only package in
   this application that is.** `Normal`, `LogNormalFit`, `ItemModel`, `TeamFactor`,
-  `ScopeGrowth`, `Precedence`, `Schedule`, `Engine`, `Forecast` and `Histogram` hold no Spring,
-  no JPA and no I/O: they are functions over primitives. `forecast` beside it is an ordinary feature package — entity, repository,
+  `ScopeGrowth`, `Precedence`, `Schedule`, `Engine`, `Forecast`, `Histogram` and
+  `WorkingCalendar` hold no Spring, no JPA and no I/O: they are functions over primitives. `forecast` beside it is an ordinary feature package — entity, repository,
   service, controller, responses — that reaches the other four domain packages through their
   services. **The failure mode here is not a crash but a plausible number**, and the seam is
   what makes the arithmetic checkable against sums that exist outside this codebase. The
@@ -935,5 +950,51 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Any member may forecast**, like everything else in the domain. A plan with nothing
   estimated is refused with `nothing_to_forecast` (`422`) and **no row is written** — a
   refusal that had stored a run would leave the history holding a forecast nobody received.
-- **Hours of effort, everywhere, and no calendar dates anywhere.** A date needs a working-day
-  assumption; M4 is where that gets made, where somebody can see it.
+### The calendar: hours become a date, and the date is derived
+
+- **The engine is in hours from end to end, and the calendar sits beside it rather than
+  inside it.** `WorkingCalendar` is a pure function in `forecast.model`; nothing about a
+  working day reaches `Engine`, `Schedule` or the `inputs` snapshot a replay is fed. That is
+  what keeps a calendar change from being a model change — otherwise `Engine.VERSION` would
+  have to move every time somebody adjusted a holiday, and a stored forecast's numbers would be
+  invalidated by something that changed none of them.
+- **The working day is one worker's, never the team's, and this is the sharpest thing in M4.**
+  `Schedule.finish` already ran `capacity` items at a time, so the hours a date divides are a
+  completion *time* with capacity inside them. Dividing by a team's daily total — "four people
+  at six hours each, so a working day is 24" — counts capacity twice and produces a date four
+  times too early, with the band unchanged, the assumption on screen and nothing anywhere
+  looking wrong. The hint under the box says whose day it is, and
+  `WorkingCalendarTests.convertingToDaysDoesNotUndoTheCapacityTheSchedulerAlreadyApplied` is
+  the assertion; neither is optional, because every test that only checks *a date came out*
+  passes against the bug.
+- **The division is exact `BigDecimal`, because a day boundary is a step.** `ceil` turns a
+  smooth quantity into a discrete one, so an error in the last bit of a double is a whole day
+  rather than a rounding difference: 20.01 hours at 6.67 a day is exactly 3 in decimal and
+  3.0000000000000004 in binary. Both ends arrive as `BigDecimal` already — a `numeric(14, 2)`
+  percentile and a `numeric(4, 2)` working day — so `divide(..., 0, RoundingMode.CEILING)`
+  costs nothing and needs no conversion.
+- **Dates are derived and the *rule* is stored.** `forecast_runs` keeps `starts_on`,
+  `working_hours_per_day` and `calendar_rule`; the five dates are computed in
+  `ForecastResponse` and nowhere else. Store what is expensive or lossy to reproduce, derive
+  what is cheap and deterministic — and what makes it deterministic across time is the rule's
+  *name*, `five_day_week`, held for the reason `priority_rule` is: two defensible calendars
+  give two different dates from identical data. A working day read from a *setting* instead
+  would move every historical date the moment somebody edited it, and M10 would report a slide
+  that never happened.
+- **The stored rule is what decides whether a run has dates at all.** A run under a rule this
+  code cannot resolve reports its hours, its own rule's name and no dates, rather than being
+  read through today's calendar. M11's real availability arrives as a **new rule name**, never
+  as an edit to this one.
+- **A run made before a calendar existed has none, and the columns are nullable.** `V13`
+  backfilled zeros and could argue they were true; `V14` deliberately backfilled nothing,
+  because a run made last week did not assume a six-hour day — it assumed no calendar, since it
+  produced no date. A default here would invent a claim on behalf of somebody who never made
+  one, in the one table whose whole purpose is to say what was assumed. The screen says which
+  of the two absences it is rather than showing a blank.
+- **The date is the headline and the hours stay.** A band in hours advertises that it came out
+  of a model; "Aug 25" does not, and it gets pasted into a plan with the assumption behind it
+  left in the browser. Removing the hours would leave nothing on screen that came out of the
+  engine, and would make the working day invisible in exactly the way this milestone warns
+  about. The confidence control (50 / 80 / 95%) reads percentiles already in the response, so
+  moving it sends **no request** — that is the feature rather than an optimisation, since the
+  trade only reads as a trade when both numbers are two readings of one forecast.

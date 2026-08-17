@@ -1,20 +1,22 @@
 # Aurevanta — Concepts and Planned Features
 
-> **Status: design intent, and now partly built.** As of 2026-08-16 the schema this
+> **Status: design intent, and Tier 1 is now built.** As of 2026-08-17 the schema this
 > document implies exists and something reads it: M0–M1a built tenancy, identity and teams,
 > **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
 > with an estimator, progress and actuals, and a precedence graph, with the plainest possible
-> UI to fill them — and **M3 built the engine, both halves of it**. `roadmap.md` sequences the
-> rest and is newer than this document wherever the two disagree.
+> UI to fill them — **M3 built the engine, both halves of it**, and **M4 turned its hours into
+> a date at a chosen confidence**. `roadmap.md` sequences the rest and is newer than this
+> document wherever the two disagree.
 >
 > **The core principle below is no longer only an argument.** Ranges are fitted to log-normals,
 > sampled ten thousand times, scheduled over the precedence graph at a stated capacity, and
 > read off as a band; every run is stored with its seed so it can be replayed exactly. **The
 > two sections this document argues hardest for are now arithmetic**: *Unknown unknowns
 > dominate the error* and *Independence is a lie* are built, marked below, and asked as two
-> questions on the forecast screen. Tier 2 and everything after it is still design intent. Two
-> of the *Open questions* at the end were answered by M2 and are marked as such; the rest
-> stand.
+> questions on the forecast screen. **Both of Tier 1 is built** — the rollup and the ship date
+> — so the bar this document set for beating a spreadsheet has been met; Tier 2 and everything
+> after it is still design intent. Two of the *Open questions* at the end were answered by M2
+> and are marked as such; the rest stand.
 
 ## Purpose
 
@@ -57,15 +59,34 @@ belongs where the question is asked.
 
 ## Planned features
 
-### Tier 1 — the minimum that beats a spreadsheet
+### Tier 1 — the minimum that beats a spreadsheet ✅ *built*
 
-**Monte Carlo rollup.** Fit → sample → aggregate. Produces a full project distribution
-rather than a single number.
+**Monte Carlo rollup. ✅ *built by M3*** Fit → sample → aggregate. Produces a full project
+distribution rather than a single number.
 
-**Ship date at a confidence level.** Nobody asks for a distribution; they ask what date
-they can commit to. A single confidence control (50% / 80% / 95%) resolving to a calendar
-date. This also reframes stakeholder negotiation: "can we go faster" is answered by
+**Ship date at a confidence level. ✅ *built by M4*** Nobody asks for a distribution; they
+ask what date they can commit to. A single confidence control (50% / 80% / 95%) resolving to
+a calendar date. This also reframes stakeholder negotiation: "can we go faster" is answered by
 "we can commit at lower confidence," which is the honest trade.
+
+> **Built, 2026-08-17, and the reframing is literal.** Moving the control changes the date on
+> screen with no request going out, because all five percentiles are already in the run — so
+> the two numbers read as two readings of one forecast rather than as two forecasts, which is
+> the only way the trade reads as a trade.
+>
+> **What this section did not say is where the calendar comes from**, and that turned out to
+> be the whole of the milestone. Hours become days by dividing by a working day, and that day
+> is **one worker's** — never the team's daily total. The engine's output is a completion time
+> with capacity already inside it, so dividing by a team's total counts capacity twice and
+> produces a date wrong by exactly the factor a team is proudest of, with the band unchanged
+> and nothing on screen looking amiss. So the working day is a required box with no default,
+> stated per forecast and stored on it beside a named calendar rule, and printed back beside
+> every date it produced.
+>
+> **A date is the first thing this product emits that looks like a fact**, which is why the
+> hours stay on screen beneath it. An hours band advertises that it came out of a model; "Aug
+> 25" does not, and it gets pasted into a plan with the assumption behind it left in the
+> browser.
 
 ### Tier 2 — analysis over the same engine, no new schema
 
@@ -118,6 +139,19 @@ core value.
 > worker doing everything in sequence, and the same ten items forecast at 51 or 86 days
 > depending only on structure. Precedence dependencies therefore moved into the schema and
 > the engine; capacity modelling remains later, as M11.
+
+> **Half-answered, 2026-08-17, and the halves came apart in a way this note did not expect.**
+> The parenthesis above bundles *people, allocation, holidays, working days — mapping an
+> effort distribution onto calendar dates* as one deferral. M4 took the last clause on its own:
+> hours become dates through one stated working day and a named calendar rule, and that needed
+> no schema for people, no allocation and no holiday list. **What made it separable is that the
+> assumption is stated per forecast rather than modelled** — it is copied onto the run like
+> capacity, so nothing has to know who is working when.
+>
+> The rest stays M11's, and arrives as a **new rule name** rather than as a better version of
+> this one. Every run made under `five_day_week` keeps resolving under it, so real availability
+> landing later cannot move a date this product has already published — which is the one thing
+> a holiday list would otherwise do to every historical forecast at once.
 
 ## Modelling concerns to design around
 

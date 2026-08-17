@@ -446,6 +446,29 @@ class ForecastApiTests {
 	}
 
 	/**
+	 * <strong>Each date is the one its own percentile produced, which nothing else here
+	 * checks.</strong> The response is built from thirty-one positional arguments, and a
+	 * date paired with the wrong column would still ascend, still differ from its
+	 * neighbours and still pass every other case in this class — the ordering assertion
+	 * above cannot see a p10 date derived from the p50 hours. So the pairing is asserted
+	 * directly, against the hours sitting on the run.
+	 */
+	@Test
+	void everyDateIsTheOneItsOwnPercentileProduces() throws Exception {
+		ForecastRun run = forecast(calendaring(MONDAY.toString(), "1.00"));
+		BigDecimal day = run.getWorkingHoursPerDay();
+		List<BigDecimal> hours = List.of(run.getP10Hours(), run.getP50Hours(), run.getP80Hours(), run.getP90Hours(),
+				run.getP95Hours());
+
+		JsonNode answer = reported(run);
+
+		for (int at = 0; at < DATE_FIELDS.size(); at++) {
+			assertThat(dateAt(answer, DATE_FIELDS.get(at))).as(DATE_FIELDS.get(at))
+				.isEqualTo(WorkingCalendar.finishOn(run.getStartsOn(), hours.get(at), day));
+		}
+	}
+
+	/**
 	 * <strong>Decision 4, and the reason the start is an input.</strong> A plan forecast
 	 * today for a January start is forecast from January; a server that stamped its own
 	 * clock here would answer a question nobody asked, in its own timezone.
