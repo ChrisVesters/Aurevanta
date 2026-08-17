@@ -332,23 +332,168 @@ public class ForecastService {
 		requireSameRun(run, replay(run, inputs, plan, baseline));
 
 		Map<UUID, WorkItem> named = titlesIn(callerId, tenantId, run.getProject().getId());
+		// Round one of the search and the answer to "what is each worth on its own" are
+		// the
+		// same simulations, so they are run once and read twice.
+		Map<Integer, Double> alone = new HashMap<>();
 		List<CutResponse> weighed = new ArrayList<>(cutting.size());
 		for (int at : cutting) {
-			List<ItemModel> without = new ArrayList<>(plan);
-			without.set(at, without.get(at).asCut());
-			ConfidenceBy counted = new ConfidenceBy(budget.doubleValue());
-			replay(run, inputs, without, counted);
+			double reached = confidenceWithout(run, inputs, plan, List.of(at), budget);
+			alone.put(at, reached);
 			UUID itemId = inputs.items().get(at).id();
 			WorkItem still = named.get(itemId);
-			double reached = percent(counted);
 			weighed.add(new CutResponse(itemId, titleOf(still), isArchived(still), reached, reached - percent(baseline),
 					reached >= confidence));
 		}
 		// Largest first, because the order is the answer — the same reason a contribution
 		// ranking is sorted here rather than by whoever draws it.
 		weighed.sort(Comparator.comparingDouble(CutResponse::buys).reversed());
-		return new CutOptionsResponse(budget, percent(baseline), percent(baseline) >= confidence, cutting.size() + 1,
-				List.copyOf(weighed));
+
+		Search search = new Search(run, inputs, plan, budget, confidence, named, cutting, alone, percent(baseline));
+		CutPlanResponse together = search.run();
+		return new CutOptionsResponse(budget, percent(baseline), percent(baseline) >= confidence, search.simulations(),
+				List.copyOf(weighed), together);
+	}
+
+	/**
+	 * The shortest list this will look for: take the best, then the best of what is left
+	 * <em>with that one already gone</em>, and stop at the bar.
+	 *
+	 * <p>
+	 * <strong>Greedy, and not optimal.</strong> The best subset needs two-to-the-n
+	 * evaluations and each is a whole run of the plan; this needs one per candidate per
+	 * step. It can miss a pair that only works together — two halves of one feature,
+	 * neither of which shortens the path alone — and the answer says it is <em>a</em>
+	 * list rather than the shortest.
+	 *
+	 * <p>
+	 * <strong>Nothing here is added up.</strong> Every figure reported is a plan run with
+	 * all the chosen cuts applied at once, because two cuts do not buy the total of what
+	 * each buys: on one chain they overlap, and on separate branches the finish is the
+	 * later of the two and shortening one leaves the other deciding.
+	 */
+	private static final class Search {
+
+		private final ForecastRun run;
+
+		private final ForecastInputs inputs;
+
+		private final List<ItemModel> plan;
+
+		private final BigDecimal budget;
+
+		private final int confidence;
+
+		private final Map<UUID, WorkItem> named;
+
+		private final List<Integer> remaining;
+
+		private final List<Integer> chosen = new ArrayList<>();
+
+		/**
+		 * What each remaining candidate reaches, with everything already chosen also cut.
+		 * Null between rounds, which is what says the last round's figures have gone
+		 * stale.
+		 */
+		private Map<Integer, Double> measured;
+
+		private double reached;
+
+		private int simulations;
+
+		private Search(ForecastRun run, ForecastInputs inputs, List<ItemModel> plan, BigDecimal budget, int confidence,
+				Map<UUID, WorkItem> named, List<Integer> cutting, Map<Integer, Double> alone, double baseline) {
+			this.run = run;
+			this.inputs = inputs;
+			this.plan = plan;
+			this.budget = budget;
+			this.confidence = confidence;
+			this.named = named;
+			this.remaining = new ArrayList<>(cutting);
+			// Round one is what each candidate is worth alone, which has already been
+			// run.
+			this.measured = alone;
+			this.reached = baseline;
+			this.simulations = cutting.size() + 1;
+		}
+
+		private CutPlanResponse run() {
+			List<CutStepResponse> steps = new ArrayList<>();
+			CutSearchEnding ending = CutSearchEnding.MET;
+			while (this.reached < this.confidence) {
+				if (this.remaining.isEmpty()) {
+					ending = CutSearchEnding.NOTHING_LEFT;
+					break;
+				}
+				if (this.measured == null && !weighWhatIsLeft()) {
+					ending = CutSearchEnding.BUDGET_SPENT;
+					break;
+				}
+				steps.add(take(best()));
+			}
+			return new CutPlanResponse(List.copyOf(steps), ending);
+		}
+
+		/**
+		 * Every candidate still in play, each with everything already chosen also cut.
+		 * @return whether there was budget left to do it at all
+		 */
+		private boolean weighWhatIsLeft() {
+			if (this.simulations + this.remaining.size() > CutsRequest.MOST_SIMULATIONS) {
+				return false;
+			}
+			this.measured = new HashMap<>();
+			for (int at : this.remaining) {
+				List<Integer> together = new ArrayList<>(this.chosen);
+				together.add(at);
+				this.measured.put(at, confidenceWithout(this.run, this.inputs, this.plan, together, this.budget));
+				this.simulations++;
+			}
+			return true;
+		}
+
+		private int best() {
+			int best = this.remaining.getFirst();
+			for (int at : this.remaining) {
+				if (this.measured.get(at) > this.measured.get(best)) {
+					best = at;
+				}
+			}
+			return best;
+		}
+
+		private CutStepResponse take(int at) {
+			this.reached = this.measured.get(at);
+			this.chosen.add(at);
+			this.remaining.remove(Integer.valueOf(at));
+			// The next round is measured afresh: what a candidate is worth changes once
+			// something else has gone, which is the whole reason this is a search rather
+			// than a sort.
+			this.measured = null;
+			UUID itemId = this.inputs.items().get(at).id();
+			WorkItem still = this.named.get(itemId);
+			return new CutStepResponse(itemId, titleOf(still), isArchived(still), this.reached);
+		}
+
+		private int simulations() {
+			return this.simulations;
+		}
+
+	}
+
+	/**
+	 * The plan run again with a set of work imagined away, and how often it beat the
+	 * date.
+	 */
+	private static double confidenceWithout(ForecastRun run, ForecastInputs inputs, List<ItemModel> plan,
+			List<Integer> cutting, BigDecimal budget) {
+		List<ItemModel> without = new ArrayList<>(plan);
+		for (int at : cutting) {
+			without.set(at, without.get(at).asCut());
+		}
+		ConfidenceBy counted = new ConfidenceBy(budget.doubleValue());
+		replay(run, inputs, without, counted);
+		return percent(counted);
 	}
 
 	/**

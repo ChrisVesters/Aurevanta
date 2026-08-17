@@ -33,7 +33,7 @@
 | 1 | Reading a date backwards, and counting the runs that beat it ✅ *done* | M4, M6 |
 | 2 | A cut that moves no other draw ✅ *done* | M3 |
 | 3 | What one cut buys ✅ *done* | 1, 2 |
-| 4 | The shortest list that gets there | 3 |
+| 4 | The shortest list that gets there ✅ *done* | 3 |
 | 5 | On screen | 4 |
 | 6 | Close out | 1–5 |
 
@@ -452,7 +452,7 @@ feature.
 
 ---
 
-## Step 4 — The shortest list that gets there
+## Step 4 — The shortest list that gets there ✅ *done*
 
 **Goal.** The question the milestone is named for: what do I cut to hit the date.
 
@@ -472,6 +472,53 @@ confidence after two cuts equals a direct evaluation with both cut. The simulati
 reported and matches what was done.
 
 **Done when** somebody can be told which things to drop, and the number is one that was measured.
+
+### As built — where it differs from the above
+
+**Round one of the search *is* the singles.** Weighing every candidate on its own and taking the
+best of them are the same set of simulations, so they are run once and read twice: the map that
+answers "what is each worth alone" is handed straight to the search as its opening round. Running
+them twice would have doubled the cost of the cheapest request in the feature and — worse — left
+two numbers for one fact, free to drift the day somebody changed one loop and not the other. The
+test asserts they are the *same* number, not two that agree.
+
+**The simulation budget got a number, and it is `MOST_SIMULATIONS = 40`.** Decision 9 bounded the
+candidates and said the answer must report what it spent, but never said where the search stops.
+Twelve candidates that never reach the bar are 12 + 11 + … + 1 evaluations plus the baseline —
+**79**, six times the thirteen step 3 measured at 6.3 s, so around forty seconds at the scale
+ceiling. Forty is three times the cost of weighing the candidates once, which is still nineteen
+seconds in that worst case and is a bound on a search rather than a promise about latency; what
+actually fixes that is step 3's answer, out of band and with the waiting visible.
+
+It is a bound on the request rather than on each round, so a narrow shortlist searches deeper
+than a wide one — **five candidates never reach it at all**, the whole search being sixteen runs,
+while twelve stop after three steps at thirty-four. That is the right way round: somebody who
+named twelve things is asking a wider question and gets a shallower answer, and is told so.
+
+**So `BUDGET_SPENT` is a real ending rather than a defensive one**, and that is why the three
+endings are an enum on the wire rather than a boolean `met`. `MET` and `NOTHING_LEFT` differ in
+what to do next — accept the list, or renegotiate what is droppable — and `BUDGET_SPENT` differs
+from both by saying the answer is *as far as it looked*. A search reporting the best thing it
+happened to look at, without saying that is what it did, is the failure mode of every heuristic
+that returns a result instead of a result and a reason.
+
+**Decision 7 is asserted with an oracle that needs no engine.** A chain with everything on it cut
+takes no time at all, so the confidence after the last step is exactly 100 — a number that can be
+checked by reading rather than by trusting the sampler. Against it, the two singles sum to
+ninety-odd points on a plan that only had seventy-odd to give, which is the decision made
+executable: *the numbers may never be added.*
+
+**The coverage gate found that the search was never asked to disagree with the order it was
+given.** Every test named its best candidate first, so the branch where a later candidate wins had
+never run — a search that simply took whatever was offered first would have passed the whole suite,
+and its answer would have looked exactly like an answer. The candidates are now named smallest
+first, and the test asserts the search picks the second one.
+
+**`Search` is a small stateful class rather than a loop in the service method.** Four things move
+together across a round — what is left, what has been chosen, what each remaining candidate now
+reaches, and how many simulations have been spent — and the invariant that matters is that the
+third goes stale the moment the second changes. As a field set to null in `take`, that is one line
+stating it; threaded through a loop as locals it would be four variables and a comment.
 
 ---
 

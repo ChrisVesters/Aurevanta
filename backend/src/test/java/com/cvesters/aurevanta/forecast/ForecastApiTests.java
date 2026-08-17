@@ -827,6 +827,114 @@ class ForecastApiTests {
 			.andExpect(jsonPath("$.errors.by.code").value("not_null"));
 	}
 
+	// A list that gets there ---------------------------------------------------
+
+	/**
+	 * <strong>Decision 7, asserted rather than merely warned about.</strong> Two cuts on
+	 * one chain overlap: each shortens the same path, so the second buys far less than it
+	 * looked worth on its own, and the two singles add up to more than the pair can
+	 * possibly deliver. The list therefore reports what was measured with both gone —
+	 * which here is a plan with nothing left in it, and so exactly a hundred, an oracle
+	 * needing no engine to work out.
+	 *
+	 * <p>
+	 * The first step is checked against its own single as well: round one of the search
+	 * <em>is</em> the singles, run once and read twice, so the two numbers must be the
+	 * same number rather than two measurements that happen to agree. The candidates are
+	 * named smallest first for that check to mean anything — a search that simply took
+	 * whatever was offered first would agree with the ranking by accident.
+	 */
+	@Test
+	void twoCutsBuyLessTogetherThanTheSumOfWhatEachBuysAlone() throws Exception {
+		this.dependencies.save(new Dependency(this.migration, this.rollout, new BigDecimal("0.00"), CREATED_AT));
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode answer = parsed(
+				cuts(run, MONDAY.plusDays(2), 100, this.rollout.getId(), this.migration.getId()).andReturn()
+					.getResponse()
+					.getContentAsString());
+
+		double baseline = answer.get("baselineConfidence").asDouble();
+		JsonNode steps = answer.get("together").get("steps");
+		assertThat(answer.get("together").get("ending").asString()).isEqualTo("met");
+		assertThat(steps).hasSize(2);
+		assertThat(steps.get(1).get("confidence").asDouble()).isEqualTo(100.0);
+		assertThat(steps.get(1).get("confidence").asDouble() - baseline)
+			.isLessThan(buysFor(answer, this.migration.getId()) + buysFor(answer, this.rollout.getId()));
+		JsonNode best = answer.get("cuts").get(0);
+		assertThat(best.get("itemId").asString()).isEqualTo(this.migration.getId().toString());
+		assertThat(steps.get(0).get("itemId").asString()).isEqualTo(best.get("itemId").asString());
+		assertThat(steps.get(0).get("confidence").asDouble()).isEqualTo(best.get("confidence").asDouble());
+		// The baseline, both singles, and one more for the second round's single
+		// remaining candidate.
+		assertThat(answer.get("simulations").asInt()).isEqualTo(4);
+	}
+
+	/**
+	 * A plan that already clears the bar is told to cut nothing, rather than handed the
+	 * least useless thing on its own list. An empty list with a reason is an answer; a
+	 * proposal to drop work that buys nothing is advice.
+	 */
+	@Test
+	void aPlanAlreadyPastTheBarIsToldToCutNothing() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		cuts(run, MONDAY.plusDays(200), 80, this.migration.getId()).andExpect(status().isOk())
+			.andExpect(jsonPath("$.meets").value(true))
+			.andExpect(jsonPath("$.together.steps").isEmpty())
+			.andExpect(jsonPath("$.together.ending").value("met"));
+	}
+
+	/**
+	 * <strong>The ending is as much of the answer as the list is.</strong> Everything on
+	 * offer cut and the bar still out of reach is a different answer from a bar that was
+	 * met, and the best that could be done is still worth reporting — it is what tells
+	 * somebody whether the remaining gap is one more sacrifice or a different date.
+	 */
+	@Test
+	void aBarNothingCanReachSaysSoAndReportsTheBestItCouldDo() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode answer = parsed(
+				cuts(run, MONDAY, 100, this.migration.getId()).andReturn().getResponse().getContentAsString());
+
+		JsonNode steps = answer.get("together").get("steps");
+		assertThat(answer.get("together").get("ending").asString()).isEqualTo("nothing_left");
+		assertThat(steps).hasSize(1);
+		assertThat(steps.get(0).get("itemId").asString()).isEqualTo(this.migration.getId().toString());
+		assertThat(steps.get(0).get("confidence").asDouble()).isGreaterThan(answer.get("baselineConfidence").asDouble())
+			.isLessThan(100.0);
+		assertThat(answer.get("simulations").asInt()).isEqualTo(2);
+	}
+
+	/**
+	 * <strong>A search that stopped early and did not say so would be reporting the best
+	 * thing it happened to look at.</strong> Each round weighs every candidate still in
+	 * play, so the work grows with the square of what was offered: twelve candidates cost
+	 * thirteen simulations for the first step, eleven more for the second and ten for the
+	 * third, and the fourth round would put the request over its budget. It stops there
+	 * and says which of the three endings it was.
+	 */
+	@Test
+	void aSearchThatRunsOutOfSimulationsSaysThatIsWhyItStopped() throws Exception {
+		List<UUID> candidates = new ArrayList<>(List.of(this.migration.getId(), this.rollout.getId()));
+		for (int at = 0; at < 10; at++) {
+			WorkItem more = this.items
+				.save(new WorkItem(this.acmePlan, "Something else " + at, null, CREATED_AT.plusSeconds(2 + at)));
+			estimate(more, "4.00", "8.00", "20.00");
+			candidates.add(more.getId());
+		}
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode answer = parsed(
+				cuts(run, MONDAY, 100, candidates.toArray(new UUID[0])).andReturn().getResponse().getContentAsString());
+
+		assertThat(answer.get("together").get("ending").asString()).isEqualTo("budget_spent");
+		assertThat(answer.get("together").get("steps")).hasSize(3);
+		assertThat(answer.get("simulations").asInt()).isEqualTo(34);
+		assertThat(answer.get("simulations").asInt()).isLessThanOrEqualTo(CutsRequest.MOST_SIMULATIONS);
+	}
+
 	// The calendar ------------------------------------------------------------
 
 	@Test

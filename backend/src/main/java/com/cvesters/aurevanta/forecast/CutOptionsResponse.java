@@ -24,8 +24,10 @@ import java.util.List;
  * look at.
  * @param cuts each candidate and what it is worth <strong>on its own</strong>, largest
  * first. They do not add up — see {@link CutResponse}.
+ * @param together a set of them that reaches the bar, searched for and measured at every
+ * step. This is the number to act on; the list above is the shortlist that produced it.
  */
 public record CutOptionsResponse(BigDecimal targetHours, double baselineConfidence, boolean meets, int simulations,
-		List<CutResponse> cuts) {
+		List<CutResponse> cuts, CutPlanResponse together) {
 
 }

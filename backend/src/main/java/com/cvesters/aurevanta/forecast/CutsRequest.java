@@ -50,4 +50,22 @@ public record CutsRequest(@NotNull LocalDate by,
 	 */
 	static final int MOST_CANDIDATES = 12;
 
+	/**
+	 * As many runs of the plan as one request may spend looking for a set that reaches
+	 * the bar.
+	 *
+	 * <p>
+	 * <strong>The search grows with the square of what is offered</strong>: choosing each
+	 * next cut means weighing every candidate still in play, with everything already
+	 * chosen already gone. Twelve candidates that never reach the bar would be
+	 * seventy-eight runs, and at the five hundred items a plan may hold each of those is
+	 * half a second.
+	 *
+	 * <p>
+	 * Three times the cost of weighing the candidates once, so the search may look about
+	 * three moves deep at full width — and when it stops for this reason it says so,
+	 * because "as far as it looked" and "as far as it goes" are different answers.
+	 */
+	static final int MOST_SIMULATIONS = 40;
+
 }
