@@ -7,6 +7,7 @@ import {
   CONTRIBUTIONS,
   FORECAST,
   PROJECTS,
+  WORK_ITEMS,
   jsonResponse,
   mockFetch,
   renderRouted,
@@ -17,6 +18,7 @@ import type { Forecast } from './types';
 const PROJECT_ID = PROJECTS[0].id;
 const FORECASTS_URL = `/api/projects/${PROJECT_ID}/forecasts`;
 const CONTRIBUTIONS_URL = `/api/forecasts/${FORECAST.id}/contributions`;
+const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 
 describe('ForecastPanel', () => {
   const fetchMock = mockFetch();
@@ -35,7 +37,13 @@ describe('ForecastPanel', () => {
             ? jsonResponse(200, runs)
             : url === CONTRIBUTIONS_URL
               ? jsonResponse(200, spread)
-              : jsonResponse(404)
+              : // The work a target date could be asked to drop, which the panel below
+                // loads for itself. Answered by URL like everything else here: a double
+                // that answered in *order* would hand this list to whichever request
+                // happened to go out first.
+                url === ITEMS_URL
+                ? jsonResponse(200, WORK_ITEMS)
+                : jsonResponse(404)
       )
     );
   }
@@ -949,8 +957,22 @@ describe('ForecastPanel', () => {
    */
   it('says why a run that cannot be replayed has no breakdown', async () => {
     await open([FORECAST]);
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(409, { code: 'forecast_replay_mismatch', detail: 'moved' })
+    // Refused by URL rather than by turn: the panel below asks for the plan's work as
+    // well, so a double answering "the next request, whatever it is" would refuse
+    // whichever of the two happened to go out first.
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === CONTRIBUTIONS_URL
+          ? jsonResponse(409, {
+              code: 'forecast_replay_mismatch',
+              detail: 'moved'
+            })
+          : url === '/api/auth/me'
+            ? jsonResponse(200, ACCOUNT)
+            : url === FORECASTS_URL
+              ? jsonResponse(200, [FORECAST])
+              : jsonResponse(200, WORK_ITEMS)
+      )
     );
 
     await userEvent.click(

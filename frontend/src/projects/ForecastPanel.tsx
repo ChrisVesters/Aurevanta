@@ -7,6 +7,8 @@ import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { numberField, optionalField } from './fields';
 import { formatDay, todayHere } from './dates';
+import { describeWork } from './work';
+import { TargetDate } from './TargetDate';
 import type { Contribution, Forecast, ForecastLimitation } from './types';
 
 /**
@@ -620,6 +622,15 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             </ul>
           </div>
 
+          {/*
+            The other question somebody opens this screen with, and the only one on it that
+            proposes an action. It sits *after* the limitations rather than beside the
+            spread, because everything it says is derived from the band above and inherits
+            every caveat printed there — a list of work to drop is the most quotable thing
+            this product emits, and the caveats have to have been passed on the way down.
+          */}
+          <TargetDate run={latest} />
+
           {earlier.length > 0 && (
             <div className="earlier">
               <h3>{t('projects.forecast.earlier.title')}</h3>
@@ -715,19 +726,13 @@ function calendarOf(
  * honest: when the shared factor or the unlisted work tops the list, the answer to "what
  * should I spike" is that no estimate below it is the problem.
  *
- * Work put away since the run is named and marked rather than hidden — the same choice an
- * arrow pointing at archived work already makes — and work the plan no longer holds at all
- * says so, which is the shape of a bug rather than an ordinary state, since nothing in this
- * product deletes an item.
+ * What a piece of work is *called* is {@link describeWork}'s, shared with the cuts below it:
+ * one run, two lists naming the same items, and a second copy of that rule would be a second
+ * chance for one of them to start rendering a missing item as a blank.
  */
 function describeSource(t: TFunction, source: Contribution): string {
   if (source.kind === 'item') {
-    if (source.title === null) {
-      return t('projects.forecast.contributions.unknown');
-    }
-    return source.archived
-      ? t('projects.forecast.contributions.archived', { title: source.title })
-      : source.title;
+    return describeWork(t, source.title, source.archived);
   }
   if (source.kind === 'discovered_work') {
     return t('projects.forecast.contributions.discoveredWork');

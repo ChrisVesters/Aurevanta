@@ -34,7 +34,7 @@
 | 2 | A cut that moves no other draw ✅ *done* | M3 |
 | 3 | What one cut buys ✅ *done* | 1, 2 |
 | 4 | The shortest list that gets there ✅ *done* | 3 |
-| 5 | On screen | 4 |
+| 5 | On screen ✅ *done* | 4 |
 | 6 | Close out | 1–5 |
 
 **M7 adds no columns and no migration**, for M6's reason: everything is evaluated against a
@@ -522,7 +522,7 @@ stating it; threaded through a loop as locals it would be four variables and a c
 
 ---
 
-## Step 5 — On screen
+## Step 5 — On screen ✅ *done*
 
 **Goal.** A date somebody wants, and what it would take.
 
@@ -543,6 +543,59 @@ answer, and choosing a different confidence changes it too. A run with no calend
 reason rather than a form. Every string comes from the catalogue.
 
 **Done when** somebody can ask for a date and be told, in the same screen, what it would cost.
+
+### As built — where it differs from the above
+
+**It is its own component, `TargetDate`, not more of `ForecastPanel`.** The panel was already
+eight hundred lines and this adds a form, a tick list and two result sections — but the deciding
+reason is that it needs *the plan's work*, which nothing else in that panel has ever loaded. A
+component that fetches something no other part of its host wants is a component.
+
+**Which work the run was about is worked out from two timestamps, because nothing on the wire
+says.** `ForecastResponse` carries no item list — the snapshot keeps identifiers and no titles
+on purpose, so that M10 can diff two runs without a rename reading as movement — so the tick
+list offers live work whose `createdAt` is no later than the run's. That errs in the safe
+direction in both of its two ways of being wrong: work written down since is never offered, and
+work put away since is in the snapshot but absent from the live listing, so it is not offered
+either. **Offering too few is an omission a reader can see; offering too many would be a tick box
+the server refuses** — which is the trap the progress form's rule about only showing the boxes a
+status has room for exists to avoid.
+
+**`describeWork` is shared with the contributions ranking**, which is step 3's lesson arriving on
+the other side of the wire before the second copy existed. The backend's coverage gate caught
+`contributionsTo` and `cutsFor` naming work two ways; here the two lists are on one screen, so
+the catalogue entries moved out of `contributions` into `projects.forecast.work` and both read
+them. A copy that started rendering "work the plan no longer holds" as a blank row would look
+like an ordinary empty label rather than like a fault.
+
+**The twelve-candidate limit is enforced on screen, and the refusal is still translated.** Once
+twelve are ticked the rest are disabled with a line saying why, so `too_many_candidates` is
+unreachable from this form — being told afterwards to untick three would be being asked to guess
+which three mattered. Its wording is in the catalogue anyway, along with `forecast_has_no_calendar`
+and `candidate_not_in_forecast`, because the code is the contract with every caller rather than
+with this screen.
+
+**Two halves of the question gate the button; the claim inside it does not.** Nothing goes out
+without a date and at least one candidate — a target with nothing droppable asks only whether the
+plan already gets there, which the band above has already said. The *confidence* is not gated the
+same way: it is a claim with bounds the server states, so an empty box goes as null and the
+complaint lands on the field, exactly as the assumptions above it do.
+
+**A tick list that failed to load says so.** The first version swallowed it, on the argument that
+the plan screen shows the same request's failure already. That is wrong in a way worth recording:
+an empty tick list and a tick list that did not arrive look identical, and the first of them reads
+as *"there is nothing you could drop"* — an answer, and the wrong one, on the one panel in this
+product that must never say anything by accident.
+
+**When the bar is already met, neither list is rendered at all.** The bullets say the answer leads
+with whether the bar is met and then gives the lists; a met bar makes both of them advice nobody
+needs, and an empty "what it would take" heading reads as a search that failed rather than as a
+question that did not arise.
+
+**Every string is from the catalogue by construction**, not by inspection: the test setup fails
+any test that renders a key with no wording, so the eighteen cases in `TargetDate.test.tsx` are the check. Branch
+coverage is 100% across the frontend, and the last two branches to fall were the unmount guard on
+the work request and giving a ticked candidate back.
 
 ---
 

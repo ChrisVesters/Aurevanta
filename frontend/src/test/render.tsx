@@ -14,6 +14,7 @@ import type {
 import type { Invitation, InvitationPreview, Member } from '../members/types';
 import type {
   Contribution,
+  CutOptions,
   Dependency,
   Estimate,
   Forecast,
@@ -319,6 +320,57 @@ export const CONTRIBUTIONS: Contribution[] = [
     shareOfSpread: 0.014
   }
 ];
+
+/**
+ * What it would take to hit a date, against `FORECAST`.
+ *
+ * **The two answers deliberately disagree with each other's arithmetic**, because that is
+ * the property the screen has to render honestly: the two singles buy 41 and 24 points on
+ * their own, and dropping both is measured at 88 rather than at the 41 + 24 + 30 a reader
+ * adding a column would arrive at. A fixture whose numbers happened to add up would let a
+ * screen that summed them pass.
+ */
+export const CUT_OPTIONS: CutOptions = {
+  targetHours: 18,
+  baselineConfidence: 30.4,
+  meets: false,
+  simulations: 4,
+  cuts: [
+    {
+      itemId: WORK_ITEMS[0].id,
+      title: WORK_ITEMS[0].title,
+      archived: false,
+      confidence: 71.8,
+      buys: 41.4,
+      meets: false
+    },
+    {
+      itemId: WORK_ITEMS[1].id,
+      title: WORK_ITEMS[1].title,
+      archived: false,
+      confidence: 54.2,
+      buys: 23.8,
+      meets: false
+    }
+  ],
+  together: {
+    steps: [
+      {
+        itemId: WORK_ITEMS[0].id,
+        title: WORK_ITEMS[0].title,
+        archived: false,
+        confidence: 71.8
+      },
+      {
+        itemId: WORK_ITEMS[1].id,
+        title: WORK_ITEMS[1].title,
+        archived: false,
+        confidence: 88.1
+      }
+    ],
+    ending: 'met'
+  }
+};
 
 export const INVITATION: Invitation = {
   id: '88888888-8888-8888-8888-888888888888',

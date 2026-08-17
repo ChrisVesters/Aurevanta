@@ -1255,6 +1255,98 @@ button.danger {
   }
 }
 
+/*
+  A date somebody wants, and what it would take. The two lists in here are deliberately not
+  a table: what each candidate buys *alone* and what a measured set of them reaches are
+  different answers, and columns side by side is how somebody comes to add one to the other.
+  So they are stacked, under separate headings, each with its own sentence saying which it
+  is — and the caveat sits above the singles rather than below them, because a reader who
+  has already added two together has already been given the wrong answer.
+*/
+.forecast .target {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  h3,
+  h4 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  form {
+    gap: 12px;
+  }
+
+  .candidates {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .candidates > legend {
+    padding: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .ticks {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+  }
+
+  .ticks label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .answer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* The first thing read, because everything under it is advice nobody needs when it says
+     the plan already gets there. */
+  .standing {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .steps,
+  .singles {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 14px;
+  }
+
+  .steps li,
+  .singles li {
+    margin-bottom: 4px;
+  }
+
+  /* Muted like the limitations above, and for the same reason: these are what the answer
+     does not claim, not a warning about something going wrong. */
+  .ending,
+  .caveat,
+  .assumptions {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+}
+
 .forecast .advanced > summary {
   font-size: 14px;
   cursor: pointer;

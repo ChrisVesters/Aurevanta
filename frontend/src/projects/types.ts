@@ -163,6 +163,78 @@ export type Contribution = {
 };
 
 /**
+ * One piece of work somebody could drop, and what dropping it would be worth.
+ *
+ * **`buys` is what this buys on its own, and it is never a term in a sum.** Two cuts on one
+ * chain overlap, so cutting both is barely better than cutting one; two on separate branches
+ * leave the later of them deciding, so one of the two buys nothing at all. A column of these
+ * with plus signs in front of them reads as arithmetic waiting to happen, and it is not —
+ * which is why "what do I cut" is answered by {@link CutPlan}, a list that was measured,
+ * rather than by adding the top few of these together.
+ */
+export type Cut = {
+  itemId: string;
+  /** What the work is called now. Null for work the plan no longer holds at all. */
+  title: string | null;
+  archived: boolean;
+  /** Where the plan would stand with only this cut, as a percentage. */
+  confidence: number;
+  /** The difference that makes, in percentage points. Zero for work off the path. */
+  buys: number;
+  /** Whether cutting this one thing clears the bar on its own. */
+  meets: boolean;
+};
+
+/** One thing dropped, and where the plan stands once it and everything above it is gone. */
+export type CutStep = {
+  itemId: string;
+  title: string | null;
+  archived: boolean;
+  /**
+   * Measured with every earlier step already cut, never accumulated from the singles. That
+   * is the whole reason this list exists beside {@link Cut} rather than being derived from
+   * it.
+   */
+  confidence: number;
+};
+
+/**
+ * Why the search for a set of cuts stopped, which is as much of the answer as the list is.
+ *
+ * A list that reaches the bar and the best anybody could find are different answers, and a
+ * search that ran out of the simulations it was allowed is a third — one where the honest
+ * reading is "this is as far as it looked", not "this is as far as it goes".
+ */
+export type CutSearchEnding = 'met' | 'nothing_left' | 'budget_spent';
+
+/** A list of things to drop that gets to the date, in the order to drop them. */
+export type CutPlan = {
+  /** Empty when the plan already clears the bar, which is an answer rather than a gap. */
+  steps: CutStep[];
+  ending: CutSearchEnding;
+};
+
+/**
+ * What it would take to hit a date, measured against one stored run.
+ *
+ * The hours the date came to travel with it, because a target date only means anything
+ * under a working day and a calendar — M4's rule about a stated assumption arriving beside
+ * the number it produced, in the one place where the number is a recommendation.
+ */
+export type CutOptions = {
+  targetHours: number;
+  /** The share of the run that already beat the date, as a percentage. */
+  baselineConfidence: number;
+  /** Whether the plan already clears the bar, in which case there is nothing to propose. */
+  meets: boolean;
+  /** How many times the plan was run to answer this, which is what the search bounds. */
+  simulations: number;
+  /** Each candidate and what it is worth **on its own**, largest first. */
+  cuts: Cut[];
+  together: CutPlan;
+};
+
+/**
  * What a forecast did not do.
  *
  * **These are not a footnote.** A number shown without them is the thing this product

@@ -368,8 +368,17 @@ export const en = {
         // that no estimate below it is the problem.
         discoveredWork: 'Work nobody has listed yet',
         teamFactor: 'A bad stretch, affecting everything at once',
-        // Named rather than hidden: a top contributor missing from the plan is what a
-        // reader would otherwise go looking for.
+        // A kind of source this version has never heard of. The server versions ahead of
+        // the browser, and labelling it as one of the kinds we do know would be worse than
+        // saying nothing — the same rule the limitations list keeps.
+        unknownKind: 'Something this version of the app cannot describe yet'
+      },
+      // What a piece of work a run was about is *called*, shared by the ranking above and
+      // the cuts below. One run, two lists naming the same items: two wordings would be two
+      // chances for one of them to start rendering a missing item as a blank.
+      work: {
+        // Named rather than hidden: a top contributor — or a proposed cut — missing from
+        // the plan is what a reader would otherwise go looking for.
         archived: '{{title}} (put away since)',
         // An item the plan no longer holds at all. Nothing deletes work, so this is the
         // shape of a bug rather than an ordinary state — and it says so instead of
@@ -378,11 +387,83 @@ export const en = {
         // ordinary problem catalogue, like every other refusal: the server sends a code
         // and `describeFailure` finds the wording. A second copy here would be a second
         // sentence to keep in step.
-        unknown: 'Work no longer in this plan',
-        // A kind of source this version has never heard of. The server versions ahead of
-        // the browser, and labelling it as one of the kinds we do know would be worse than
-        // saying nothing — the same rule the limitations list keeps.
-        unknownKind: 'Something this version of the app cannot describe yet'
+        unknown: 'Work no longer in this plan'
+      },
+      // A date somebody wants, and what it would take. The one place in this product that
+      // proposes dropping work, so nearly every sentence here is arranged to stop it being
+      // read as an instruction: it weighs, and somebody else decides.
+      target: {
+        title: 'Can we hit a date?',
+        lede: 'Name the day, say how sure you need to be, and tick the work you would be willing to drop. Nothing here changes the plan.',
+        // A run made before a working day was something anybody stated cannot be asked
+        // about a date at all — the same two absences the band above tells apart, said in
+        // the form of the question this panel puts.
+        noCalendar:
+          'This forecast was made before anybody stated a working day, so it cannot be asked about a date.',
+        unreadableCalendar:
+          'This forecast was made under a calendar this version of the app cannot read, so it cannot be asked about a date.',
+        fields: {
+          by: {
+            label: 'We want it done by',
+            hint: 'A weekend target counts to the Friday before it, since nobody works the weekend.'
+          },
+          confidence: {
+            // Not pre-filled, like every other claim on this panel: 80% is a reading and
+            // 95% is a promise, and which of them a date needs is the question being asked
+            // rather than something this application can answer for somebody.
+            label: 'How sure do you need to be?',
+            hint: 'Required, as a percentage. The higher this is, the more it costs to get there.'
+          }
+        },
+        // Decision 1: which work is negotiable is a judgement about its value, and nothing
+        // in this product records any. A list the application chose for itself would be
+        // recommending that somebody delete work for sitting on the deciding path.
+        candidates: {
+          legend: 'What could be dropped?',
+          hint: 'Only you can say. A task a regulator requires is not a candidate however large it is.',
+          none: 'This forecast was made before any of the work now in this plan, so there is nothing here it could weigh.',
+          // Stopped at the limit rather than refused afterwards: being told to untick three
+          // would be being asked to guess which three mattered.
+          limit:
+            'That is as many as can be weighed at once — each one is a whole simulation. Untick something to try a different {{most}}.'
+        },
+        submit: 'What would it take?',
+        submitting: 'Weighing what each would buy…',
+        answer: {
+          // First, because everything below it is advice nobody needs when the bar is
+          // already met — and a screen leading with work to drop would have proposed a
+          // sacrifice before mentioning it was unnecessary.
+          met: 'This plan already gets there: {{confidence}}% of its runs came in by that date.',
+          short:
+            'As it stands, {{confidence}}% of this plan’s runs came in by that date.',
+          // The stated assumption beside the number it produced, which is M4's rule
+          // arriving in the one place where the number is a recommendation.
+          budget:
+            'That date is {{hours}} hours of work under this run’s own calendar, measured over {{simulations}} runs of the plan.'
+        },
+        // The answer to act on: a set that was searched for and measured at every step.
+        together: {
+          title: 'What it would take',
+          lede: 'Each line is where the plan stands with it and everything above it dropped — measured, not added up.',
+          step: 'Drop {{what}} — {{confidence}}%.'
+        },
+        // Why the search stopped. Three endings, because what to do next differs: accept
+        // the list, put something else on the table, or ask again with a shorter one.
+        endings: {
+          met: 'That gets there.',
+          nothing_left:
+            'Even with all of that dropped the date is still out of reach. Something else has to give — more people, a later date, or work you have not put on this list.',
+          budget_spent:
+            'That is as far as this looked: each step weighs every remaining candidate, and the search ran out of the runs it is allowed. Ask again with a shorter list to see further.'
+        },
+        // Never in one column with the list above, and never with plus signs down the side.
+        singles: {
+          title: 'What each would buy on its own',
+          // Before the numbers rather than after them: a reader who has already added two
+          // together has already been given the wrong answer.
+          lede: 'These do not add up. Two of them often shorten the same path, so dropping both buys far less than the two figures suggest — and the list above is the one that was actually measured.',
+          entry: '{{what}} — {{confidence}}%, {{buys}} points better.'
+        }
       },
       earlier: {
         title: 'Earlier forecasts',
@@ -751,6 +832,16 @@ export const en = {
       // and is why the server refuses rather than approximates.
       forecast_replay_mismatch:
         'This forecast cannot be broken down: it was made by an earlier version of the model, which no longer reproduces it exactly.',
+      // A run made before a working day was something anybody stated. It reports hours and
+      // no dates, so there is no date for it to be asked about either.
+      forecast_has_no_calendar:
+        'This forecast has no calendar, so it cannot be asked about a date. Ask for a new one and it will have.',
+      // Work written down since the run, or belonging to another plan. Not offered on
+      // screen, so reaching this means the plan changed while somebody was reading it.
+      candidate_not_in_forecast:
+        'Some of that work was not in this forecast. Ask for a new one and it will be.',
+      too_many_candidates:
+        'That is more work than can be weighed at once. Each candidate is a whole simulation, so try again with fewer.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',
