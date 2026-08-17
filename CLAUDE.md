@@ -38,6 +38,12 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
+`docs/m6-plan.md` is the next milestone and is **not built**: ranking what a plan holds by how
+much it widens the forecast. It adds **no column and no migration** — it replays a stored run,
+which is what M3a's seed was for — and it does not move `Engine.VERSION`. Read its decision 3
+before rendering any of it: the obvious presentation is percentages, and they sum to well over
+one, because M3b's shared factor makes everything move with everything.
+
 `docs/m5-plan.md` is elicitation, and is **built**: three boxes became three questions asked one
 at a time, so that three numbers stop being 3/5/8. **Read the measurement at the top before
 touching anything about estimate quality** — neither of the two checks the roadmap proposed

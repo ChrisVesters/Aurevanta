@@ -762,7 +762,7 @@ across a whole plan extends something that exists rather than reimplementing a r
 
 ---
 
-## M6 — Variance contribution
+## M6 — Variance contribution — *planned in `m6-plan.md`*
 
 Rank items by contribution to the *spread*, not by size. A 20-day task estimated 18–22 is
 nearly risk-free; a 5-day task estimated 2–30 wrecks the forecast.
@@ -786,6 +786,32 @@ would be five million numbers a table would have to carry for every button press
 about 300ms. What M6 must not do is change the model without bumping `Engine.VERSION`, since a
 replay that no longer reproduces its own stored percentiles is what the persistence test in
 `ForecastApiTests` exists to catch.
+
+`m6-plan.md` breaks it into five steps and answers ten decisions, and it **turns that last
+sentence into a runtime guard**: the endpoint replays a run, compares the six figures it produces
+against the six on the row, and refuses to explain a run that does not match. That is the
+persistence test promoted out of the suite, and it needs no list of replayable versions to keep
+in step — it asks the only question that matters, *does this still come out the same?*, and so
+catches a version bump, a JDK generator change and an accidental edit to the sampler alike.
+
+**Storing nothing is what makes it work on the past.** A stored contribution would exist only for
+runs made after the column did; a derived one exists for every forecast this product has ever
+produced, M3a's included. That is the argument, rather than the size of the vectors — and it is
+M4's decision 5 read from the other side.
+
+**Two things the section above does not say, and the plan does.** The obvious presentation of the
+answer is a set of percentages, and **they do not add up**: with M3b's shared team factor
+everything moves with everything, so the squared correlations sum to well over one. They sum to
+exactly one only in the summing model this product deliberately stopped using — which is the
+plan's own oracle, and the reason the number is shown as a ranking rather than a share. And
+**two of the rows are not items**: the shared team factor and the work nobody has listed are both
+sources of spread, either can dominate, and a report that ranked only tasks would answer "which
+of these should I spike" while hiding that the answer is sometimes "none of them".
+
+The plan also carries a measurement: the one-pass correlation formula everybody writes first is
+wrong in the third decimal on a plan of a million hours and returns **NaN** on one of a billion,
+which is not valid JSON. Welford's co-moment update is five lines and accurate to 1e-12 in the
+case that breaks it.
 
 ---
 
