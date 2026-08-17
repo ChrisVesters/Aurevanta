@@ -831,9 +831,10 @@ a percentage is one somebody will add up.
 Ranking what widens a plan is not proposing what to cut, and the section below already says why
 the second needs machinery the first does not: a cut has to be evaluated by re-running the
 schedule without it, because removing an item off the deciding path buys no time at all. What M6
-hands over is the cheap half of that — the ranking that says which candidates are worth
-re-running — and the seam that makes it possible, which is that a stored run can be replayed
-exactly.
+actually hands over is **the seam rather than the shortlist** — that a stored run can be replayed
+exactly, and that `RunObserver` lets somebody watch it go past. `m7-plan.md` decision 6 explains
+why the ranking itself is the wrong shortlist: an item that never varies contributes nothing to
+the spread and can be the best thing to cut.
 
 **What M10 inherits.** Two things, and the second is the larger. **Criticality is a different
 question**: "how often is this item on the path that decides the finish" can be high for an item
@@ -846,7 +847,7 @@ server asks rather than one a test asks once.
 
 ---
 
-## M7 — Inverse queries
+## M7 — Inverse queries — *planned in `m7-plan.md`*
 
 Run the question backwards: not "when will this finish" but "what do I cut to hit
 1 November at 85% confidence?", ranking candidate scope removals by the confidence each
@@ -857,11 +858,38 @@ planning.
 
 **Revisit for the graph.** Cutting an item off the critical path buys no time at all, so
 naive "rank by size" scope suggestions will be wrong. Candidate cuts have to be evaluated
-by re-running the schedule without them. **M6 built the cheap half of that**: its ranking says
-which items the finish actually moves with, which is the shortlist worth re-running rather than
-the whole plan — and its replay machinery is how a candidate gets evaluated at all. What M7 must
-not do is mistake the ranking for the answer: a high contribution says an item widens the band,
-not that removing it buys a date. That is more expensive — and once M11 lands, the
+by re-running the schedule without them. M6's replay machinery is how a candidate gets evaluated
+at all. What M7 must not do is mistake M6's ranking for the answer: a high contribution says an
+item widens the band, not that removing it buys a date.
+
+> **This section used to say M6's ranking was "the shortlist worth re-running", and that is
+> wrong** — corrected here rather than left to mislead whoever builds it. M6 ranks by contribution
+> to the **spread**, and a task that always takes exactly forty hours has a contribution of zero:
+> it never varies, so nothing moves with it. Cutting it removes forty hours from every run, and it
+> is frequently the *best* thing to drop. A shortlist drawn from M6 would systematically hide the
+> certain-but-large work — which is exactly the work a team can most confidently plan to cut.
+> `m7-plan.md` decision 6 carries the argument; decision 1 is what makes a shortlist unnecessary
+> at all, by having the caller name the candidates.
+
+`m7-plan.md` breaks it into six steps and answers ten decisions, and it opens with a measurement
+that decides the shape of the whole thing. The obvious implementation forecasts the plan, forecasts
+it again without an item and reports the difference — **and at ten thousand runs the baseline moves
+1.2 points seed to seed while a cut worth having buys about five.** Pairing the two sides on one
+seed halves the noise (1.84 pp of spread becomes 0.75 pp), and the ranking is what that rescues:
+two candidates a point and a half apart can be ordered when the comparison is paired and cannot be
+when it is not.
+
+**Pairing is not free, and the way to get it is the plan's sharpest decision.** A cut cannot be
+modelled by removing the item — that renumbers every edge and shifts every later draw — nor by
+emptying its estimates, which is worse because it is silent: `ItemModel.sample` returns from
+`weighsNothing()` *before* it draws, so a weightless item takes no draws and the generator runs
+ahead. **A cut item keeps its estimates, takes its draws, and is worth nothing**, which leaves
+every other item in the run sampled from exactly the same place in the stream.
+
+**And the numbers may never be added.** This is M6's "these do not add up" in a form far more
+tempting to add: three cuts with "+5%", "+3%" and "+2%" beside them read as thirteen percent, and
+two cuts on one chain buy barely more than one. The cumulative answer is searched for and measured
+at every step rather than inferred from the singles. That is more expensive — and once M11 lands, the
 answer space widens from "what do I cut?" to include "what if we add a person?", which uses
 the same machinery.
 
@@ -1466,12 +1494,16 @@ not move to make the measurement easier. `Engine.VERSION` is still 2.
 
 **What is next is M7**, and the ordering principle is why: it is the last of Tier 2, it reads
 what M6 built, and it is the step that turns a reporting surface into something opened *during*
-planning. **The trap is already named in its own section and worth repeating here**: a high
-contribution says an item widens the band, not that removing it buys a date. Cutting something
-off the deciding path buys nothing, so a candidate cut has to be evaluated by re-running the
-schedule without it — M6's ranking is the shortlist worth re-running, and its replay machinery is
-how each candidate gets run. What M7 must not become is a scope-editing screen: it proposes, and
-somebody else decides.
+planning. **It is planned, in `m7-plan.md`, and planning it corrected this document twice.** A
+high contribution says an item widens the band, not that removing it buys a date — and M6's
+ranking is *not* the shortlist worth re-running, because an item that never varies contributes
+nothing to the spread and is frequently the best thing to cut. What M7 hands the caller instead is
+the question "which of these are you willing to drop?", because which work is negotiable is a
+judgement about value that this server holds none of.
+
+**What M7 must not become is a scope-editing screen**: it proposes, and somebody else decides —
+on the plan screen, where archiving already exists and where somebody can see what else the work
+is connected to.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;

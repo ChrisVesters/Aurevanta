@@ -40,6 +40,14 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
+`docs/m7-plan.md` is the next milestone and is **not built**: inverse queries — what to cut to
+hit a date at a confidence. **Read its decision 2 before touching anything about it.** A cut is
+modelled as a draw taken and *discarded*, never as an item removed and never by emptying its
+estimates: `ItemModel.sample` returns from `weighsNothing()` before it draws, so a weightless item
+takes no draws and every later item is sampled from a different place in the stream. Measured, the
+noise then lands in the same range as the effect being measured and the ranking becomes a coin
+flip that looks exactly like an answer.
+
 `docs/m6-plan.md` is variance contribution, and is **built**: ranking what a plan holds by how
 much it widens the forecast. It added **no column and no migration** and did not move
 `Engine.VERSION`. **Read its decision 3 before rendering any of it** — the obvious presentation
