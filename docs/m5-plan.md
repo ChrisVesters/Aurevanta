@@ -34,7 +34,7 @@
 | 1 | What makes an estimate worth questioning ✅ *done* | M3 |
 | 2 | Recording how a range was asked for ✅ *done* | M2 |
 | 3 | One question at a time, in the order that stops them anchoring ✅ *done* | 1, 2 |
-| 4 | The review, and the bet | 3 |
+| 4 | The review, and the bet ✅ *done* | 3 |
 | 5 | Close out | 1–4 |
 
 **M5 changes no stored number and no arithmetic.** `p10_hours`, `p50_hours` and `p90_hours` mean
@@ -507,7 +507,7 @@ rule above is what makes survivable in the meantime.
 
 ---
 
-## Step 4 — The review, and the bet
+## Step 4 — The review, and the bet ✅ *done*
 
 **Goal.** The three answers seen together for the first time, with what is odd about them and one
 question that makes the high end feel expensive.
@@ -528,6 +528,50 @@ warnings are rendered from what the response carried, so a threshold change on t
 change here. Every string comes from the catalogue.
 
 **Done when** somebody has to look at their own range before it is stored.
+
+### As built — where it differs from the above
+
+**The warnings needed an endpoint, and that is the one thing this step could not have been
+built without discovering.** Step 1 put the flags on `EstimateResponse`, which is the answer to
+a *submission* — and this review happens before one. The three ways out were: work the flags out
+in the browser (decision 6 forbids it, by name), publish the thresholds so the browser can
+(decision 6 calls that "a worse version of the same thing"), or ask. So `POST
+/api/estimates/quality` grades three numbers and stores nothing.
+
+It is **the one POST in this API that writes nothing**, and a POST because it carries a body
+rather than because it changes anything. It names no plan and no item, so it is also the one
+method in `EstimateService` with no membership check — there is no row to reach and nothing to be
+a member of — and the javadoc says so rather than leaving the omission to be noticed. It shares
+`requireAscending` with `record`, which is not optional: a range that does not ascend has no fit
+at all, so without it `LogNormalFit.from` would throw and the endpoint would answer 500 to a
+perfectly ordinary typo.
+
+**`EstimateQualityRequest` is its own record rather than `RecordEstimateRequest` with `method`
+relaxed.** The two carry the same three numbers and differ in one thing, and making that one
+thing optional to share a type would weaken the field whose entire value is that it is always
+answered. Four repeated annotations is the cheaper mistake.
+
+**The bet has one control, not two.** The plan describes a prompt where "no" sends somebody back;
+a "yes" button would do nothing, and a button that does nothing is worse than no button. So
+saying yes *is* pressing save, and the only control the bet carries is the way out — which is
+also the honest shape, since a bet somebody would not take is a P90 they have not really given.
+
+**A fourth screen means the review has its own progress line** — "Before you save it" rather
+than "Question 4 of 3", since it is not a question.
+
+**An unanswered question says so on the review** rather than showing a gap, and the bet is hidden
+when there is no high number to bet about. Both fall out of the same case: the form can reach the
+review with a question skipped, because nothing on this side refuses anything — the server does.
+
+**A range the server could not be asked about reviews without warnings and still saves.** The
+review is advice, so it survives not getting any; a form that blocked on an unreachable
+quality endpoint would make advice into a gate, which is decision 5 lost through the back door.
+
+**The test double answers a fourth URL**, and its default is a range with nothing odd about it —
+so a warning appearing in any test is one that test asked for. The two warning cases set flags
+that do *not* match the numbers they are shown against, which is the point: it proves the screen
+renders what the response carried rather than re-deriving it, and is what lets a threshold move
+on the server with no change here.
 
 ---
 

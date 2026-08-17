@@ -15,12 +15,23 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
-import type { Dependency, Estimate, WorkItem } from './types';
+import type { Dependency, Estimate, EstimateQuality, WorkItem } from './types';
 
 const PROJECT_ID = PROJECTS[0].id;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 const ESTIMATES_URL = `/api/projects/${PROJECT_ID}/estimates`;
 const DEPENDENCIES_URL = `/api/projects/${PROJECT_ID}/dependencies`;
+const QUALITY_URL = '/api/estimates/quality';
+
+/**
+ * What the server says about a range with nothing odd about it — which is what 3/5/8 gets,
+ * and is the default so that a warning appearing in a test is one the test asked for.
+ */
+const FINE: EstimateQuality = {
+  consistency: 1,
+  inconsistent: false,
+  overconfident: false
+};
 
 /**
  * A third task, so that drawing one arrow still leaves something to pick. With two, the
@@ -60,17 +71,20 @@ describe('WorkItems', () => {
   function answer(
     items: WorkItem[],
     estimates: Estimate[],
-    dependencies: Dependency[]
+    dependencies: Dependency[],
+    quality: EstimateQuality = FINE
   ) {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/api/auth/me'
           ? jsonResponse(200, ACCOUNT)
-          : url === ESTIMATES_URL
-            ? jsonResponse(200, estimates)
-            : url === DEPENDENCIES_URL
-              ? jsonResponse(200, dependencies)
-              : jsonResponse(200, items)
+          : url === QUALITY_URL
+            ? jsonResponse(200, quality)
+            : url === ESTIMATES_URL
+              ? jsonResponse(200, estimates)
+              : url === DEPENDENCIES_URL
+                ? jsonResponse(200, dependencies)
+                : jsonResponse(200, items)
       )
     );
   }
@@ -78,10 +92,11 @@ describe('WorkItems', () => {
   async function open(
     items = WORK_ITEMS,
     estimates: Estimate[] = [],
-    dependencies: Dependency[] = []
+    dependencies: Dependency[] = [],
+    quality: EstimateQuality = FINE
   ) {
     storeAccessToken();
-    answer(items, estimates, dependencies);
+    answer(items, estimates, dependencies, quality);
     renderRouted(<WorkItems projectId={PROJECT_ID} />, {
       route: `/app/projects/${PROJECT_ID}`
     });
@@ -98,9 +113,9 @@ describe('WorkItems', () => {
   }
 
   /**
-   * Walking the three questions in the order they are asked and submitting. An empty
-   * string leaves that question unanswered, which is a different thing from zero and is
-   * what the server has to be told apart.
+   * Walking the three questions in the order they are asked, as far as the review. An
+   * empty string leaves that question unanswered, which is a different thing from zero and
+   * is what the server has to be told apart.
    */
   async function answerTheThree(bad: string, good: string, typical: string) {
     for (const [question, answer] of [
@@ -111,12 +126,17 @@ describe('WorkItems', () => {
       if (answer !== '') {
         await userEvent.type(screen.getByLabelText(question), answer);
       }
-      await userEvent.click(
-        screen.getByRole('button', {
-          name: question === TYPICAL_CASE ? 'Save estimate' : 'Next'
-        })
-      );
+      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     }
+    await screen.findByText('What you have said');
+  }
+
+  /** The three questions, then the review, then saving it. */
+  async function estimateThrough(bad: string, good: string, typical: string) {
+    await answerTheThree(bad, good, typical);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
   }
 
   it('lists the work in the plan', async () => {
@@ -593,11 +613,239 @@ describe('WorkItems', () => {
     }
   });
 
-  it('records a three-point estimate against the item', async () => {
+  /**
+   * <strong>The first and only moment the three are seen together.</strong> Together while
+   * one is still being answered is the anchoring the order exists to prevent; together once
+   * all three exist is the only way to notice that a bad week is barely worse than an
+   * ordinary one. In plain words, and still no percentile named.
+   */
+  it('shows all three answers together at the review and nowhere earlier', async () => {
     await open();
     await openEstimate();
 
     await answerTheThree('12', '3', '5');
+
+    expect(screen.getByText('A bad week: 12 hours')).toBeInTheDocument();
+    expect(
+      screen.getByText('Everything goes right: 3 hours')
+    ).toBeInTheDocument();
+    expect(screen.getByText('What you expect: 5 hours')).toBeInTheDocument();
+    expect(screen.queryByText(/\bP(10|50|90)\b/)).toBeNull();
+  });
+
+  /** A question nobody answered says so rather than showing a gap. */
+  it('says which of the three was never answered', async () => {
+    await open();
+    await openEstimate();
+
+    await answerTheThree('', '3', '5');
+
+    expect(
+      screen.getByText('A bad week: not answered hours')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>The betting frame, which gates nothing.</strong> It makes a number typed
+   * cheaply feel expensive, and the only control it carries is the way out — because a bet
+   * somebody would not take is a P90 they have not really given. Saying yes is pressing
+   * save.
+   */
+  it('asks whether somebody would take the bet their own high number implies', async () => {
+    await open();
+    await openEstimate();
+
+    await answerTheThree('12', '3', '5');
+
+    expect(
+      screen.getByText(
+        /You are saying that nine times in ten this comes in under 12 hours/
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** Declining goes back to the question that number answers, with it still in the box. */
+  it('sends somebody back to the bad case when they would not take the bet', async () => {
+    await open();
+    await openEstimate();
+    await answerTheThree('12', '3', '5');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'No — let me change that' })
+    );
+
+    expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
+
+    await userEvent.clear(screen.getByLabelText(BAD_CASE));
+    await userEvent.type(screen.getByLabelText(BAD_CASE), '40');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByText('A bad week: 40 hours')).toBeInTheDocument();
+    expect(
+      screen.getByText(/nine times in ten this comes in under 40 hours/)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Rendered from what the server said, not worked out here.</strong> 6/10/14 is a
+   * tight band and 3/5/8 is not, and this test does not know which is which — it renders
+   * whatever the response carried, which is what lets a threshold move on the server with
+   * no change on this side. Decision 6, asserted rather than intended.
+   */
+  it('shows the warnings the server sent, whatever the numbers were', async () => {
+    await open(WORK_ITEMS, [], [], {
+      consistency: 1.09,
+      inconsistent: false,
+      overconfident: true
+    });
+    await openEstimate();
+
+    await answerTheThree('8', '6', '10');
+
+    expect(
+      screen.getByText(/Your bad week is barely worse than what you expect/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/a long way from the middle/)).toBeNull();
+  });
+
+  /** And the other one, for a middle that argues with its own two ends. */
+  it('shows the consistency warning when the server reports one', async () => {
+    await open(WORK_ITEMS, [], [], {
+      consistency: 0.707,
+      inconsistent: true,
+      overconfident: false
+    });
+    await openEstimate();
+
+    await answerTheThree('40', '5', '10');
+
+    expect(
+      screen.getByText(/a long way from the middle your own two ends imply/)
+    ).toBeInTheDocument();
+  });
+
+  /** A range with nothing odd about it says nothing, which is most of them. */
+  it('says nothing about a range the server had no comment on', async () => {
+    await open();
+    await openEstimate();
+
+    await answerTheThree('8', '3', '5');
+
+    expect(screen.queryByText(/Your bad week is barely worse/)).toBeNull();
+    expect(screen.queryByText(/a long way from the middle/)).toBeNull();
+  });
+
+  /**
+   * <strong>Advice, never a refusal — decision 5.</strong> A tight band is sometimes
+   * exactly right, and a rule that blocked one would become a specification people learn to
+   * type, which is 3/5/8 with an extra step.
+   */
+  it('saves a warned estimate exactly as it was given', async () => {
+    await open(WORK_ITEMS, [], [], {
+      consistency: 1.09,
+      inconsistent: false,
+      overconfident: true
+    });
+    await openEstimate();
+
+    await estimateThrough('14', '6', '10');
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/items/${WORK_ITEMS[0].id}/estimates`,
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            p10Hours: 6,
+            p50Hours: 10,
+            p90Hours: 14,
+            method: 'surprise_framed'
+          })
+        })
+      )
+    );
+  });
+
+  /**
+   * The review is advice, so it survives not getting any. A server that cannot be reached
+   * about the range must not stop somebody saving what they came to say.
+   */
+  it('reviews without warnings when the server could not be asked', async () => {
+    await open();
+    await openEstimate();
+    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.type(screen.getByLabelText(GOOD_CASE), '3');
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await userEvent.type(screen.getByLabelText(TYPICAL_CASE), '5');
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByText('A bad week: 12 hours')).toBeInTheDocument();
+    expect(screen.queryByText(/Your bad week is barely worse/)).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Save estimate' })
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Somebody can close the form while the server is still being asked about their range,
+   * and nothing arriving afterwards may touch it. React warns about it; the practical cost
+   * is a warning painted onto a form somebody has already walked away from — or onto the
+   * next one they open, about numbers that are not theirs.
+   */
+  it('ignores an answer about a range that arrives after the form has gone', async () => {
+    storeAccessToken();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url === '/api/auth/me'
+        ? Promise.resolve(jsonResponse(200, ACCOUNT))
+        : url === QUALITY_URL
+          ? new Promise<Response>((resolve, reject) => {
+              settle = resolve;
+              fail = reject;
+            })
+          : Promise.resolve(
+              jsonResponse(
+                200,
+                url === ITEMS_URL || url.startsWith(ITEMS_URL) ? WORK_ITEMS : []
+              )
+            )
+    );
+    renderRouted(<WorkItems projectId={PROJECT_ID} />, {
+      route: `/app/projects/${PROJECT_ID}`
+    });
+    await screen.findByRole('heading', { name: 'Work' });
+
+    await openEstimate();
+    await answerTheThree('12', '3', '5');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    settle(
+      jsonResponse(200, {
+        consistency: 1.09,
+        inconsistent: false,
+        overconfident: true
+      })
+    );
+
+    await openEstimate();
+    await answerTheThree('12', '3', '5');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Your bad week is barely worse/)).toBeNull()
+    );
+  });
+
+  it('records a three-point estimate against the item', async () => {
+    await open();
+    await openEstimate();
+
+    await estimateThrough('12', '3', '5');
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -639,7 +887,7 @@ describe('WorkItems', () => {
     await open();
     await openEstimate();
 
-    await answerTheThree('', '', '5');
+    await estimateThrough('', '', '5');
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -665,11 +913,16 @@ describe('WorkItems', () => {
   it('says so when the three numbers do not go up, and goes back to the first question', async () => {
     await open();
     await openEstimate();
+
+    await answerTheThree('12', '5', '3');
+    // Armed here rather than before the walk: the review asks the server about the range
+    // first, and a `once` mock set earlier would be spent on that instead.
     fetchMock.mockResolvedValueOnce(
       jsonResponse(400, { code: 'estimate_out_of_order' })
     );
-
-    await answerTheThree('12', '5', '3');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /The three numbers must go up/
@@ -686,14 +939,17 @@ describe('WorkItems', () => {
   it('brings back the question a refused number was answered on', async () => {
     await open();
     await openEstimate();
+
+    await answerTheThree('12', '0', '5');
     fetchMock.mockResolvedValueOnce(
       jsonResponse(400, {
         code: 'validation_failed',
         errors: { p10Hours: { code: 'positive' } }
       })
     );
-
-    await answerTheThree('12', '0', '5');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
 
     expect(
       await screen.findByText('Use a number greater than zero.')

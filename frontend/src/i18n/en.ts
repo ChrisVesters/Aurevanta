@@ -438,6 +438,36 @@ export const en = {
           }
         },
         progress: 'Question {{step}} of {{total}}',
+        // The first and only moment the three are seen together. Together *while* one is
+        // still being answered is the anchoring the order exists to prevent; together once
+        // all three exist is the only way to notice that the bad week is barely worse than
+        // the ordinary one.
+        review: {
+          title: 'What you have said',
+          bad: 'A bad week: {{hours}} hours',
+          good: 'Everything goes right: {{hours}} hours',
+          typical: 'What you expect: {{hours}} hours',
+          unanswered: 'not answered',
+          progress: 'Before you save it'
+        },
+        // The betting frame, which is a check on an answer rather than a way to get one —
+        // it needs a number to bet about, so it can only be asked here. It makes a number
+        // typed cheaply feel expensive, and it gates nothing: saying yes is pressing save.
+        bet: {
+          question:
+            'You are saying that nine times in ten this comes in under {{hours}} hours. Would you take that bet?',
+          decline: 'No — let me change that'
+        },
+        // Advice and never a refusal. A tight band is sometimes exactly right, and a rule
+        // that blocked one would become a specification people learn to type — which is
+        // 3/5/8 with an extra step, and the product teaching the failure it exists to
+        // detect. Both say plainly that the estimate is saved as given.
+        warnings: {
+          overconfident:
+            'Your bad week is barely worse than what you expect, which usually means nothing has yet been thought of that could go wrong. Saved exactly as you gave it, either way.',
+          inconsistent:
+            'What you expect sits a long way from the middle your own two ends imply. Worth another look — and saved exactly as you gave it, either way.'
+        },
         back: 'Back',
         next: 'Next',
         submit: 'Save estimate',

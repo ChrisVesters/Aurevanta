@@ -319,6 +319,61 @@ class EstimateApiTests {
 			.andExpect(jsonPath("$.errors.p50Hours.code").value("not_null"));
 	}
 
+	// Asking about a range before committing to it ----------------------------
+
+	/**
+	 * <strong>The warning has to arrive before the estimate does.</strong> An estimate is
+	 * written once and never rewritten, so a form that saved first and warned afterwards
+	 * would make "that is not what I meant" cost a second row — and the moment
+	 * elicitation is about is the moment somebody is still answering.
+	 */
+	@Test
+	void gradesARangeNobodyHasCommittedToYet() throws Exception {
+		quality("6", "10", "14").andExpect(status().isOk())
+			.andExpect(jsonPath("$.overconfident").value(true))
+			.andExpect(jsonPath("$.inconsistent").value(false))
+			.andExpect(jsonPath("$.consistency").value(closeTo(1.091, 0.001)));
+
+		assertThat(this.estimates.findAll()).isEmpty();
+	}
+
+	/** The same answer the estimate itself would get, since both ask one function. */
+	@Test
+	void gradesTheCanonicalGarbageAsPerfectlyFineHereToo() throws Exception {
+		quality("3", "5", "8").andExpect(status().isOk())
+			.andExpect(jsonPath("$.overconfident").value(false))
+			.andExpect(jsonPath("$.inconsistent").value(false));
+	}
+
+	/**
+	 * A range that does not ascend has no fit at all, so it is refused here rather than
+	 * reaching arithmetic that would fail — the same refusal recording gives, from the
+	 * same check.
+	 */
+	@Test
+	void refusesToGradeARangeTheWrongWayRound() throws Exception {
+		quality("12", "5", "3").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("estimate_out_of_order"));
+	}
+
+	@Test
+	void refusesToGradeARangeThatIsNotThreeNumbers() throws Exception {
+		this.mvc
+			.perform(post("/api/estimates/quality").header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"p10Hours\":3,\"p90Hours\":12}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.p50Hours.code").value("not_null"));
+	}
+
+	@Test
+	void gradingARangeStillNeedsATokenScopedToAnOrganisation() throws Exception {
+		this.mvc
+			.perform(post("/api/estimates/quality").contentType(MediaType.APPLICATION_JSON)
+				.content("{\"p10Hours\":3,\"p50Hours\":5,\"p90Hours\":12}"))
+			.andExpect(status().isUnauthorized());
+	}
+
 	// How it was asked for ----------------------------------------------------
 
 	/**
@@ -519,6 +574,14 @@ class EstimateApiTests {
 			.perform(post("/api/items/" + item.getId() + "/estimates").header(HttpHeaders.AUTHORIZATION, bearer(caller))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(this.json.writeValueAsString(request)));
+	}
+
+	private ResultActions quality(String p10, String p50, String p90) throws Exception {
+		EstimateQualityRequest request = new EstimateQualityRequest(new BigDecimal(p10), new BigDecimal(p50),
+				new BigDecimal(p90));
+		return this.mvc.perform(post("/api/estimates/quality").header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(this.json.writeValueAsString(request)));
 	}
 
 	private ResultActions current(Membership caller) throws Exception {

@@ -117,6 +117,22 @@ export type Estimate = {
 };
 
 /**
+ * What is worth questioning about a range, as the server sees it.
+ *
+ * The same three fields an `Estimate` carries, answered about numbers nobody has committed
+ * to yet — because the warning has to arrive while somebody is still answering, and an
+ * estimate is written once and never rewritten, so a form that saved first would make "that
+ * is not what I meant" cost a second row. Asked for rather than worked out here: two rules
+ * about one estimate would eventually disagree, and the one on this side is the one nobody
+ * would notice had drifted.
+ */
+export type EstimateQuality = {
+  consistency: number;
+  inconsistent: boolean;
+  overconfident: boolean;
+};
+
+/**
  * What a forecast did not do.
  *
  * **These are not a footnote.** A number shown without them is the thing this product

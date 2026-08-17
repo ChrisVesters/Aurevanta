@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.security.AuthenticatedUser;
 
 /**
@@ -46,6 +47,25 @@ class EstimateController {
 			@Valid @RequestBody RecordEstimateRequest request) {
 		return EstimateResponse.of(this.estimates.record(caller.userId(), caller.tenantId(), itemId, request.p10Hours(),
 				request.p50Hours(), request.p90Hours(), request.method()));
+	}
+
+	/**
+	 * What is worth questioning about a range, before anybody commits to it.
+	 *
+	 * <p>
+	 * <strong>The one POST in this API that writes nothing</strong>, and it is a POST
+	 * because it carries a body rather than because it changes anything. It names no plan
+	 * and no item: it is a question about three numbers the caller already holds, and the
+	 * answer discloses nothing they did not send.
+	 *
+	 * <p>
+	 * It exists so the browser never has to decide for itself whether a range is worth
+	 * questioning. Two rules about one estimate would eventually disagree, and the one on
+	 * the plan screen would be the one nobody noticed had drifted.
+	 */
+	@PostMapping("/api/estimates/quality")
+	EstimateQuality quality(@Valid @RequestBody EstimateQualityRequest request) {
+		return this.estimates.quality(request.p10Hours(), request.p50Hours(), request.p90Hours());
 	}
 
 	/**

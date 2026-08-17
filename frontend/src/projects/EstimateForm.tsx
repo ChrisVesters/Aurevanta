@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
+import { useAuth } from '../auth/AuthContext';
 import { numberFrom } from './fields';
-import type { Estimate } from './types';
+import type { Estimate, EstimateQuality } from './types';
 
 export type EstimateValues = {
   p10Hours: number | null;
@@ -46,6 +47,17 @@ const STEPS = [
 ] as const;
 
 type Field = (typeof STEPS)[number]['field'];
+
+/**
+ * The screen after the last question, and the first moment the three are seen together.
+ *
+ * That is deliberate rather than incidental. Seeing them together while any of them is
+ * still being answered is the anchoring the order exists to prevent; seeing them together
+ * once all three exist is the only way to notice that the bad week is barely worse than the
+ * ordinary one. It is also where the bet is asked and where the warnings arrive, both of
+ * which need a number that has been given.
+ */
+const REVIEW = STEPS.length;
 
 /**
  * The one refusal this form has an *action* for rather than only a message.
@@ -107,7 +119,9 @@ export function EstimateForm({
   onCancel
 }: EstimateFormProps) {
   const { t } = useTranslation();
+  const { request } = useAuth();
   const [at, setAt] = useState(0);
+  const [quality, setQuality] = useState<EstimateQuality | null>(null);
   const [answers, setAnswers] = useState<Record<Field, string>>(() => ({
     p10Hours: typed(estimate?.p10Hours),
     p50Hours: typed(estimate?.p50Hours),
@@ -129,14 +143,48 @@ export function EstimateForm({
     }
   }, [code, fieldErrors]);
 
+  // Asked of the server rather than worked out here, and asked afresh whenever the answers
+  // change, so that stepping back to widen a band and returning shows what that band now
+  // says rather than what the old one did. A refusal — a range the wrong way round, a
+  // question left blank — leaves the review with no warnings on it and the server to say so
+  // on submit, which is better than a browser inventing a second opinion.
+  useEffect(() => {
+    if (at !== REVIEW) {
+      setQuality(null);
+      return undefined;
+    }
+    let cancelled = false;
+    request<EstimateQuality>('/estimates/quality', {
+      method: 'POST',
+      body: {
+        p10Hours: numberFrom(answers.p10Hours),
+        p50Hours: numberFrom(answers.p50Hours),
+        p90Hours: numberFrom(answers.p90Hours)
+      }
+    })
+      .then((graded) => {
+        if (!cancelled) {
+          setQuality(graded);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setQuality(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [at, answers, request]);
+
   const step = STEPS[at];
-  const last = at === STEPS.length - 1;
+  const reviewing = at === REVIEW;
 
   function handle(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     // Every step submits, so Enter moves the visitor on rather than sending three
     // questions' worth of half an answer.
-    if (!last) {
+    if (!reviewing) {
       setAt(at + 1);
       return;
     }
@@ -158,37 +206,90 @@ export function EstimateForm({
         </p>
       )}
 
-      <span className="field">
-        <label htmlFor={`${id}-${step.field}`}>
-          {t(`projects.items.estimate.steps.${step.wording}.question`)}
-        </label>
-        <input
-          id={`${id}-${step.field}`}
-          name={step.field}
-          type="number"
-          inputMode="decimal"
-          min="0"
-          step="0.25"
-          value={answers[step.field]}
-          onChange={(event) =>
-            setAnswers({ ...answers, [step.field]: event.target.value })
-          }
-          aria-invalid={fieldErrors[step.field] ? true : undefined}
-        />
-        <span className="hint">
-          {t(`projects.items.estimate.steps.${step.wording}.hint`)}
+      {reviewing ? (
+        <div className="review">
+          <h4>{t('projects.items.estimate.review.title')}</h4>
+          <ul>
+            {STEPS.map((answered) => (
+              <li key={answered.field}>
+                {t(`projects.items.estimate.review.${answered.wording}`, {
+                  hours:
+                    answers[answered.field] === ''
+                      ? t('projects.items.estimate.review.unanswered')
+                      : answers[answered.field]
+                })}
+              </li>
+            ))}
+          </ul>
+
+          {/*
+            The betting frame, which makes a number typed cheaply feel expensive. It gates
+            nothing: saying yes is pressing save, and the only control is the way out —
+            because a bet somebody would not take is a P90 they have not really given.
+          */}
+          {answers.p90Hours !== '' && (
+            <p className="bet">
+              {t('projects.items.estimate.bet.question', {
+                hours: answers.p90Hours
+              })}{' '}
+              <button type="button" className="link" onClick={() => setAt(0)}>
+                {t('projects.items.estimate.bet.decline')}
+              </button>
+            </p>
+          )}
+
+          {/*
+            Advice, never a refusal — decision 5. A tight band is sometimes exactly right,
+            and a rule that blocked one would become a specification people learn to type,
+            which is 3/5/8 with an extra step. Rendered from what the server said, so
+            moving a threshold there needs no change here.
+          */}
+          {quality?.overconfident && (
+            <p className="warning">
+              {t('projects.items.estimate.warnings.overconfident')}
+            </p>
+          )}
+          {quality?.inconsistent && (
+            <p className="warning">
+              {t('projects.items.estimate.warnings.inconsistent')}
+            </p>
+          )}
+        </div>
+      ) : (
+        <span className="field">
+          <label htmlFor={`${id}-${step.field}`}>
+            {t(`projects.items.estimate.steps.${step.wording}.question`)}
+          </label>
+          <input
+            id={`${id}-${step.field}`}
+            name={step.field}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.25"
+            value={answers[step.field]}
+            onChange={(event) =>
+              setAnswers({ ...answers, [step.field]: event.target.value })
+            }
+            aria-invalid={fieldErrors[step.field] ? true : undefined}
+          />
+          <span className="hint">
+            {t(`projects.items.estimate.steps.${step.wording}.hint`)}
+          </span>
+          {fieldErrors[step.field] && (
+            <span className="field-error">{fieldErrors[step.field]}</span>
+          )}
         </span>
-        {fieldErrors[step.field] && (
-          <span className="field-error">{fieldErrors[step.field]}</span>
-        )}
-      </span>
+      )}
 
       <p className="actions">
         <span className="progress">
-          {t('projects.items.estimate.progress', {
-            step: at + 1,
-            total: STEPS.length
-          })}
+          {reviewing
+            ? t('projects.items.estimate.review.progress')
+            : t('projects.items.estimate.progress', {
+                step: at + 1,
+                total: STEPS.length
+              })}
         </span>
         {at > 0 && (
           <button type="button" className="link" onClick={() => setAt(at - 1)}>
@@ -196,7 +297,7 @@ export function EstimateForm({
           </button>
         )}
         <button type="submit" className="primary" disabled={busy}>
-          {last
+          {reviewing
             ? busy
               ? t('projects.items.estimate.submitting')
               : t('projects.items.estimate.submit')

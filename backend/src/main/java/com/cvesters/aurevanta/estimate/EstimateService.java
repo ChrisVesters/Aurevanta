@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
 import com.cvesters.aurevanta.membership.MembershipService;
@@ -107,6 +108,31 @@ public class EstimateService {
 	public List<Estimate> currentInProject(UUID callerId, UUID tenantId, UUID projectId) {
 		this.projects.get(callerId, tenantId, projectId);
 		return this.estimates.findCurrentInProject(tenantId, projectId);
+	}
+
+	/**
+	 * What is worth questioning about a range nobody has committed to yet.
+	 *
+	 * <p>
+	 * <strong>Reads nothing and writes nothing</strong>, which is why it is the one
+	 * method here with no membership check: there is no row to reach and no plan to be a
+	 * member of. It is arithmetic over three numbers the caller supplied, answered back
+	 * to them.
+	 *
+	 * <p>
+	 * It exists because the warning has to arrive <em>before</em> the estimate does. An
+	 * estimate is written once and never rewritten, so a form that saved first and warned
+	 * afterwards would make "that was not what I meant" cost a second row — and the
+	 * moment elicitation is about is the moment somebody is still answering. The
+	 * alternative was for the browser to work the flags out itself, which would be two
+	 * rules about one estimate that can disagree.
+	 * @throws EstimateOutOfOrderException if the three points do not ascend. Shared with
+	 * {@link #record}, so the two endpoints refuse the same nonsense — and needed here
+	 * rather than optional, since a range that does not ascend has no fit at all.
+	 */
+	public EstimateQuality quality(BigDecimal p10Hours, BigDecimal p50Hours, BigDecimal p90Hours) {
+		requireAscending(p10Hours, p50Hours, p90Hours);
+		return EstimateQuality.of(p10Hours.doubleValue(), p50Hours.doubleValue(), p90Hours.doubleValue());
 	}
 
 	/**
