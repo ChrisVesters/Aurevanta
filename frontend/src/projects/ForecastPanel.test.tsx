@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { ForecastPanel } from './ForecastPanel';
 import {
   ACCOUNT,
+  CONTRIBUTIONS,
   FORECAST,
   PROJECTS,
   jsonResponse,
@@ -15,6 +16,7 @@ import type { Forecast } from './types';
 
 const PROJECT_ID = PROJECTS[0].id;
 const FORECASTS_URL = `/api/projects/${PROJECT_ID}/forecasts`;
+const CONTRIBUTIONS_URL = `/api/forecasts/${FORECAST.id}/contributions`;
 
 describe('ForecastPanel', () => {
   const fetchMock = mockFetch();
@@ -24,21 +26,23 @@ describe('ForecastPanel', () => {
    * alike would hand the panel an account where it expected a list, and every assertion
    * about what is on screen would be testing the wrong thing.
    */
-  function answer(runs: Forecast[]) {
+  function answer(runs: Forecast[], spread: unknown = CONTRIBUTIONS) {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
         url === '/api/auth/me'
           ? jsonResponse(200, ACCOUNT)
           : url === FORECASTS_URL
             ? jsonResponse(200, runs)
-            : jsonResponse(404)
+            : url === CONTRIBUTIONS_URL
+              ? jsonResponse(200, spread)
+              : jsonResponse(404)
       )
     );
   }
 
-  async function open(runs: Forecast[] = []) {
+  async function open(runs: Forecast[] = [], spread: unknown = CONTRIBUTIONS) {
     storeAccessToken();
-    answer(runs);
+    answer(runs, spread);
     renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
     await screen.findByRole('heading', { name: 'Forecast' });
   }
@@ -798,6 +802,143 @@ describe('ForecastPanel', () => {
         .parentElement as HTMLElement
     );
     expect(history.queryByText(/-hour days from/)).toBeNull();
+  });
+
+  // What the spread is made of ---------------------------------------------
+
+  /**
+   * <strong>Loaded when somebody asks, and not before.</strong> Working it out replays the
+   * whole run — about half a second at the five hundred items a plan may hold — which is
+   * cheap for a reader who wants it and rude to charge everybody who opened the page.
+   */
+  it('does not ask what the spread is made of until somebody does', async () => {
+    await open([FORECAST]);
+    await screen.findByText(/80% likely/);
+
+    expect(
+      fetchMock.mock.calls.filter(([url]) => url === CONTRIBUTIONS_URL)
+    ).toHaveLength(0);
+    expect(screen.queryByText('What the spread is made of')).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'What is widening this?' })
+    );
+
+    expect(
+      await screen.findByText('What the spread is made of')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>In contribution order, which is the feature.</strong> "What should I spike
+   * next" is a question about position, so the list is read top down — and the fixture is
+   * deliberately not in plan order, so a panel that rendered what it was given in the order
+   * the plan holds would pass nothing here.
+   */
+  it('ranks the sources by how much the finish moves with them', async () => {
+    await open([FORECAST]);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+
+    const ranking = within(
+      (
+        await screen.findByRole('heading', {
+          name: 'What the spread is made of'
+        })
+      ).parentElement as HTMLElement
+    );
+
+    expect(
+      ranking.getAllByRole('listitem').map((row) => row.textContent)
+    ).toEqual([
+      'A bad stretch, affecting everything at once',
+      'Migrate the auth service',
+      'Work nobody has listed yet',
+      'Write the runbook'
+    ]);
+  });
+
+  /**
+   * <strong>The two rows that are not tasks.</strong> When either tops the list — and in
+   * this fixture the shared factor does — the honest reading is that no estimate below it
+   * is the problem, which a ranking of tasks alone would have hidden.
+   */
+  it('names the two sources that are not work', async () => {
+    await open([FORECAST]);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+
+    expect(
+      await screen.findByText('A bad stretch, affecting everything at once')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Work nobody has listed yet')).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Never a percentage, and this is the assertion that says so.</strong> These
+   * shares overlap — a bad quarter is bad for everything at once — so they add to more than
+   * a whole. A screen that printed them as percentages would show a plan accounting for
+   * three hundred percent of its own uncertainty, which is precisely the precise-looking
+   * wrong number this product exists to replace.
+   */
+  it('states that the shares overlap, and shows no percentage at all', async () => {
+    await open([FORECAST]);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+
+    expect(
+      await screen.findByText(
+        'These overlap and do not add up to a whole: when a quarter goes badly it goes badly for everything at once, so more than one of these moves at the same time.'
+      )
+    ).toBeInTheDocument();
+    const ranking = document.querySelector('.ranking');
+    expect(ranking?.textContent).not.toMatch(/%/);
+  });
+
+  /** Named and marked rather than hidden, the way an arrow into archived work is. */
+  it('names work that has been put away since the run', async () => {
+    await open(
+      [FORECAST],
+      [
+        { ...CONTRIBUTIONS[1], archived: true },
+        { ...CONTRIBUTIONS[3], title: null }
+      ]
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+
+    expect(
+      await screen.findByText('Migrate the auth service (put away since)')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Work no longer in this plan')).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>A run the engine no longer reproduces is not explained at all.</strong> A
+   * ranking from a different model is not a rougher ranking of this plan, it is an exact
+   * ranking of a plan nobody forecast — and it would look entirely reasonable, which is
+   * why the server refuses and this renders the refusal instead of a list.
+   */
+  it('says why a run that cannot be replayed has no breakdown', async () => {
+    await open([FORECAST]);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, { code: 'forecast_replay_mismatch', detail: 'moved' })
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'What is widening this?' })
+    );
+
+    expect(
+      await screen.findByText(
+        'This forecast cannot be broken down: it was made by an earlier version of the model, which no longer reproduces it exactly.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('What the spread is made of')).toBeNull();
   });
 
   it('says nothing about earlier forecasts when this is the only one', async () => {

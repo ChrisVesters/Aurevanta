@@ -33,7 +33,7 @@
 | 1 | What a contribution is, as a pure function ✅ *done* | M3 |
 | 2 | The engine says what each run did ✅ *done* | 1 |
 | 3 | Replaying a run, and refusing to when it is not the same one ✅ *done* | 2 |
-| 4 | What to spike next, on screen | 3 |
+| 4 | What to spike next, on screen ✅ *done* | 3 |
 | 5 | Close out | 1–4 |
 
 **M6 adds no columns and no migration.** That is worth noticing before somebody adds one: the
@@ -471,7 +471,7 @@ recorded here rather than quietly skipped.
 
 ---
 
-## Step 4 — What to spike next, on screen
+## Step 4 — What to spike next, on screen ✅ *done*
 
 **Goal.** The question the milestone is named for, answered where the forecast already is.
 
@@ -491,6 +491,49 @@ The panel does not ask for contributions until somebody asks for them. Every str
 the catalogue.
 
 **Done when** somebody can read a plan's forecast and know which thing to go and reduce.
+
+### As built — where it differs from the above
+
+**The measurement step 3 left outstanding, taken before anything was built on it.** Five hundred
+items, ten thousand runs, a team factor and scope growth near the ceiling:
+
+| | Replay |
+|---|---|
+| Without an observer | 489 ms |
+| **With the accumulator** | **491 ms** |
+
+**The accumulator is free** — the scheduler dominates and the Welford update disappears into the
+noise — and half a second at the largest plan this product supports is comfortably inside the
+budget decision 8 worried about. So no reduced sample count was needed, and "on demand" is a
+choice about not charging every reader rather than a workaround for a cost.
+
+**Titles are resolved by the server, which step 3 predicted it would have to decide.** The
+snapshot holds no title, so `ForecastResponse` gains `title` and `archived`, filled from both the
+live and the archived listings of the plan. Doing it in the browser would have meant the forecast
+panel loading the plan's work items, which it has never needed; doing it here puts the join where
+the membership check already ran. **Decision 9's "its stored one, marked" is corrected to "its
+current one, marked"** — there is no stored one, and the current name is the useful one anyway,
+since a reader is being told what to go and do.
+
+**A third naming case exists and had to be handled.** Work the plan no longer holds at all is not
+an ordinary state — nothing here deletes an item — but the guard is cheap and the alternative is a
+ranking that fails outright on a row somebody removed by hand. It says *"Work no longer in this
+plan"* rather than rendering a blank, and the coverage gate is what surfaced it: the branch was
+unreachable through the API, so the test reaches it by deleting the row, which is the pattern
+`Schedule.topological`'s cycle refusal already follows.
+
+**The refusal wording lives in the problem catalogue, not the panel's.** It was written twice
+before being noticed — once as `contributions.unavailable` and once as
+`errors.codes.forecast_replay_mismatch` — and the second is the one the mechanism actually uses,
+since the panel renders whatever `describeFailure` returns. **`problems.test.ts` caught the other
+half**: it asserts the code list and the catalogue agree exactly, so adding a refusal to the
+server without wording is a failing test rather than a generic message in production.
+
+**No percentage appears anywhere, and a test asserts the absence.** A bar per source, and the
+ranking's own text is checked against `/%/` — because a share that reads as a percentage is one
+somebody will add up, and these sum to well over one. The fixture is deliberately not in plan
+order and its shares add to 1.2, so a panel that rendered what it was given in the order it
+arrived would fail, and one that showed a total would be visibly wrong.
 
 ---
 

@@ -254,9 +254,25 @@ public class ForecastService {
 				scopeGrowth, run.getSampleCount(), run.getSeed(), measured);
 		requireSameRun(run, replayed);
 
+		// Titles come off the plan as it stands, not off the run: the snapshot never held
+		// one, and somebody reading a ranking is being told what to go and do. Both
+		// listings, because work put away since is still work this run was about.
+		UUID projectId = run.getProject().getId();
+		Map<UUID, WorkItem> named = new HashMap<>();
+		for (WorkItem live : this.items.list(callerId, tenantId, projectId, false)) {
+			named.put(live.getId(), live);
+		}
+		Map<UUID, WorkItem> shelved = new HashMap<>();
+		for (WorkItem away : this.items.list(callerId, tenantId, projectId, true)) {
+			shelved.put(away.getId(), away);
+		}
+
 		List<ContributionResponse> ranked = new ArrayList<>(inputs.items().size() + 2);
 		for (int at = 0; at < inputs.items().size(); at++) {
-			ranked.add(ContributionResponse.of(inputs.items().get(at).id(), measured.ofItem(at)));
+			UUID itemId = inputs.items().get(at).id();
+			WorkItem still = named.getOrDefault(itemId, shelved.get(itemId));
+			ranked.add(ContributionResponse.of(itemId, (still != null) ? still.getTitle() : null,
+					shelved.containsKey(itemId), measured.ofItem(at)));
 		}
 		if (!ScopeGrowth.NONE.equals(scopeGrowth)) {
 			ranked.add(ContributionResponse.of(ContributionKind.DISCOVERED_WORK, measured.ofDiscoveredWork()));

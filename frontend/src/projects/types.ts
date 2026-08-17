@@ -133,6 +133,36 @@ export type EstimateQuality = {
 };
 
 /**
+ * One thing that could have moved a plan's finish, and how much it did.
+ *
+ * **`shareOfSpread` is not a share of anything, and nothing that renders it may add them
+ * up.** They sum to 1 only for a chain at capacity one with no common cause — the summing
+ * model this product deliberately stopped using. In a real forecast the shared team factor
+ * multiplies every item in a run by the same draw, so everything moves with everything and
+ * the shares overlap. A pie chart of these would show a plan whose parts account for three
+ * hundred percent of its own uncertainty.
+ *
+ * **Two of the three kinds are not items**, and they are why the ranking is honest: when the
+ * shared factor or the unlisted work tops the list, the true answer to "what should I spike"
+ * is that no estimate on it is the problem.
+ */
+export type Contribution = {
+  kind: 'item' | 'discovered_work' | 'team_factor';
+  /** Null for the two sources that are not pieces of work. */
+  itemId: string | null;
+  /**
+   * What that work is called *now*, from the plan rather than from the run — the snapshot a
+   * run stores never held a title, because M10 diffs those and a rename is not a thing that
+   * moved. Null for the two sources that are not work.
+   */
+  title: string | null;
+  /** Whether the work has been put away since the run, which is said rather than hidden. */
+  archived: boolean;
+  correlation: number;
+  shareOfSpread: number;
+};
+
+/**
  * What a forecast did not do.
  *
  * **These are not a footnote.** A number shown without them is the thing this product

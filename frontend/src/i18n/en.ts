@@ -348,6 +348,38 @@ export const en = {
         unknown:
           'This forecast reported something this version of the app cannot describe yet.'
       },
+      // What the band is made of, and the question it answers. Loaded only when somebody
+      // asks, because working it out means replaying the whole run — about half a second
+      // at the largest plan this product supports, which is not a cost to put on opening a
+      // page nobody may scroll.
+      contributions: {
+        open: 'What is widening this?',
+        loading: 'Working out what moves the finish…',
+        title: 'What the spread is made of',
+        // The sentence the ranking answers, said plainly rather than left to be inferred
+        // from an ordered list.
+        lede: 'Tighten the top of this list and the band narrows most.',
+        // Never a percentage, and this is why. The shares overlap because a bad quarter is
+        // bad for everything at once, so adding them up gives more than the whole — which
+        // is exactly the precise-looking wrong number this product exists to replace.
+        caveat:
+          'These overlap and do not add up to a whole: when a quarter goes badly it goes badly for everything at once, so more than one of these moves at the same time.',
+        // The two rows that are not tasks. When either tops the list, the honest reading is
+        // that no estimate below it is the problem.
+        discoveredWork: 'Work nobody has listed yet',
+        teamFactor: 'A bad stretch, affecting everything at once',
+        // Named rather than hidden: a top contributor missing from the plan is what a
+        // reader would otherwise go looking for.
+        archived: '{{title}} (put away since)',
+        // An item the plan no longer holds at all. Nothing deletes work, so this is the
+        // shape of a bug rather than an ordinary state — and it says so instead of
+        // rendering a blank row.
+        // A run made by an engine that no longer reproduces it says so through the
+        // ordinary problem catalogue, like every other refusal: the server sends a code
+        // and `describeFailure` finds the wording. A second copy here would be a second
+        // sentence to keep in step.
+        unknown: 'Work no longer in this plan'
+      },
       earlier: {
         title: 'Earlier forecasts',
         // Carries its assumptions, because two runs of one plan made under different ones
@@ -710,6 +742,11 @@ export const en = {
       nothing_to_forecast:
         'Nothing in this plan has been estimated yet, so there is nothing to forecast. Add a range to some of the work above.',
       forecast_not_found: 'That forecast is no longer in this project.',
+      // A run the engine no longer reproduces exactly. Breaking it down would mean ranking
+      // a plan under a model that never forecast it — which would look entirely reasonable,
+      // and is why the server refuses rather than approximates.
+      forecast_replay_mismatch:
+        'This forecast cannot be broken down: it was made by an earlier version of the model, which no longer reproduces it exactly.',
       already_a_member: 'That address already belongs to this organisation.',
       invitation_already_pending:
         'That address has already been invited. Send them a new link instead.',

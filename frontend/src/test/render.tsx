@@ -13,6 +13,7 @@ import type {
 } from '../auth/types';
 import type { Invitation, InvitationPreview, Member } from '../members/types';
 import type {
+  Contribution,
   Dependency,
   Estimate,
   Forecast,
@@ -278,6 +279,46 @@ export const FORECAST: Forecast = {
   limitations: ['inconsistent_estimates'],
   histogram: { fromHours: 8.1, toHours: 96.4, counts: [1, 2, 3] }
 };
+
+/**
+ * What the spread of `FORECAST` turned out to be made of, ranked and overlapping — the
+ * shares add to well over one on purpose, because a screen that treated them as a partition
+ * is the mistake this ranking exists to avoid.
+ */
+export const CONTRIBUTIONS: Contribution[] = [
+  {
+    kind: 'team_factor',
+    itemId: null,
+    title: null,
+    archived: false,
+    correlation: 0.82,
+    shareOfSpread: 0.672
+  },
+  {
+    kind: 'item',
+    itemId: WORK_ITEMS[0].id,
+    title: WORK_ITEMS[0].title,
+    archived: false,
+    correlation: 0.61,
+    shareOfSpread: 0.372
+  },
+  {
+    kind: 'discovered_work',
+    itemId: null,
+    title: null,
+    archived: false,
+    correlation: 0.4,
+    shareOfSpread: 0.16
+  },
+  {
+    kind: 'item',
+    itemId: WORK_ITEMS[1].id,
+    title: WORK_ITEMS[1].title,
+    archived: false,
+    correlation: 0.12,
+    shareOfSpread: 0.014
+  }
+];
 
 export const INVITATION: Invitation = {
   id: '88888888-8888-8888-8888-888888888888',

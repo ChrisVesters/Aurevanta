@@ -24,20 +24,29 @@ import com.cvesters.aurevanta.forecast.model.Contribution;
  * work in every run, and a multiplier is not a piece of work at all.
  *
  * @param itemId which piece of work this is, or null for the two sources that are not
- * pieces of work. Identifiers rather than titles: what a task is called now is the plan's
- * to say, and the snapshot a run stores never held one.
+ * pieces of work.
+ * @param title what that work is called <em>now</em>, read off the plan rather than out
+ * of the run. The snapshot never held a title — deliberately, since M10 diffs those
+ * snapshots and a rename is not a thing that moved — and somebody reading this is being
+ * told what to go and do, so the current name is the useful one. Null for the two sources
+ * that are not work.
+ * @param archived whether that work has been put away since the run. Named rather than
+ * hidden, the same choice an arrow pointing at archived work already makes: a top
+ * contributor missing from the live plan is exactly the thing a reader would otherwise
+ * spend a minute looking for.
  * @param correlation how the plan's finish moved with this, across every run of it.
  * @param shareOfSpread that squared, which is what the ranking is by.
  */
-public record ContributionResponse(ContributionKind kind, UUID itemId, double correlation, double shareOfSpread) {
+public record ContributionResponse(ContributionKind kind, UUID itemId, String title, boolean archived,
+		double correlation, double shareOfSpread) {
 
-	static ContributionResponse of(UUID itemId, Contribution measured) {
-		return new ContributionResponse(ContributionKind.ITEM, itemId, measured.correlation(),
+	static ContributionResponse of(UUID itemId, String title, boolean archived, Contribution measured) {
+		return new ContributionResponse(ContributionKind.ITEM, itemId, title, archived, measured.correlation(),
 				measured.shareOfSpread());
 	}
 
 	static ContributionResponse of(ContributionKind kind, Contribution measured) {
-		return new ContributionResponse(kind, null, measured.correlation(), measured.shareOfSpread());
+		return new ContributionResponse(kind, null, null, false, measured.correlation(), measured.shareOfSpread());
 	}
 
 }

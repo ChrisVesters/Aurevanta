@@ -32,6 +32,7 @@ const BACKEND_CODES = [
   'dependency_not_found',
   'nothing_to_forecast',
   'forecast_not_found',
+  'forecast_replay_mismatch',
   'already_a_member',
   'invitation_already_pending',
   'invitation_not_found',

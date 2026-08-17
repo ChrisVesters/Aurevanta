@@ -7,7 +7,7 @@ import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { numberField, optionalField } from './fields';
 import { formatDay, todayHere } from './dates';
-import type { Forecast, ForecastLimitation } from './types';
+import type { Contribution, Forecast, ForecastLimitation } from './types';
 
 /**
  * Every box on this form that the server wants as a number, which is all of them but one.
@@ -115,6 +115,12 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
+  // Null until somebody asks. Working this out replays the whole run — about half a second
+  // at five hundred items — which is not a cost to put on opening a page, and most readers
+  // never scroll this far.
+  const [spread, setSpread] = useState<Contribution[] | null>(null);
+  const [spreadFailure, setSpreadFailure] = useState<string | null>(null);
+  const [breakingDown, setBreakingDown] = useState(false);
   const [confidence, setConfidence] = useState<Confidence>(USUAL_CONFIDENCE);
   const asking = useFormFailure(ASKED_FOR);
 
@@ -152,12 +158,35 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           body: asked
         });
         setReloads((count) => count + 1);
+        // A new run is a different plan's spread, so whatever was on screen about the
+        // last one stops being true the moment this lands.
+        setSpread(null);
+        setSpreadFailure(null);
       } catch (error) {
         asking.report(error);
       }
       setBusy(false);
     },
     [request, projectId, asking]
+  );
+
+  const breakDown = useCallback(
+    async (runId: string) => {
+      setBreakingDown(true);
+      setSpreadFailure(null);
+      try {
+        setSpread(
+          await request<Contribution[]>(`/forecasts/${runId}/contributions`)
+        );
+      } catch (error) {
+        // Including the one refusal this endpoint has of its own: a run the engine no
+        // longer reproduces is not explained at all, because a ranking from a different
+        // model is an exact ranking of a plan nobody forecast.
+        setSpreadFailure(describeFailure(t, error));
+      }
+      setBreakingDown(false);
+    },
+    [request, t]
   );
 
   function ask(event: SubmitEvent<HTMLFormElement>) {
@@ -502,6 +531,65 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           )}
 
           {/*
+            What the band is made of, and the only thing on this panel that is not loaded
+            with it: working it out replays the whole run, about half a second at the five
+            hundred items a plan may hold. That is cheap for somebody who asked and rude to
+            charge everybody who opened the page.
+          */}
+          <div className="spread">
+            {spread === null && spreadFailure === null ? (
+              <p className="actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={breakingDown}
+                  onClick={() => void breakDown(latest.id)}
+                >
+                  {breakingDown
+                    ? t('projects.forecast.contributions.loading')
+                    : t('projects.forecast.contributions.open')}
+                </button>
+              </p>
+            ) : spreadFailure !== null ? (
+              <p className="empty">{spreadFailure}</p>
+            ) : (
+              <>
+                <h3>{t('projects.forecast.contributions.title')}</h3>
+                <p className="hint">
+                  {t('projects.forecast.contributions.lede')}
+                </p>
+                <ul className="ranking">
+                  {spread?.map((source) => (
+                    <li key={source.itemId ?? source.kind}>
+                      <span className="what">{describeSource(t, source)}</span>
+                      {/*
+                        A bar rather than a number, deliberately. These are shares of the
+                        spread and they overlap, so a percentage beside each would invite
+                        somebody to add them up and find their plan accounts for three
+                        hundred percent of its own uncertainty.
+                      */}
+                      <span
+                        className="bar"
+                        style={{
+                          width: `${Math.min(100, source.shareOfSpread * 100)}%`
+                        }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                {/*
+                  Beside the ranking and not behind a disclosure, for the reason the
+                  assumptions and the limitations are: a number seen without its caveat is
+                  already in somebody's slide.
+                */}
+                <p className="caveat">
+                  {t('projects.forecast.contributions.caveat')}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/*
             Beside the number, never behind a link. Every one of these is a property of the
             plan rather than of the engine — the two that described the engine were retired
             by M3b, which removed their cause rather than their wording — and a band
@@ -603,6 +691,33 @@ function calendarOf(
     // rounding it would show them something other than what they said.
     day: decimal(run.workingHoursPerDay, locale, 2)
   };
+}
+
+/**
+ * What one source of a plan's spread is called.
+ *
+ * **Two of the three are not work**, and naming them in words is what keeps the ranking
+ * honest: when the shared factor or the unlisted work tops the list, the answer to "what
+ * should I spike" is that no estimate below it is the problem.
+ *
+ * Work put away since the run is named and marked rather than hidden — the same choice an
+ * arrow pointing at archived work already makes — and work the plan no longer holds at all
+ * says so, which is the shape of a bug rather than an ordinary state, since nothing in this
+ * product deletes an item.
+ */
+function describeSource(t: TFunction, source: Contribution): string {
+  if (source.kind === 'discovered_work') {
+    return t('projects.forecast.contributions.discoveredWork');
+  }
+  if (source.kind === 'team_factor') {
+    return t('projects.forecast.contributions.teamFactor');
+  }
+  if (source.title === null) {
+    return t('projects.forecast.contributions.unknown');
+  }
+  return source.archived
+    ? t('projects.forecast.contributions.archived', { title: source.title })
+    : source.title;
 }
 
 /**

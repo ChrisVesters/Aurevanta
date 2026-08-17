@@ -470,6 +470,74 @@ class ForecastApiTests {
 	}
 
 	/**
+	 * <strong>Titles come off the plan as it stands, because the snapshot never held
+	 * one.</strong> That is deliberate — M10 diffs those snapshots and a rename is not a
+	 * thing that moved — and it is the right answer anyway: somebody reading a ranking is
+	 * being told what to go and do, so the name the work has now is the useful one.
+	 */
+	@Test
+	void aRankingNamesTheWorkAsThePlanNamesItNow() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		this.migration.describe("Migrate the auth service, at last", null);
+		this.items.save(this.migration);
+
+		JsonNode ranked = parsed(contributions(run).andReturn().getResponse().getContentAsString());
+
+		assertThat(titlesIn(ranked)).contains("Migrate the auth service, at last");
+	}
+
+	/**
+	 * And work put away since is named as such rather than shown as a blank — the same
+	 * choice an arrow pointing at archived work already makes. A top contributor missing
+	 * from the live plan is exactly what a reader would otherwise spend a minute hunting
+	 * for.
+	 */
+	@Test
+	void workPutAwaySinceTheRunIsStillNamedAndMarked() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		this.rollout.archive(CREATED_AT);
+		this.items.save(this.rollout);
+
+		JsonNode ranked = parsed(contributions(run).andReturn().getResponse().getContentAsString());
+
+		JsonNode shelved = null;
+		for (JsonNode source : ranked) {
+			if (this.rollout.getId().toString().equals(source.get("itemId").asString())) {
+				shelved = source;
+			}
+		}
+		assertThat(shelved).isNotNull();
+		assertThat(shelved.get("title").asString()).isEqualTo("Roll it out");
+		assertThat(shelved.get("archived").asBoolean()).isTrue();
+	}
+
+	/**
+	 * <strong>Work the plan no longer holds at all names itself as such.</strong> Nothing
+	 * in this product deletes an item — they archive — so this is the shape of a bug
+	 * rather than an ordinary state, and it is reachable here only by removing the row
+	 * directly. The guard is worth keeping anyway: the alternative is a ranking that
+	 * fails outright on a row somebody removed by hand, and a blank line is the one
+	 * answer that helps nobody.
+	 */
+	@Test
+	void workThePlanNoLongerHoldsIsRankedWithoutAName() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		this.database.update("delete from work_items where id = ?", this.rollout.getId());
+
+		JsonNode ranked = parsed(contributions(run).andReturn().getResponse().getContentAsString());
+
+		JsonNode gone = null;
+		for (JsonNode source : ranked) {
+			if (this.rollout.getId().toString().equals(source.get("itemId").asString())) {
+				gone = source;
+			}
+		}
+		assertThat(gone).isNotNull();
+		assertThat(gone.get("title").isNull()).isTrue();
+		assertThat(gone.get("archived").asBoolean()).isFalse();
+	}
+
+	/**
 	 * Largest first, because the order is the feature rather than a client's to choose.
 	 */
 	@Test
@@ -1058,6 +1126,14 @@ class ForecastApiTests {
 			ids.add(source.get("itemId").asString());
 		}
 		return ids;
+	}
+
+	private static List<String> titlesIn(JsonNode ranked) {
+		List<String> titles = new ArrayList<>();
+		for (JsonNode source : ranked) {
+			titles.add(source.get("title").asString());
+		}
+		return titles;
 	}
 
 	private static List<String> kindsIn(JsonNode ranked) {

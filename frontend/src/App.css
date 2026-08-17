@@ -1201,6 +1201,60 @@ button.danger {
   flex: 1 1 140px;
 }
 
+/*
+  What the band is made of. A bar per source and no number beside it, deliberately: these
+  are shares of one spread and they overlap — a bad quarter is bad for everything at once —
+  so a percentage would invite somebody to add them up and find their plan accounting for
+  three hundred percent of its own uncertainty.
+*/
+.forecast .spread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .ranking {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+  }
+
+  .ranking li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* Fixed, so the bars are read against each other rather than against the words. */
+  .what {
+    flex: 0 0 45%;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+  }
+
+  .bar {
+    height: 10px;
+    min-width: 2px;
+    border-radius: 2px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+  }
+
+  .caveat {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+}
+
 .forecast .advanced > summary {
   font-size: 14px;
   cursor: pointer;
