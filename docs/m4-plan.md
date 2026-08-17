@@ -31,7 +31,7 @@
 |---|---|---|
 | 1 | The calendar, as a pure function ✅ *done* | M3 |
 | 2 | Stating a calendar, and storing what was stated ✅ *done* | 1 |
-| 3 | A date on screen, and the trade behind it | 2 |
+| 3 | A date on screen, and the trade behind it ✅ *done* | 2 |
 | 4 | Close out | 1–3 |
 
 **M4 adds no sampling.** The engine already stores P10, P50, P80, P90 and P95 — P80 is there
@@ -371,7 +371,7 @@ stated here so it is not discovered as a surprise. `npm run test` is unaffected 
 
 ---
 
-## Step 3 — A date on screen, and the trade behind it
+## Step 3 — A date on screen, and the trade behind it ✅ *done*
 
 **Goal.** The number people asked for, with the thing it rests on beside it.
 
@@ -397,6 +397,64 @@ that day in a timezone west of UTC. Every string comes from the catalogue.
 
 **Done when** somebody can answer "can we go faster?" without leaving the screen or re-running
 anything.
+
+### As built — where it differs from the above
+
+**The whole suite now runs in `America/New_York`**, set in `vite.config.ts`, and this is the
+change with the longest reach. The bullet asks for one test proving a date near a month boundary
+formats correctly west of UTC — and there is no honest way to write that test without controlling
+the timezone, because in UTC the bug is invisible and every assertion passes either way. Setting
+it for the run makes *every* date assertion in the suite one made where `new Date(iso)` is a day
+early. Nothing had to change to make it green, which is the point: `formatDay` was already right,
+and now something would fail if it stopped being.
+
+**`todayHere()` joins `formatDay` in `dates.ts`, and it is the same bug written backwards.**
+`toISOString()` is UTC, so at ten at night in New York it reports tomorrow — a pre-filled start
+date a day out, offered by the one end that actually knows what day it is. The test sets the
+clock to `2026-09-01T02:00:00Z` and asserts the box reads `2026-08-31`: wrong month, wrong day,
+and only visible if the assertion is made somewhere west.
+
+**`ASKED_FOR` split into two lists**, which the old comment predicted almost word for word: it
+served as both the field names `useFormFailure` needs and the body to send, and that only held
+while every box was a number. `startsOn` is a date, so `NUMBERS` builds the body and `ASKED_FOR`
+is that plus the one field — the visitor-visible names stay complete, which is what keeps the
+banner quiet for a complaint shown against its own box.
+
+**The calendar is its own sentence rather than words inside the assumptions sentence.** The
+bullet says the working day "joins the assumptions sentence M3b already prints". Written that
+way, a run with no calendar needs the entire paragraph a second time with the calendar clause
+removed — two long strings that will eventually disagree. It is a second `<p className="assumptions">`
+instead, rendered only when there is one, sitting immediately beneath the first: same place on
+screen, same styling, not behind a disclosure, and one wording. The history line takes the same
+shape — `earlier.entry` unchanged, with `earlier.calendar` appended when the run has one.
+
+**Two ways to have no date, not one.** The bullet names the pre-M4 run. There is a second, and it
+is the direction this pair versions in: a run stored under a calendar rule the browser has never
+heard of. `describeDate` tells them apart on `workingHoursPerDay` — absent means nobody stated
+one, present means the rule is unreadable — and says which. It is the same move
+`describeLimitation` already makes for an unknown code, and the alternative is one sentence that
+is false in one of the two cases.
+
+**The control offers three confidences and the response carries five dates**, so `p10Date` and
+`p90Date` are on the wire and on no screen. That is the plan's own decision 8 and worth stating
+rather than discovering: 50/80/95 are the confidences somebody commits at, and the percentile
+*table* stays hours-only so that the date keeps being the one headline rather than a sixth column.
+
+**80% is the default reading**, which needed deciding and the bullets did not. It is not a
+pre-filled assumption — decision 8 is explicit that there is no such thing as the confidence a
+run was *made* at — but a view has to start somewhere, and 80 is the same eight tenths the band
+sentence beneath already states. Starting at 95 would make the product's first impression its
+most pessimistic, and starting at 50 its most flattering.
+
+**The fixture gives all five dates different values**, which is the small thing that makes the
+control's test real: a panel that ignored the selection and always showed `p80Date` passes
+against any fixture where the dates agree.
+
+**Some styling, contrary to the panel's own standing note.** `App.css` says the forecast is
+deliberately plain until M5 fixes what the estimate form asks. The date gets a size above the
+band anyway, because the ranking of those two lines *is* the milestone's argument — the date is
+what somebody asked for and the band is what the model produced — and leaving them identical
+would make the hours read as the headline and the date as a footnote. Nothing else was touched.
 
 ---
 

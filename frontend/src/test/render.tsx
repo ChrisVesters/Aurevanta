@@ -231,6 +231,11 @@ export const FORECAST: Forecast = {
   teamFactorWorseByPercent: 30,
   scopeGrowthP10Percent: 20,
   scopeGrowthP90Percent: 60,
+  // A Monday, a six-hour day and the one rule there is. All three are null together on a
+  // run made before M4, and a case about that says so rather than inheriting these.
+  startsOn: '2026-08-17',
+  workingHoursPerDay: 6,
+  calendarRule: 'five_day_week',
   // A string, because a seed is sixty-four bits and a JSON number here is a double.
   seed: '-7203484712345678901',
   // Version 2 models the shared team factor and scope growth; a run made without either
@@ -245,6 +250,14 @@ export const FORECAST: Forecast = {
   p80Hours: 41.8,
   p90Hours: 52.6,
   p95Hours: 61.9,
+  // The same five percentiles as days, and deliberately three different ones across the
+  // 50/80/95 the control offers: a screen that showed one date whatever was chosen would
+  // pass against a fixture where they agreed.
+  p10Date: '2026-08-19',
+  p50Date: '2026-08-21',
+  p80Date: '2026-08-25',
+  p90Date: '2026-08-27',
+  p95Date: '2026-08-31',
   limitations: ['inconsistent_estimates'],
   histogram: { fromHours: 8.1, toHours: 96.4, counts: [1, 2, 3] }
 };

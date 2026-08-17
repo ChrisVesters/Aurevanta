@@ -5,23 +5,65 @@ import type { TFunction } from 'i18next';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
-import { numberField } from './fields';
+import { numberField, optionalField } from './fields';
+import { formatDay, todayHere } from './dates';
 import type { Forecast, ForecastLimitation } from './types';
 
 /**
- * Every box on this form, which is two duties in one list and they are the same list on
- * purpose: `useFormFailure` needs the names the visitor can actually see, and the request
- * body is exactly what was asked for. Every one of them is a number the server wants under
- * that name, so a field added here is sent — and anything that is *not* a number would have
- * to be built into the body some other way rather than added to this.
+ * Every box on this form that the server wants as a number, which is all of them but one.
+ * A field added here is a field sent.
  */
-const ASKED_FOR = [
+const NUMBERS = [
   'capacity',
   'teamFactorWorseByPercent',
   'scopeGrowthP10Percent',
   'scopeGrowthP90Percent',
+  'workingHoursPerDay',
   'sampleCount'
 ];
+
+/**
+ * Every box on this form, which is what `useFormFailure` needs: suppressing the banner is
+ * only safe for complaints about fields the visitor can actually see.
+ *
+ * **`startsOn` is the one that is not a number**, which is exactly the case the previous
+ * version of this list anticipated — the two duties were one list only while everything on
+ * the form was a number, and a date is not. So the body is built from {@link NUMBERS} plus
+ * that one field rather than from this, and the names the visitor can see stay complete.
+ */
+const ASKED_FOR = [...NUMBERS, 'startsOn'];
+
+/**
+ * The three confidences worth committing at, and the percentile each reads.
+ *
+ * **A view over one run and never a re-run.** All five percentiles are already in the
+ * response, so moving between these changes a date on screen without a request going out —
+ * which is not an optimisation but the feature. The trade this milestone exists to make
+ * visible only works if it is immediate: somebody asks whether the plan can go faster, and
+ * the answer is a control moving from 95 to 80 and a date moving with it, on one screen,
+ * from one forecast. A round trip would make two readings of one run look like two
+ * different forecasts.
+ *
+ * It also means the confidence is not stored on the run: there is no such thing as the
+ * confidence a forecast was *made* at, only the one somebody is reading it at.
+ */
+const CONFIDENCES = [50, 80, 95] as const;
+
+type Confidence = (typeof CONFIDENCES)[number];
+
+/** Which percentile each of them reads. The other two dates have no control and no need. */
+const DATE_AT: Record<Confidence, 'p50Date' | 'p80Date' | 'p95Date'> = {
+  50: 'p50Date',
+  80: 'p80Date',
+  95: 'p95Date'
+};
+
+/**
+ * Eight tenths of the probability, which is what the band sentence beneath already states.
+ * A view has to start somewhere and this is the reading the rest of the screen agrees with
+ * — unlike the assumptions above, which have no right answer and so are left empty.
+ */
+const USUAL_CONFIDENCE: Confidence = 80;
 
 const LIMITATIONS: ForecastLimitation[] = [
   'no_team_factor',
@@ -39,13 +81,19 @@ const LIMITATIONS: ForecastLimitation[] = [
  * being wrong: a forecast is plausible whether or not it is right, so what is on screen
  * beside the band matters as much as the band.
  *
- * **Three things are therefore never optional here.** The assumptions are asked for and
- * none of them pre-filled, because they move the answer more than anything else on this
+ * **Three things are therefore never optional here.** The assumptions are asked for and no
+ * *claim* is pre-filled, because they move the answer more than anything else on this
  * screen and a box already filled in is a box nobody reads. The coverage is stated in
  * words, because a forecast that quietly covers less than the plan is the failure this
  * product exists to prevent. And the assumptions and limitations alike are printed next to
  * the number rather than behind a disclosure, because a number seen without its caveats is
  * already in somebody's slide.
+ *
+ * **The start date is the one exception and it proves the rule rather than bending it.**
+ * Today's date is not a claim about this team — it is a fact this browser holds and the
+ * server cannot reach, since an instant is not a date without a timezone. Pre-filling it
+ * tells somebody what day it is, not what their week is worth, and it stays editable
+ * because a plan that starts in January is one edit away.
  *
  * **Only the sample count sits behind the disclosure, and that is the test of where the
  * line is.** It is a statement about sampling error rather than about this team, and it
@@ -53,8 +101,12 @@ const LIMITATIONS: ForecastLimitation[] = [
  * required may go in there: a required box inside a collapsed section is a refusal about a
  * field the visitor cannot see.
  *
- * **No dates anywhere.** Hours of effort, until M4 makes a working day an assumption
- * somebody states rather than one this screen invents.
+ * **The date is the headline and the hours stay.** The band is what the model produced; the
+ * date is that number with a working day on top, and that is exactly the kind of assumption
+ * that gets forgotten. Removing the hours would leave nothing on this screen that came out
+ * of the engine, and would make the working day invisible in the way this panel's whole
+ * design exists to prevent: **a date is the first thing this product emits that looks like
+ * a fact.** An hours band advertises that it came out of a model; "14 November" does not.
  */
 export function ForecastPanel({ projectId }: { projectId: string }) {
   const { t, i18n } = useTranslation();
@@ -63,6 +115,7 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
+  const [confidence, setConfidence] = useState<Confidence>(USUAL_CONFIDENCE);
   const asking = useFormFailure(ASKED_FOR);
 
   useEffect(() => {
@@ -86,7 +139,7 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   }, [request, projectId, reloads, t]);
 
   const run = useCallback(
-    async (asked: Record<string, number | null>) => {
+    async (asked: Record<string, number | string | null>) => {
       setBusy(true);
       asking.clear();
       try {
@@ -94,7 +147,7 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           method: 'POST',
           // Every box goes as null when it is empty rather than being left out. The
           // server reads an absent sample count as "the ordinary ten thousand", and the
-          // other four have no reading at all — which is the whole point of them being
+          // other six have no reading at all — which is the whole point of them being
           // required, and would be quietly undone by a screen that filled one in.
           body: asked
         });
@@ -110,15 +163,20 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   function ask(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
-    void run(
-      Object.fromEntries(
-        ASKED_FOR.map((field) => [field, numberField(values, field)])
-      )
-    );
+    void run({
+      ...Object.fromEntries(
+        NUMBERS.map((field) => [field, numberField(values, field)])
+      ),
+      // A day rather than a number, and it goes as null when empty like every other box:
+      // the server has no reading for a missing start date, which is the whole point of
+      // its being required, and a screen that quietly sent today would undo that.
+      startsOn: optionalField(values, 'startsOn')
+    });
   }
 
   const latest = runs?.[0];
   const earlier = runs?.slice(1) ?? [];
+  const calendar = latest ? calendarOf(latest, i18n.language) : null;
 
   return (
     <section className="forecast">
@@ -252,6 +310,58 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
         </fieldset>
 
         {/*
+          The two the calendar needs, and the only place on this form where a box arrives
+          already answered. Today's date is a fact this browser holds and the server cannot
+          reach; the working day is a claim about a team, and so is left empty for the
+          reason capacity and the two percentages are. Both are in the open, because a
+          required box behind a disclosure is a refusal about a field nobody can see.
+        */}
+        <span className="field">
+          <label htmlFor="forecast-starts-on">
+            {t('projects.forecast.fields.startsOn.label')}
+          </label>
+          <input
+            id="forecast-starts-on"
+            name="startsOn"
+            type="date"
+            defaultValue={todayHere()}
+            aria-invalid={asking.fieldErrors.startsOn ? true : undefined}
+          />
+          <span className="hint">
+            {t('projects.forecast.fields.startsOn.hint')}
+          </span>
+          {asking.fieldErrors.startsOn && (
+            <span className="field-error">{asking.fieldErrors.startsOn}</span>
+          )}
+        </span>
+
+        <span className="field">
+          <label htmlFor="forecast-working-day">
+            {t('projects.forecast.fields.workingDay.label')}
+          </label>
+          <input
+            id="forecast-working-day"
+            name="workingHoursPerDay"
+            type="number"
+            inputMode="decimal"
+            min="0.5"
+            max="24"
+            step="0.5"
+            aria-invalid={
+              asking.fieldErrors.workingHoursPerDay ? true : undefined
+            }
+          />
+          <span className="hint">
+            {t('projects.forecast.fields.workingDay.hint')}
+          </span>
+          {asking.fieldErrors.workingHoursPerDay && (
+            <span className="field-error">
+              {asking.fieldErrors.workingHoursPerDay}
+            </span>
+          )}
+        </span>
+
+        {/*
           Behind a disclosure because it is a statement about sampling error rather than
           about this plan, and the ordinary answer is right for everybody who has not
           already decided otherwise.
@@ -301,6 +411,34 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
         <p className="empty">{t('projects.forecast.none')}</p>
       ) : (
         <>
+          {/*
+            The number people actually asked for, and the control that makes the trade
+            visible: lower confidence, earlier date, same plan, no request. Two dates that
+            come out the same are short plans rounding to one day rather than a control
+            that has stopped working — the band is in hours and the calendar is in days.
+          */}
+          <fieldset className="confidence">
+            <legend>{t('projects.forecast.confidence.legend')}</legend>
+            <span className="choices">
+              {CONFIDENCES.map((level) => (
+                <label key={level} htmlFor={`forecast-confidence-${level}`}>
+                  <input
+                    id={`forecast-confidence-${level}`}
+                    type="radio"
+                    name="confidence"
+                    checked={level === confidence}
+                    onChange={() => setConfidence(level)}
+                  />
+                  {t('projects.forecast.confidence.option', { value: level })}
+                </label>
+              ))}
+            </span>
+          </fieldset>
+
+          <p className="date">
+            {describeDate(t, latest, confidence, i18n.language)}
+          </p>
+
           <p className="band">
             {t('projects.forecast.band', {
               low: hours(latest.p10Hours, i18n.language),
@@ -341,6 +479,19 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           </p>
 
           {/*
+            The sixth assumption, in its own sentence rather than woven into the five above
+            — because a run that has none would otherwise need the whole paragraph written
+            twice, and a duplicated sentence is two wordings waiting to disagree. It sits
+            beside the date it produced and never behind a disclosure, which is the rule
+            the other five already follow.
+          */}
+          {calendar && (
+            <p className="assumptions">
+              {t('projects.forecast.calendar', calendar)}
+            </p>
+          )}
+
+          {/*
             Beside the number, never behind a link. Two of these are always here because
             they describe the engine rather than the plan, and a band reported without them
             is narrower than the truth by an amount nobody on this screen could guess.
@@ -358,17 +509,31 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             <div className="earlier">
               <h3>{t('projects.forecast.earlier.title')}</h3>
               <ul>
-                {earlier.map((run) => (
-                  <li key={run.id}>
-                    {t('projects.forecast.earlier.entry', {
-                      middle: hours(run.p50Hours, i18n.language),
-                      high: hours(run.p90Hours, i18n.language),
-                      capacity: run.capacity,
-                      who: run.requestedByName,
-                      ...stretchAndGrowth(run, i18n.language)
-                    })}
-                  </li>
-                ))}
+                {earlier.map((run) => {
+                  const readUnder = calendarOf(run, i18n.language);
+                  return (
+                    <li key={run.id}>
+                      {t('projects.forecast.earlier.entry', {
+                        middle: hours(run.p50Hours, i18n.language),
+                        high: hours(run.p90Hours, i18n.language),
+                        capacity: run.capacity,
+                        who: run.requestedByName,
+                        ...stretchAndGrowth(run, i18n.language)
+                      })}
+                      {/*
+                        Its own calendar, for the reason it carries its own assumptions:
+                        two runs read under different working days are two readings rather
+                        than a date moving, which is the mistake M10 exists to avoid.
+                      */}
+                      {readUnder && (
+                        <>
+                          {' '}
+                          {t('projects.forecast.earlier.calendar', readUnder)}
+                        </>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -376,6 +541,56 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
       )}
     </section>
   );
+}
+
+/**
+ * The date somebody would commit to at one confidence, or why there is not one.
+ *
+ * **Which of the two absences it is matters, and the server is what versions ahead.** A run
+ * with no working day was made before a calendar was something anybody stated, and saying
+ * so is the point of not having backfilled one. A run that *has* a working day and still no
+ * date was read under a calendar this browser has never heard of — the same direction
+ * {@link describeLimitation} handles, and the same answer: say what is true rather than
+ * show a blank or, far worse, a date worked out under the wrong rule.
+ */
+function describeDate(
+  t: TFunction,
+  run: Forecast,
+  confidence: Confidence,
+  locale: string
+): string {
+  const day = run[DATE_AT[confidence]];
+  if (day !== null) {
+    return t('projects.forecast.confidence.date', {
+      confidence,
+      date: formatDay(day, locale)
+    });
+  }
+  return run.workingHoursPerDay === null
+    ? t('projects.forecast.confidence.noCalendar')
+    : t('projects.forecast.confidence.unreadableCalendar');
+}
+
+/**
+ * What a run's dates were read through, or nothing where it has none.
+ *
+ * Both halves or neither: they are stored together and cleared together, and a sentence
+ * naming one of them would be a sentence with a hole in it.
+ */
+function calendarOf(
+  run: Forecast,
+  locale: string
+): { start: string; day: string } | null {
+  if (run.startsOn === null || run.workingHoursPerDay === null) {
+    return null;
+  }
+  return {
+    start: formatDay(run.startsOn, locale),
+    // To the hundredth the column keeps, like the percentages and for the same reason:
+    // this is a number somebody typed rather than one this application worked out, so
+    // rounding it would show them something other than what they said.
+    day: decimal(run.workingHoursPerDay, locale, 2)
+  };
 }
 
 /**

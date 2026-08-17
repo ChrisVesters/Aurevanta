@@ -123,9 +123,11 @@ export type Histogram = {
 /**
  * One answer the engine gave, on one day, from one set of assumptions.
  *
- * **Hours of effort, never dates.** Turning one into the other needs an assumption about
- * what a working day is worth, and M4 is where that gets made somewhere a person can see
- * it. Anything here that reads like a date is the moment somebody pressed the button.
+ * **Hours of effort, and dates derived from them.** The band is what the engine produced;
+ * the five dates are five percentiles of it with a working day laid on top, and the three
+ * calendar fields are that assumption travelling with them. Every one of the eight is null
+ * together for a run made before there was a calendar to state, which is a true record
+ * rather than a gap: that run assumed no working day, so it produced no date.
  *
  * Nothing changes a run and nothing deletes one, so this list only ever grows: the
  * question worth asking of a forecast is usually how it compares with the last one.
@@ -151,6 +153,23 @@ export type Forecast = {
   scopeGrowthP10Percent: number;
   scopeGrowthP90Percent: number;
   /**
+   * The day work was said to begin, as a day and not a moment. Null for a run made before
+   * a calendar was something anybody stated.
+   */
+  startsOn: string | null;
+  /**
+   * What **one** person's working day was said to hold — never the team's total. How many
+   * people there are is already inside the hours, so dividing by a team's daily total
+   * counts capacity twice and produces a date wrong by exactly that factor.
+   */
+  workingHoursPerDay: number | null;
+  /**
+   * Which calendar the two above were read through. A name rather than a flag, because two
+   * defensible calendars give two different dates from identical data — so a rule changing
+   * must never be readable as a plan that moved.
+   */
+  calendarRule: string | null;
+  /**
    * A string rather than a number, and deliberately: it is sixty-four bits, and a JSON
    * number is a double here, so as a number it would arrive rounded to something that
    * reproduces nothing.
@@ -167,6 +186,16 @@ export type Forecast = {
   p80Hours: number;
   p90Hours: number;
   p95Hours: number;
+  /**
+   * The same five percentiles as days, derived by the server so that no date this product
+   * publishes is separable from the calendar that produced it. Null whenever the calendar
+   * above is, and null as well for a rule the server could not resolve.
+   */
+  p10Date: string | null;
+  p50Date: string | null;
+  p80Date: string | null;
+  p90Date: string | null;
+  p95Date: string | null;
   limitations: ForecastLimitation[];
   histogram: Histogram;
 };

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ForecastPanel } from './ForecastPanel';
@@ -65,7 +65,8 @@ describe('ForecastPanel', () => {
     capacity: string,
     worseBy: string,
     growthLow: string,
-    growthHigh: string
+    growthHigh: string,
+    workingDay = '6'
   ) {
     await userEvent.type(
       screen.getByLabelText('Things that can be under way at once'),
@@ -79,6 +80,17 @@ describe('ForecastPanel', () => {
     );
     await userEvent.type(screen.getByLabelText('Usually at least'), growthLow);
     await userEvent.type(screen.getByLabelText('And as much as'), growthHigh);
+    await userEvent.type(
+      screen.getByLabelText('Hours in a working day'),
+      workingDay
+    );
+  }
+
+  /** Replacing the date the browser filled in, so a body assertion can be exact. */
+  async function startWorkOn(day: string) {
+    const box = screen.getByLabelText('Work starts on');
+    await userEvent.clear(box);
+    await userEvent.type(box, day);
   }
 
   it('says there is nothing yet before anybody has asked', async () => {
@@ -87,6 +99,134 @@ describe('ForecastPanel', () => {
     expect(
       await screen.findByText(
         'No forecast yet. Answer the questions below and ask for one — not one of them has an answer this application can give for you.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>The whole milestone, in one test.</strong> Three confidences, three dates, one
+   * forecast and **no second request** — which is not an optimisation but the feature: "can
+   * we go faster?" is answered by a control moving from 95 to 80 and a date moving with it
+   * while everybody watches, rather than by a capitulation.
+   *
+   * It is also the timezone regression. `p95Date` is `2026-08-31`, and the suite runs in
+   * New York: `new Date('2026-08-31')` is UTC midnight there, which is the 30th. A date
+   * built through `formatDay` says the 31st, and one built the obvious way says August 30
+   * for most of the planet with nothing else on screen looking wrong.
+   */
+  it('leads with a date and moves it between confidences without asking again', async () => {
+    await open([FORECAST]);
+    await screen.findByText(/80% likely/);
+    const asked = fetchMock.mock.calls.length;
+
+    expect(
+      screen.getByText('80% likely to be finished by Aug 25, 2026.')
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
+    expect(
+      screen.getByText('50% likely to be finished by Aug 21, 2026.')
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: '95%' }));
+    expect(
+      screen.getByText('95% likely to be finished by Aug 31, 2026.')
+    ).toBeInTheDocument();
+
+    expect(fetchMock.mock.calls).toHaveLength(asked);
+  });
+
+  /**
+   * The band is what the engine produced; the date is that with a working day on top. Take
+   * the hours away and nothing on this screen came out of the model, which is how an
+   * assumption stops being visible and starts being mistaken for a result.
+   */
+  it('keeps the hours on screen at every confidence', async () => {
+    await open([FORECAST]);
+    await screen.findByText(/80% likely/);
+
+    for (const level of ['50%', '95%']) {
+      await userEvent.click(screen.getByRole('radio', { name: level }));
+      expect(
+        screen.getByText(
+          'An 80% chance of taking between 14.2 and 52.6 hours of effort.'
+        )
+      ).toBeInTheDocument();
+      expect(screen.getByText('61.9 hours')).toBeInTheDocument();
+    }
+  });
+
+  /**
+   * <strong>Beside the date and never behind a disclosure.</strong> A date is the first
+   * thing this product emits that looks like a fact — an hours band advertises that it came
+   * out of a model and "Aug 25" does not — so the working day it rests on is printed in the
+   * same breath as the five assumptions M3b already prints.
+   */
+  it('states the calendar the dates were read under', async () => {
+    await open([FORECAST]);
+
+    expect(
+      await screen.findByText(
+        "Dates assume work starts Aug 17, 2026, one person's working day holds 6 hours, and nobody works weekends."
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Decision 6, on screen.</strong> A run made before M4 assumed no calendar,
+   * because it produced no date — so nothing was backfilled onto it, and this says so in a
+   * line rather than showing a blank or a date nobody's assumptions produced.
+   */
+  it('shows a run made before there was a calendar as hours and a reason', async () => {
+    await open([
+      {
+        ...FORECAST,
+        startsOn: null,
+        workingHoursPerDay: null,
+        calendarRule: null,
+        p10Date: null,
+        p50Date: null,
+        p80Date: null,
+        p90Date: null,
+        p95Date: null
+      }
+    ]);
+
+    expect(
+      await screen.findByText(
+        'No date for this one: it was made before anybody stated a working day, so hours are all it can say.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'An 80% chance of taking between 14.2 and 52.6 hours of effort.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Dates assume/)).toBeNull();
+  });
+
+  /**
+   * The other absence, and the one that arrives later: the server versions ahead of the
+   * browser, so a run read under a calendar this app has never heard of reports its hours
+   * rather than a date worked out under the wrong rule. Same direction as an unrecognised
+   * limitation, same answer — say what is true instead of showing nothing.
+   */
+  it('says so rather than guessing when a calendar is one it cannot read', async () => {
+    await open([
+      {
+        ...FORECAST,
+        calendarRule: 'four_day_week',
+        p10Date: null,
+        p50Date: null,
+        p80Date: null,
+        p90Date: null,
+        p95Date: null
+      }
+    ]);
+
+    expect(
+      await screen.findByText(
+        'No date for this one: it was made under a calendar this version of the app cannot read.'
       )
     ).toBeInTheDocument();
   });
@@ -207,6 +347,7 @@ describe('ForecastPanel', () => {
     );
 
     await answerTheAssumptions('2', '30', '20', '60');
+    await startWorkOn('2026-08-17');
     await userEvent.click(
       screen.getByRole('button', { name: 'Forecast this plan' })
     );
@@ -224,7 +365,118 @@ describe('ForecastPanel', () => {
       teamFactorWorseByPercent: 30,
       scopeGrowthP10Percent: 20,
       scopeGrowthP90Percent: 60,
+      workingHoursPerDay: 6,
+      startsOn: '2026-08-17',
       sampleCount: null
+    });
+  });
+
+  /**
+   * <strong>The one box that arrives answered, and the one that must not.</strong> What day
+   * it is is a fact this browser holds and the server cannot reach; a working day is a claim
+   * about a team, and a box already answered is a box nobody reads.
+   *
+   * The instant is ten at night in New York on the last day of August, which is already
+   * September in UTC — so a pre-fill through `toISOString()` would offer the wrong month,
+   * silently, to everybody west of the meridian.
+   */
+  it('starts the working day empty and the start date on today, here', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-01T02:00:00Z'));
+    try {
+      await open([FORECAST]);
+
+      expect(screen.getByLabelText('Work starts on')).toHaveValue('2026-08-31');
+      expect(screen.getByLabelText('Hours in a working day')).toHaveValue(null);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /**
+   * Both in the open, like every other required question here: a required box inside the
+   * collapsed section is a refusal about a field the visitor cannot see. The sample count
+   * is asserted alongside to show the check has teeth.
+   */
+  it('asks for the calendar outside the disclosure', async () => {
+    await open([FORECAST]);
+
+    expect(screen.getByLabelText('Work starts on')).toBeVisible();
+    expect(screen.getByLabelText('Hours in a working day')).toBeVisible();
+    expect(screen.getByLabelText('Simulated runs')).not.toBeVisible();
+  });
+
+  /**
+   * Against its own box, and the hint above it is most of what stops the mistake this
+   * milestone is really about: answering with the team's daily total makes every date too
+   * early by exactly the number of people on the plan.
+   */
+  it('shows a refused working day against the working day box', async () => {
+    await open();
+    refuse({
+      code: 'validation_failed',
+      detail: 'invalid',
+      errors: { workingHoursPerDay: { code: 'max', value: 24 } }
+    });
+
+    await answerTheAssumptions('2', '30', '20', '60', '25');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Forecast this plan' })
+    );
+
+    expect(await screen.findByText('Use no more than 24.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Hours in a working day')).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    );
+    expect(screen.queryByText('Some fields need attention.')).toBeNull();
+  });
+
+  /** The start date is required too, and its complaint belongs to its own box. */
+  it('shows a refused start date against the start date box', async () => {
+    await open();
+    refuse({
+      code: 'validation_failed',
+      detail: 'invalid',
+      errors: { startsOn: { code: 'not_null' } }
+    });
+
+    await userEvent.clear(screen.getByLabelText('Work starts on'));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Forecast this plan' })
+    );
+
+    expect(await screen.findByText('This is required.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Work starts on')).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    );
+  });
+
+  /** An empty box is null, never today — the server has no reading for a missing one. */
+  it('sends no start date at all when the box has been emptied', async () => {
+    await open();
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        url === '/api/auth/me'
+          ? jsonResponse(200, ACCOUNT)
+          : init?.method === 'POST'
+            ? jsonResponse(201, FORECAST)
+            : jsonResponse(200, [FORECAST])
+      )
+    );
+
+    await answerTheAssumptions('1', '0', '0', '0');
+    await userEvent.clear(screen.getByLabelText('Work starts on'));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Forecast this plan' })
+    );
+
+    await waitFor(() => {
+      const posted = fetchMock.mock.calls.filter(
+        ([, init]) => init?.method === 'POST'
+      );
+      expect(JSON.parse(posted[0][1].body).startsOn).toBeNull();
     });
   });
 
@@ -497,7 +749,9 @@ describe('ForecastPanel', () => {
       scopeGrowthP90Percent: 0,
       p50Hours: 44.0,
       p90Hours: 71.5,
-      requestedByName: 'Bob'
+      requestedByName: 'Bob',
+      startsOn: '2026-08-03',
+      workingHoursPerDay: 8
     };
     await open([FORECAST, earlier]);
 
@@ -507,9 +761,34 @@ describe('ForecastPanel', () => {
     );
     expect(
       history.getByText(
-        '44 h as likely as not, 71.5 h at the cautious end — 1 at a time, up to 0% longer in a bad stretch, 0–0% more work, asked for by Bob.'
+        /44 h as likely as not, 71.5 h at the cautious end — 1 at a time, up to 0% longer in a bad stretch, 0–0% more work, asked for by Bob\./
       )
     ).toBeInTheDocument();
+    // And its own calendar, because a run read under eight-hour days from a different
+    // Monday is a different reading rather than this plan having moved.
+    expect(
+      history.getByText(/8-hour days from Aug 3, 2026\./)
+    ).toBeInTheDocument();
+  });
+
+  /** A run with none says nothing rather than inventing one from the newest. */
+  it('leaves the calendar off an earlier forecast that had none', async () => {
+    await open([
+      FORECAST,
+      {
+        ...FORECAST,
+        id: '70707070-7070-7070-7070-707070707070',
+        startsOn: null,
+        workingHoursPerDay: null,
+        calendarRule: null
+      }
+    ]);
+
+    const history = within(
+      screen.getByRole('heading', { name: 'Earlier forecasts' })
+        .parentElement as HTMLElement
+    );
+    expect(history.queryByText(/-hour days from/)).toBeNull();
   });
 
   it('says nothing about earlier forecasts when this is the only one', async () => {
@@ -552,7 +831,8 @@ describe('ForecastPanel', () => {
       )
     );
 
-    await answerTheAssumptions('3', '0', '0', '0');
+    await answerTheAssumptions('3', '0', '0', '0', '7.5');
+    await startWorkOn('2026-08-17');
     await userEvent.type(screen.getByLabelText('Simulated runs'), '2000');
     await userEvent.click(
       screen.getByRole('button', { name: 'Forecast this plan' })
@@ -567,6 +847,8 @@ describe('ForecastPanel', () => {
         teamFactorWorseByPercent: 0,
         scopeGrowthP10Percent: 0,
         scopeGrowthP90Percent: 0,
+        workingHoursPerDay: 7.5,
+        startsOn: '2026-08-17',
         sampleCount: 2000
       });
     });

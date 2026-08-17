@@ -225,12 +225,13 @@ export const en = {
     // reads is not a disclosure.
     coverage: '{{estimated}} of {{total}} items estimated',
     // The whole product, and the first screen where being wrong would not look like being
-    // wrong. Everything here is hours of effort: a date needs an assumption about what a
-    // working day is worth, and M4 is where somebody states one rather than this screen
-    // inventing it.
+    // wrong. The engine answers in hours of effort; the date beside it is one percentile
+    // of that with a working day laid on top — which is why the working day is asked for
+    // here and printed back beside every date it produced. A date is the first thing this
+    // product emits that looks like a fact, and the hours are what stop it reading as one.
     forecast: {
       title: 'Forecast',
-      lede: 'Simulated from the ranges on the work above. Effort in hours, not dates.',
+      lede: 'Simulated from the ranges on the work above, then read onto a calendar you state.',
       loading: 'Loading forecasts…',
       none: 'No forecast yet. Answer the questions below and ask for one — not one of them has an answer this application can give for you.',
       submit: 'Forecast this plan',
@@ -258,11 +259,54 @@ export const en = {
           low: 'Usually at least',
           high: 'And as much as'
         },
+        // The only box on this form that arrives already answered, and the distinction is
+        // what keeps the rule honest rather than absolute: what day it is is a fact this
+        // browser holds and the server does not, where every other box here is a claim
+        // about a team. It stays editable, because a plan that starts in January is one
+        // edit away.
+        startsOn: {
+          label: 'Work starts on',
+          hint: 'Today unless you say otherwise. A plan that begins later is forecast from then, and a weekend start begins on the Monday.'
+        },
+        // The number that turns a model's output into something somebody will act on, and
+        // the one most likely to be answered for the whole team by mistake — which would
+        // produce a date too early by exactly the number of people on it, with nothing on
+        // screen looking wrong. The hint is most of the defence.
+        workingDay: {
+          label: 'Hours in a working day',
+          hint: "Required. One person's day, not the team's total — how many people are on it is already the question above."
+        },
         sampleCount: {
           label: 'Simulated runs',
           hint: 'Ten thousand unless you say otherwise, which is accurate to well under a percent.'
         }
       },
+      // The headline, and the whole reason this milestone exists: nobody asks for a
+      // distribution, they ask what to promise. Moving the control moves the date without
+      // a request going out, which is not an optimisation but the feature — "can we go
+      // faster?" stops being a capitulation and becomes "we can commit at lower
+      // confidence", visible in one control while everybody watches.
+      confidence: {
+        legend: 'How confident do you need to be?',
+        option: '{{value}}%',
+        date: '{{confidence}}% likely to be finished by {{date}}.',
+        // A run made before a working day was something anybody stated. Its hours are
+        // still true; backfilling a calendar onto it would have invented a claim nobody
+        // made, so it says so in a line instead.
+        noCalendar:
+          'No date for this one: it was made before anybody stated a working day, so hours are all it can say.',
+        // The other direction, and the one that will happen later: the server versions
+        // ahead of the browser, so a run made under a calendar this app has never heard of
+        // reports its hours rather than being read through the wrong one.
+        unreadableCalendar:
+          'No date for this one: it was made under a calendar this version of the app cannot read.'
+      },
+      // Beside the assumptions sentence and never behind a disclosure, because a date is
+      // the first thing this product emits that looks like a fact — "14 November" does not
+      // advertise that it came out of a model, and it gets pasted into a plan with the
+      // assumption behind it left in the browser.
+      calendar:
+        "Dates assume work starts {{start}}, one person's working day holds {{day}} hours, and nobody works weekends.",
       // P10 to P90 is eight tenths of the probability, which is what makes this sentence
       // true rather than merely reassuring.
       band: 'An 80% chance of taking between {{low}} and {{high}} hours of effort.',
@@ -305,7 +349,11 @@ export const en = {
         // though they were. That is M10's whole problem, arriving early enough to design
         // around rather than to discover.
         entry:
-          '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work, asked for by {{who}}.'
+          '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work, asked for by {{who}}.',
+        // The calendar belongs here for the same reason the other five assumptions do:
+        // two runs read under different working days are two readings, not a date moving.
+        // Absent on a run that had none, which is what the history is for saying.
+        calendar: '{{day}}-hour days from {{start}}.'
       }
     },
     // Shared by the form that starts a project and the form that changes one, because they
