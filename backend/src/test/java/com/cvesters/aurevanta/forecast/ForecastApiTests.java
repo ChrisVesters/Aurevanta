@@ -4,10 +4,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,6 +32,7 @@ import com.cvesters.aurevanta.forecast.model.Forecast;
 import com.cvesters.aurevanta.forecast.model.Schedule;
 import com.cvesters.aurevanta.forecast.model.ScopeGrowth;
 import com.cvesters.aurevanta.forecast.model.TeamFactor;
+import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemRepository;
 import com.cvesters.aurevanta.item.WorkItemStatus;
@@ -70,6 +74,15 @@ class ForecastApiTests {
 
 	private static final Instant CREATED_AT = Instant.parse("2026-08-14T09:00:00Z");
 
+	/** A Monday, so that a hand count over the weekends is possible at all. */
+	private static final LocalDate MONDAY = LocalDate.of(2026, 8, 17);
+
+	/** One person's day, and deliberately not four people's. */
+	private static final String WORKING_DAY = "6.00";
+
+	/** The five the response derives, and the mean deliberately not among them. */
+	private static final List<String> DATE_FIELDS = List.of("p10Date", "p50Date", "p80Date", "p90Date", "p95Date");
+
 	@Autowired
 	private MockMvc mvc;
 
@@ -108,6 +121,15 @@ class ForecastApiTests {
 
 	@Autowired
 	private AccessTokenService accessTokens;
+
+	/**
+	 * The only place in this suite that writes SQL, and it earns it: the rows this
+	 * milestone has to keep readable are the ones nothing can create any more, so they
+	 * are made the way {@code V14} left them rather than through a second entity
+	 * constructor that would invite somebody to write one on purpose.
+	 */
+	@Autowired
+	private JdbcTemplate database;
 
 	private Membership ada;
 
@@ -390,7 +412,127 @@ class ForecastApiTests {
 		assertThat(started.getP90Hours()).isLessThan(fresh.getP90Hours());
 	}
 
+	// The calendar ------------------------------------------------------------
+
+	@Test
+	void aRunStoresAndReportsTheCalendarItWasReadUnder() throws Exception {
+		ForecastRun run = forecast(assuming(2, 30, 20, 60));
+
+		assertThat(run.getStartsOn()).isEqualTo(MONDAY);
+		assertThat(run.getWorkingHoursPerDay()).isEqualByComparingTo(WORKING_DAY);
+		assertThat(run.getCalendarRule()).isEqualTo(WorkingCalendar.RULE);
+		this.mvc.perform(get("/api/forecasts/" + run.getId()).header(HttpHeaders.AUTHORIZATION, bearer(this.ada)))
+			.andExpect(jsonPath("$.startsOn").value("2026-08-17"))
+			.andExpect(jsonPath("$.workingHoursPerDay").value(6.00))
+			.andExpect(jsonPath("$.calendarRule").value("five_day_week"));
+	}
+
+	/**
+	 * <strong>An hour a day, so that the answer has the resolution to be tested.</strong>
+	 * A band narrower than a working day lands on one date at every confidence, which is
+	 * the calendar being honest rather than the control being broken — and is also a test
+	 * that would pass against a response returning the same date five times.
+	 */
+	@Test
+	void theFiveDatesAscendWithTheirPercentiles() throws Exception {
+		JsonNode answer = reported(forecast(calendaring(MONDAY.toString(), "1.00")));
+		List<LocalDate> dates = DATE_FIELDS.stream().map((field) -> dateAt(answer, field)).toList();
+
+		assertThat(dates).isSorted();
+		assertThat(dates.getFirst()).isBefore(dates.getLast());
+		// The hours the model produced stay beside the dates it was read into: removing
+		// them would leave nothing on the response that came out of the engine.
+		assertThat(answer.get("p95Hours").decimalValue()).isGreaterThan(answer.get("p10Hours").decimalValue());
+	}
+
+	/**
+	 * <strong>Decision 4, and the reason the start is an input.</strong> A plan forecast
+	 * today for a January start is forecast from January; a server that stamped its own
+	 * clock here would answer a question nobody asked, in its own timezone.
+	 */
+	@Test
+	void aStartDateTheServerWouldNotHaveChosenComesBackUnchanged() throws Exception {
+		LocalDate january = LocalDate.of(2027, 1, 4);
+
+		ForecastRun run = forecast(calendaring(january.toString(), WORKING_DAY));
+
+		assertThat(run.getStartsOn()).isEqualTo(january);
+		JsonNode answer = reported(run);
+		assertThat(answer.get("startsOn").asString()).isEqualTo("2027-01-04");
+		assertThat(dateAt(answer, "p10Date")).isAfterOrEqualTo(january);
+	}
+
+	/**
+	 * <strong>Decision 6, asserted against the only kind of row that can show
+	 * it.</strong> Nothing can create one through the API any more, so the columns are
+	 * cleared directly — which is exactly what {@code V14} left behind, since it
+	 * deliberately backfilled nothing. A run made last week did not assume a six-hour
+	 * day; it assumed no calendar at all, and it says so rather than being handed one
+	 * after the fact.
+	 */
+	@Test
+	void aRunMadeBeforeThereWasACalendarReportsHoursAndNoDates() throws Exception {
+		ForecastRun run = forecast(1);
+		this.database.update("update forecast_runs set starts_on = null, working_hours_per_day = null,"
+				+ " calendar_rule = null where id = ?", run.getId());
+
+		JsonNode answer = reported(run);
+
+		assertThat(answer.get("p90Hours").isNumber()).isTrue();
+		assertThat(answer.get("startsOn").isNull()).isTrue();
+		assertThat(answer.get("workingHoursPerDay").isNull()).isTrue();
+		assertThat(answer.get("calendarRule").isNull()).isTrue();
+		for (String field : DATE_FIELDS) {
+			assertThat(answer.get(field).isNull()).as(field).isTrue();
+		}
+	}
+
+	/**
+	 * <strong>The rule on the response is the one the run stored, not the one this code
+	 * happens to have.</strong> Writing {@code WorkingCalendar.RULE} into the response
+	 * would make every historical run claim today's calendar, and reading its dates
+	 * through today's calendar would make a rule change indistinguishable from a plan
+	 * that moved — which is the whole reason the rule is a stored name rather than a
+	 * boolean.
+	 *
+	 * <p>
+	 * Only one rule exists, so this row cannot be made through the API. It is the shape
+	 * M11 arrives in, and the day it does is the day the alternative starts lying
+	 * quietly.
+	 */
+	@Test
+	void aRunResolvesUnderTheCalendarItWasMadeWithAndNotTodays() throws Exception {
+		ForecastRun run = forecast(1);
+		this.database.update("update forecast_runs set calendar_rule = 'four_day_week' where id = ?", run.getId());
+
+		JsonNode answer = reported(run);
+
+		assertThat(answer.get("calendarRule").asString()).isEqualTo("four_day_week");
+		assertThat(answer.get("startsOn").asString()).isEqualTo(MONDAY.toString());
+		assertThat(answer.get("p90Hours").isNumber()).isTrue();
+		for (String field : DATE_FIELDS) {
+			assertThat(answer.get(field).isNull()).as(field).isTrue();
+		}
+	}
+
 	// Refusals ----------------------------------------------------------------
+
+	@Test
+	void refusesAForecastThatDoesNotSayWhenWorkStartsOrWhatADayHolds() throws Exception {
+		refused(calendaring(null, WORKING_DAY), "startsOn", "not_null");
+		refused(calendaring(MONDAY.toString(), null), "workingHoursPerDay", "not_null");
+	}
+
+	/**
+	 * Each against its own box, because each is a fact about one number somebody typed —
+	 * unlike the growth range, which is a fact about a pair and so names neither.
+	 */
+	@Test
+	void refusesAWorkingDayNobodyCouldWork() throws Exception {
+		refused(calendaring(MONDAY.toString(), "0"), "workingHoursPerDay", "positive");
+		refused(calendaring(MONDAY.toString(), "-6"), "workingHoursPerDay", "positive");
+		refused(calendaring(MONDAY.toString(), "25"), "workingHoursPerDay", "max");
+	}
 
 	@Test
 	void refusesAPlanNobodyHasEstimated() throws Exception {
@@ -665,8 +807,22 @@ class ForecastApiTests {
 		String runs = (sampleCount != null) ? ",\"sampleCount\":" + sampleCount : "";
 		return """
 				{"capacity":%d%s,"teamFactorWorseByPercent":%s,\
-				"scopeGrowthP10Percent":%s,"scopeGrowthP90Percent":%s}""".formatted(capacity, runs, worseByPercent,
-				growthP10, growthP90);
+				"scopeGrowthP10Percent":%s,"scopeGrowthP90Percent":%s,\
+				"startsOn":"%s","workingHoursPerDay":%s}""".formatted(capacity, runs, worseByPercent, growthP10,
+				growthP90, MONDAY, WORKING_DAY);
+	}
+
+	/**
+	 * A request naming a calendar of its own, for the cases where the calendar is what is
+	 * under test. A {@code null} leaves that box out of the document altogether, which is
+	 * the only honest way to send a required field somebody did not answer.
+	 */
+	private static String calendaring(String startsOn, String workingHoursPerDay) {
+		String start = (startsOn != null) ? ",\"startsOn\":\"" + startsOn + "\"" : "";
+		String day = (workingHoursPerDay != null) ? ",\"workingHoursPerDay\":" + workingHoursPerDay : "";
+		return """
+				{"capacity":1,"teamFactorWorseByPercent":0,\
+				"scopeGrowthP10Percent":0,"scopeGrowthP90Percent":0%s%s}""".formatted(start, day);
 	}
 
 	private ForecastRun forecast(String body) throws Exception {
@@ -681,6 +837,24 @@ class ForecastApiTests {
 			.getContentAsString();
 		UUID id = UUID.fromString(this.json.readTree(response).get("id").asString());
 		return this.runs.findById(id).orElseThrow();
+	}
+
+	/** One run as the API describes it, read back the way a client would. */
+	private JsonNode reported(ForecastRun run) throws Exception {
+		return this.json.readTree(this.mvc
+			.perform(get("/api/forecasts/" + run.getId()).header(HttpHeaders.AUTHORIZATION, bearer(this.ada)))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString());
+	}
+
+	/**
+	 * Parsed from the wire rather than compared as text, so that a field arriving as
+	 * anything but an ISO date fails here instead of passing as an equal string.
+	 */
+	private static LocalDate dateAt(JsonNode answer, String field) {
+		return LocalDate.parse(answer.get(field).asString());
 	}
 
 	private void refused(String body, String field, String code) throws Exception {

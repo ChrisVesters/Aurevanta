@@ -1,6 +1,7 @@
 package com.cvesters.aurevanta.forecast;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
@@ -42,6 +43,21 @@ import jakarta.validation.constraints.PositiveOrZero;
  * which says a tenth of runs discover nothing at all. That the high one is not below the
  * low one is refused as a fact about the pair rather than about either box, the way
  * {@code estimate_out_of_order} is.
+ * @param startsOn the day work begins. Required, and it is the one required field this
+ * server could have guessed at — which is exactly why it does not. An {@code Instant} is
+ * a moment and a date needs a timezone, and the only one a server can reach is its own;
+ * the same argument that made {@code started_on} and {@code completed_on} dates rather
+ * than timestamps. It is also often not today: a plan forecast in October for a January
+ * start should be forecast from January, and making it an input costs one field and makes
+ * that ordinary. The browser pre-fills it, because what day it is is a fact the browser
+ * holds rather than a claim about anybody's team.
+ * @param workingHoursPerDay what <em>one</em> person's working day holds — never the
+ * team's daily total. The scheduler has already run {@code capacity} items at a time, so
+ * the hours a date divides have capacity inside them; dividing again by a team's total
+ * counts it twice and produces a date wrong by exactly that factor, with the band
+ * unchanged and nothing on screen looking amiss. Required for the same reason capacity
+ * is: it turns a model's output into something a person will act on, and a box already
+ * answered is a box nobody reads.
  */
 public record CreateForecastRequest(@NotNull @Positive Integer capacity,
 
@@ -52,8 +68,18 @@ public record CreateForecastRequest(@NotNull @Positive Integer capacity,
 
 		@NotNull @PositiveOrZero @Max(MAX_PERCENT) @Digits(integer = 4, fraction = 2) BigDecimal scopeGrowthP10Percent,
 
-		@NotNull @PositiveOrZero @Max(MAX_PERCENT) @Digits(integer = 4,
-				fraction = 2) BigDecimal scopeGrowthP90Percent) {
+		@NotNull @PositiveOrZero @Max(MAX_PERCENT) @Digits(integer = 4, fraction = 2) BigDecimal scopeGrowthP90Percent,
+
+		@NotNull LocalDate startsOn,
+
+		@NotNull @Positive @Max(LONGEST_DAY) @Digits(integer = 2, fraction = 2) BigDecimal workingHoursPerDay) {
+
+	/**
+	 * A day holds twenty-four hours whoever is working it, and the bound is here rather
+	 * than only in {@code WorkingCalendar} so that the refusal arrives against the box
+	 * somebody typed in.
+	 */
+	static final int LONGEST_DAY = 24;
 
 	/**
 	 * As far as any of these three is worth asking, and the one of the two reasons that

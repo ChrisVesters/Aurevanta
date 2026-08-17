@@ -3,6 +3,7 @@ package com.cvesters.aurevanta.forecast;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -29,6 +30,7 @@ import com.cvesters.aurevanta.forecast.model.LogNormalFit;
 import com.cvesters.aurevanta.forecast.model.Schedule;
 import com.cvesters.aurevanta.forecast.model.ScopeGrowth;
 import com.cvesters.aurevanta.forecast.model.TeamFactor;
+import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
 import com.cvesters.aurevanta.membership.MembershipService;
@@ -110,6 +112,12 @@ public class ForecastService {
 	 * Required, and zero is a claim rather than an absence of one.
 	 * @param scopeGrowthP10Percent and {@code scopeGrowthP90Percent}, the two ends of how
 	 * much a plan like this usually grows
+	 * @param startsOn the day work begins, stated by the caller because a server cannot
+	 * know what day it is where they are
+	 * @param workingHoursPerDay what one person's working day holds. Stored beside the
+	 * answer with the name of the rule it will be read through, and never used here: the
+	 * engine deals in hours from end to end, and a date is one presentation of one
+	 * percentile of what it produced.
 	 * @throws ScopeGrowthOutOfOrderException if the growth range descends
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws ProjectNotFoundException if no project in it has that identifier
@@ -117,7 +125,8 @@ public class ForecastService {
 	 */
 	@Transactional
 	public ForecastRun run(UUID callerId, UUID tenantId, UUID projectId, int capacity, Integer sampleCount,
-			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent) {
+			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
+			LocalDate startsOn, BigDecimal workingHoursPerDay) {
 		// A fact about the request and nothing else, so it is answered before anything is
 		// looked up — a caller who sent a range the wrong way round learns nothing about
 		// which plans exist by being told so. The same order `estimate_out_of_order`
@@ -178,10 +187,16 @@ public class ForecastService {
 				runCount, seed);
 		ForecastOutputs outputs = new ForecastOutputs(answer.histogram(),
 				limitations(planned, kept.size() < arrows.size()));
+		// The calendar is written down and not used: nothing about a working day reaches
+		// the engine, which is what keeps a calendar change from being a model change.
+		// The
+		// rule's name goes with it so the run resolves under the calendar it was made
+		// with
+		// rather than the one this code has by the time somebody reads it.
 		return this.runs.save(new ForecastRun(project, caller, capacity, runCount, teamFactorWorseByPercent,
-				scopeGrowthP10Percent, scopeGrowthP90Percent, seed, Engine.VERSION, Schedule.PRIORITY_RULE, work.size(),
-				byItem.size(), answer, ForecastSnapshots.write(inputs), ForecastSnapshots.write(outputs),
-				Instant.now(this.clock)));
+				scopeGrowthP10Percent, scopeGrowthP90Percent, startsOn, workingHoursPerDay, WorkingCalendar.RULE, seed,
+				Engine.VERSION, Schedule.PRIORITY_RULE, work.size(), byItem.size(), answer,
+				ForecastSnapshots.write(inputs), ForecastSnapshots.write(outputs), Instant.now(this.clock)));
 	}
 
 	/**

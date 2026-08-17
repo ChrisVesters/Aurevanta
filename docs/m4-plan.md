@@ -30,7 +30,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | The calendar, as a pure function ✅ *done* | M3 |
-| 2 | Stating a calendar, and storing what was stated | 1 |
+| 2 | Stating a calendar, and storing what was stated ✅ *done* | 1 |
 | 3 | A date on screen, and the trade behind it | 2 |
 | 4 | Close out | 1–3 |
 
@@ -291,7 +291,7 @@ and a second answer to "what is a working day" waiting for M11 to disagree with.
 
 ---
 
-## Step 2 — Stating a calendar, and storing what was stated
+## Step 2 — Stating a calendar, and storing what was stated ✅ *done*
 
 **Goal.** A run records the calendar it was read under, and can still be read without one.
 
@@ -314,6 +314,60 @@ unchanged. The rule name on the response is the one the run stored, not the one 
 currently has.
 
 **Done when** no date this API publishes is separable from the assumption that produced it.
+
+### As built — where it differs from the above
+
+**The stored rule name is what decides whether a run has dates, and this is the one addition
+worth arguing about.** The bullets say the three columns are absent together for a run made
+before M4, which suggests testing all three for null. `ForecastResponse.dateOf` instead asks one
+question — `WorkingCalendar.RULE.equals(run.getCalendarRule())` — and derives nothing when the
+answer is no. Three consequences, all of them the point:
+
+- A run whose stored rule is one *this code does not implement* reports its hours, its own rule's
+  name, its start date and its working day, and **no dates**. Deriving them would read history
+  under today's calendar, which is precisely what decision 3 says a rule name exists to prevent —
+  and it would do it silently, which is how a calendar change becomes indistinguishable from a
+  plan that moved.
+- It is one condition rather than three, so there is one branch and the suite covers both sides
+  of it. The three-null version has branches only a half-written row could reach, which is a hole
+  in the coverage gate no honest test can close.
+- A calendar is all three columns or none, and nothing in the application can write a partial
+  row, so the rule name standing in for the other two costs nothing today and starts earning the
+  day M11 adds a second name.
+
+**Four refusals on the request, not two.** The bullets name the working day's constraints;
+`startsOn` also carries `@NotNull`, and the two missing-field cases are tested alongside the
+three bad-value ones. `LONGEST_DAY = 24` is a named constant on `CreateForecastRequest` rather
+than a literal, so the bound the API refuses at and the bound `WorkingCalendar` refuses at are
+visibly the same number in two files that must agree.
+
+**No `CHECK` constraint, and that is a convention rather than an oversight.** A half-filled
+calendar — a start date with no working day — would make `dateOf` throw, and a database
+constraint would rule it out. This schema has no `CHECK` anywhere: invariants are the
+application's, exactly as tenant isolation is. Adding the first one here for a row nothing can
+write would be a new convention introduced by a milestone that does not need it. The same
+reasoning covers a stored working day of zero, which is refused at the request and unreachable
+from any row this application wrote.
+
+**Nothing about the calendar reaches the snapshot**, and that is load-bearing rather than
+incidental. `ForecastInputs` is what a replay is fed; the calendar changes no draw, so putting it
+there would imply it does and would change the shape of every snapshot written from now on for a
+field no replay reads. It is a column, and only a column. `aStoredRunReplaysToTheNumbersItReported`
+passes untouched, which is the assertion that this stayed true.
+
+**The mean gets no date**, which the bullets do not mention either way — five dates, not six. A
+mean is not a percentile, so no confidence can be stated against it, and a date on this response
+that nobody can name a confidence for is the one number somebody could act on without knowing
+what it claims. `DATE_FIELDS` in the test names the five, so adding a sixth means saying so.
+
+**The "row written directly" is written with `JdbcTemplate`**, the only SQL in the API suite.
+The alternative — a second `ForecastRun` constructor omitting the three columns — would be a
+supported way to create the row this milestone exists to stop being created. An `update` that
+nulls the columns is exactly what `V14` left behind, and it says so.
+
+**The frontend is now sending a request the server refuses**, which is step 3's job to fix and is
+stated here so it is not discovered as a surprise. `npm run test` is unaffected because its
+`fetch` is a double; the running application cannot forecast until the two boxes exist.
 
 ---
 

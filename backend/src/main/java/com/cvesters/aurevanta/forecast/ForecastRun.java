@@ -3,6 +3,7 @@ package com.cvesters.aurevanta.forecast;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
@@ -98,6 +99,37 @@ public class ForecastRun {
 	@Column(name = "scope_growth_p90_percent", nullable = false, precision = 6, scale = 2)
 	private BigDecimal scopeGrowthP90Percent;
 
+	/**
+	 * The day work was said to begin, and what one person's working day was said to hold
+	 * — the two halves of turning this run's hours into a date.
+	 *
+	 * <p>
+	 * <strong>Nullable, and nothing backfilled them.</strong> A run made before M4
+	 * assumed no calendar, because it produced no date; writing a six-hour day onto it
+	 * would invent a claim on behalf of somebody who never made one, in the one table
+	 * that exists to say what was assumed. V13 could backfill zeros and call them true,
+	 * and this is the mirror of it.
+	 */
+	@Column(name = "starts_on")
+	private LocalDate startsOn;
+
+	/**
+	 * <strong>One worker's day, never the team's.</strong> The scheduler already ran
+	 * {@code capacity} items at a time, so the hours this divides have capacity inside
+	 * them.
+	 */
+	@Column(name = "working_hours_per_day", precision = 4, scale = 2)
+	private BigDecimal workingHoursPerDay;
+
+	/**
+	 * Which calendar the two above were read through, held like {@link #priorityRule} and
+	 * for the same reason: two defensible rules give two different dates from identical
+	 * data, so a run resolves under the calendar it was made with rather than the one
+	 * this code happens to have today.
+	 */
+	@Column(name = "calendar_rule", length = 40)
+	private String calendarRule;
+
 	@Column(name = "engine_version", nullable = false)
 	private int engineVersion;
 
@@ -139,8 +171,9 @@ public class ForecastRun {
 
 	public ForecastRun(Project project, User requestedBy, int capacity, int sampleCount,
 			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
-			long seed, int engineVersion, String priorityRule, int itemCount, int estimatedItemCount, Forecast forecast,
-			String inputs, String outputs, Instant createdAt) {
+			LocalDate startsOn, BigDecimal workingHoursPerDay, String calendarRule, long seed, int engineVersion,
+			String priorityRule, int itemCount, int estimatedItemCount, Forecast forecast, String inputs,
+			String outputs, Instant createdAt) {
 		// Taken from the project rather than from a caller, so a run cannot be filed
 		// under
 		// one organisation and against another's plan.
@@ -152,6 +185,9 @@ public class ForecastRun {
 		this.teamFactorWorseByPercent = teamFactorWorseByPercent;
 		this.scopeGrowthP10Percent = scopeGrowthP10Percent;
 		this.scopeGrowthP90Percent = scopeGrowthP90Percent;
+		this.startsOn = startsOn;
+		this.workingHoursPerDay = workingHoursPerDay;
+		this.calendarRule = calendarRule;
 		this.seed = seed;
 		this.engineVersion = engineVersion;
 		this.priorityRule = priorityRule;
@@ -214,6 +250,19 @@ public class ForecastRun {
 
 	public String getPriorityRule() {
 		return priorityRule;
+	}
+
+	/** Null for every run made before a calendar existed, and that is a true record. */
+	public LocalDate getStartsOn() {
+		return startsOn;
+	}
+
+	public BigDecimal getWorkingHoursPerDay() {
+		return workingHoursPerDay;
+	}
+
+	public String getCalendarRule() {
+		return calendarRule;
 	}
 
 	public int getEngineVersion() {

@@ -47,7 +47,7 @@ class ForecastController {
 			@Valid @RequestBody CreateForecastRequest request) {
 		return described(this.forecasts.run(caller.userId(), caller.tenantId(), projectId, request.capacity(),
 				request.sampleCount(), request.teamFactorWorseByPercent(), request.scopeGrowthP10Percent(),
-				request.scopeGrowthP90Percent()));
+				request.scopeGrowthP90Percent(), request.startsOn(), request.workingHoursPerDay()));
 	}
 
 	/**
