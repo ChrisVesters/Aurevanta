@@ -35,7 +35,7 @@
 | 2 | Recording how a range was asked for ✅ *done* | M2 |
 | 3 | One question at a time, in the order that stops them anchoring ✅ *done* | 1, 2 |
 | 4 | The review, and the bet ✅ *done* | 3 |
-| 5 | Close out | 1–4 |
+| 5 | Close out ✅ *done* | 1–4 |
 
 **M5 changes no stored number and no arithmetic.** `p10_hours`, `p50_hours` and `p90_hours` mean
 exactly what they meant, `LogNormalFit` fits them exactly as it did, and `Engine.VERSION` does not
@@ -575,7 +575,7 @@ on the server with no change here.
 
 ---
 
-## Step 5 — Close out
+## Step 5 — Close out ✅ *done*
 
 - `roadmap.md`: mark M5 done. Record that **comparative framing moved to M8** with decision 4's
   reason, since a reference class needs actuals and comparing guesses would industrialise the
@@ -593,6 +593,89 @@ on the server with no change here.
   advise and never refuse; the thresholds are stated once in `forecast.model` and `estimate` may
   import it; `elicitation_method` is stored because it cannot be recovered, and the warning is not
   because it can.
+
+### As built — where it differs from the above
+
+**Every bullet landed, and `CLAUDE.md` gained two sections rather than four bullets.** The facts
+this step names divide cleanly into *how the form asks* and *what is worth questioning about an
+answer*, and they are read at different moments by different people — somebody editing
+`EstimateForm` needs the first, somebody moving a threshold needs the second. Six more facts
+joined them that a reader needs in the same breath: the refusal-navigation rule, the absence of a
+fast path, the review being the only moment the three meet, the colleague-anchoring rule,
+`estimate` importing `forecast.model`, and the quality endpoint being the one POST that writes
+nothing.
+
+**`numberFrom` was added to a bullet this step did not list.** `CLAUDE.md` already explained why
+`numberField` exists; the estimate form no longer renders the answers it submits, so it cannot
+read them out of a `FormData`, and the note now says that the rule — not the source of the string
+— is the thing worth stating once.
+
+**The *Reworking the interface* note was answered more narrowly than the bullet suggests.** Saying
+"half is spent" would leave the impression that the estimate form no longer needs styling, which
+is false: it is still one input, a hint, a review and four buttons, deliberately plain like
+everything else. What changed is *why* it is plain — it is no longer the ugliest thing on screen
+for the reason it was — and the trap the note names has not moved at all. A beautifully styled
+form eliciting the same garbage was the risk before and still is: M5 changed the question, and
+nothing about how anything looks has been shown to change an answer.
+
+**Three places said something M5 had made untrue, none of them in this step's list:**
+
+- `roadmap.md`'s header claimed Tier 1 as the state of the world, which was true and had stopped
+  being the whole of it.
+- `product-concept.md`'s status block said Tier 1 was built without saying that *The input
+  problem is harder than the maths* mostly was too — the section that document argues hardest for
+  after the core principle.
+- The **overconfidence bullet in M5's own roadmap section** still read as a proposal. It now
+  carries a one-line note that both checks advise and never refuse, because that bullet is
+  where somebody looking for "flag a tight P90" will land, and it is the one most likely to be
+  re-implemented as a gate.
+
+**And `roadmap.md`'s "what I would build next" now says M6**, with the two traps named: variance
+contribution computed as a share of total variance is wrong once the aggregator is a scheduler,
+and changing the model to make the measurement easier is what `ForecastApiTests`' replay
+assertion exists to catch.
+
+### The review pass — what a read of the whole milestone changed
+
+Five changes after close-out, recorded here rather than folded into the steps because they
+happened afterwards.
+
+**One user-visible bug, and a test that had enshrined it.** The review interpolated a bare number
+into `'A bad week: {{hours}} hours'`, so a question nobody answered rendered as **"A bad week: not
+answered hours"** — and step 4's test asserted that string, which is how a wrong thing survives a
+green suite. The answer is now interpolated whole (`'A bad week: {{answer}}'`, with `hours` and
+`unanswered` as the two things it can be), so both readings are sentences. The lesson is the
+ordinary one about writing an assertion from the observed output rather than from the intended
+wording.
+
+**One latent crash the type system would not have caught.** `const step = STEPS[at]` is
+`undefined` on the review, and TypeScript hands it back as a `Step` without complaint because
+`noUncheckedIndexedAccess` is off. Nothing read it there — the ternary guarded it — but the guard
+was `reviewing`, not the value, so the next edit to touch that branch would have crashed at
+runtime with the compiler silent. It is now `reviewing ? undefined : STEPS[at]` and the ternary
+branches on `step` itself, so the question markup cannot be rendered on a screen that has no
+question.
+
+**A heading level and the rule that styled it.** The review's title was an `<h4>` under a page
+whose only other heading is an `<h2>`, skipping a level; it is an `<h3>`, and the CSS rule that
+still said `h4` went with it — a selector orphaned by a one-character change is exactly the kind
+of thing that stops applying without failing anything.
+
+**Two comments that step 4 made false.** `EstimateResponse` claimed to be "the one place a domain
+package reaches into `forecast.model`", which stopped being true the moment the quality endpoint
+needed the type in the service and the controller as well. And `CLAUDE.md`'s four-forms bullet
+said each form's `useFormFailure` covers "the field names it renders" — for this form it is the
+names it *can* render, and that distinction is load-bearing: the banner stays quiet for a
+complaint about a field on another screen, which is only safe because the form navigates there.
+
+**What was checked and found sound.** The quality effect re-runs per keystroke while not
+reviewing and calls `setQuality(null)` each time — React bails on identical state, so it costs
+nothing and reads more simply than a guard. `EstimateService.quality` is deliberately not
+`@Transactional` and deliberately has no membership check, both stated in its javadoc. The
+`answers` object is stable while the review is on screen, so exactly one request goes out per
+arrival there. And the suite was run three times end to end after the fixes: 363 passing each
+time, with one earlier double failure in two unrelated files not reproducing and traced to
+machine load rather than to anything here.
 
 ---
 

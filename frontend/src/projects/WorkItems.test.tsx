@@ -640,9 +640,7 @@ describe('WorkItems', () => {
 
     await answerTheThree('', '3', '5');
 
-    expect(
-      screen.getByText('A bad week: not answered hours')
-    ).toBeInTheDocument();
+    expect(screen.getByText('A bad week: not answered')).toBeInTheDocument();
   });
 
   /**

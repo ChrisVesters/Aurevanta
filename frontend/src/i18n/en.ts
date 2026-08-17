@@ -444,9 +444,14 @@ export const en = {
         // the ordinary one.
         review: {
           title: 'What you have said',
-          bad: 'A bad week: {{hours}} hours',
-          good: 'Everything goes right: {{hours}} hours',
-          typical: 'What you expect: {{hours}} hours',
+          // The answer is interpolated whole rather than as a bare number, because a
+          // question nobody answered has no number and "not answered hours" is not a
+          // sentence. Both readings have to be grammatical, and a unit assembled outside
+          // the catalogue would be a literal string in the code.
+          bad: 'A bad week: {{answer}}',
+          good: 'Everything goes right: {{answer}}',
+          typical: 'What you expect: {{answer}}',
+          hours: '{{value}} hours',
           unanswered: 'not answered',
           progress: 'Before you save it'
         },

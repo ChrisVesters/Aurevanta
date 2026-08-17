@@ -177,8 +177,11 @@ export function EstimateForm({
     };
   }, [at, answers, request]);
 
-  const step = STEPS[at];
   const reviewing = at === REVIEW;
+  // Undefined on the review, and the type says so: `STEPS[REVIEW]` is off the end of the
+  // array, and TypeScript would hand it back as a `Step` without complaint. Narrowing here
+  // means the question markup cannot be rendered on a screen that has no question.
+  const step = reviewing ? undefined : STEPS[at];
 
   function handle(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -206,17 +209,44 @@ export function EstimateForm({
         </p>
       )}
 
-      {reviewing ? (
+      {step ? (
+        <span className="field">
+          <label htmlFor={`${id}-${step.field}`}>
+            {t(`projects.items.estimate.steps.${step.wording}.question`)}
+          </label>
+          <input
+            id={`${id}-${step.field}`}
+            name={step.field}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.25"
+            value={answers[step.field]}
+            onChange={(event) =>
+              setAnswers({ ...answers, [step.field]: event.target.value })
+            }
+            aria-invalid={fieldErrors[step.field] ? true : undefined}
+          />
+          <span className="hint">
+            {t(`projects.items.estimate.steps.${step.wording}.hint`)}
+          </span>
+          {fieldErrors[step.field] && (
+            <span className="field-error">{fieldErrors[step.field]}</span>
+          )}
+        </span>
+      ) : (
         <div className="review">
-          <h4>{t('projects.items.estimate.review.title')}</h4>
+          <h3>{t('projects.items.estimate.review.title')}</h3>
           <ul>
             {STEPS.map((answered) => (
               <li key={answered.field}>
                 {t(`projects.items.estimate.review.${answered.wording}`, {
-                  hours:
+                  answer:
                     answers[answered.field] === ''
                       ? t('projects.items.estimate.review.unanswered')
-                      : answers[answered.field]
+                      : t('projects.items.estimate.review.hours', {
+                          value: answers[answered.field]
+                        })
                 })}
               </li>
             ))}
@@ -255,31 +285,6 @@ export function EstimateForm({
             </p>
           )}
         </div>
-      ) : (
-        <span className="field">
-          <label htmlFor={`${id}-${step.field}`}>
-            {t(`projects.items.estimate.steps.${step.wording}.question`)}
-          </label>
-          <input
-            id={`${id}-${step.field}`}
-            name={step.field}
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.25"
-            value={answers[step.field]}
-            onChange={(event) =>
-              setAnswers({ ...answers, [step.field]: event.target.value })
-            }
-            aria-invalid={fieldErrors[step.field] ? true : undefined}
-          />
-          <span className="hint">
-            {t(`projects.items.estimate.steps.${step.wording}.hint`)}
-          </span>
-          {fieldErrors[step.field] && (
-            <span className="field-error">{fieldErrors[step.field]}</span>
-          )}
-        </span>
       )}
 
       <p className="actions">

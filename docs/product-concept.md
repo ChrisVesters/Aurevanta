@@ -4,9 +4,10 @@
 > document implies exists and something reads it: M0–M1a built tenancy, identity and teams,
 > **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
 > with an estimator, progress and actuals, and a precedence graph, with the plainest possible
-> UI to fill them — **M3 built the engine, both halves of it**, and **M4 turned its hours into
-> a date at a chosen confidence**. `roadmap.md` sequences the rest and is newer than this
-> document wherever the two disagree.
+> UI to fill them — **M3 built the engine, both halves of it**, **M4 turned its hours into a
+> date at a chosen confidence**, and **M5 replaced the question those estimates are collected
+> by**. `roadmap.md` sequences the rest and is newer than this document wherever the two
+> disagree.
 >
 > **The core principle below is no longer only an argument.** Ranges are fitted to log-normals,
 > sampled ten thousand times, scheduled over the precedence graph at a stated capacity, and
@@ -14,9 +15,10 @@
 > two sections this document argues hardest for are now arithmetic**: *Unknown unknowns
 > dominate the error* and *Independence is a lie* are built, marked below, and asked as two
 > questions on the forecast screen. **Both of Tier 1 is built** — the rollup and the ship date
-> — so the bar this document set for beating a spreadsheet has been met; Tier 2 and everything
-> after it is still design intent. Two of the *Open questions* at the end were answered by M2
-> and are marked as such; the rest stand.
+> — so the bar this document set for beating a spreadsheet has been met, and *The input problem
+> is harder than the maths* is mostly built too; Tier 2 and everything after it is still design
+> intent. Two of the *Open questions* at the end were answered by M2 and are marked as such; the
+> rest stand.
 
 ## Purpose
 
@@ -56,6 +58,13 @@ harder the three points are arguing with each other. That is a fact about the *e
 is surfaced — a forecast whose items disagree with themselves reports `inconsistent_estimates`
 beside the band. Pointing at *which* estimate is M5's, because it is elicitation feedback and
 belongs where the question is asked.
+
+> **Discharged by M5.** The ratio is published on every estimate and the review that precedes
+> saving one says so in words, where the question was asked. The threshold that decides "a long
+> way" is stated **once**, beside the arithmetic it bounds, and read by both the forecast and the
+> form — two rules about one estimate would eventually disagree, and the one on the plan screen
+> would be the one nobody noticed had drifted. The browser is never told the number; it renders
+> a flag the server sent, the way it renders a `code`.
 
 ## Planned features
 
@@ -155,7 +164,7 @@ core value.
 
 ## Modelling concerns to design around
 
-### The input problem is harder than the maths
+### The input problem is harder than the maths ✅ *mostly built by M5*
 
 The simulation is straightforward to build; eliciting honest ranges from humans is the
 actual product. Presented with three boxes labelled P10/P50/P90, people will enter 3/5/8
@@ -176,6 +185,33 @@ Nobody thinks in percentiles, so the elicitation should be indirect:
 Elicitation deserves a real design as a first-class feature, not a form. It is also where
 a P90 only 1.5× the P50 can be flagged — that pattern almost always means the estimator
 has not thought about what could go wrong.
+
+> **Built, 2026-08-17, and two of the three framings shipped.** Surprise framing is how the
+> two ends are now collected and betting framing is how the high one is confirmed; **comparative
+> framing moved to M8**, because the only comparison available today is against other
+> *estimates*, and comparing a guess with a guess would spread anchoring across a whole plan
+> rather than within one item. It is reference-class forecasting only once March's actual is
+> known.
+>
+> **What this section did not say is that the order matters more than any of the framings**, and
+> that turned out to be the whole milestone. Three numbers asked together anchor on whichever is
+> answered first, and three boxes invite the middle to go first — so 3/5/8 is the middle plus a
+> bit and minus a bit, around an anchor nobody examined. They are now asked one at a time, bad
+> case first because it is the only one of the three with nothing above it, the middle last
+> because the fit does not use it and it is the one number that can afford to be anchored. No
+> earlier answer is on screen while the next is asked, and the percentile names appear nowhere.
+>
+> **The paragraph above about flagging a tight P90 was measured before it was built, and it does
+> not catch what it was written for.** 3/5/8 has a P90 1.60× its P50 and a stated middle within
+> 2% of the one its own ends imply; so do 2/3/5, 5/8/13 and 1/2/3. **The canonical garbage is
+> *coherent* garbage** — internally consistent, plausibly shaped, and invisible to anything that
+> looks at three numbers in isolation. The flag ships, advises and never refuses, and it is a
+> backstop rather than the defence.
+>
+> **And the honest caveat.** Every claim in this section is a hypothesis about human judgement
+> that nothing in the codebase can settle: a better form is a better form, and whether it
+> produces honester ranges is M8's to answer. That is why each estimate now records *how it was
+> asked for* — split the calibration record by that column and the question answers itself.
 
 ### Unknown unknowns dominate the error ✅ *built by M3b*
 

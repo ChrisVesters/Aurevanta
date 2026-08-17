@@ -16,14 +16,13 @@ import com.cvesters.aurevanta.forecast.model.EstimateQuality;
  * by it that a member could not already read from {@code /api/members}.
  *
  * <p>
- * <strong>This is the one place a domain package reaches into {@code forecast.model}, and
- * it does not reverse an arrow.</strong> The rule the domain packages keep is that no
- * <em>feature</em> depends on a feature that depends on it, and {@code forecast.model} is
- * not one: it has no entity, no repository, no service and no controller, it holds no
- * Spring, no JPA and no I/O, and it imports nothing from this codebase, so it cannot be
- * part of a cycle in it. It is used here the way {@code java.lang.Math} is.
- * {@code estimate} gains no visibility of a run, a capacity or a seed, and
- * {@code forecast} the feature still points one way.
+ * <strong>{@code estimate} reaches into {@code forecast.model}, and that reverses no
+ * arrow.</strong> The rule the domain packages keep is that no <em>feature</em> depends
+ * on a feature that depends on it, and {@code forecast.model} is not one: it has no
+ * entity, no repository, no service and no controller, it holds no Spring, no JPA and no
+ * I/O, and it imports nothing from this codebase, so it cannot be part of a cycle in it.
+ * It is used the way {@code java.lang.Math} is. {@code estimate} gains no visibility of a
+ * run, a capacity or a seed, and {@code forecast} the feature still points one way.
  *
  * <p>
  * The alternative was for the browser to decide whether a range is worth questioning,

@@ -10,9 +10,10 @@ Licensed GPL-3.0.
 designing schema or domain logic. It is design intent, not a description of existing code.
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
-are not unique), M2 (the estimation schema), M3 (the simulation engine) and M4 (a date you can
-commit to) are built, which completes **Tier 1** — the roadmap's own bar for beating a
-spreadsheet, being a Monte Carlo rollup and a ship date at a confidence level.
+are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
+commit to) and M5 (elicitation) are built. M4 completed **Tier 1** — the roadmap's own bar for
+beating a spreadsheet, being a Monte Carlo rollup and a ship date at a confidence level — and M5
+then replaced the question the ranges feeding it are collected by.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -37,11 +38,15 @@ effects would be the heavier, the build measured it, and the measurement pointed
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
 
-`docs/m5-plan.md` is the next milestone and is **not built**: replacing what the estimate form
-*asks*, so three numbers stop being 3/5/8. Read the measurement at the top before touching
-anything about estimate quality — **neither of the two checks the roadmap proposes catches the
-failure they exist to catch**, because every Fibonacci triple agrees with itself to within a few
-percent and clears the ratio rule. The warnings are a backstop; the question order is the defence.
+`docs/m5-plan.md` is elicitation, and is **built**: three boxes became three questions asked one
+at a time, so that three numbers stop being 3/5/8. **Read the measurement at the top before
+touching anything about estimate quality** — neither of the two checks the roadmap proposed
+catches the failure they exist to catch, because every Fibonacci triple agrees with itself to
+within a few percent and clears the ratio rule. The warnings are a backstop; the **order the
+questions are asked in** is the defence, and it is the one decision in that milestone with no
+test behind it. Its `### As built` for step 4 is worth reading for how a plan discovers a seam it
+did not know it needed: the review has to show server-computed flags *before* the row exists,
+which no amount of wanting could get from an endpoint that only answers submissions.
 
 `docs/m4-plan.md` is the calendar, and is **built**: a confidence control resolving the engine's
 hours into a date. **Read its decision 2 before touching anything that divides hours by a day** —
@@ -820,14 +825,20 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   is what an item ends up called, and so is which estimate is current after a colleague
   recorded theirs a moment ago.
 - **A row opens one of four small forms** — reword, estimate, report progress, order — and
-  each has its own `useFormFailure` over the field names it renders. `ProjectForm` and
+  each has its own `useFormFailure` over the field names it *can* render. "Can" rather than
+  "does" is load-bearing for the estimate form, which shows one question at a time: the
+  banner stays quiet for a complaint about a field on another screen, which is only safe
+  because the form navigates to it. `ProjectForm` and
   `WorkItemForm` are two components rather than one parameterised by a field name, because
   the field names are the server's and are what a per-field complaint is keyed by. What they
   share is `optionalField` — "an empty box means nothing, not `''`" — stated once because the
   version of that bug which gets written is the second copy.
 - **`numberField` exists because `Number('')` is zero.** The obvious version sends an
   untouched box as an estimate of no hours, and the visitor is told their estimate must be
-  more than zero about a field they never filled in.
+  more than zero about a field they never filled in. **`numberFrom` is the same rule for a box
+  a component is holding itself**, since the estimate form no longer renders the answers it is
+  submitting and so cannot read them out of a `FormData` — the bug is in the rule, not in where
+  the string came from.
 - **The progress form offers only the boxes a status has room for**, which is
   `progress_not_applicable` seen from the other end: a server refusing something a screen has
   just invited you to type would be a trap rather than a check. It warns before a status
@@ -845,11 +856,74 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   finish before, and what it is waiting on — because either alone answers half the question
   somebody opened the plan with. An arrow pointing at work archived since is named as such
   rather than shown as a blank, since the archived listing is a different screen.
-- **The estimate form is three boxes and is deliberately not good.** `product-concept.md` is
-  explicit that three boxes labelled P10/P50/P90 produce 3/5/8 without thinking, which is
-  worse than no tool because the garbage now carries a probability. Making it good is M5, and
-  it is a question-design problem rather than a styling one — so styling it is the one change
-  that cannot help.
+## The estimate form: one question at a time, and never the middle first
+
+- **`EstimateForm` asks three questions in a fixed order and shows one at a time.** Bad case,
+  good case, typical case, and then a review. **Reordering `STEPS` is not a cosmetic change**:
+  three numbers asked together anchor on whichever is answered first, and three boxes invited
+  the middle to go first — which is what 3/5/8 is, the middle plus a bit and minus a bit around
+  an anchor nobody examined. The bad case goes first because it is the only one of the three
+  with nothing above it; the good case has a floor and compresses far less under an anchor. The
+  middle goes last because the fit does not use it, so it is the one number that can afford to
+  be anchored.
+- **No earlier answer is on screen while the next is asked**, and they are not in the DOM
+  either — the answers live in state and only the current input is rendered. The anchor is
+  *seeing* the previous number, not typing it, so a hidden input holding it would be no better.
+- **Nothing on the form names a percentile.** "P90" asks somebody to reason about tail
+  probability, which nobody can do; surprise is a thing people recognise. The catalogue entries
+  for `P10`/`P50`/`P90` were deleted rather than left unused, so the test setup's
+  missing-translation failure is what stops one coming back as a "clearer" label.
+- **There is no fast path back to three boxes**, and adding one would undo the milestone: it
+  would be used by everybody, because it is quicker and because the people most certain they do
+  not need the framing are the people it is for. Revising is the case that objection is
+  strongest for, and it is answered by pre-filling every step from the current estimate.
+- **A refused submission navigates.** On a one-question form the box a complaint belongs to is
+  almost never the one in view, and `useFormFailure` suppresses the banner *because* the field
+  is one this form renders — so without this a refused `p10Hours` would appear nowhere at all.
+  A field complaint brings its own question back; `estimate_out_of_order` returns to the first,
+  since it belongs to all three.
+- **The review is the first and only moment the three are seen together**, which is where the
+  betting frame is asked and both warnings arrive. The bet gates nothing and has one control:
+  saying yes is pressing save, and the only button is the way out.
+- **A colleague's numbers are never on screen while somebody is answering.** Two people who
+  anchored on each other are not two estimates, and the band they produce is confidently narrow
+  for a reason nothing downstream can see — which is exactly what multi-estimator support exists
+  to make visible.
+
+## What is worth questioning about an estimate
+
+- **Both checks were measured against the failure they exist to catch, and neither catches
+  it.** 3/5/8 has a consistency of 1.02 and a P90 1.60× its P50; so do 2/3/5, 5/8/13 and 1/2/3.
+  A Fibonacci triple is very nearly geometric, which is the shape a log-normal fit expects, so
+  the canonical garbage is **coherent** garbage — invisible to anything looking at three numbers
+  in isolation. `EstimateQualityTests.theCanonicalGarbagePassesBothChecks` asserts it. **The
+  question order is the defence and these are a backstop**; raising a threshold until it catches
+  them would fire on nearly every estimate any team writes.
+- **They advise and never refuse.** A tight band is sometimes exactly right, and a rule that
+  blocked one would become a specification people learn to type — 3/5/8 with an extra step, and
+  the product teaching the failure it exists to detect.
+- **Both thresholds are stated once, in `EstimateQuality`, beside the arithmetic they bound**,
+  and read by the forecast and the estimate alike. One estimate cannot be worth questioning in a
+  forecast and fine on the plan screen. The browser is told neither number: it renders a flag the
+  server sent, the way it renders a `code`.
+- **`estimate` may import `forecast.model`, and that reverses no arrow.** The rule the domain
+  packages keep is that no *feature* depends on a feature that depends on it, and
+  `forecast.model` is not one — no entity, no repository, no service, no Spring, no JPA, and it
+  imports nothing from this codebase, so it cannot be part of a cycle in it. It is used the way
+  `java.lang.Math` is.
+- **`POST /api/estimates/quality` is the one POST in this API that writes nothing**, and the one
+  method in `EstimateService` with no membership check — there is no row to reach. It exists
+  because the warning has to arrive *before* the estimate does: an estimate is written once and
+  never rewritten, so warning after saving would make "that is not what I meant" cost a second
+  row. It shares `requireAscending` with `record`, which is not optional — a range that does not
+  ascend has no fit, and without the check the endpoint would answer 500 to an ordinary typo.
+- **`elicitation_method` is stored because it cannot be recovered; the warnings are not because
+  they can.** How a question was *put* leaves no trace in the three numbers, and it is the only
+  instrument that can ever say whether M5 worked — split M8's calibration record by it and the
+  question answers itself. Whether a range is worth questioning is arithmetic over three columns
+  and one constant, so keeping it would freeze today's threshold into rows that outlive it.
+  `V15` backfilled `three_point` and that backfill is **true** (V13's move, not V14's): three
+  boxes really were the only form this product ever had.
 
 ## Forecasting: the engine, and the decisions inside it
 

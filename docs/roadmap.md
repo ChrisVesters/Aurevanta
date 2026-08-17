@@ -2,11 +2,13 @@
 
 > **Status: proposal, as of 2026-08-06; last revised 2026-08-17.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2, **all of M3** and **M4** exist in code, so
-> **Tier 1 is complete**: a plan with ranges in it produces a band that models common cause
-> and unlisted work, states every assumption that produced it, and resolves to a date at a
-> confidence somebody chooses. That was this document's own bar for beating a spreadsheet —
-> a Monte Carlo rollup and a ship date at a confidence level — and both now exist.
+> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4** and **M5** exist in code,
+> so **Tier 1 is complete and its inputs have been dealt with**: a plan with ranges in it
+> produces a band that models common cause and unlisted work, states every assumption that
+> produced it, and resolves to a date at a confidence somebody chooses. That was this
+> document's own bar for beating a spreadsheet — a Monte Carlo rollup and a ship date at a
+> confidence level — and both now exist. M5 then replaced the question those ranges are
+> collected by, which is the one thing that decides whether any of it means anything.
 > Everything from here is a further lens on that number rather than the first one.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
@@ -698,7 +700,7 @@ team.
 
 ---
 
-## M5 — Elicitation that produces honest ranges — *planned in `m5-plan.md`*
+## M5 — Elicitation that produces honest ranges ✅ *done* — *planned in `m5-plan.md`*
 
 Not polish. The maths is easy; getting truthful ranges out of humans is the actual product.
 
@@ -711,6 +713,11 @@ Not polish. The maths is easy; getting truthful ranges out of humans is the actu
 - **Overconfidence warnings** — flag a P90 less than ~1.5× the P50; that pattern almost
   always means nobody thought about what could go wrong.
 
+> **Built, and the last bullet is worth reading with the measurement below beside it.** Both
+> checks advise and neither refuses: a tight band is sometimes exactly right, and a rule that
+> blocked one would become a specification people learn to type — 3/5/8 with an extra step, and
+> the product teaching the failure it exists to detect.
+
 `m5-plan.md` breaks it into five steps and answers ten decisions, and it opens with a
 measurement that reorders the four bullets above. **Both checks were run against the failure
 they exist to catch, and neither catches it**: 3/5/8 has a consistency of 1.02 and a P90/P50 of
@@ -721,16 +728,37 @@ defence**: the unbounded end first, the middle last, one on screen at a time, be
 is that the three were never separately thought about and that leaves no trace in what was
 stored.
 
-**Comparative framing moves to M8**, where a reference class exists. Today the only comparison
-available is against other *estimates*, which is a guess against a guess and would spread
-anchoring across a whole plan rather than within one item.
+**Comparative framing moves to M8**, where a reference class exists, and is the one of the four
+bullets above that did not ship. Today the only comparison available is against other
+*estimates*, which is a guess against a guess and would spread anchoring across a whole plan
+rather than within one item — the opposite of what the rest of this milestone does. It becomes a
+much better feature there than it could have been here: "bigger or smaller than the auth
+migration?" is only reference-class forecasting once March's *actual* is known.
 
-**M5's failure mode is that it cannot fail visibly.** Every milestone so far had an oracle — a
-closed form, a byte-identical degenerate case, a calendar anybody can count on their fingers —
-and this one has a hypothesis about human judgement that nothing in the repository can settle.
-That is why the plan stores `elicitation_method` on every estimate: M8's calibration record is
-the only instrument that can ever say whether changing the question changed anything, and it can
-only say it if the rows on each side of this milestone are labelled.
+**What shipped.** Three questions asked one at a time — bad case, good case, typical case, in
+that order and no other — with no earlier answer on screen while the next is asked, and no
+percentile named anywhere on the form. Then a review, the first and only moment the three are
+seen together, carrying the betting frame and both warnings. The three boxes are gone and there
+is no fast path back to them: a quick way to the garbage is a quick way to the garbage, and the
+people most certain they do not need the framing are the people it is for.
+
+**M5's failure mode is that it cannot fail visibly**, and it shipped that way. Every milestone
+before it had an oracle — a closed form, a byte-identical degenerate case, a calendar anybody can
+count on their fingers — and this one has a hypothesis about human judgement that nothing in the
+repository can settle. The form is better to use; whether it produces honester ranges is not
+knowable yet and will not be for a year.
+
+**What M8 inherits, and it is the whole of how that question gets answered.** Every estimate now
+carries `elicitation_method` — `three_point` for the rows written before this milestone, which
+`V15` backfilled truthfully because three boxes really were the only form this product ever had,
+and `surprise_framed` for everything since. **Split the calibration record by that column and the
+answer falls out**: did changing the question change how often a band contained the truth? There
+is no other way to ask it. The alternative was `created_at` against a deploy date that lives
+nowhere in the database, which is the reconstruction these documents exist to avoid.
+
+M8 also inherits **comparative framing** as above, and a second, smaller thing: the two checks
+below are now functions with thresholds stated once, so a hygiene report that wants to run them
+across a whole plan extends something that exists rather than reimplementing a rule.
 
 ---
 
@@ -971,7 +999,12 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
   needs no new modelling.
 - **Estimate hygiene warnings** — flag estimates gone stale, ranges pasted identically
   across items, and clustering on 3/5/8. Extends M5's overconfidence check from single
-  estimates to patterns across a plan.
+  estimates to patterns across a plan. **Both single-estimate checks now exist** as
+  `EstimateQuality`, with their thresholds stated once beside the arithmetic, so this extends
+  functions rather than reimplementing rules — and the clustering half is the interesting one
+  precisely because M5's measurement showed that 3/5/8 passes every check that looks at one
+  estimate alone. Seeing it forty times in a plan is a signal nothing at the single-estimate
+  level can produce.
 
 ### Collaboration
 
@@ -1219,6 +1252,16 @@ screen and the most tempting thing to fix, and styling it is the one change that
 question-design problem. **M5 replaces what is asked; this replaces how everything looks.**
 Conflating them means a beautifully styled form eliciting exactly the same garbage.
 
+> **Half of that is now spent, and it is the half that was not this.** M5 replaced what the
+> estimate form asks: three boxes became three questions asked one at a time, and the percentile
+> names are gone from the screen. It is still deliberately plain — one input, a hint, a review
+> and four buttons — so the sentence above stands exactly as written for the other half. What
+> changed is that the most tempting thing to style is no longer the ugliest thing on screen for
+> the *reason* it was: it is plain now because everything is, not because fixing it needed a
+> milestone. **The trap it names has not moved.** A beautifully styled form eliciting the same
+> garbage was always the risk, and it still is — M5 changed the question, and nothing about how
+> anything looks has been shown to change an answer.
+
 **What is actually there today**, so the size of it is not a surprise: one hand-written
 `App.css` of about 770 lines, a dozen colour variables in `index.css` with a dark-mode block,
 and components assembled per screen from `Field` and bespoke markup. There is no component
@@ -1331,20 +1374,27 @@ would arrive as the first number in this product a server picked. It did not: it
 box with no default, printed beside every date it produced, stored on the run under a named rule
 so that a better calendar in M11 cannot move a date already published.
 
-**What is next is M5**, and the ordering principle at the top of this document is why rather than
-any new argument. Tier 2 is the tempting direction — variance contribution and inverse queries
-are both analysis over an engine that already exists — but the elicitation problem is the one
-that decides whether any of it means anything. The three-box estimate form is on screen, it is
-obviously bad, and it now feeds a number somebody will paste into a plan as a date. **A date
-makes M5 more urgent rather than less**: garbage that carried a probability was bad, and garbage
-that carries a day of the week is worse, because a date is the thing people act on.
-
-**It is planned, in `m5-plan.md`, and planning it moved one of its own bullets.** The
-overconfidence warning this section proposes does not catch 3/5/8 — nor 2/3/5, 5/8/13 or 1/2/3 —
+**M5 is spent too, and planning it moved one of its own bullets before a line was written.** The
+overconfidence warning that section proposes does not catch 3/5/8 — nor 2/3/5, 5/8/13 or 1/2/3 —
 and neither does the consistency check the engine already reports. Every Fibonacci triple agrees
-with itself to within a few percent and sits just outside the ratio rule. That is worth knowing
-before building: the checks are worth having and they are not the milestone, and anybody who
-ships them and calls M5 done will have shipped the part that measurably does not work.
+with itself to within a few percent and sits just outside the ratio rule. So the checks shipped
+as a backstop and the *question order* shipped as the defence, and anybody who had shipped only
+the checks would have shipped the part that measurably does not work.
+
+**What is next is M6**, and the ordering principle at the top of this document is why. Tier 2 is
+analysis over an engine that already exists, and variance contribution is the most defensible
+thing in the product — point-estimate tools cannot produce it at all. It also needs no new
+schema and no new modelling: a run stores its seed, its inputs and its engine version, so
+per-item contribution comes from **replaying** a stored forecast rather than from hoarding five
+million sampled numbers per button press.
+
+**What M6 must not do is the thing that would be easiest.** With a summing model, contribution
+was each item's share of total variance; with a scheduler it is not, and computing it that way
+would produce a confident ranking that is wrong for exactly the items a merge point makes
+matter. It has to be measured against *project completion* across runs. The other trap is
+changing the model to make the measurement easier: a replay that no longer reproduces its own
+stored percentiles is what `ForecastApiTests` exists to catch, and `Engine.VERSION` is what to
+move if the model genuinely has to.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;
