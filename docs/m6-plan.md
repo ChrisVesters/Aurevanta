@@ -30,7 +30,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | What a contribution is, as a pure function | M3 |
+| 1 | What a contribution is, as a pure function ✅ *done* | M3 |
 | 2 | The engine says what each run did | 1 |
 | 3 | Replaying a run, and refusing to when it is not the same one | 2 |
 | 4 | What to spike next, on screen | 3 |
@@ -281,7 +281,7 @@ the way an arrow into archived work already is.
 
 ---
 
-## Step 1 — What a contribution is, as a pure function
+## Step 1 — What a contribution is, as a pure function ✅ *done*
 
 **Goal.** The arithmetic exists, in one place, with an oracle behind it.
 
@@ -302,6 +302,41 @@ that nobody "simplifies" it back. Order is preserved under a change of units —
 duration by 60 changes no ranking.
 
 **Done when** the number can be checked by hand on a case that has a closed form.
+
+### As built — where it differs from the above
+
+**Three doubles per source, not five.** The bullet says "the five Welford co-moments", which is
+the count for a standalone pair of series. Here every source is measured against the *same*
+outcome, so the outcome's mean and spread are held once for the whole accumulator and each source
+carries only its own mean, its own spread and its co-moment. At five hundred items that is 1,500
+doubles rather than 2,500, and — more to the point — it is two numbers that cannot come to
+disagree about the plan they are attributing.
+
+**The oracle turned out to need no sampling at all**, which makes it far stronger than planned.
+Two sources of `[3, −3, 0, 0]` and `[0, 0, 1, −1]` have a mean of zero and are exactly orthogonal,
+so four runs give variances of 4.5 and 0.5 against a total of 5.0, and the squared correlations
+come out at 0.9 and 0.1 **to the last bit** rather than converged to within a sampling error. A
+second test then does the same thing on a hundred thousand real draws across ten sources against
+the closed form, because a formula that only works on four orthogonal points is not a formula —
+but the exact one is what fails first and most legibly.
+
+**The billion-hour regression is written as an invariance rather than as a magnitude.** A
+correlation does not care where zero is, so the test shifts both series by 1e9 and asserts the
+answer has not moved — and asserts, on the same numbers, that the naive formula returns `NaN`.
+That is better than a table of errors: it states the property the naive formula loses, and the
+naive formula is in the test file so that reinstating it is a failing test rather than a
+tidier-looking method. Its companion asserts the other invariance the plan mentions in passing,
+that sixty times the hours is the same ranking.
+
+**Two cases the bullets did not name were added, and one of them matters.** A source the finish
+runs *against* comes back at −1 and still ranks at a share of 1 — negative correlations are
+scheduling anomalies rather than errors, and the accumulator must not clamp them away, which is
+one more reason the square is what gets ranked. The other is an accumulator that has seen nothing
+at all, which reports zero runs and no contribution rather than dividing by one.
+
+**`Contribution` is a one-component record with a derived accessor**, so the correlation and its
+square cannot disagree — the shape `EstimateQuality` could not have, because that one needs three
+inputs. `Contribution.NONE` follows `TeamFactor.NONE`.
 
 ---
 
