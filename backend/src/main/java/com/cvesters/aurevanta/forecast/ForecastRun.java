@@ -204,7 +204,15 @@ public class ForecastRun {
 		this.createdAt = createdAt;
 	}
 
-	private static BigDecimal hours(double value) {
+	/**
+	 * How a figure the engine produced becomes a figure this table keeps.
+	 *
+	 * <p>
+	 * Reachable from the package rather than private, because a replay has to round its
+	 * own answer the same way before it can be compared with what is stored here. Two
+	 * roundings would be two chances to disagree about a run that had not changed at all.
+	 */
+	static BigDecimal hours(double value) {
 		return BigDecimal.valueOf(value).setScale(HOURS_SCALE, RoundingMode.HALF_UP);
 	}
 

@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,6 +25,7 @@ import com.cvesters.aurevanta.estimate.EstimateService;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEdge;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEstimate;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedItem;
+import com.cvesters.aurevanta.forecast.model.Contributions;
 import com.cvesters.aurevanta.forecast.model.Engine;
 import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.forecast.model.Forecast;
@@ -35,6 +37,7 @@ import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
 import com.cvesters.aurevanta.membership.MembershipService;
 import com.cvesters.aurevanta.problem.ForecastNotFoundException;
+import com.cvesters.aurevanta.problem.ForecastReplayMismatchException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.NothingToForecastException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
@@ -208,6 +211,85 @@ public class ForecastService {
 	public ForecastRun get(UUID callerId, UUID tenantId, UUID runId) {
 		this.memberships.requireMember(callerId, tenantId);
 		return this.runs.findInTenant(runId, tenantId).orElseThrow(ForecastNotFoundException::new);
+	}
+
+	/**
+	 * What a stored run's spread turned out to be made of, ranked.
+	 *
+	 * <p>
+	 * <strong>Nothing was stored for this and nothing is stored by it.</strong> The
+	 * durations a ranking needs are a per-item, per-run number — five million of them for
+	 * a plan at the scale this product supports — so the run is replayed from its seed
+	 * instead, which is what M3a kept a seed for. The payoff is not the space saved: a
+	 * stored column would only ever have explained runs made after it existed, and this
+	 * explains every forecast this product has ever produced.
+	 *
+	 * <p>
+	 * <strong>And the replay has to prove it is the same engine before it may explain
+	 * anything.</strong> A run keeps the six figures it produced, so the replay's own six
+	 * are compared against them and any difference refuses the whole thing. That costs
+	 * six comparisons after ten thousand simulations and it is the only guard there is: a
+	 * ranking produced by a different model is not a rougher ranking of this plan, it is
+	 * an exact ranking of a plan nobody forecast, and it would look entirely reasonable.
+	 *
+	 * <p>
+	 * <strong>A source nobody modelled gets no row at all, rather than a row reading
+	 * zero.</strong> It never varied, so it measures as nothing either way — but zero
+	 * invites a reader to conclude their team has no common cause, when what they did was
+	 * decline to model one. Decided from what the run stored, not from what it drew,
+	 * which is the rule a run made before there was a calendar already follows.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws ForecastNotFoundException if no run in it has that identifier
+	 * @throws ForecastReplayMismatchException if replaying it does not reproduce it
+	 */
+	@Transactional(readOnly = true)
+	public List<ContributionResponse> contributionsTo(UUID callerId, UUID tenantId, UUID runId) {
+		ForecastRun run = get(callerId, tenantId, runId);
+		ForecastInputs inputs = inputsOf(run);
+		TeamFactor teamFactor = TeamFactor.from(run.getTeamFactorWorseByPercent().doubleValue());
+		ScopeGrowth scopeGrowth = ScopeGrowth.from(run.getScopeGrowthP10Percent().doubleValue(),
+				run.getScopeGrowthP90Percent().doubleValue());
+		Contributions measured = Contributions.forRun(inputs.items().size());
+		Forecast replayed = Engine.run(inputs.toModels(), inputs.toPrecedences(), run.getCapacity(), teamFactor,
+				scopeGrowth, run.getSampleCount(), run.getSeed(), measured);
+		requireSameRun(run, replayed);
+
+		List<ContributionResponse> ranked = new ArrayList<>(inputs.items().size() + 2);
+		for (int at = 0; at < inputs.items().size(); at++) {
+			ranked.add(ContributionResponse.of(inputs.items().get(at).id(), measured.ofItem(at)));
+		}
+		if (!ScopeGrowth.NONE.equals(scopeGrowth)) {
+			ranked.add(ContributionResponse.of(ContributionKind.DISCOVERED_WORK, measured.ofDiscoveredWork()));
+		}
+		if (!TeamFactor.NONE.equals(teamFactor)) {
+			ranked.add(ContributionResponse.of(ContributionKind.TEAM_FACTOR, measured.ofTeamFactor()));
+		}
+		// Ranked here rather than by whoever draws it: the order *is* the feature, and a
+		// second caller sorting it a second way would be a second answer to one question.
+		ranked.sort(Comparator.comparingDouble(ContributionResponse::shareOfSpread).reversed());
+		return List.copyOf(ranked);
+	}
+
+	/**
+	 * Refuses to explain a run the engine no longer reproduces.
+	 *
+	 * <p>
+	 * Compared on the rounded figures rather than the raw ones, because that is what the
+	 * columns hold — and a replay that took the same draws produces the same doubles bit
+	 * for bit, so the roundings match exactly or something has genuinely moved. All six,
+	 * because a change that moved only the mean or only one tail is exactly the change
+	 * nobody would think to look for.
+	 */
+	private static void requireSameRun(ForecastRun run, Forecast replayed) {
+		BigDecimal[] stored = { run.getMeanHours(), run.getP10Hours(), run.getP50Hours(), run.getP80Hours(),
+				run.getP90Hours(), run.getP95Hours() };
+		double[] again = { replayed.meanHours(), replayed.p10Hours(), replayed.p50Hours(), replayed.p80Hours(),
+				replayed.p90Hours(), replayed.p95Hours() };
+		for (int at = 0; at < stored.length; at++) {
+			if (stored[at].compareTo(ForecastRun.hours(again[at])) != 0) {
+				throw new ForecastReplayMismatchException();
+			}
+		}
 	}
 
 	/** What was stored about a run beyond its six headline numbers. */

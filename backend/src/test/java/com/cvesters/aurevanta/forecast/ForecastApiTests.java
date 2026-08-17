@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 import com.cvesters.aurevanta.TestcontainersConfiguration;
 import com.cvesters.aurevanta.dependency.Dependency;
@@ -50,6 +52,7 @@ import com.cvesters.aurevanta.user.UserRepository;
 import com.cvesters.aurevanta.user.UserRole;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -435,6 +438,159 @@ class ForecastApiTests {
 		assertThat(this.forecasts.inputsOf(started).items().getFirst().spentHours()).isEqualByComparingTo("6.00");
 		assertThat(this.forecasts.inputsOf(started).items().getFirst().status()).isEqualTo(WorkItemStatus.IN_PROGRESS);
 		assertThat(started.getP90Hours()).isLessThan(fresh.getP90Hours());
+	}
+
+	// What the spread is made of ----------------------------------------------
+
+	/**
+	 * <strong>Every forecast this product has ever made can be explained, because nothing
+	 * was stored to explain it.</strong> The ranking comes from replaying the run out of
+	 * its own seed — five million per-item durations that never had to be written down —
+	 * which is what M3a kept a seed for and the first feature to spend it.
+	 */
+	@Test
+	void aStoredRunSaysWhatItsSpreadWasMadeOf() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+
+		JsonNode ranked = parsed(
+				contributions(run).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+
+		assertThat(ranked.size()).isEqualTo(2);
+		assertThat(itemIdsIn(ranked)).containsExactlyInAnyOrder(this.migration.getId().toString(),
+				this.rollout.getId().toString());
+		// A chain of two at capacity one is a sum, so the shares are the variance shares
+		// and
+		// add to one — the closed form `ContributionsTests` proves, arriving over HTTP.
+		double total = 0.0;
+		for (JsonNode source : ranked) {
+			assertThat(source.get("kind").asString()).isEqualTo("item");
+			total += source.get("shareOfSpread").asDouble();
+		}
+		assertThat(total).isCloseTo(1.0, within(0.05));
+	}
+
+	/**
+	 * Largest first, because the order is the feature rather than a client's to choose.
+	 */
+	@Test
+	void theRankingComesBackRanked() throws Exception {
+		JsonNode ranked = parsed(
+				contributions(forecast(assuming(2, 30, 20, 60))).andReturn().getResponse().getContentAsString());
+
+		double previous = Double.MAX_VALUE;
+		for (JsonNode source : ranked) {
+			double share = source.get("shareOfSpread").asDouble();
+			assertThat(share).isLessThanOrEqualTo(previous);
+			previous = share;
+		}
+	}
+
+	/**
+	 * <strong>The two rows that are not items, and the reason the ranking is
+	 * honest.</strong> A list of tasks alone answers "which of these should I spike"
+	 * while hiding whether spiking any of them is worth doing.
+	 */
+	@Test
+	void theSharedFactorAndTheUnlistedWorkAreRowsOfTheirOwn() throws Exception {
+		JsonNode ranked = parsed(
+				contributions(forecast(assuming(2, 30, 20, 60))).andReturn().getResponse().getContentAsString());
+
+		assertThat(kindsIn(ranked)).contains("team_factor", "discovered_work");
+		for (JsonNode source : ranked) {
+			if (!"item".equals(source.get("kind").asString())) {
+				assertThat(source.get("itemId").isNull()).as("%s names no item", source.get("kind")).isTrue();
+			}
+		}
+	}
+
+	/**
+	 * <strong>Absent rather than zero, and the difference is a claim.</strong> A source
+	 * nobody modelled never varied, so it measures as nothing either way — but a row
+	 * reading zero would invite a reader to conclude their team has no common cause, when
+	 * what they did was decline to model one. Decided from what the run stored, which is
+	 * the rule a forecast made before there was a calendar already follows.
+	 */
+	@Test
+	void aRunThatAssumedNeitherGetsNeitherRow() throws Exception {
+		JsonNode ranked = parsed(
+				contributions(forecast(assuming(1, 0, 0, 0))).andReturn().getResponse().getContentAsString());
+
+		assertThat(kindsIn(ranked)).containsOnly("item");
+	}
+
+	/**
+	 * <strong>The guard this milestone turns on.</strong> A run keeps the six figures it
+	 * produced, so replaying it and comparing them answers the only question that matters
+	 * — does this still come out the same? A ranking from a different model is not a
+	 * rougher ranking of this plan, it is an exact ranking of a plan nobody forecast, and
+	 * it would look entirely reasonable. Altering a stored figure directly is the only
+	 * way to reach this today; a version bump is what reaches it later.
+	 */
+	@Test
+	void refusesToExplainARunItNoLongerReproduces() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 0));
+		this.database.update("update forecast_runs set p90_hours = p90_hours + 1 where id = ?", run.getId());
+
+		contributions(run).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("forecast_replay_mismatch"))
+			.andExpect(jsonPath("$[0]").doesNotExist());
+	}
+
+	/**
+	 * <strong>All six, and each one on its own.</strong> A change that moved only the
+	 * mean, or only one tail, is exactly the change nobody would think to look for — so
+	 * every figure a run stores is compared, and this walks them one at a time to say
+	 * that none of them is being taken on trust.
+	 */
+	@Test
+	void everyFigureARunStoresIsPartOfTheGuard() throws Exception {
+		for (String figure : List.of("mean_hours", "p10_hours", "p50_hours", "p80_hours", "p90_hours", "p95_hours")) {
+			this.runs.deleteAll();
+			ForecastRun run = forecast(assuming(1, 0, 0, 0));
+			contributions(run).andExpect(status().isOk());
+
+			this.database.update("update forecast_runs set " + figure + " = " + figure + " + 1 where id = ?",
+					run.getId());
+
+			contributions(run).andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("forecast_replay_mismatch"));
+		}
+	}
+
+	/**
+	 * A read is a read: explaining a run leaves it exactly as it was, and adds nothing.
+	 */
+	@Test
+	void explainingARunWritesNothing() throws Exception {
+		ForecastRun run = forecast(assuming(2, 30, 20, 60));
+
+		contributions(run).andExpect(status().isOk());
+
+		assertThat(this.runs.findAll()).singleElement().satisfies((unchanged) -> {
+			assertThat(unchanged.getP90Hours()).isEqualByComparingTo(run.getP90Hours());
+			assertThat(unchanged.getSeed()).isEqualTo(run.getSeed());
+		});
+	}
+
+	@Test
+	void cannotExplainAForecastInAnotherOrganisation() throws Exception {
+		ForecastRun run = forecast(1);
+
+		this.mvc
+			.perform(get("/api/forecasts/" + run.getId() + "/contributions").header(HttpHeaders.AUTHORIZATION,
+					bearer(this.grace)))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("forecast_not_found"));
+	}
+
+	@Test
+	void explainingARunNeedsATokenScopedToAnOrganisation() throws Exception {
+		ForecastRun run = forecast(1);
+		String identity = this.accessTokens.issueIdentityToken(this.ada.getUser()).value();
+
+		this.mvc.perform(get("/api/forecasts/" + run.getId() + "/contributions").header(HttpHeaders.AUTHORIZATION,
+				"Bearer " + identity))
+			.andExpect(status().isForbidden());
 	}
 
 	// The calendar ------------------------------------------------------------
@@ -885,6 +1041,31 @@ class ForecastApiTests {
 			.getContentAsString();
 		UUID id = UUID.fromString(this.json.readTree(response).get("id").asString());
 		return this.runs.findById(id).orElseThrow();
+	}
+
+	private ResultActions contributions(ForecastRun run) throws Exception {
+		return this.mvc.perform(get("/api/forecasts/" + run.getId() + "/contributions")
+			.header(HttpHeaders.AUTHORIZATION, bearer(this.ada)));
+	}
+
+	private JsonNode parsed(String body) {
+		return this.json.readTree(body);
+	}
+
+	private static List<String> itemIdsIn(JsonNode ranked) {
+		List<String> ids = new ArrayList<>();
+		for (JsonNode source : ranked) {
+			ids.add(source.get("itemId").asString());
+		}
+		return ids;
+	}
+
+	private static List<String> kindsIn(JsonNode ranked) {
+		List<String> kinds = new ArrayList<>();
+		for (JsonNode source : ranked) {
+			kinds.add(source.get("kind").asString());
+		}
+		return kinds;
 	}
 
 	/** One run as the API describes it, read back the way a client would. */

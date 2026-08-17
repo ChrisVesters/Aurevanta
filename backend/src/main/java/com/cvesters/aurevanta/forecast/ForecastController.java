@@ -68,6 +68,27 @@ class ForecastController {
 		return described(this.forecasts.get(caller.userId(), caller.tenantId(), runId));
 	}
 
+	/**
+	 * What this run's spread turned out to be made of, largest first.
+	 *
+	 * <p>
+	 * <strong>A read that stores nothing and costs a whole forecast.</strong> The ranking
+	 * is worked out by replaying the run from its seed rather than from anything kept
+	 * beside it, which is why it can answer for every forecast this product has ever made
+	 * rather than only for the ones made since somebody added a column.
+	 *
+	 * <p>
+	 * Its own request rather than part of the forecast, so that asking for a forecast
+	 * costs what it costs today — the two-second budget {@code m3a-plan.md} measured is
+	 * what keeps one inside the request that asked for it, and most callers never open
+	 * this.
+	 */
+	@GetMapping("/api/forecasts/{runId}/contributions")
+	List<ContributionResponse> contributions(@AuthenticationPrincipal AuthenticatedUser caller,
+			@PathVariable UUID runId) {
+		return this.forecasts.contributionsTo(caller.userId(), caller.tenantId(), runId);
+	}
+
 	private ForecastResponse described(ForecastRun run) {
 		return ForecastResponse.of(run, this.forecasts.outputsOf(run));
 	}

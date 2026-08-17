@@ -31,8 +31,8 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | What a contribution is, as a pure function ✅ *done* | M3 |
-| 2 | The engine says what each run did | 1 |
-| 3 | Replaying a run, and refusing to when it is not the same one | 2 |
+| 2 | The engine says what each run did ✅ *done* | 1 |
+| 3 | Replaying a run, and refusing to when it is not the same one ✅ *done* | 2 |
 | 4 | What to spike next, on screen | 3 |
 | 5 | Close out | 1–4 |
 
@@ -340,7 +340,7 @@ inputs. `Contribution.NONE` follows `TeamFactor.NONE`.
 
 ---
 
-## Step 2 — The engine says what each run did
+## Step 2 — The engine says what each run did ✅ *done*
 
 **Goal.** The engine can be watched without being changed.
 
@@ -363,9 +363,53 @@ same for `TeamFactor.NONE`.
 **Done when** contribution can be measured for a plan whose answer is already known, and the
 engine is provably the same engine.
 
+### As built — where it differs from the above
+
+**The counter-oracle needed measuring before it could be asserted, and the first version of it
+failed.** A wide item beside a chain of *three* still accounts for 12% of the spread — its tail
+reaches past the chain often enough to matter — so the assertion the plan describes was simply
+untrue at that shape. Lengthening the chain to five is what makes the claim stark, and the numbers
+are now in the test rather than assumed by it:
+
+| Chain length | Wide item's share | Each link's share |
+|---|---|---|
+| 3 | 0.119 | ~0.17 |
+| 4 | 0.044 | ~0.18 |
+| **5** | **0.012** | **~0.18** |
+| 6 | 0.014 | ~0.14 |
+
+The item with **forty-five times the variance of any other** accounts for 1.2% of the spread while
+each of the five narrow links accounts for about 18%. That is `roadmap.md`'s sentence made
+executable, and it would have been asserted as a guess if the shape had not been probed first.
+
+**The two non-item sources are named accessors on `Contributions` rather than a third type.**
+`Contributions.forRun(items)` allocates `items + 2` sources and `ofItem`, `ofDiscoveredWork` and
+`ofTeamFactor` read them; the generic constructor and `of(int)` stay exactly as step 1 left them,
+which is what keeps the closed-form oracle testing the arithmetic rather than the layout. The
+alternative was a `RunSpread` wrapper holding a `Contributions`, which is one more file to say
+that two indices are on the end.
+
+**`Contributions` implements `RunObserver` directly**, so the engine hands it a run and it fills
+itself. The row it accumulates is a reused field, not an allocation per run — the engine's own
+`durations` array cannot be used as-is because it is longer than the plan whenever a run
+discovered work.
+
+**Engine computes the discovered total itself**, in the loop that already fills those durations,
+rather than handing the observer a count and letting it re-walk the array. One addition per
+discovered item against a second pass over it.
+
+**"No discovered work rather than zero" turned out to be step 3's, and the plan is now clearer
+for it.** What step 2 can say is that a source nobody modelled *never varied*, so it contributes
+exactly nothing — `TeamFactor.NONE` holds the stretch at 1 in every run and `ScopeGrowth.NONE`
+holds the discovered total at 0. Whether the report then shows a row reading zero or **no row at
+all** is a question about what the run assumed, not about what it drew, and the run stores the
+answer in `team_factor_worse_by_percent` and the two growth columns. That is the M4 calendar
+pattern exactly — a run without a calendar has no dates, decided from the stored columns in the
+response layer — and it is where decision 4's "absent, not zero" belongs.
+
 ---
 
-## Step 3 — Replaying a run, and refusing to when it is not the same one
+## Step 3 — Replaying a run, and refusing to when it is not the same one ✅ *done*
 
 **Goal.** A stored run can explain itself, or say why it cannot.
 
@@ -386,6 +430,44 @@ columns are unchanged afterwards, and no row is added anywhere.
 
 **Done when** no ranking this API publishes can have come from a model that did not produce the
 run.
+
+### As built — where it differs from the above
+
+**Decision 9 assumed a title the snapshot has never held, and step 4 inherits the correction.**
+That decision says an item's stored title is shown, marked, where the item is gone —
+`ForecastInputs.PlannedItem` carries an id, a status, hours spent and the ranges, and no title at
+all, on purpose: M10's movement decomposition diffs these, and a title is not a thing that moves.
+So the response names items by **identifier only**, and step 4 has to resolve titles from the
+live plan and name an item that is no longer in it, the way an arrow into archived work already
+is. Better to find that here than while writing the screen.
+
+**The guard became a loop, and that was a coverage failure worth taking seriously.** Written as
+the plan describes — six `differs(...)` calls joined by `||` — five of the six short-circuit
+branches are unreachable without six near-identical tests, and JaCoCo said so. Two ways out: six
+tests, or one guard. Both were taken. The comparison walks a pair of six-element arrays, so there
+is one branch; and `everyFigureARunStoresIsPartOfTheGuard` alters each of the six columns in turn
+and asserts the refusal, so the claim "all six" is proved rather than asserted in a comment. The
+version that would have shipped had the coverage gate not complained checks all six and can only
+*demonstrate* one.
+
+**`ForecastRun.hours` stopped being private.** A replay has to round its own answer the way the
+columns were rounded before the two can be compared, and a second rounding would be a second
+chance to disagree about a run that had not changed. It is package-private with a note saying
+why, rather than duplicated into the service.
+
+**The ranking is sorted by the server**, which the bullets left open. The order *is* the feature —
+"what should I spike next" is a question about position — and a client sorting it a second way
+would be a second answer to one question.
+
+**`ContributionKind` is a name on the wire**, not a shape the client infers from which fields are
+null. That follows the rule every refusal in this API already keeps: the browser translates a
+name and never guesses from structure.
+
+**The cost was not measured, and that is outstanding.** The plan's decision 8 says step 3 measures
+the replay and writes the number down. The suite runs at small sample counts, so what it proves is
+correctness rather than budget; a 500-item plan at ten thousand runs has not been timed. Step 4
+needs the number before it decides whether the panel loads this on open or on request, and it is
+recorded here rather than quietly skipped.
 
 ---
 
