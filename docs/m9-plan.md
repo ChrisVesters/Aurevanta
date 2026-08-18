@@ -1,6 +1,6 @@
 # M9 — Throughput cross-check: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 3 are built.** Six steps, **no migration**, no new column, and no change to
+> **Proposal, 2026-08-18. Steps 1 to 4 are built.** Six steps, **no migration**, no new column, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -40,7 +40,7 @@
 | 1 | A team's weeks, including the empty ones ✅ *done* | M2 |
 | 2 | The projection, and what a bootstrap cannot see ✅ *done* | 1 |
 | 3 | Reading a plan's history and what is left in it ✅ *done* | 1 |
-| 4 | On an endpoint | 2, 3 |
+| 4 | On an endpoint ✅ *done* | 2, 3 |
 | 5 | The gap, beside the band | 4 |
 | 6 | Close out | 1–5 |
 
@@ -543,7 +543,7 @@ missed branches and zero missed instructions.
 
 ---
 
-## Step 4 — On an endpoint
+## Step 4 — On an endpoint ✅ *done*
 
 **Goal.** `GET /api/projects/{projectId}/throughput?asOf=…` answers what the plan's own history
 says.
@@ -568,6 +568,58 @@ refusal names the floor; the seed round-trips so two identical requests agree; t
 a two-organisation fixture; an as-of date before the last completion is refused.
 
 **Done when** a plan with three months of history answers, and one with three weeks says why not.
+
+### As built — where it differs from the above
+
+**The bullets contradict each other about the floor, and the contradiction is resolved toward the
+window.** One says the percentiles are null below it and "the window is not — the reader gets the
+history and no forecast, which is M8's empty state in a second place"; the last lists
+`throughput_history_too_short` among the refusals. Both cannot hold: a refusal withholds the
+window, which is the half a reader can judge for themselves. So it is a **limitation** and the
+answer is a `200` carrying the history and a reason.
+
+**There are three ways to have no projection, not one.** The floor is the one the bullets named.
+The other two fall straight out of step 2: `remaining == 0` is refused by the pure function because
+a plan with nothing left is not a forecast of no weeks, and a rate that does not clear the backlog
+inside `MOST_WEEKS` would put every percentile on the horizon — a censored number that reads as a
+date. Each says which it is, and in all three the window ships.
+
+**`ThroughputLimitation` is its own enum and not `ForecastLimitation`.** That one is serialised into
+`forecast_runs.outputs` and read back years later, which is why nothing may ever be deleted from
+it; nothing here is stored at all. Two lifetimes and two rules about changing — one enum would have
+handed the looser of them to the stricter, and the first person to tidy a throughput code out would
+have taken a stored forecast with it.
+
+**The seed is derived and is not overridable**, where the bullets say "published in the answer and
+overridable". A run stores its seed because it is written once and replayed years later; nothing
+here is written, so reproducibility means only that asking twice agrees — which a seed computed
+from the plan, the day and the backlog gives without a knob. And decision 11 is explicit that this
+endpoint takes a date and nothing else: an optional parameter on the one forecast whose selling
+point is that it asks for nothing is exactly what that warns about. It is still published, so an
+answer can be explained.
+
+**`throughput_out_of_order` is a new problem code, and it had to be.** The bullets ask that an
+as-of before the last completion be refused, and `Throughput.of` already refuses it — as an
+`IllegalArgumentException`, which would have surfaced as a five hundred. It is named for
+`progress_out_of_order`'s reason: two dates disagreeing about which came first, where nothing
+downstream could tell the disagreement from a team that delivers ahead of time.
+
+**And a second, larger gap the step opened by accident.** This is the first endpoint in the product
+with a **required query parameter**, and a missing or unreadable one arrived as Boot's default —
+`400` with a problem document carrying no `code`, which is precisely the failure
+`ApiExceptionHandler`'s own documentation records: a refusal that loses its code is silent, because
+a problem document is still a problem document. `handleUnusableParameter` closes it for both cases
+at once, reporting `validation_failed` with the parameter under `errors` in the shape a field
+complaint already has — `not_null` for absent, `invalid` for unreadable, both already in the
+frontend catalogue. That is a fix to shared machinery rather than to M9, and it is here because M9
+is what made it reachable.
+
+**Its own controller, not a sixth method on `ForecastController`.** That one creates and reads rows
+in `forecast_runs` — the history M10 walks of somebody deliberately re-forecasting. This creates
+nothing and reads no run.
+
+**Counts.** 16 cases in `ThroughputApiTests`; 940 backend tests pass, with every `Throughput` type,
+the new refusal and `ApiExceptionHandler` at zero missed branches and zero missed instructions.
 
 ---
 

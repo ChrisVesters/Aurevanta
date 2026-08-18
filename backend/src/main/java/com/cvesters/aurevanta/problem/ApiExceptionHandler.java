@@ -18,8 +18,10 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
  * Turns a failure anywhere in this application into an RFC 9457 problem response. Each
@@ -198,6 +200,35 @@ class ApiExceptionHandler {
 		ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Invalid request", "Some fields need attention",
 				"validation_failed");
 		problem.setProperty("errors", errors);
+		return problem;
+	}
+
+	/**
+	 * A query parameter that is missing, or there and unreadable.
+	 *
+	 * <p>
+	 * <strong>Here because the alternative is a problem document with no {@code code} in
+	 * it</strong>, which is this advice's own recorded failure mode: a refusal that
+	 * arrives as Boot's default is still a problem document, so nothing looks wrong and
+	 * the frontend falls all the way through to "something went wrong". Every other
+	 * refusal this API makes carries a code, and until the first endpoint took a required
+	 * query parameter there was no way to reach one that did not.
+	 *
+	 * <p>
+	 * One code for both, because they are one thing to a caller: the parameter this
+	 * endpoint needs is not usable. Which parameter it was rides on {@code errors} in the
+	 * shape a field complaint already has, so a client places it the same way —
+	 * {@code not_null} for absent and {@code invalid} for unreadable, both already in the
+	 * catalogue.
+	 */
+	@ExceptionHandler({ MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class })
+	ProblemDetail handleUnusableParameter(Exception ex) {
+		String name = (ex instanceof MissingServletRequestParameterException missing) ? missing.getParameterName()
+				: ((MethodArgumentTypeMismatchException) ex).getName();
+		String code = (ex instanceof MissingServletRequestParameterException) ? "not_null" : "invalid";
+		ProblemDetail problem = problem(HttpStatus.BAD_REQUEST, "Invalid request", "Some fields need attention",
+				"validation_failed");
+		problem.setProperty("errors", Map.of(name, new FieldProblem(code, Map.of())));
 		return problem;
 	}
 
