@@ -137,7 +137,22 @@ const LIMITATIONS: ForecastLimitation[] = [
  * design exists to prevent: **a date is the first thing this product emits that looks like
  * a fact.** An hours band advertises that it came out of a model; "14 November" does not.
  */
-export function ForecastPanel({ projectId }: { projectId: string }) {
+export function ForecastPanel({
+  projectId,
+  projectName
+}: {
+  projectId: string;
+  /**
+   * What the plan is called, and it is here for one line only.
+   *
+   * The headline sentence is the thing somebody copies into an email, and a sentence that
+   * names a confidence and a day but not *what* is being forecast only makes sense on the
+   * screen it is already on. Nothing else in this panel needs it — which is why it is a name
+   * rather than the project, since a component handed the whole row would soon read more of
+   * it than it should.
+   */
+  projectName: string;
+}) {
   const { t, i18n } = useTranslation();
   const { request } = useAuth();
   const [runs, setRuns] = useState<Forecast[] | null>(null);
@@ -589,7 +604,7 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           )}
 
           <p className="date">
-            {describeDate(t, latest, confidence, i18n.language)}
+            {describeDate(t, latest, projectName, confidence, i18n.language)}
           </p>
 
           <p className="band">
@@ -982,12 +997,14 @@ function describeEstimated(t: TFunction, run: Forecast): string {
 function describeDate(
   t: TFunction,
   run: Forecast,
+  plan: string,
   confidence: Confidence,
   locale: string
 ): string {
   const day = run[DATE_AT[confidence]];
   if (day !== null) {
     return t('projects.forecast.confidence.date', {
+      plan,
       confidence,
       date: formatDay(day, locale)
     });

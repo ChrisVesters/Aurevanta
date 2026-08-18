@@ -20,6 +20,7 @@ import {
 import type { Forecast } from './types';
 
 const PROJECT_ID = PROJECTS[0].id;
+const PROJECT_NAME = PROJECTS[0].name;
 const FORECASTS_URL = `/api/projects/${PROJECT_ID}/forecasts`;
 const CONTRIBUTIONS_URL = `/api/forecasts/${FORECAST.id}/contributions`;
 const CALIBRATION_URL = '/api/calibration';
@@ -120,14 +121,18 @@ describe('ForecastPanel', () => {
               : jsonResponse(200, [run])
       )
     );
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
   }
 
   async function open(runs: Forecast[] = [], spread: unknown = CONTRIBUTIONS) {
     storeAccessToken();
     answer(runs, spread);
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
   }
 
@@ -208,24 +213,73 @@ describe('ForecastPanel', () => {
    */
   it('leads with a date and moves it between confidences without asking again', async () => {
     await open([FORECAST]);
-    await screen.findByText(/80% likely/);
+    await screen.findByText(/80% chance that Q3 platform work/);
     const asked = fetchMock.mock.calls.length;
 
     expect(
-      screen.getByText('80% likely to be finished by Aug 25, 2026.')
+      screen.getByText(
+        'There is a 80% chance that Q3 platform work will be finished by Aug 25, 2026.'
+      )
     ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('radio', { name: '50%' }));
     expect(
-      screen.getByText('50% likely to be finished by Aug 21, 2026.')
+      screen.getByText(
+        'There is a 50% chance that Q3 platform work will be finished by Aug 21, 2026.'
+      )
     ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('radio', { name: '95%' }));
     expect(
-      screen.getByText('95% likely to be finished by Aug 31, 2026.')
+      screen.getByText(
+        'There is a 95% chance that Q3 platform work will be finished by Aug 31, 2026.'
+      )
     ).toBeInTheDocument();
 
     expect(fetchMock.mock.calls).toHaveLength(asked);
+  });
+
+  /**
+   * <strong>The test of the sentence is whether it survives being pasted somewhere else.</strong>
+   * A confidence and a day are not enough — read anywhere but this screen they describe
+   * nothing — so the plan is named, and named from the prop rather than from anything this
+   * component fetches. A different plan is used here for that reason: a hard-coded name would
+   * pass against the fixture above.
+   */
+  it('names the plan, so the line means something away from this screen', async () => {
+    storeAccessToken();
+    answer([FORECAST]);
+    renderRouted(
+      <ForecastPanel
+        projectId={PROJECT_ID}
+        projectName="Everything the board asked for"
+      />
+    );
+
+    expect(
+      await screen.findByText(
+        'There is a 80% chance that Everything the board asked for will be finished by Aug 25, 2026.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>One-sided, and `roadmap.md`'s own example is not.</strong> "Between 12 October and
+   * 20 November" is a two-sided interval, and it invites a question about the early end that
+   * nobody manages against and that the model is worst at. The sentence names one day: the one
+   * somebody would commit to.
+   */
+  it('says one date and never a window', async () => {
+    await open([FORECAST]);
+    await screen.findByText(/80% chance that Q3 platform work/);
+
+    for (const level of ['50%', '95%']) {
+      await userEvent.click(screen.getByRole('radio', { name: level }));
+      const sentence = screen.getByText(/chance that Q3 platform work/);
+      expect(sentence.textContent).not.toMatch(/between/i);
+      // One day named, not two: the band's own two numbers are hours and live elsewhere.
+      expect(sentence.textContent?.match(/\d{4}/g)).toHaveLength(1);
+    }
   });
 
   /**
@@ -235,7 +289,7 @@ describe('ForecastPanel', () => {
    */
   it('keeps the hours on screen at every confidence', async () => {
     await open([FORECAST]);
-    await screen.findByText(/80% likely/);
+    await screen.findByText(/80% chance that Q3 platform work/);
 
     for (const level of ['50%', '95%']) {
       await userEvent.click(screen.getByRole('radio', { name: level }));
@@ -619,7 +673,9 @@ describe('ForecastPanel', () => {
               : jsonResponse(200, [FORECAST])
       )
     );
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
 
     expect(
       await screen.findByText(
@@ -678,7 +734,9 @@ describe('ForecastPanel', () => {
               : jsonResponse(200, [FORECAST])
       )
     );
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
 
     await screen.findByRole('heading', { name: 'Forecast' });
     expect(screen.queryByText(/Its own history says/)).toBeNull();
@@ -703,12 +761,16 @@ describe('ForecastPanel', () => {
             : Promise.resolve(jsonResponse(200, [FORECAST]))
     );
 
-    const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(jsonResponse(200, DELIVERING));
 
-    const refused = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
@@ -747,7 +809,9 @@ describe('ForecastPanel', () => {
               : jsonResponse(200, [FORECAST])
       )
     );
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
 
     expect(
       // A regex because the sentence shares its paragraph with the link out to the page
@@ -779,7 +843,9 @@ describe('ForecastPanel', () => {
             : Promise.resolve(jsonResponse(200, [FORECAST]))
     );
 
-    const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(
@@ -796,7 +862,9 @@ describe('ForecastPanel', () => {
 
     // And the same on the way out through the failure path, which is the one that would
     // otherwise clear a track record belonging to a panel that is now on screen.
-    const refused = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
@@ -833,7 +901,9 @@ describe('ForecastPanel', () => {
               : jsonResponse(200, [FORECAST])
       )
     );
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
 
     await screen.findByRole('heading', { name: 'Forecast' });
     expect(screen.queryByText(/have contained the outcome/)).toBeNull();
@@ -1279,12 +1349,16 @@ describe('ForecastPanel', () => {
               })
     );
 
-    const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(jsonResponse(200, [FORECAST]));
 
-    const refused = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
@@ -1403,7 +1477,7 @@ describe('ForecastPanel', () => {
    */
   it('does not ask what the spread is made of until somebody does', async () => {
     await open([FORECAST]);
-    await screen.findByText(/80% likely/);
+    await screen.findByText(/80% chance that Q3 platform work/);
 
     expect(
       fetchMock.mock.calls.filter(([url]) => url === CONTRIBUTIONS_URL)
@@ -1597,7 +1671,9 @@ describe('ForecastPanel', () => {
               : Promise.resolve(jsonResponse(200, [FORECAST]))
     );
 
-    const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -1605,7 +1681,9 @@ describe('ForecastPanel', () => {
     answered.unmount();
     settle(jsonResponse(200, CONTRIBUTIONS));
 
-    const refused = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
     await screen.findByRole('heading', { name: 'Forecast' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -1643,7 +1721,9 @@ describe('ForecastPanel', () => {
                 })
       )
     );
-    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
 
     expect(
       await screen.findByText('That project is no longer in this organisation.')

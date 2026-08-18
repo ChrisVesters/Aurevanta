@@ -155,7 +155,7 @@ export function ProjectPage() {
             as nonsense above the thing it is about — and because the ranges it simulates
             are entered on the rows directly overhead.
           */}
-          <ForecastPanel projectId={project.id} />
+          <ForecastPanel projectId={project.id} projectName={project.name} />
 
           <ProjectForm
             // Keyed on what the server last said, so the fields show the saved project

@@ -297,7 +297,17 @@ export const en = {
       confidence: {
         legend: 'How confident do you need to be?',
         option: '{{value}}%',
-        date: '{{confidence}}% likely to be finished by {{date}}.',
+        // **The line this milestone exists for, and the test of it is whether it can be
+        // pasted into an email unedited.** It could not: it named a confidence and a day and
+        // never what was being forecast, so it only made sense on the screen it was already
+        // on. It also opened with a bare percentage, which reads as a statistic before it
+        // reads as a sentence.
+        //
+        // One-sided, and that corrects `roadmap.md`'s own example: "between 12 October and
+        // 20 November" is a two-sided interval, and it invites "so not before the 12th?" —
+        // a question about the end of the distribution the model is worst at and nobody
+        // manages against. What somebody commits to is a day they will not be past.
+        date: 'There is a {{confidence}}% chance that {{plan}} will be finished by {{date}}.',
         // A run made before a working day was something anybody stated. Its hours are
         // still true; backfilling a calendar onto it would have invented a claim nobody
         // made, so it says so in a line instead.

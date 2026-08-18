@@ -1,6 +1,6 @@
 # M10 — Communicating to people who do not know what P90 means: implementation plan
 
-> **Proposal, 2026-08-18.** Six steps, **no migration expected**, and no change to anything the
+> **Proposal, 2026-08-18. Step 1 is built.** Six steps, **no migration expected**, and no change to anything the
 > engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -37,7 +37,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | One sentence anybody can read | M4 |
+| 1 | One sentence anybody can read ✅ *done* | M4 |
 | 2 | When two forecasts may be compared | M3, M4 |
 | 3 | Why the date moved | 2, M6's replay |
 | 4 | Whether it keeps moving out | 2 |
@@ -331,7 +331,7 @@ same trade M8's calibration took and the same one M7 took for cuts.
 
 ---
 
-## Step 1 — One sentence anybody can read
+## Step 1 — One sentence anybody can read ✅ *done*
 
 **Goal.** The forecast leads with a sentence, and the sentence is one-sided.
 
@@ -357,6 +357,42 @@ day. The band and the limitations are still on screen beside it, because the fai
 step is quietly becoming the only thing shown.
 
 **Done when** somebody can copy one line into an email without editing it.
+
+### As built — where it differs from the above
+
+**Most of this step turned out to be built already, and saying so is more useful than pretending
+otherwise.** M4 shipped the headline sentence one-sided (`80% likely to be finished by 25 August`),
+above the band, at 22px against the band's 18 — so three of the five bullets describe the screen as
+it stood. What was left was the wording and one thing the bullets did not name.
+
+**The step's own *Done when* is what found the real gap.** "Somebody can copy one line into an
+email without editing it" — and they could not, because the sentence never said *what* was being
+forecast. A confidence and a day describe nothing away from the screen they are already on. So
+`ForecastPanel` now takes the plan's name, and the line reads **"There is a 80% chance that Q3
+platform work will be finished by 25 August."** That is the only structural change in the step, and
+it is a prop rather than the project: a component handed the whole row would soon read more of it
+than one sentence needs.
+
+**The rewording is smaller than it looks and is worth stating honestly.** "80% likely to be
+finished by X" was already plain and already one-sided. What changed is that it no longer opens
+with a bare percentage — which reads as a statistic before it reads as a sentence — and that it now
+has a subject. Anybody expecting decision 2 to have overturned something will find it did not:
+**the two-sided form `roadmap.md` proposes was never what this product shipped**, and the decision's
+work is to stop it being introduced rather than to remove it.
+
+**Two properties were asserted rather than built.** `saysOneDateAndNeverAWindow` pins the absence —
+no "between", exactly one year in the sentence at every confidence — because that is the thing
+decision 2 exists to prevent and nothing else would fail if it crept in. And the plan's name is
+tested through a *different* plan from the fixture, since a hard-coded name would have passed
+against the usual one.
+
+**Nothing else moved**, which the bullets ask for and the existing tests already guard: the band at
+every confidence, both no-calendar sentences, and the limitations heading all had cases already.
+The type size was left alone — 22px is already the largest content on the panel, and changing it to
+satisfy a bullet that is already true is churn.
+
+**Counts.** 2 new cases and 5 reworded; 440 frontend tests pass, at 100% of statements, branches,
+functions and lines. No backend change.
 
 ---
 
