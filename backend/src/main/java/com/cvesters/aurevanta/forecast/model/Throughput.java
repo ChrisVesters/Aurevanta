@@ -4,7 +4,10 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
+import java.util.random.RandomGenerator;
 
 /**
  * How much a team finished, week by week — including the weeks it finished nothing.
@@ -79,6 +82,19 @@ public final class Throughput {
 	 * are worried about.
 	 */
 	public static final int WORTH_TRUSTING = 52;
+
+	/**
+	 * The furthest ahead this will look — ten years.
+	 *
+	 * <p>
+	 * <strong>A bound rather than a budget.</strong> A bootstrap draws until the backlog
+	 * is covered, and a history with one completion in five years covers a backlog of
+	 * five hundred somewhere around the year 2500 — so without a stop the loop is
+	 * unbounded in the one direction nobody tests. It is set where no answer would be
+	 * worth reading anyway, and a run that reaches it is <em>counted</em> rather than
+	 * quietly returned as a number: see {@link ThroughputForecast#unfinishedRuns()}.
+	 */
+	public static final int MOST_WEEKS = 520;
 
 	private final int[] weeks;
 
@@ -235,6 +251,106 @@ public final class Throughput {
 	 */
 	public boolean worthTrusting() {
 		return this.weeks.length >= WORTH_TRUSTING;
+	}
+
+	/**
+	 * When a backlog of this size runs out, by resampling the weeks this team actually
+	 * had.
+	 *
+	 * <p>
+	 * <strong>A bootstrap and not a fitted distribution</strong>, which is the point. A
+	 * Poisson fit is the obvious alternative and it asserts something false about every
+	 * real team: that weeks are independent draws of a single rate, so no week is ever
+	 * four deviations out because the build broke. Resampling asserts only that future
+	 * weeks look like some multiset of past ones — and unlike a fit it has an oracle,
+	 * because a team that finished exactly five a week for twenty weeks must answer
+	 * exactly eight weeks for forty items, in every run, with no spread at all.
+	 *
+	 * <p>
+	 * <strong>It cannot produce a week worse than {@link #worst()}, and that is the
+	 * largest thing to know about the answer.</strong> Simulated against a team that
+	 * loses one week in ten to an incident, 23% of teams at a quarter of history have
+	 * never observed their own bad week — and theirs is the forecast that comes back
+	 * early and confident, which is the one direction this product exists to correct.
+	 * Nothing here compensates for it: inventing a tail nobody observed would be a number
+	 * with no source inside a forecast whose entire claim is that it came from the team.
+	 * What ships instead is the window, so a reader who knows their team can see whether
+	 * it contains the week they are worried about.
+	 *
+	 * <p>
+	 * {@link Random} rather than anything faster, for {@code Engine}'s reason: its
+	 * algorithms are written into its contract rather than only its implementation, so a
+	 * seed still means the same thing after a JDK upgrade.
+	 * @param remaining how much is left to finish, which must be something — a plan with
+	 * nothing left is not a forecast of no weeks, it is a plan with nothing left, and
+	 * saying which is the caller's job
+	 * @param runs how many times to resample; ten thousand is what the engine uses
+	 * @param seed the whole of what makes an answer reproducible
+	 * @throws IllegalArgumentException if there is nothing left to finish, or no runs to
+	 * make
+	 * @throws IllegalStateException if this team has never finished anything, since no
+	 * amount of resampling weeks of nothing covers a backlog
+	 */
+	public ThroughputForecast project(int remaining, int runs, long seed) {
+		if (remaining <= 0) {
+			throw new IllegalArgumentException("A backlog of " + remaining + " is not a question about when");
+		}
+		if (runs <= 0) {
+			throw new IllegalArgumentException("A forecast needs runs, and was asked for " + runs);
+		}
+		if (completed() == 0) {
+			throw new IllegalStateException("Nothing has ever been finished, so no backlog ever runs out");
+		}
+		RandomGenerator random = new Random(seed);
+		int[] finishes = new int[runs];
+		int unfinished = 0;
+		for (int run = 0; run < runs; run++) {
+			int done = 0;
+			int week = 0;
+			while (done < remaining && week < MOST_WEEKS) {
+				done += this.weeks[random.nextInt(this.weeks.length)];
+				week++;
+			}
+			if (done < remaining) {
+				unfinished++;
+			}
+			finishes[run] = week;
+		}
+		return summarise(finishes, unfinished);
+	}
+
+	private static ThroughputForecast summarise(int[] finishes, int unfinished) {
+		double total = 0.0;
+		for (int finish : finishes) {
+			total += finish;
+		}
+		double mean = total / finishes.length;
+		double squares = 0.0;
+		for (int finish : finishes) {
+			squares += (finish - mean) * (finish - mean);
+		}
+		// Divided by the count rather than one less than it, as the engine divides: at
+		// ten
+		// thousand runs the difference is far under the sampling error either way, and it
+		// means a single run answers with zero instead of a NaN.
+		double deviation = Math.sqrt(squares / finishes.length);
+		int[] sorted = finishes.clone();
+		Arrays.sort(sorted);
+		return new ThroughputForecast(mean, deviation, at(sorted, 0.10), at(sorted, 0.50), at(sorted, 0.80),
+				at(sorted, 0.90), at(sorted, 0.95), unfinished);
+	}
+
+	/**
+	 * The week by which that share of the runs had finished.
+	 *
+	 * <p>
+	 * Nearest rank and no interpolation, which is {@code Engine}'s convention and has to
+	 * be: two answers read at the same confidence must be read the same way, or the gap
+	 * between them is partly a difference in how each was rounded.
+	 */
+	private static int at(int[] sorted, double share) {
+		int index = (int) Math.ceil(share * sorted.length) - 1;
+		return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
 	}
 
 	/**

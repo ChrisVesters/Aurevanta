@@ -1,6 +1,6 @@
 # M9 — Throughput cross-check: implementation plan
 
-> **Proposal, 2026-08-18. Step 1 is built.** Six steps, **no migration**, no new column, and no change to
+> **Proposal, 2026-08-18. Steps 1 and 2 are built.** Six steps, **no migration**, no new column, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -38,7 +38,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | A team's weeks, including the empty ones ✅ *done* | M2 |
-| 2 | The projection, and what a bootstrap cannot see | 1 |
+| 2 | The projection, and what a bootstrap cannot see ✅ *done* | 1 |
 | 3 | Reading a plan's history and what is left in it | 1 |
 | 4 | On an endpoint | 2, 3 |
 | 5 | The gap, beside the band | 4 |
@@ -397,7 +397,7 @@ branches and zero missed instructions.
 
 ---
 
-## Step 2 — The projection, and what a bootstrap cannot see
+## Step 2 — The projection, and what a bootstrap cannot see ✅ *done*
 
 **Goal.** The arithmetic exists, pure, with an oracle behind it, and it says what it could not see.
 
@@ -432,6 +432,53 @@ produces a run containing one, which is decision 5 written as a test so that nob
 it. An empty backlog and an all-zero history each answer rather than hang.
 
 **Done when** the answer can be checked by hand on a history anybody can add up.
+
+### As built — where it differs from the above
+
+**`ThroughputForecast` is the result and `Throughput.project` is the sampler**, rather than a
+second class doing the resampling. `Engine.run` is the shape the bullets had in mind, and the
+difference is that an engine holds nothing while a history *is* the thing being sampled from —
+`history.project(40, runs, seed)` reads as what it does, and a class whose only field is a
+`Throughput` would be indirection.
+
+**The seed is a parameter and is not derived here.** The bullets ask for "a deterministic seed from
+the question — the plan, the as-of date and the backlog count", and a plan is a `UUID`:
+`forecast.model` imports nothing from this codebase and must not start. So the pure function takes
+a seed and **step 4 derives it**, which is exactly the arrangement `Engine` and `ForecastService`
+already have. The property the bullets wanted — asking twice gives the same answer — is unchanged
+and is asserted here as a pair, same seed and different seed, so that neither case passes because
+the sampler is doing nothing.
+
+**The two limitation codes move to step 4 as well**, for a related reason: `ForecastLimitation`
+lives in the `forecast` *feature* package. Neither is a property of the arithmetic anyway — one is
+unconditional and the other is `worthTrusting()` read at the boundary.
+
+**"The loop must not run forever" needed more than the all-zero guard, and that is the real
+addition.** Refusing a history of nothing catches the impossible case and misses the same problem
+in slow motion: one completion in five years against a backlog of five hundred has a *nonzero* rate
+and a loop that runs into the next millennium. `MOST_WEEKS` — ten years — bounds every run, and
+`unfinishedRuns` counts the runs that reached it rather than returning the horizon as though the
+plan had finished there. A cap that is not reported is the failure mode the workflow rules call
+silent truncation, and `aRateTooSlowToFinishStopsAtTheHorizonAndSaysSo` is what says this one is
+not.
+
+**Two conventions copied deliberately rather than chosen.** The percentile is nearest-rank with no
+interpolation and the deviation divides by the count rather than one less — both are `Engine`'s,
+and both are copied *because* they are: two answers read at the same confidence have to be read the
+same way, or the gap between them is partly a difference in rounding. The comment on each says so.
+
+**No histogram**, unlike `Forecast`. Nothing in M9 draws a chart, and the icebox's distribution
+curves are where one would matter. Left out rather than carried unused.
+
+**The oracle came out exactly as hoped**, which is worth recording because a bootstrap is the kind
+of thing that usually cannot be checked: twenty weeks of exactly five, forty items, and every one
+of ten thousand runs answers eight weeks with a standard deviation of zero. Beside it,
+`theSameAverageWithAWorseWeekIsAWiderAnswer` is the milestone in one case — ten-and-nothing has the
+*identical* mean rate to a steady five and a visibly wider answer, which is what a mean cannot see
+and what resampling is for.
+
+**Counts.** 10 new cases, 24 in `ThroughputTests`; 911 backend tests pass, with `Throughput` and
+`ThroughputForecast` at zero missed branches and zero missed instructions.
 
 ---
 

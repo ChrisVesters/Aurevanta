@@ -1,6 +1,7 @@
 package com.cvesters.aurevanta.forecast.model;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,11 @@ class ThroughputTests {
 
 	/** A Monday, so that a week boundary is somewhere obvious. */
 	private static final LocalDate MONDAY = LocalDate.parse("2026-03-02");
+
+	/** What the engine uses, so the two forecasts are read at the same sampling error. */
+	private static final int RUNS = 10_000;
+
+	private static final long SEED = 20260818L;
 
 	@Test
 	void countsWhatWasFinishedInEachWeek() {
@@ -210,12 +216,160 @@ class ThroughputTests {
 		assertThat(quarter.worthTrusting()).isFalse();
 	}
 
+	// Projecting from it -------------------------------------------------------
+
+	/**
+	 * <strong>The oracle, and it needs no sampling error to be right.</strong> A team
+	 * that finished exactly five a week for twenty weeks resamples to five whichever week
+	 * it draws, so forty items take exactly eight weeks in every one of ten thousand
+	 * runs. Anybody can divide forty by five; nothing a fitted distribution could offer
+	 * would be checkable this way, which is most of decision 4.
+	 */
+	@Test
+	void aTeamThatNeverVariesAnswersExactlyAndWithNoSpread() {
+		ThroughputForecast forecast = steady(5, 20).project(40, RUNS, SEED);
+
+		assertThat(forecast.meanWeeks()).isEqualTo(8.0);
+		assertThat(forecast.standardDeviationWeeks()).isZero();
+		assertThat(forecast.p10Weeks()).isEqualTo(8);
+		assertThat(forecast.p50Weeks()).isEqualTo(8);
+		assertThat(forecast.p95Weeks()).isEqualTo(8);
+		assertThat(forecast.unfinishedRuns()).isZero();
+	}
+
+	/**
+	 * <strong>The whole reason weeks are resampled rather than averaged.</strong> Ten and
+	 * nothing, alternating, is the same five a week as a steady five — and the plan it
+	 * produces is not the same plan. A mean would report them identically.
+	 */
+	@Test
+	void theSameAverageWithAWorseWeekIsAWiderAnswer() {
+		Throughput steady = steady(5, 20);
+		Throughput lumpy = alternating(10, 0, 20);
+
+		assertThat(lumpy.perWeek()).isEqualTo(steady.perWeek());
+
+		ThroughputForecast even = steady.project(40, RUNS, SEED);
+		ThroughputForecast uneven = lumpy.project(40, RUNS, SEED);
+
+		assertThat(uneven.standardDeviationWeeks()).isGreaterThan(even.standardDeviationWeeks());
+		assertThat(uneven.p90Weeks()).isGreaterThan(even.p90Weeks());
+	}
+
+	@Test
+	void twiceTheBacklogIsAboutTwiceTheWeeks() {
+		Throughput history = alternating(7, 3, 20);
+
+		int forty = history.project(40, RUNS, SEED).p50Weeks();
+		int eighty = history.project(80, RUNS, SEED).p50Weeks();
+
+		assertThat(eighty).isCloseTo(forty * 2, within(2));
+	}
+
+	/**
+	 * <strong>Decision 5, written as a test so that nobody later "fixes" it.</strong> A
+	 * bootstrap can draw nothing worse than the worst week in its window, so the slowest
+	 * run possible is every week being that one. A history whose worst week is three can
+	 * never need more than fourteen weeks for forty items, however unlucky — and a team
+	 * that stops dead one week a quarter, whose window happens to hold no such week, gets
+	 * exactly this answer with no warning from the arithmetic.
+	 */
+	@Test
+	void itCannotDrawAWeekWorseThanTheWorstOneObserved() {
+		Throughput history = alternating(7, 3, 20);
+
+		ThroughputForecast forecast = history.project(40, RUNS, SEED);
+
+		assertThat(history.worst()).isEqualTo(3);
+		assertThat(forecast.p95Weeks()).isLessThanOrEqualTo(14);
+	}
+
+	/**
+	 * The same question twice is the same answer, or a reader refreshing sees the plan
+	 * move.
+	 */
+	@Test
+	void theSameSeedGivesTheSameAnswer() {
+		Throughput history = alternating(10, 0, 20);
+
+		assertThat(history.project(40, RUNS, SEED)).isEqualTo(history.project(40, RUNS, SEED));
+	}
+
+	/** Its mirror, so neither passes because the sampler is doing nothing at all. */
+	@Test
+	void aDifferentSeedGivesADifferentAnswer() {
+		Throughput history = alternating(10, 0, 20);
+
+		assertThat(history.project(40, RUNS, SEED)).isNotEqualTo(history.project(40, RUNS, SEED + 1));
+	}
+
+	// What it refuses, and what it will not sit in a loop for -------------------
+
+	@Test
+	void aBacklogOfNothingIsNotAForecastOfNoWeeks() {
+		Throughput history = steady(5, 20);
+
+		assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> history.project(0, RUNS, SEED));
+		assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> history.project(-1, RUNS, SEED));
+	}
+
+	@Test
+	void refusesToMakeNoRuns() {
+		Throughput history = steady(5, 20);
+
+		assertThatExceptionOfType(IllegalArgumentException.class).isThrownBy(() -> history.project(40, 0, SEED));
+	}
+
+	/**
+	 * A team that has finished nothing never covers a backlog, so this answers rather
+	 * than spins — the loop's termination cannot rest on the data being reasonable.
+	 */
+	@Test
+	void aTeamThatHasFinishedNothingCannotProject() {
+		Throughput nothing = Throughput.of(List.of(), MONDAY);
+
+		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(() -> nothing.project(40, RUNS, SEED));
+	}
+
+	/**
+	 * <strong>The same problem in slow motion, which a zero-history guard alone would
+	 * miss.</strong> One completion in ten years covers a backlog of a hundred somewhere
+	 * in the next millennium. Every run stops at the horizon and is counted, rather than
+	 * the week count being quietly returned as though the plan finished there.
+	 */
+	@Test
+	void aRateTooSlowToFinishStopsAtTheHorizonAndSaysSo() {
+		Throughput barelyMoving = Throughput.of(List.of(MONDAY), MONDAY.plusWeeks(Throughput.MOST_WEEKS - 1L));
+
+		ThroughputForecast forecast = barelyMoving.project(100, 200, SEED);
+
+		assertThat(forecast.unfinishedRuns()).isEqualTo(200);
+		assertThat(forecast.p50Weeks()).isEqualTo(Throughput.MOST_WEEKS);
+	}
+
 	/**
 	 * One completion in the first week and one in the last, so the span is exactly as
 	 * asked.
 	 */
 	private static Throughput weeksOfHistory(int weeks) {
 		return Throughput.of(List.of(MONDAY), MONDAY.plusWeeks(weeks - 1L));
+	}
+
+	/** A team that finished the same number every week. */
+	private static Throughput steady(int each, int weeks) {
+		return alternating(each, each, weeks);
+	}
+
+	/** A team whose weeks went one way and then the other, turn and turn about. */
+	private static Throughput alternating(int odd, int even, int weeks) {
+		List<LocalDate> completions = new ArrayList<>();
+		for (int week = 0; week < weeks; week++) {
+			LocalDate day = MONDAY.plusWeeks(week);
+			for (int item = 0; item < ((week % 2 == 0) ? odd : even); item++) {
+				completions.add(day);
+			}
+		}
+		return Throughput.of(completions, MONDAY.plusWeeks(weeks - 1L));
 	}
 
 }
