@@ -662,6 +662,11 @@ export const en = {
         // what was in them is still there.
         clears:
           'Saving this discards the dates and effort already recorded against this task.',
+        // Who last said something about this task, from a log that keeps every claim
+        // rather than only the newest. One line rather than a history screen: what it is
+        // for is that somebody can tell whether the state in front of them is theirs — and
+        // that a record nothing ever reads is a record that quietly stops being written.
+        lastReported: 'Last reported by {{name}} on {{day}}.',
         submit: 'Save progress',
         submitting: 'Saving…',
         cancel: 'Cancel',

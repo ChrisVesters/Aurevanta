@@ -1,6 +1,6 @@
 # M8 — Actuals and calibration feedback: implementation plan
 
-> **Proposal, 2026-08-18.** Six steps, one migration, no new problem code, and no change to
+> **Proposal, 2026-08-18. Step 1 is built.** Six steps, one migration, no new problem code, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -40,7 +40,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | The progress record stops being written over | — |
+| 1 | The progress record stops being written over ✅ *done* | — |
 | 2 | What one actual says about one range | M2 |
 | 3 | Which estimates were forecasts, and which were reports | 1, 2 |
 | 4 | The record, on an endpoint | 3 |
@@ -372,7 +372,7 @@ stops.**
 
 ---
 
-## Step 1 — The progress record stops being written over
+## Step 1 — The progress record stops being written over ✅ *done*
 
 **Goal.** A progress report becomes the third kind of evidence in this schema rather than the one
 kind that is not: append-only, attributed, and timed by the server.
@@ -424,6 +424,55 @@ nothing was backfilled, because "we deliberately wrote nothing" and "the backfil
 every row" are indistinguishable without it. Tenant isolation on the read.
 
 **Done when** a start date that was moved cannot hide that it moved.
+
+### As built — where it differs from the above
+
+**The boundary is two queries joined in the service, and the join is a fallback rather than a
+contest.** The bullet above says the log returns the earliest start "per item" and that items
+with no report "fall back to the current column value", which reads as two rival claims to be
+weighed. Written that way — take the earlier of the two — it has **a branch nothing can reach**:
+`recordProgress` writes the column and appends the same claim in one transaction, so every value
+the column has ever held is in the log, and the column can never sit below the log's floor. What
+the column is actually for is the rows older than the table, and `putIfAbsent` says that where
+`merge(..., earlier)` only looked as though it did. The comment on
+`WorkItemService.earliestReportedStarts` records the rejected version, because the careful-looking
+one is what somebody will reinstate.
+
+That is the `ProjectService.lockForGraphChange` judgement again — a refusal removed for being
+unreachable — rather than `LogNormalFit`'s, which keeps unreachable branches because a pure
+function can be called directly by a test. This one is reachable only by writing the column
+outside `recordProgress`, which nothing in the product does.
+
+**Reading the log needed an endpoint, which the plan did not name.** `GET /api/items/{itemId}/progress`,
+the natural sibling of the `PATCH` that appends to it. It answers the **whole** log rather than the
+one line the form shows: the resource is the history, and an endpoint returning only the newest
+would need a rule about how much of it is worth serving — which is the question this table exists
+to stop anybody answering by accident.
+
+**The one real mistake, and it is the one this codebase warns about by name.** The line was first
+written as `formatDay(report.reportedAt.slice(0, 10), locale)`, which reads the **UTC** day off an
+instant — so a report filed at nine in the evening in New York displays as tomorrow. That is
+`dates.ts`'s own off-by-one arriving from the other side: a `yyyy-mm-dd` is a day somebody reported
+and must not be converted, and `reported_at` is a moment the server observed and must be. It needed
+a second function, `formatMoment`, and `dates.test.ts` now asserts the pair — including that the
+two disagree on `2026-08-15T02:00:00Z` and that `formatMoment` is the one that is right. The suite
+running in `America/New_York` is what makes that a failing test rather than a bug half the planet
+sees; in UTC every one of those assertions passes against the broken version.
+
+**The `WorkItems` test double had to learn about methods, not just URLs.** Reporting progress and
+reading who reported it are the *same URL*, so a double keyed on the path alone handed the form a
+list of work items to render as somebody's name — the "test double that answers every URL alike"
+rule, met in a form the rule as written does not cover. It now branches on `init?.method` as well.
+
+**The migration test rolls its one insert back.** `theSameClaimMayBeMadeTwice` and
+`nothingIsInventedOnBehalfOfSomebodyWhoNeverMadeAReport` are assertions about the same table, and
+the second is a row count of zero — so the first commits nothing rather than depending on the order
+JUnit happens to run them in.
+
+**Counts.** 23 new backend cases (19 API, 4 migration) and 9 new frontend ones; 828 backend tests and
+399 frontend tests pass. `WorkItemProgress`, `WorkItemProgressRepository`, `ReportedStart`,
+`ProgressReportResponse` and `WorkItemService` are all at zero missed branches and zero missed
+instructions.
 
 ---
 

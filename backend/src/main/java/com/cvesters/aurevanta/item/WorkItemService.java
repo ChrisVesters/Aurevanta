@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import com.cvesters.aurevanta.problem.ProjectNotFoundException;
 import com.cvesters.aurevanta.problem.WorkItemNotFoundException;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.project.ProjectService;
+import com.cvesters.aurevanta.user.User;
 
 /**
  * The work inside a plan, and everything a member may do to it.
@@ -27,6 +30,14 @@ import com.cvesters.aurevanta.project.ProjectService;
  * Any member may do all of it, as with projects: roles govern administration only.
  * Nothing here deletes anything either — an item archives, and from step 3 it carries
  * estimates that M8 reads years later.
+ *
+ * <p>
+ * <strong>A progress report is written twice, and the two writes are not the same
+ * thing.</strong> The four columns on {@link WorkItem} hold the latest state, which is
+ * what a screen draws and what a forecast reads; {@link WorkItemProgress} holds every
+ * claim ever made, which is what M8 measures an estimate's date against. Both happen in
+ * one transaction here, so the item's state and the last line of its history cannot
+ * disagree — and the second is the reason the first may be written over safely.
  *
  * <p>
  * Two ways in, and the difference is deliberate. <strong>Creating and listing go through
@@ -41,14 +52,18 @@ public class WorkItemService {
 
 	private final WorkItemRepository items;
 
+	private final WorkItemProgressRepository reports;
+
 	private final ProjectService projects;
 
 	private final MembershipService memberships;
 
 	private final Clock clock;
 
-	WorkItemService(WorkItemRepository items, ProjectService projects, MembershipService memberships, Clock clock) {
+	WorkItemService(WorkItemRepository items, WorkItemProgressRepository reports, ProjectService projects,
+			MembershipService memberships, Clock clock) {
 		this.items = items;
+		this.reports = reports;
 		this.projects = projects;
 		this.memberships = memberships;
 		this.clock = clock;
@@ -134,6 +149,13 @@ public class WorkItemService {
 	 * needs a date and did not get one is refused rather than stamped with the server's
 	 * clock, and a completion before its start is refused because nothing downstream
 	 * could tell that from a fact.
+	 *
+	 * <p>
+	 * <strong>And the claim is appended as well as applied.</strong> Until {@code V16}
+	 * this wrote over the last report with nothing recording who had made it or that it
+	 * had ever said something else — so M8's exclusion rule, which asks whether an
+	 * estimate predates the start of the work, could be satisfied after the fact by
+	 * editing the start.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws WorkItemNotFoundException if no item in it has that identifier
 	 * @throws ProgressDateRequiredException if the state claimed has no date to support
@@ -145,9 +167,81 @@ public class WorkItemService {
 	public WorkItem recordProgress(UUID callerId, UUID tenantId, UUID itemId, WorkItemStatus status,
 			LocalDate startedOn, LocalDate completedOn, BigDecimal actualEffortHours) {
 		requireConsistent(status, startedOn, completedOn, actualEffortHours);
-		WorkItem item = item(callerId, tenantId, itemId);
+		// The reporter comes off the membership that just proved the caller belongs here,
+		// which is where an estimate takes its estimator from and for the same reason:
+		// the
+		// row is already loaded, and a second lookup by the identifier in their token
+		// could come back empty in a way this method cannot actually have.
+		User reporter = this.memberships.requireMember(callerId, tenantId).getUser();
+		WorkItem item = this.items.findInTenant(itemId, tenantId).orElseThrow(WorkItemNotFoundException::new);
+		Instant reportedAt = Instant.now(this.clock);
 		item.recordProgress(status, startedOn, completedOn, actualEffortHours);
+		// Appended in the same transaction as the write above, so the item's latest state
+		// and the last line of its history cannot come to disagree — and appended even
+		// when nothing changed, because somebody confirming what the row already said is
+		// still somebody saying it.
+		this.reports
+			.save(new WorkItemProgress(item, reporter, status, startedOn, completedOn, actualEffortHours, reportedAt));
 		return item;
+	}
+
+	/**
+	 * Everything anybody has ever claimed about one piece of work, newest first.
+	 *
+	 * <p>
+	 * <strong>A log nothing reads is a log that quietly stops being written
+	 * correctly</strong>, which is half of why this exists; the other half is that the
+	 * person looking at a progress form is the one who can tell whether the last claim on
+	 * it was theirs.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws WorkItemNotFoundException if no item in it has that identifier
+	 */
+	@Transactional(readOnly = true)
+	public List<WorkItemProgress> progressOf(UUID callerId, UUID tenantId, UUID itemId) {
+		// Fetched rather than assumed, so an item that is not there answers
+		// work_item_not_found rather than with an empty history — "no such work" and
+		// "nobody has said anything about it" are different answers.
+		item(callerId, tenantId, itemId);
+		return this.reports.findForItem(tenantId, itemId);
+	}
+
+	/**
+	 * The earliest day work on each item was ever claimed to have begun, across one
+	 * organisation.
+	 *
+	 * <p>
+	 * <strong>This is the boundary M8 scores against</strong>, and every part of it is
+	 * chosen to run in the unflattering direction. An estimate written after work began
+	 * is a report by somebody who could already see how the task was going, so the
+	 * earlier the boundary, the fewer estimates count as forecasts — and the number that
+	 * comes out is the one nobody can improve by editing a date.
+	 *
+	 * <p>
+	 * <strong>Two sources, and the log wins wherever it has anything to say.</strong>
+	 * {@link #recordProgress} writes the column and appends the same claim in one
+	 * transaction, so since {@code V16} every value the column has ever held is in the
+	 * log — the earliest claim is therefore the log's earliest, and the column can only
+	 * repeat one of them. What the column is for is the rows older than the table:
+	 * {@code V16} backfilled nothing on purpose, so an item reported on before it exists
+	 * has a start date and no history, and that date is the only claim anybody ever made
+	 * about it.
+	 *
+	 * <p>
+	 * So this is a fallback rather than a rival, and it is written as one. Taking the
+	 * earlier of the two instead would read as more careful and would be a branch nothing
+	 * could reach — the column is never below the log's floor while one write does both.
+	 */
+	@Transactional(readOnly = true)
+	public Map<UUID, LocalDate> earliestReportedStarts(UUID callerId, UUID tenantId) {
+		this.memberships.requireMember(callerId, tenantId);
+		Map<UUID, LocalDate> earliest = new HashMap<>();
+		for (ReportedStart claimed : this.reports.earliestReportedStarts(tenantId)) {
+			earliest.put(claimed.itemId(), claimed.startedOn());
+		}
+		for (ReportedStart current : this.items.currentStarts(tenantId)) {
+			earliest.putIfAbsent(current.itemId(), current.startedOn());
+		}
+		return earliest;
 	}
 
 	/**

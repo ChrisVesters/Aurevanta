@@ -15,6 +15,27 @@ export function formatDay(iso: string, locale: string): string {
 }
 
 /**
+ * A moment from the API, shown as the day it happened *where the reader is*.
+ *
+ * **The counterpart to {@link formatDay}, and the difference between them is the whole of
+ * V10's argument.** A `yyyy-mm-dd` is a day somebody reported — there is no time of day in
+ * it to convert, so building a date from its parts is what keeps it the day they meant. An
+ * instant is a moment the server observed, and it genuinely happened at different local
+ * days for different readers, so it has to be converted: `new Date(instant)` is right here
+ * and wrong there.
+ *
+ * Getting the two the wrong way round fails in both directions and looks identical. Taking
+ * `slice(0, 10)` off an instant reads out its **UTC** day, so a report filed at nine in the
+ * evening in New York is shown as tomorrow — which is the same off-by-one this module
+ * exists to prevent, arriving from the other side.
+ */
+export function formatMoment(instant: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(
+    new Date(instant)
+  );
+}
+
+/**
  * What day it is *here*, as the `yyyy-mm-dd` the server takes.
  *
  * The same bug as {@link formatDay} written the other way round: `toISOString()` is UTC, so

@@ -15,7 +15,13 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
-import type { Dependency, Estimate, EstimateQuality, WorkItem } from './types';
+import type {
+  Dependency,
+  Estimate,
+  EstimateQuality,
+  ProgressReport,
+  WorkItem
+} from './types';
 
 const PROJECT_ID = PROJECTS[0].id;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
@@ -63,10 +69,15 @@ describe('WorkItems', () => {
   const fetchMock = mockFetch();
 
   /**
-   * Answers four URLs separately: the session, the work in the plan, what everybody
-   * currently thinks it will take, and how the plan is joined up. A double that answered
-   * them alike would hand the estimate list a page of work items, and every row would
-   * quietly read as unestimated.
+   * Answers five URLs separately: the session, the work in the plan, what everybody
+   * currently thinks it will take, how the plan is joined up, and who has reported on a
+   * task. A double that answered them alike would hand the estimate list a page of work
+   * items, and every row would quietly read as unestimated.
+   *
+   * The last of them is answered on the method as well as the path, because reporting
+   * progress and reading who reported it are the same URL — one returns the item and the
+   * other its history, and a double that confused them would hand the form a work item to
+   * render as somebody's name.
    */
   function answer(
     items: WorkItem[],
@@ -74,7 +85,7 @@ describe('WorkItems', () => {
     dependencies: Dependency[],
     quality: EstimateQuality = FINE
   ) {
-    fetchMock.mockImplementation((url: string) =>
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
         url === '/api/auth/me'
           ? jsonResponse(200, ACCOUNT)
@@ -84,7 +95,9 @@ describe('WorkItems', () => {
               ? jsonResponse(200, estimates)
               : url === DEPENDENCIES_URL
                 ? jsonResponse(200, dependencies)
-                : jsonResponse(200, items)
+                : url.endsWith('/progress') && init?.method === 'GET'
+                  ? jsonResponse(200, [])
+                  : jsonResponse(200, items)
       )
     );
   }
@@ -101,6 +114,36 @@ describe('WorkItems', () => {
       route: `/app/projects/${PROJECT_ID}`
     });
     await screen.findByRole('heading', { name: 'Work' });
+  }
+
+  /**
+   * The plan, then the progress form on the first task, with a history behind it. Its own
+   * helper because the history is answered on the method as well as the path — the URL it
+   * comes from is the one a report is written to.
+   */
+  async function openWithHistory(history: ProgressReport[]) {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        url === '/api/auth/me'
+          ? jsonResponse(200, ACCOUNT)
+          : url === ESTIMATES_URL
+            ? jsonResponse(200, [])
+            : url === DEPENDENCIES_URL
+              ? jsonResponse(200, [])
+              : url.endsWith('/progress') && init?.method === 'GET'
+                ? jsonResponse(200, history)
+                : jsonResponse(200, WORK_ITEMS)
+      )
+    );
+    renderRouted(<WorkItems projectId={PROJECT_ID} />, {
+      route: `/app/projects/${PROJECT_ID}`
+    });
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
   }
 
   /** Opening the estimate form on the first task, which is what every case below does. */
@@ -1304,6 +1347,64 @@ describe('WorkItems', () => {
 
     expect(await screen.findByText('This is required.')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /**
+   * <strong>The log made visible, which is half of why it is read at all.</strong> Progress
+   * is the one thing on a work item that is written over, and a record nothing ever shows
+   * is a record that quietly stops being written correctly — so the form says who last
+   * claimed something before inviting somebody to claim something else.
+   */
+  it('says who last reported on this task', async () => {
+    await openWithHistory([
+      {
+        id: '90909090-9090-9090-9090-909090909090',
+        itemId: WORK_ITEMS[0].id,
+        reportedById: '11111111-1111-1111-1111-111111111111',
+        reportedByName: 'Linus',
+        // Two in the morning UTC, which is the previous evening where this suite runs —
+        // and a moment is converted where a reported day is not, so this must read as the
+        // fourteenth rather than the fifteenth.
+        reportedAt: '2026-08-15T02:00:00Z',
+        status: 'IN_PROGRESS',
+        startedOn: '2026-08-10',
+        completedOn: null,
+        actualEffortHours: null
+      }
+    ]);
+
+    expect(
+      await screen.findByText('Last reported by Linus on Aug 14, 2026.')
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about who reported when nobody has', async () => {
+    await openWithHistory([]);
+
+    expect(screen.queryByText(/Last reported by/)).toBeNull();
+  });
+
+  /**
+   * The history is context and recording progress does not depend on it, so a form that
+   * could not fetch it is a form with one fewer line — not a form that refuses to open.
+   */
+  it('still records progress when the history cannot be read', async () => {
+    await open();
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        url.endsWith('/progress') && init?.method === 'GET'
+          ? jsonResponse(500, null)
+          : jsonResponse(200, WORK_ITEMS)
+      )
+    );
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+
+    expect(await screen.findByLabelText('Status')).toBeInTheDocument();
+    expect(screen.queryByText(/Last reported by/)).toBeNull();
   });
 
   it('closes the progress form when it is cancelled', async () => {

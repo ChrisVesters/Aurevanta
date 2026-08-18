@@ -48,4 +48,22 @@ public interface WorkItemRepository extends JpaRepository<WorkItem, UUID> {
 			""")
 	Optional<WorkItem> findInTenant(@Param("id") UUID id, @Param("tenantId") UUID tenantId);
 
+	/**
+	 * The start date each item currently holds, for the items holding one.
+	 *
+	 * <p>
+	 * <strong>The fallback half of the boundary M8 measures against</strong>, and it
+	 * exists because {@code V16} deliberately backfilled nothing: an item whose progress
+	 * was recorded before that migration has a start date and no report to go with it,
+	 * and this column is then the only claim anybody ever made about it. Where both
+	 * exist, {@code WorkItemService.earliestReportedStarts} takes the earlier — so this
+	 * is one of two claims to be weighed rather than an alternative to the log.
+	 */
+	@Query("""
+			select new com.cvesters.aurevanta.item.ReportedStart(w.id, w.startedOn)
+			from WorkItem w
+			where w.tenant.id = :tenantId and w.startedOn is not null
+			""")
+	List<ReportedStart> currentStarts(@Param("tenantId") UUID tenantId);
+
 }

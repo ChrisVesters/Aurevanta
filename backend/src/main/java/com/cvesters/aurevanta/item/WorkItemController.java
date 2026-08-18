@@ -88,6 +88,29 @@ class WorkItemController {
 	}
 
 	/**
+	 * Everything anybody has ever claimed about one piece of work, newest first.
+	 *
+	 * <p>
+	 * The same path as the {@code PATCH} above and the natural resource beside it: that
+	 * one adds a claim and this one reads the claims. Nothing modifies or removes one —
+	 * the whole value of the table is that a report cannot be taken back, only added to.
+	 *
+	 * <p>
+	 * It answers with more than the one line on screen needs. The resource is the log,
+	 * and an endpoint that returned only the newest would need a rule about how much
+	 * history is worth serving — which is the question this table exists to stop anybody
+	 * answering by accident.
+	 */
+	@GetMapping("/api/items/{itemId}/progress")
+	List<ProgressReportResponse> progress(@AuthenticationPrincipal AuthenticatedUser caller,
+			@PathVariable UUID itemId) {
+		return this.items.progressOf(caller.userId(), caller.tenantId(), itemId)
+			.stream()
+			.map(ProgressReportResponse::of)
+			.toList();
+	}
+
+	/**
 	 * Puts an item away. A {@code POST} rather than a {@code DELETE}, because nothing is
 	 * deleted — and from step 3 this row is what an estimate hangs off.
 	 */

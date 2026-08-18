@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
+import { useAuth } from '../auth/AuthContext';
+import { formatMoment } from './dates';
 import { numberField, optionalField } from './fields';
-import type { WorkItem, WorkItemStatus } from './types';
+import type { ProgressReport, WorkItem, WorkItemStatus } from './types';
 
 export type ProgressValues = {
   status: WorkItemStatus;
@@ -40,6 +42,13 @@ const RECORDS = {
  * refuses that now rather than dropping it; this makes sure nobody is invited to write it
  * in the first place, because an interface that accepts something and then discards it
  * teaches people to distrust everything else it accepted.
+ *
+ * **It also says who last reported anything**, from a log the server keeps of every claim
+ * ever made about this task. Two reasons, and the smaller one is that somebody about to
+ * overwrite four fields can see whether the state in front of them is their own. The larger
+ * one is that a record nothing ever reads is a record that quietly stops being written
+ * correctly, and this one is what stops a calibration figure being improved after the fact
+ * by editing the day work started.
  */
 export function ProgressForm({
   id,
@@ -58,9 +67,33 @@ export function ProgressForm({
   onSubmit: (values: ProgressValues) => void;
   onCancel: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { request } = useAuth();
   const [status, setStatus] = useState<WorkItemStatus>(item.status);
+  const [last, setLast] = useState<ProgressReport | null>(null);
   const records = RECORDS[status];
+
+  // Asked for on its own rather than carried on the item, because the plan listing draws
+  // five hundred rows and this is wanted for the one that is open. A failure here leaves
+  // the line off and the form working: the history is context, and nothing about recording
+  // progress depends on being able to read it.
+  useEffect(() => {
+    let cancelled = false;
+    request<ProgressReport[]>(`/items/${item.id}/progress`)
+      .then((history) => {
+        if (!cancelled) {
+          setLast(history[0] ?? null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setLast(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [request, item.id]);
 
   /**
    * Whether choosing this status throws away something the item already records. Said
@@ -122,6 +155,19 @@ export function ProgressForm({
           <span className="field-error">{fieldErrors.status}</span>
         )}
       </p>
+
+      {last && (
+        <p className="hint">
+          {t('projects.items.progress.lastReported', {
+            name: last.reportedByName,
+            // `formatMoment` and not `formatDay`, which is the one thing on this screen it
+            // would be easy to get backwards: the two dates above are days somebody
+            // reported and this is a moment the server observed, so this one converts to
+            // where the reader is and those must not.
+            day: formatMoment(last.reportedAt, i18n.language)
+          })}
+        </p>
+      )}
 
       {discards && (
         <p className="hint">{t('projects.items.progress.clears')}</p>

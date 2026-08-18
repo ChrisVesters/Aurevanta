@@ -55,6 +55,30 @@ export type WorkItem = {
 };
 
 /**
+ * One claim somebody made about how far along a piece of work is.
+ *
+ * The four fields a `WorkItem` carries, plus who said them and when the server heard it —
+ * and unlike those four, nothing ever writes over one. A second report is a second row.
+ *
+ * The item keeps its latest state because that is what a screen draws and what a forecast
+ * reads; this exists because M8 refuses to score an estimate written after the work began,
+ * and the day work began has to be a thing somebody said rather than a thing anybody can
+ * quietly move afterwards.
+ */
+export type ProgressReport = {
+  id: string;
+  itemId: string;
+  reportedById: string;
+  reportedByName: string;
+  /** A moment, unlike the two days below — the only field here the server observed. */
+  reportedAt: string;
+  status: WorkItemStatus;
+  startedOn: string | null;
+  completedOn: string | null;
+  actualEffortHours: number | null;
+};
+
+/**
  * One arrow in a plan: the predecessor has to finish before the successor begins.
  *
  * Finish-to-start with a lag is the only kind there is, so nothing here says which kind it
