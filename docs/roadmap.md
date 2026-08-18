@@ -1031,7 +1031,7 @@ thing to watch**, and the work that would change it is *Closing the estimation l
 
 ---
 
-## M9 — Throughput cross-check
+## M9 — Throughput cross-check — *planned in `m9-plan.md`*
 
 A second, independent forecast from historical throughput, with no estimation involved. It
 implicitly absorbs interruptions, holidays, scope growth, and the fact that nobody works
