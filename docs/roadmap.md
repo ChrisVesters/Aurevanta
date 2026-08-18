@@ -1069,7 +1069,7 @@ Refinements of M11 that are not needed to make it useful.
 
 ## Icebox — ideas worth keeping, not yet scheduled
 
-Unordered and uncommitted. Three of these are arguably mis-filed; see the note at the end.
+Unordered and uncommitted. Four of these are arguably mis-filed; see the note at the end.
 
 ### Getting work in
 
@@ -1088,7 +1088,10 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
   a reason M2 already gave when it fixed the unit of estimation at *task* — a parent carrying
   its own estimate double-counts the scope of its children, which is the objection that ruled
   epics out as the unit in the first place. **Tags are the middle answer**: grouping without a
-  rollup, so nothing acquires an estimate that is not a task's.
+  rollup, so nothing acquires an estimate that is not a task's. **All of this is about
+  reading a plan and none of it is about forecasting one** — the thing that produces a date
+  for part of a plan is *Milestones* under *Getting forecasts out*, and the two get conflated
+  because a heading and a milestone look alike on screen and are nothing alike underneath.
 
 ### Getting forecasts out
 
@@ -1100,6 +1103,42 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
   you.
 - **Snapshot export** — PNG or PDF of a forecast for slides. Unglamorous; it is how the
   numbers actually reach a steering committee.
+- **Milestones — a date for part of a plan, not just the end of it.** A forecast answers one
+  question about a whole project, and the dates people actually negotiate are usually interior
+  ones: a beta, a regulatory submission, the thing that has to exist before the conference.
+  Today the only way to ask about one is to split the work into a second project, which breaks
+  every dependency crossing the line.
+
+  **The engine is closer to this than it looks.** `Schedule.finish` already keeps a `readyAt`
+  per item and advances a completion time as each one lands — it knows when every node
+  finished and reports only the last. And M3a keeps an unestimated item in the graph as a
+  zero-effort node precisely so precedence survives it, so **a milestone is that node with a
+  name**: the work it waits on points at it, it takes no draw, and it needs no estimate.
+  What would have to change is what the scheduler *reports*, not what it samples — the shape
+  M6's change had, where an observer watched a run without taking a draw and `Engine.VERSION`
+  did not move. If that turns out not to hold it is a version bump, and M10 has to be told:
+  comparing runs across one is exactly how this tool would report a date sliding when nothing
+  moved.
+
+  **What it multiplies is the argument for it.** M4's date at a chosen confidence, M6's ranking
+  of what is widening the band, M7's list of what to cut — each answers for a whole plan and
+  would answer per milestone, which is the scale somebody argues at. M7 most of all: *what do I
+  drop to hit the beta* is a question people ask, and *what do I drop to hit the whole project*
+  mostly is not. It is also where merge bias stops being a talking point — a milestone is a join
+  by construction, so the effect M10 wants to name shows up per group instead of buried in one
+  total.
+
+  **Not a section and not a sprint.** Grouping a plan so it can be *read* is the separate entry
+  under *Getting work in*, and it is the cheaper thing — tags without a rollup, so nothing
+  acquires an estimate that is not a task's. A milestone is something you forecast: it has a
+  date and no workflow, because boards and states work moves through are what *What Aurevanta
+  is not* rules out in as many words.
+
+  **One schema question to settle before any of it.** Whether a piece of work can serve more
+  than one milestone — "everything needed for launch" and "everything needed for the security
+  review" overlap, so many-to-many is the truthful answer and a nullable column on the item is
+  the cheap one. Choosing the cheap one here is the shape of mistake M1a spent a whole milestone
+  undoing.
 
 ### Modelling depth
 
@@ -1141,6 +1180,34 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
   precisely because M5's measurement showed that 3/5/8 passes every check that looks at one
   estimate alone. Seeing it forty times in a plan is a signal nothing at the single-estimate
   level can produce.
+- **Closing the estimation loop** — M8 builds every part of the path from a range to what the
+  work turned out to take, and joins none of them. A range is written in one small form on a plan
+  row; what the work took is reported in a different small form on the same row; how the two
+  compared is read on a separate page reached from the nav. **Nobody is ever told how their own
+  estimate turned out.** The record is an organisation-wide aggregate, so the single most
+  instructive sentence this product could say — *you said 10 to 40 hours and it took 100* — is the
+  one thing it does not.
+
+  What that looks like: ask what the work took at the moment somebody marks it finished, rather
+  than as the fourth box of a form about status; show that against the estimate as soon as both
+  exist; and put M8's coverage counts on the plan screen as the work they name, so "45 finished
+  tasks never recorded how long they took" becomes a list somebody can act on instead of a number
+  they can only read.
+
+  **The unflattering half of the same point is that most of M8's bookkeeping is evidence
+  disqualified by when a form was filled in.** Work finished with no start reported; estimates
+  counted as reports only because they were written on the start day. Each of those is honest, and
+  each is a range that told the truth about a task and cannot be scored because of the order two
+  screens happened to be visited in. **So the fix is at collection time and never at scoring
+  time** — `m8-plan.md` decision 1 is precise about why loosening the boundary is the one change
+  that makes the number kinder without making it better. Fewer ways for evidence to fall out, not
+  a better-worded account of why it did.
+
+  **Two things it must not become.** Not time tracking, which *What Aurevanta is not* rules out
+  and which this is not: one number at completion is not a timesheet. And not a correction fed
+  back into the engine — `m8-plan.md` decision 8 — because the loop worth closing is a person's,
+  and the moment the model closes it on itself the record measures the correction rather than the
+  estimator.
 
 ### Collaboration
 
@@ -1193,13 +1260,14 @@ Unordered and uncommitted. Three of these are arguably mis-filed; see the note a
 
 ### Probably mis-filed
 
-Three of the above are not really nice-to-haves:
+Four of the above are not really nice-to-haves:
 
 | Idea | Why it may deserve a milestone |
 |---|---|
 | **Import from an issue tracker** | Closer to an adoption blocker. Nobody re-types a backlog to trial a tool, so this may gate real-world usage entirely. |
 | **Shareable read-only link** | M10's whole purpose is reaching non-specialists; requiring them to hold an account undercuts it. Cheap to build, large audience unlocked. |
 | **Discrete risk register** | A modelling gap rather than a feature. A forecast that models duration variance but ignores known discrete risks is systematically optimistic in a way the band does not show. |
+| **Closing the estimation loop** | M8's own coverage counts are the argument. A calibration record needs finished work carrying both an estimate and a measured outcome, and the outcome is optional because nothing in the product asks for it at the moment somebody would know it — so the ordinary answer is "nothing scored yet", and no amount of arithmetic behind that changes it. **A feature whose usual output is an explanation of why it has no output has not shipped.** This is the work that decides whether the whole of M8 ever says anything. |
 
 ---
 
