@@ -1089,7 +1089,7 @@ entirely, because nothing anywhere refuses a day that has not happened.
 
 ---
 
-## M10 — Communicating to people who do not know what P90 means
+## M10 — Communicating to people who do not know what P90 means — *planned in `m10-plan.md`*
 
 - **Plain-language output** — "85% likely to finish between 12 October and 20 November."
 - **Burn-up with a confidence cone**, narrowing as work completes.
