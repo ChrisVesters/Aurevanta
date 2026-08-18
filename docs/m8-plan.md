@@ -1,6 +1,6 @@
 # M8 — Actuals and calibration feedback: implementation plan
 
-> **Proposal, 2026-08-18. Step 1 is built.** Six steps, one migration, no new problem code, and no change to
+> **Proposal, 2026-08-18. Steps 1 and 2 are built.** Six steps, one migration, no new problem code, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -41,7 +41,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | The progress record stops being written over ✅ *done* | — |
-| 2 | What one actual says about one range | M2 |
+| 2 | What one actual says about one range ✅ *done* | M2 |
 | 3 | Which estimates were forecasts, and which were reports | 1, 2 |
 | 4 | The record, on an endpoint | 3 |
 | 5 | On screen, starting with the empty one | 4 |
@@ -476,7 +476,7 @@ instructions.
 
 ---
 
-## Step 2 — What one actual says about one range
+## Step 2 — What one actual says about one range ✅ *done*
 
 **Goal.** The arithmetic exists in one place, pure, with an oracle behind every part of it.
 
@@ -528,6 +528,56 @@ corrections. An empty accumulator reports nothing rather than dividing by zero.
 
 **Done when** every number this milestone publishes can be checked by hand on a case with a
 closed form.
+
+### As built — where it differs from the above
+
+**`BandScore.of` takes three numbers, not four.** The bullet above says the stated middle "is used
+for `inside` and by nothing else" — it is used by *nothing at all*. The band being scored is P10 to
+P90, so `inside` needs the two ends; the fit needs the two ends; the percentile needs the fit.
+There is no third place for the middle to go, and `EstimateQuality` already answers the only
+question it can answer, which is whether it agrees with its own ends. Dropping it from the
+signature is what makes that visible rather than leaving an argument nobody reads.
+
+**The plan's claim about the Wilson endpoints is wrong, and the measurement is better than the
+claim was.** It says the bound at five out of five "is **exactly** 1, which falls out of the
+algebra rather than out of a clamp". It falls out of the algebra and not out of binary arithmetic:
+swept over every count to 500, twenty out of twenty comes out at **1.0000000000000002** and five
+out of five at **0.9999999999999999**. So there is a clamp, and the honest defence is the *size* of
+what it corrects — one part in 10^16, against the three points by which the normal approximation
+runs past certainty at four out of five. `theClampCorrectsOneUlpAndNotAWrongAnswer` asserts exactly
+that, with the unclamped arithmetic kept in the test file beside the textbook form.
+
+**And the clamp the plan did not foresee is the more interesting one.** Bounding into `[0, 1]` was
+not enough: at five out of five the upper bound came out *below the rate it was bounding*, which is
+incoherent in a way that a number outside `[0, 1]` is not — nothing renders "100% (75%–100%)" as
+wrong, and an interval that excludes its own point estimate is wrong. Wilson always brackets the
+observed proportion algebraically, so the bounds clamp into `[0, rate]` and `[rate, 1]` rather than
+into `[0, 1]`, and `everyBoundIsAProbability` asserts it over every count to 200 instead of over a
+handful of chosen ones.
+
+**An even count splits its two middle observations in standardised units, not in percentiles.** The
+plan did not say which, and percentile-space is the obvious reading — the median of the numbers
+being published. It is wrong, and the oracle is what said so: doubling every outcome against a band
+whose ends are a factor of four apart is exactly one 90th-percentile step, so the median must move
+from 0.5 to 0.9 exactly, and averaging the two middle *percentiles* gives 0.8982. The percentile
+scale is not linear, so an average taken on it means different things at different points — which
+is `LogNormalFit`'s own argument for working in logarithms, arriving one layer up. For an odd count
+the two agree, and `anOddNumberOfOutcomesTakesTheMiddleOne` covers the other half.
+
+**Both corrections are withheld together, below two outcomes.** The bias needs one observation and
+the spread needs two, so the gate could have been split. It is not, and the reason is decision 6:
+they are published together because neither is safe alone, so withholding one and not the other
+would hand a reader exactly the half that reads as a target.
+
+**The constants came out as predicted.** The perfectly calibrated set of ten reads **0.9887069764763528**
+under the sample form and **0.937969795249138** under the population form, and both are in the test —
+one as the assertion and one as an `isNotCloseTo`, so choosing the wrong divisor fails rather than
+drifting. The actuals themselves are written out rather than computed from `Normal.quantile`, since
+a case built with the function it then checks is the homework-marking `Normal`'s own documentation
+warns about; they were derived outside this codebase from `erf`.
+
+**Counts.** 31 cases in `CalibrationTests`; 859 backend tests pass. `BandScore`, `Calibration` and
+`Proportion` are at zero missed branches and zero missed instructions.
 
 ---
 
