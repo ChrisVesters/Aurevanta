@@ -303,6 +303,45 @@ public class WorkItemService {
 	}
 
 	/**
+	 * The day each of this plan's finished items was reported finished, oldest first.
+	 *
+	 * <p>
+	 * What a throughput forecast is measured from, and it needs nothing anybody had to
+	 * opt into: a completion date is required on everything marked done, so this exists
+	 * in full for every plan. Compare {@code completedWork} above, which reads the
+	 * organisation and finds most of its actuals missing.
+	 *
+	 * <p>
+	 * The plan is fetched rather than assumed, so one that is not there answers
+	 * {@code project_not_found} rather than with the history of nothing.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws ProjectNotFoundException if no project in it has that identifier
+	 */
+	@Transactional(readOnly = true)
+	public List<LocalDate> completionsIn(UUID callerId, UUID tenantId, UUID projectId) {
+		this.projects.get(callerId, tenantId, projectId);
+		return this.items.completionsInProject(tenantId, projectId, WorkItemStatus.DONE);
+	}
+
+	/**
+	 * How much of this plan is still to be delivered.
+	 *
+	 * <p>
+	 * An {@code int} rather than the {@code long} the count arrives as, and
+	 * {@link Math#toIntExact} rather than a cast: 500 items to a plan is the stated
+	 * ceiling this milestone's arithmetic assumes, so a number that could not fit is a
+	 * broken assumption and should say so rather than wrap silently into a backlog of
+	 * minus two billion.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws ProjectNotFoundException if no project in it has that identifier
+	 */
+	@Transactional(readOnly = true)
+	public int remainingIn(UUID callerId, UUID tenantId, UUID projectId) {
+		this.projects.get(callerId, tenantId, projectId);
+		return Math.toIntExact(this.items.countRemainingInProject(tenantId, projectId, WorkItemStatus.DONE));
+	}
+
+	/**
 	 * Puts one item away, or brings it back.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws WorkItemNotFoundException if no item in it has that identifier

@@ -1,6 +1,6 @@
 # M9 — Throughput cross-check: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 and 2 are built.** Six steps, **no migration**, no new column, and no change to
+> **Proposal, 2026-08-18. Steps 1 to 3 are built.** Six steps, **no migration**, no new column, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -39,7 +39,7 @@
 |---|---|---|
 | 1 | A team's weeks, including the empty ones ✅ *done* | M2 |
 | 2 | The projection, and what a bootstrap cannot see ✅ *done* | 1 |
-| 3 | Reading a plan's history and what is left in it | 1 |
+| 3 | Reading a plan's history and what is left in it ✅ *done* | 1 |
 | 4 | On an endpoint | 2, 3 |
 | 5 | The gap, beside the band | 4 |
 | 6 | Close out | 1–5 |
@@ -482,7 +482,7 @@ and what resampling is for.
 
 ---
 
-## Step 3 — Reading a plan's history and what is left in it
+## Step 3 — Reading a plan's history and what is left in it ✅ *done*
 
 **Goal.** The two numbers the projection needs come off the plan, scoped and cheap.
 
@@ -506,6 +506,40 @@ pass one of them. Items still in progress are in the backlog and not the history
 and `project_not_found`.
 
 **Done when** the backlog and the history disagree about archived work, deliberately.
+
+### As built — where it differs from the above
+
+**`remainingIn` hands back an `int` and not the `long` a count arrives as**, through
+`Math.toIntExact`. `Throughput.project` takes an `int`, so the narrowing has to happen somewhere,
+and here is where the argument for it lives: 500 items to a plan is the stated ceiling this
+milestone's arithmetic assumes. A number that could not fit is a broken assumption and should say
+so, rather than wrap silently into a backlog of minus two billion — and step 4 does not have to
+think about it at all.
+
+**The completions query filters `completedOn is not null`, and that is not defensive noise.** A
+completion date is required on anything marked done, so the filter cannot drop ordinary data. What
+it stops is a row written *outside* the service — which `ForecastApiTests` does, and which this
+class does — putting a `null` into a `List<LocalDate>` and failing inside `Throughput.of` with
+nothing pointing back here. `finishedWorkWithNoDayOnItIsLeftOut` writes exactly that row. Such an
+item is not finished work being ignored; it is finished work nobody can place in a week.
+
+**Two methods and two project lookups**, where one call returning both would have halved them. Kept
+apart for M8's reason: each is a different question, and each re-reads the caller's standing rather
+than trusting a check made somewhere else. Four indexed lookups across step 4's request is the
+price of not having a copy of the membership rule to keep in step.
+
+**One test looks vacuous and is the point.** Nothing in either query has ever heard of an estimate,
+so `anUnestimatedItemCountsLikeAnyOther` asserts something the code could hardly get wrong today —
+and it is decision 7's second row written down, which is the one place a throughput forecast is
+better informed than the engine's. A later change that quietly counted only estimated work would
+fail it.
+
+**The tests live in `item` as `PlanHistoryTests`**, not under `forecast`, because that is where the
+code is. What they are about is the pair of rules that point in opposite directions, and each is
+asserted alone — a single "ignore archived" would pass one of them and look right in both.
+
+**Counts.** 13 cases in `PlanHistoryTests`; 924 backend tests pass, with `WorkItemService` at zero
+missed branches and zero missed instructions.
 
 ---
 

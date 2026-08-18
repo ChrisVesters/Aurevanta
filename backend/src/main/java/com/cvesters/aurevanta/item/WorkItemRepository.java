@@ -1,5 +1,6 @@
 package com.cvesters.aurevanta.item;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -85,5 +86,50 @@ public interface WorkItemRepository extends JpaRepository<WorkItem, UUID> {
 			where w.tenant.id = :tenantId and w.status = :done
 			""")
 	CompletedWork completedWork(@Param("tenantId") UUID tenantId, @Param("done") WorkItemStatus done);
+
+	/**
+	 * The day each of one plan's finished items was reported finished, oldest first.
+	 *
+	 * <p>
+	 * <strong>Archived items are here, and the query below them deliberately leaves
+	 * archived items out.</strong> The two rules point in opposite directions and both
+	 * are right: a task that was delivered and later put away was still delivered, so
+	 * dropping it would make tidying up look like a slowdown — while a task put away
+	 * before it was finished is not going to be delivered at all, so it is not in the
+	 * backlog. A single "ignore archived" would be wrong in one of the two places and
+	 * would look right in both.
+	 *
+	 * <p>
+	 * A completion date is required on anything marked done, so the null check is not a
+	 * filter on ordinary data — it is what stops a row written outside the service
+	 * putting a null into a list of days. Such an item is not finished work being
+	 * ignored; it is finished work nobody can place in a week.
+	 */
+	@Query("""
+			select w.completedOn from WorkItem w
+			where w.tenant.id = :tenantId and w.project.id = :projectId
+			  and w.status = :done and w.completedOn is not null
+			order by w.completedOn asc
+			""")
+	List<LocalDate> completionsInProject(@Param("tenantId") UUID tenantId, @Param("projectId") UUID projectId,
+			@Param("done") WorkItemStatus done);
+
+	/**
+	 * How much of one plan is still to be delivered.
+	 *
+	 * <p>
+	 * Everything not finished and not put away, whether or not anybody estimated it —
+	 * <strong>which is the one place a throughput forecast is better informed than the
+	 * engine.</strong> An unestimated item is a hole in a band and reports itself as a
+	 * limitation; here it is an item like any other, because what is being counted is
+	 * work left rather than effort left.
+	 */
+	@Query("""
+			select count(w) from WorkItem w
+			where w.tenant.id = :tenantId and w.project.id = :projectId
+			  and w.status <> :done and w.archivedAt is null
+			""")
+	long countRemainingInProject(@Param("tenantId") UUID tenantId, @Param("projectId") UUID projectId,
+			@Param("done") WorkItemStatus done);
 
 }
