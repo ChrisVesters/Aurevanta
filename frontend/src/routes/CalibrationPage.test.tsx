@@ -195,7 +195,7 @@ describe('CalibrationPage', () => {
 
     expect(
       screen.getByText(
-        /4 estimates counted as written after the work began only because/
+        /4 finished tasks would have counted as predictions if an estimate written on the day the work began counted as one/
       )
     ).toBeInTheDocument();
   });
@@ -322,9 +322,9 @@ describe('CalibrationPage', () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByText('Before the work began')).toBeInTheDocument();
-    // Short, because the section has already said what the number means. The long form
-    // pushed every label into wrapping and made three rows read as a paragraph.
-    expect(screen.getByText('45% of 40 estimates')).toBeInTheDocument();
+    // Short, because the section has already said what the number means — and the interval
+    // is on the row underneath it, because decision 7 puts it everywhere the rate goes.
+    expect(screen.getByText('35–55% · 40 estimates')).toBeInTheDocument();
     expect(screen.getByText('After the work began')).toBeInTheDocument();
     expect(
       screen.getByText('Work with no start date reported')
@@ -356,6 +356,18 @@ describe('CalibrationPage', () => {
     expect(
       screen.getByText('Asked in a way this page does not recognise')
     ).toBeInTheDocument();
+  });
+
+  /**
+   * Six outcomes and ninety produce rates that look alike and mean nothing alike, so the
+   * interval goes on every row and not only on the headline — decision 7 read literally.
+   */
+  it('puts the interval and the count on every row, not only on the headline', async () => {
+    await open(RECORDED);
+
+    expect(screen.getByText('26–48% · 22 estimates')).toBeInTheDocument();
+    expect(screen.getByText('42–69% · 18 estimates')).toBeInTheDocument();
+    expect(screen.getByText('60–86% · 12 estimates')).toBeInTheDocument();
   });
 
   /**

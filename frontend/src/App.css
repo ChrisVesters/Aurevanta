@@ -1499,9 +1499,25 @@ button.danger {
     color: var(--text);
   }
 
+  /*
+    The rate leads and its interval sits under it, because a rate without one is the half of
+    it that means nothing — six outcomes and ninety look alike on a row otherwise.
+  */
   .figure {
     flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
     font-size: 14px;
+  }
+
+  .figure .value {
+    color: var(--text-h);
+  }
+
+  .figure .detail {
+    font-size: 13px;
   }
 }
 

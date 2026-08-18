@@ -15,11 +15,12 @@ const METHODS = ['three_point', 'surprise_framed'] as const;
  *
  * **Three things about this screen are decisions rather than layout.**
  *
- * **The rate never appears alone.** Its count and its interval are on the same line, because
- * four hits out of five is 80% and is consistent with a team at 51% and one at 94%. And the
- * band-width reading is always beside it, because a hit rate on its own is won by estimating
- * one to a thousand hours — which contains every outcome and predicts nothing. Publishing the
- * rate by itself would make the gameable half the easy half to show.
+ * **The rate never appears alone, anywhere.** Its count and its interval travel with it — on
+ * the headline's own line, and on the second line of every row — because four hits out of five
+ * is 80% and is consistent with a team at 51% and one at 94%. And the band-width reading is
+ * always beside the headline, because a hit rate by itself is won by estimating one to a
+ * thousand hours, which contains every outcome and predicts nothing. Publishing either half on
+ * its own would make the gameable half the easy half to show.
  *
  * **Nothing here names a percentile.** Where the truth typically lands inside somebody's own
  * range is shown as a *position* — a marker on a bar between the two ends the estimate form
@@ -145,7 +146,7 @@ export function TrackRecord({ record }: { record: Calibration }) {
                     {t(`calibration.buckets.${which}Hint`)}
                   </span>
                 </span>
-                <span className="figure">{describeRate(t, i18n, bucket)}</span>
+                <Figure record={bucket} />
               </li>
             ))}
           </ul>
@@ -160,9 +161,7 @@ export function TrackRecord({ record }: { record: Calibration }) {
             {record.byMethod.map((method) => (
               <li key={method.method}>
                 <span className="what">{describeMethod(t, method)}</span>
-                <span className="figure">
-                  {describeRate(t, i18n, method.record)}
-                </span>
+                <Figure record={method.record} />
               </li>
             ))}
           </ul>
@@ -177,9 +176,7 @@ export function TrackRecord({ record }: { record: Calibration }) {
             {record.byEstimator.map((estimator) => (
               <li key={estimator.estimatorId}>
                 <span className="what">{estimator.estimatorName}</span>
-                <span className="figure">
-                  {describeRate(t, i18n, estimator.record)}
-                </span>
+                <Figure record={estimator.record} />
               </li>
             ))}
           </ul>
@@ -241,24 +238,38 @@ export function TrackRecord({ record }: { record: Calibration }) {
 }
 
 /**
- * A bucket's rate with its count, or a plain "none yet".
+ * One row's rate, its interval and its count — or a plain "none yet".
  *
- * One function because the three buckets, the methods and the people are all the same
- * reading of the same shape, and three copies of "remember the count" is two chances to
- * forget it.
+ * **The interval is on the row and not only on the headline**, which is decision 7 read
+ * literally: it goes everywhere the rate goes. Six outcomes and ninety produce rates that
+ * look alike and mean nothing alike, and the second line is the only thing on a row that
+ * says which one a reader is looking at.
+ *
+ * One component because the three buckets, the methods and the people are the same reading
+ * of the same shape, and three copies of "remember the interval" is two chances to forget
+ * it — which is how the rate came to be published alone here in the first place.
  */
-function describeRate(
-  t: TFunction,
-  i18n: { language: string },
-  record: CalibrationRecord
-): string {
+function Figure({ record }: { record: CalibrationRecord }) {
+  const { t, i18n } = useTranslation();
   if (record.rate === null) {
-    return t('calibration.buckets.nothing');
+    return <span className="figure">{t('calibration.buckets.nothing')}</span>;
   }
-  return t('calibration.buckets.figure', {
-    rate: percent(record.rate.value, i18n.language),
-    count: record.scored
-  });
+  return (
+    <span className="figure">
+      <span className="value">
+        {t('calibration.buckets.figure', {
+          rate: percent(record.rate.value, i18n.language)
+        })}
+      </span>
+      <span className="detail">
+        {t('calibration.buckets.figureDetail', {
+          low: percent(record.rate.low, i18n.language),
+          high: percent(record.rate.high, i18n.language),
+          count: record.scored
+        })}
+      </span>
+    </span>
+  );
 }
 
 /**
@@ -270,8 +281,9 @@ function describeRate(
  * here, and silently showing nothing is that rule failing through the back door.
  */
 function describeMethod(t: TFunction, method: MethodCalibration): string {
-  return METHODS.includes(method.method as (typeof METHODS)[number])
-    ? t(`calibration.methods.${method.method as (typeof METHODS)[number]}`)
+  const known = METHODS.find((name) => name === method.method);
+  return known
+    ? t(`calibration.methods.${known}`)
     : t('calibration.methods.unknown');
 }
 

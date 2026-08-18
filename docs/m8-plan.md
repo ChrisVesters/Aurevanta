@@ -1,8 +1,10 @@
 # M8 — Actuals and calibration feedback: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 5 are built.** Six steps, one migration, no new problem code, and no change to
-> anything the engine samples — `Engine.VERSION` does not move. Each step gains its
-> `### As built — where it differs from the above` in the same change as its code, not at the end.
+> **Built, 2026-08-18.** All six steps are done and each carries its own *As built* section.
+> One migration, no new problem code, and no change to anything the engine samples —
+> `Engine.VERSION` is still 2. **This is the first milestone whose headline number this product
+> does not control**, and on the day it shipped almost every organisation's answer to it is
+> *nothing has been scored yet*.
 >
 > **Scope.** `roadmap.md` M8: record what happened, then measure the hit rate — of the items
 > estimated, how many landed inside their P10–P90 band? It should be 80%; most teams score 30–50%.
@@ -45,7 +47,7 @@
 | 3 | Which estimates were forecasts, and which were reports ✅ *done* | 1, 2 |
 | 4 | The record, on an endpoint ✅ *done* | 3 |
 | 5 | On screen, starting with the empty one ✅ *done* | 4 |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 **M8 adds one migration, and it creates a table rather than a column.** `V16__work_item_progress.sql` is an
 append-only log beside the four progress columns, not instead of them — the one piece of evidence
@@ -875,7 +877,7 @@ at 100% of statements, branches, functions and lines.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 **Goal.** The record of the milestone matches what was built.
 
@@ -893,6 +895,74 @@ at 100% of statements, branches, functions and lines.
   changed, under its own heading. Every one of the last three found something.
 
 **Done when** the next reader can tell what M8 decided without reading its code.
+
+### As built — where it differs from the above
+
+`roadmap.md` marks M8 done and carries its own *As built*; the *Progress is written over* section
+under *Cross-cutting* is struck through and points at `V16`; decisions 9 and 10 are written into
+the M3b and M5 sections they were deferred from, and *What is next* now says M9. `CLAUDE.md` has a
+calibration section in the shape of the others. `product-concept.md`'s elicitation note says the
+split exists and the answer does not yet, and its scope-growth note says why M8 did not propose
+M3b's parameters.
+
+### The review pass — what a read of the whole milestone changed
+
+**It found three things, and one of them was the milestone contradicting its own decision.**
+
+**The rows published a rate with no interval.** Decision 6 says the per-estimator table "shows the
+count and interval on every row so that a person with six scored items is visibly not being
+compared with one who has ninety", and decision 7 says a Wilson interval goes "everywhere the rate
+is". Step 5 shipped rows reading "45% of 40 estimates" — the count, and no interval anywhere but
+the headline. The cause is visible in the diff: the long form pushed the labels into wrapping, so
+the figure was shortened, and the interval was what got shortened out. Rows now carry two lines —
+the rate, and `35–55% · 40 estimates` under it — and the three tables share one `Figure` component,
+because three copies of "remember the interval" is what dropped it in the first place.
+
+**The scorable query was ordered by a key that is not total.** `order by workItem.id, estimator.id,
+createdAt` leaves two estimates by one person against one item at the same instant tied, and the
+tie decides *which range gets scored*. That is `ProjectRepository`'s own rule — "a name alone is
+not a total order" — arriving somewhere it changes an answer rather than a sequence, so `e.id` now
+closes it. Unreachable through the API at microsecond precision and perfectly reachable through an
+import or a fixed clock.
+
+**And one number was described as something it is not.** `movedByTheStartDay` counts *pairs that
+would have been forecasts under the looser rule*, and the screen said "N estimates counted as
+written after the work began only because they were written on the start day itself" — which
+describes the scored estimate as being on the start day when it is the newest one and may be months
+later. It now says N finished tasks *would have counted as predictions* if a start-day estimate
+counted as one, which is what the number actually measures.
+
+**One thing the plan asked for and the build declined, recorded rather than quietly dropped.**
+Step 5's tests paragraph asks that "a row with too few scored shows its interval and no headline
+figure" — a threshold, and the browser is the one place this milestone decided a threshold may not
+live. The interval on every row does that job without one: a row reading `26–48%` over 22 estimates
+says how little is behind it more precisely than a cut-off could, and without this end deciding
+what "too few" means.
+
+**A second pass over the whole milestone for dead weight found seven things, all of the same
+kind.** `BandScore.percentile()` and `Proportion.NOTHING` were public, documented, tested — and
+called by nothing but their own tests: the application turns a standardised value into a
+percentile inside `Calibration` and never one score at a time, and an empty `Proportion` arrives
+from `new Proportion(0, 0)` rather than from a constant. Both are gone, and their assertions
+survive in better form: the two that went through `percentile()` now pin `z` against
+`Normal.P90_Z` directly, which says the same thing without round-tripping through the function
+under test. Five catalogue entries went the same way — `buckets.scored`, superseded when the row
+figure grew its interval, and three column headings for a table that is a list. That is M5's rule
+applied rather than restated: it deleted the `P10`/`P50`/`P90` entries rather than leave them
+unused, so the missing-translation failure is what stops one coming back.
+
+**Two things were looked at and deliberately left.** The `number` formatter now exists in both
+`TargetDate` and `TrackRecord`, and the copies differ where it matters — one pins a minimum
+fraction digit so a multiplier reads `1.0` rather than `1`, the other does not. A shared wrapper
+over `Intl.NumberFormat` taking both options would be indirection with no rule inside it, which is
+not what "stated once" is for. And `--muted` is used fifteen times in `App.css` and defined
+nowhere, so every one of those declarations is discarded — pre-existing, outside this milestone,
+and any fix changes how existing screens look, so it is reported rather than folded in here.
+
+**What the read did not find** is worth recording too, since the two hardest decisions were the
+ones most likely to have drifted: nothing anywhere applies a correction to a forecast, and nothing
+scores an estimate written on or after the boundary as a forecast. Decisions 1 and 8 are intact,
+and each has a test whose failure would be the first thing anybody saw.
 
 ---
 

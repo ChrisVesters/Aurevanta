@@ -45,9 +45,6 @@ public record Proportion(int hits, int of) {
 		}
 	}
 
-	/** Nothing has happened yet, and no rate can be read off that. */
-	public static final Proportion NOTHING = new Proportion(0, 0);
-
 	/**
 	 * Whether there is anything here to read a rate from.
 	 *

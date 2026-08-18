@@ -39,7 +39,12 @@ package com.cvesters.aurevanta.forecast.model;
  * the middle.
  * @param z how far out the actual landed, in standard deviations of the fitted logarithm.
  * Zero is the fitted median, which is the geometric mean of the two ends and so not, in
- * general, the number in the middle box.
+ * general, the number in the middle box. <strong>This is the whole of the evidence in one
+ * number</strong>, and {@link #inside()} is one bit of it: what the extra resolution buys
+ * is the difference between work that ran a minute past its high end and work that took
+ * twice it, which a hit rate cannot see at all. {@link Calibration} is what turns it into
+ * a percentile — here it stays in the units the fit measures in, because that is the
+ * scale a spread is taken on.
  */
 public record BandScore(boolean inside, boolean belowP10, boolean aboveP90, boolean modelled, double z) {
 
@@ -70,27 +75,6 @@ public record BandScore(boolean inside, boolean belowP10, boolean aboveP90, bool
 		}
 		double z = (Math.log(actualHours) - fit.mu()) / fit.sigma();
 		return new BandScore(!below && !above, below, above, true, z);
-	}
-
-	/**
-	 * Where the outcome landed on the estimator's own scale, between 0 and 1.
-	 *
-	 * <p>
-	 * This is the whole of the evidence in one number, and {@link #inside()} is one bit
-	 * of it: a hit is a percentile between 0.1 and 0.9. What the extra resolution buys is
-	 * the difference between work that ran a minute over its P90 and work that took twice
-	 * it, which a hit rate cannot see at all.
-	 *
-	 * <p>
-	 * Derived rather than stored, so the two cannot come to disagree — the shape
-	 * {@link Contribution} has for the same reason.
-	 * @throws IllegalStateException if the range had no width, and so no scale to land on
-	 */
-	public double percentile() {
-		if (!this.modelled) {
-			throw new IllegalStateException("A range with no width puts no outcome anywhere on it");
-		}
-		return Normal.cdf(this.z);
 	}
 
 }

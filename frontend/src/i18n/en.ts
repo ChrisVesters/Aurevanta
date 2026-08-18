@@ -791,13 +791,15 @@ export const en = {
       unboundedHint:
         'Nobody said when this work began, so these cannot be told apart from the ones above — named rather than quietly counted as predictions.',
       nothing: 'None yet',
-      // Short, because the heading and the sentence above have already said what the
-      // number means — repeating it on every row pushed the labels into wrapping and made
-      // three tidy rows look like a paragraph.
-      figure_one: '{{rate}}% of 1 estimate',
-      figure_other: '{{rate}}% of {{count}} estimates',
-      scored_one: '{{count}} estimate',
-      scored_other: '{{count}} estimates'
+      // Two short lines rather than one long one. The rate leads, and under it the
+      // interval and the count — because a rate without its interval is the half of it
+      // that means nothing, and that rule holds on a row as much as on the headline.
+      // Short, because the heading above has already said what the number means:
+      // repeating that on every row pushed the labels into wrapping and made three tidy
+      // rows read as a paragraph.
+      figure: '{{rate}}%',
+      figureDetail_one: '{{low}}–{{high}}% · 1 estimate',
+      figureDetail_other: '{{low}}–{{high}}% · {{count}} estimates'
     },
     // What V15 exists for, and the only evidence M5's claim will ever have.
     methods: {
@@ -812,10 +814,7 @@ export const en = {
     // to expose. So: alphabetical, with the count beside every row.
     estimators: {
       title: 'By estimator',
-      lede: 'In name order, not in any order of merit — and with the count beside each, because six outcomes are not ninety.',
-      name: 'Estimator',
-      scored: 'Scored',
-      rate: 'Contained the outcome'
+      lede: 'In name order, not in any order of merit — and with the count beside each, because six outcomes are not ninety.'
     },
     // The main screen of this page for most of its first year, and written as such: each
     // line is a different thing to go and do rather than an apology.
@@ -837,9 +836,9 @@ export const en = {
       // start is a day, so an estimate written at any hour of the start day is counted as a
       // report — which costs real forecasts, and the cost is stated instead of hidden.
       startDay_one:
-        '1 estimate counted as written after the work began only because it was written on the start day itself. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
+        '1 finished task would have counted as a prediction if an estimate written on the day the work began counted as one. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
       startDay_other:
-        '{{count}} estimates counted as written after the work began only because they were written on the start day itself. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
+        '{{count}} finished tasks would have counted as predictions if an estimate written on the day the work began counted as one. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
       span: 'Covering estimates written between {{first}} and {{last}}.'
     }
   },

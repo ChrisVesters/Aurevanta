@@ -11,12 +11,13 @@ designing schema or domain logic. It is design intent, not a description of exis
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
 are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
-commit to), M5 (elicitation), M6 (variance contribution) and M7 (inverse queries) are built. M4
+commit to), M5 (elicitation), M6 (variance contribution), M7 (inverse queries) and M8 (actuals and
+calibration) are built. M4
 completed **Tier 1** — the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup
 and a ship date at a confidence level — M5 then replaced the question the ranges feeding it are
 collected by, M6 made the band say what it is made of, and M7 ran the question backwards.
-**Tier 2 is complete**; M8 (actuals and calibration) is next, and is the first milestone that can
-say whether any of it is any good.
+**Tier 2 is complete**, and M8 is the first milestone that checks any of it against what happened.
+M9 (throughput) is next.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -40,6 +41,13 @@ one to read for how a plan should be argued with**: its decision 6 predicted whi
 effects would be the heavier, the build measured it, and the measurement pointed the other way
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
+
+`docs/m8-plan.md` is actuals and calibration, and is **built**: how often the ranges written here
+contained what the work actually took. It is the first milestone whose headline number this
+product does not control — everything before it can be made to look good by building it well, and
+this one only by estimating well. **Read its decision 1 before touching anything that decides
+which estimates count**, and decision 6 before rendering any of it. It added **one migration**,
+`V16__work_item_progress.sql`, and no engine behaviour: `Engine.VERSION` is still 2.
 
 `docs/m7-plan.md` is inverse queries, and is **built**: what to cut to hit a date at a confidence.
 Like M6 it added **no column, no migration and no engine behaviour**, and `Engine.VERSION` is
@@ -1198,3 +1206,73 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   connected to. The tick list on `TargetDate` offers only work the run was about — compared by
   `createdAt`, since the snapshot holds no item list — because a refusal about a box the screen
   has just invited somebody to tick is a trap rather than a check.
+
+### Calibration: how often the ranges contained the truth
+
+- **`GET /api/calibration` stores nothing**, which is M6's decision 1 spent a third time: a
+  stored hit rate would explain only the estimates written after somebody added the column,
+  and a derived one explains every estimate this product has ever held. It is also the only
+  honest shape — a calibration figure changes every time anybody finishes a task, so writing
+  one down would freeze a number whose whole nature is that it moves. Organisation-wide and
+  not per plan, because a single plan holds far too few completed items to tell 45% from 80%,
+  and because calibration is a property of people rather than of plans.
+- **A forecast is an estimate written before the reported start day, and the ambiguous day is
+  excluded rather than split.** `estimates.created_at` is an instant the server observed and
+  `started_on` is a day a person reported, so no timezone makes the comparison exact — the rule
+  therefore has to err in the safe direction, and an estimate written at any hour of the start
+  day counts as a report. That costs real forecasts, and the cost is *published* as
+  `movedByTheStartDay` so it can never become a quietly better hit rate.
+- **The boundary is the earliest start ever reported, never the column.** `work_item_progress`
+  (`V16`) is what makes that possible: before it, the rule could be satisfied after the fact by
+  editing the date it is measured against. Every progress write appends to it in the same
+  transaction, so `work_items` may keep being written over — the item holds the latest state for
+  the screen and the scheduler, and the log holds who claimed what and when. It backfills
+  nothing, so an item older than the table falls back to its column, which is the only claim
+  anybody ever made about it.
+- **Three buckets and nothing may add them.** *Forecasts* is the headline; *reports* is what
+  somebody wrote once they could see how the task was going, and says how large hindsight is on
+  a team's own work; *unbounded* is every range on finished work nobody reported a start for,
+  which cannot be told from a report. `DONE` needs no start date, so that third bucket is most
+  of a real organisation's evidence — dropping it would discard the majority to exclude a
+  minority. **Only the forecasts are split by estimator and by method.**
+- **Archived work is scored, and so is a former member's.** Coverage counts ignore archived
+  items so the number and the screen agree; this is the opposite case, because archiving must
+  not be a way to lose a miss. Everything is scoped to one organisation, which corrects `V9`'s
+  comment: a consultant with two clients has two records and the two never meet.
+- **The hit rate never goes through the fit.** `p10 ≤ actual ≤ p90` is arithmetic on what
+  somebody typed, so a change to how a range is modelled can move the corrections and can never
+  move the headline. Only `medianPercentile` and `bandWidthMultiplier` use `LogNormalFit`, and
+  a range with no width has no scale to land on — it counts in the rate and not in those two.
+- **The rate is gameable and the pair is not, so neither ships alone.** Estimating one to a
+  thousand hours contains every outcome and scores 100% forever; `bandWidthMultiplier` reports
+  that as a number below one. The API makes it structural rather than conventional: `rate` and
+  `corrections` are each **one nullable object** rather than loose fields, so there is no shape
+  in which a client can hold a rate without its interval or a bias without a width.
+- **A Wilson interval at 80%, everywhere a rate appears** — headline and every row alike, since
+  six outcomes and ninety produce rates that look alike and mean nothing alike. 80% because
+  every interval this product shows is a P10–P90 band and two conventions on one screen is one
+  too many, which also means it is built from `Normal.P90_Z`. Both ends are clamped into
+  `[0, rate]` and `[rate, 1]`: the algebra puts them there and binary arithmetic misses by one
+  part in 10^16 in either direction. That is the opposite of clamping the normal approximation,
+  which at four in five is genuinely three points past certainty — `CalibrationTests` keeps that
+  form around to fail.
+- **Nothing is applied and nothing is judged.** The correction is reported and never fed back:
+  applying it closes a loop on M8's own evidence, so the record converges on 80% while the
+  estimating does not change, and two runs of one plan would then differ for a reason stored on
+  neither. It is **not** a `ForecastLimitation` either — those are frozen at run time and this
+  moves every week — so the forecast panel carries it as a caveat about the inputs, read fresh
+  and absent when nothing is scored. And **no threshold lives in the browser**: the page states
+  what a well-judged set scores and shows what this one scored, because two rules about one
+  estimate is what `EstimateQuality` exists to prevent.
+- **People are named and never ranked.** Rows come out in name order, then by identifier, with
+  the count and interval on each. This product ranks work — M6 ranks what widens a band, M7
+  ranks what to cut — and a hit-rate leaderboard is won by writing one to a thousand.
+- **Nothing on the screen names a percentile.** Where the truth typically lands inside somebody's
+  own range is drawn as a *position* between **Good case** and **Bad case** — the two questions
+  `EstimateForm` actually asks — with a tick at the middle. That is the same refusal M5 makes,
+  and it is why the nav says "Track record" while the route and the API say `calibration`.
+- **The empty state is the main screen for a year, and is designed as one.** Scoring needs
+  finished work carrying both an estimate and a measured actual, and the actual is optional
+  because most teams do not track it. So `coverage` publishes the two gaps as two different
+  things to go and do, and `ProgressForm` says what the effort box is *for* rather than pressing
+  anybody to fill it in.

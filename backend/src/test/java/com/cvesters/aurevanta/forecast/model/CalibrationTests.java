@@ -91,18 +91,24 @@ class CalibrationTests {
 		assertThat(BandScore.of(P10, P90, 100.0).belowP10()).isFalse();
 	}
 
-	/** Zero is the fitted median, which is the geometric mean of the two ends. */
+	/**
+	 * Zero is the fitted median, which is the geometric mean of the two ends — 20 here,
+	 * and so not, in general, whatever somebody wrote in the middle box.
+	 */
 	@Test
 	void theFittedMiddleIsTheGeometricMeanOfTheTwoEnds() {
-		BandScore score = BandScore.of(P10, P90, 20.0);
-
-		assertThat(score.z()).isCloseTo(0.0, within(1e-12));
-		assertThat(score.percentile()).isCloseTo(0.5, within(1e-9));
+		assertThat(BandScore.of(P10, P90, 20.0).z()).isCloseTo(0.0, within(1e-12));
 	}
 
+	/**
+	 * And an outcome landing on either end is exactly that end of the fit — the constant
+	 * every estimate in this product is fitted through, which is what says the scale
+	 * being measured on is the one the fit defines rather than one this class invented.
+	 */
 	@Test
-	void anOutcomeAtTheHighEndSitsAtTheNinetiethPercentile() {
-		assertThat(BandScore.of(P10, P90, P90).percentile()).isCloseTo(0.9, within(1e-9));
+	void anOutcomeOnAnEndSitsWhereTheFitPutsThatEnd() {
+		assertThat(BandScore.of(P10, P90, P90).z()).isCloseTo(Normal.P90_Z, within(1e-12));
+		assertThat(BandScore.of(P10, P90, P10).z()).isCloseTo(-Normal.P90_Z, within(1e-12));
 	}
 
 	/**
@@ -155,16 +161,6 @@ class CalibrationTests {
 
 		assertThat(hit.inside()).isTrue();
 		assertThat(hit.modelled()).isFalse();
-	}
-
-	/**
-	 * The zero above is an absence and not a middle, so nothing may read a scale off it.
-	 */
-	@Test
-	void aRangeWithNoWidthPutsTheOutcomeNowhere() {
-		BandScore score = BandScore.of(8.0, 8.0, 9.0);
-
-		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(score::percentile);
 	}
 
 	@Test
@@ -433,10 +429,12 @@ class CalibrationTests {
 
 	@Test
 	void aRateNobodyHasEvidenceForIsNotZero() {
-		assertThat(Proportion.NOTHING.measured()).isFalse();
-		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(Proportion.NOTHING::rate);
-		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(Proportion.NOTHING::low);
-		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(Proportion.NOTHING::high);
+		Proportion nothing = new Proportion(0, 0);
+
+		assertThat(nothing.measured()).isFalse();
+		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(nothing::rate);
+		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(nothing::low);
+		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(nothing::high);
 	}
 
 	@Test

@@ -265,6 +265,14 @@ has not thought about what could go wrong.
 > that nothing in the codebase can settle: a better form is a better form, and whether it
 > produces honester ranges is M8's to answer. That is why each estimate now records *how it was
 > asked for* — split the calibration record by that column and the question answers itself.
+>
+> **M8 built the split and did not answer the question, which is the honest state of it.**
+> `GET /api/calibration` returns a `byMethod` breakdown, so the two forms are already scored
+> apart; what it needs is completed work carrying both an estimate and a measured actual, and
+> that will take months to accumulate. **Comparative framing moved past M8 as well**, and for a
+> reason worth keeping: it needs the reference class M8 *creates*, so it could not be built in
+> the milestone that first makes one exist — and it would be a third method splitting a thin
+> record three ways rather than two.
 
 ### Unknown unknowns dominate the error ✅ *built by M3b*
 
@@ -288,6 +296,14 @@ Ignoring it is why other tools produce forecasts that look precise and land wron
 > ten rather than never. Estimating it from history is still ahead: M8 is where a team's own
 > plans start answering this question, and the rule then is **propose from history, never
 > default**.
+>
+> **M8 shipped without spending that**, and the reason is that the two are not the same
+> quantity. What it measures is how wide *one person's* range should have been around *one*
+> task; a shared factor is one draw applied to everything at once, and the errors M8 records
+> contain both added together — so handing its multiplier to the team factor would count the
+> shared part twice. Separating them means decomposing the residuals by *when* they happened,
+> which needs many completed plans and belongs after M9 says the same thing from the other
+> direction.
 
 ### Independence is a lie ✅ *built by M3b*
 

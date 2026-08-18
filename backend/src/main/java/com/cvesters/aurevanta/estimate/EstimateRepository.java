@@ -58,7 +58,12 @@ public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 	 *
 	 * <p>
 	 * Ordered so that a reader can group in one pass and find the last estimate before
-	 * any moment without sorting: by item, by estimator, then oldest first.
+	 * any moment without sorting: by item, by estimator, then oldest first — and then by
+	 * identifier, which is what makes it a <em>total</em> order rather than a nearly
+	 * total one. Two estimates by one person against one item at the same instant are
+	 * otherwise tied, and the tie decides which of them gets scored: that is
+	 * {@code ProjectRepository}'s rule about a listing that rearranges itself between
+	 * requests, arriving somewhere it changes an answer rather than a sequence.
 	 */
 	@Query("""
 			select new com.cvesters.aurevanta.estimate.ScorableEstimate(
@@ -67,7 +72,7 @@ public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 			from Estimate e
 			where e.tenant.id = :tenantId
 			  and e.workItem.status = :done and e.workItem.actualEffortHours is not null
-			order by e.workItem.id asc, e.estimator.id asc, e.createdAt asc
+			order by e.workItem.id asc, e.estimator.id asc, e.createdAt asc, e.id asc
 			""")
 	List<ScorableEstimate> findScorableInTenant(@Param("tenantId") UUID tenantId, @Param("done") WorkItemStatus done);
 

@@ -1,17 +1,19 @@
 # Aurevanta — Feature Roadmap
 
-> **Status: proposal, as of 2026-08-06; last revised 2026-08-17.** `product-concept.md`
+> **Status: proposal, as of 2026-08-06; last revised 2026-08-18.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5**, **M6** and **M7**
-> exist in code, so **Tier 1 and Tier 2 are both complete**: a plan with ranges in it produces a
+> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5**, **M6**, **M7** and
+> **M8** exist in code, so **Tier 1 and Tier 2 are both complete**: a plan with ranges in it produces a
 > band that models common cause and unlisted work, states every assumption that produced it, and
 > resolves to a date at a confidence somebody chooses. That was this document's own bar for
 > beating a spreadsheet — a Monte Carlo rollup and a ship date at a confidence level — and both
 > now exist. M5 then replaced the question those ranges are collected by, which is the one thing
 > that decides whether any of it means anything; M6 made the band say what it is made of; and M7
 > ran the question backwards, which is what turns a reporting surface into something opened
-> *during* planning. Everything from here is a further lens on that number rather than the first
-> one.
+> *during* planning. **M8 is the first that checks any of it against what happened**, and it is
+> the first whose headline number this product does not control: everything before it can be made
+> to look good by building it well, and that one can only be made to look good by estimating well.
+> Everything from here is a further lens on that number rather than the first one.
 >
 > **Where the two documents disagree, this one is newer.** `product-concept.md` defers
 > dependencies and capacity modelling; measurement since (see M3) showed that summing
@@ -737,6 +739,14 @@ rather than within one item — the opposite of what the rest of this milestone 
 much better feature there than it could have been here: "bigger or smaller than the auth
 migration?" is only reference-class forecasting once March's *actual* is known.
 
+> **M8 did not build it either, and passed it on with a reason** — `m8-plan.md` decision 10. It
+> needs the reference class M8 *creates*, so it cannot be built in the milestone that first makes
+> one exist: on the day M8 shipped there was nothing to compare against, and there will be nothing
+> for months. It would also be a third `elicitation_method`, splitting a record already thin at
+> forty rows three ways rather than two — and that split is the one thing `V15` was added for. It
+> is the next thing once M8 has been running a while, and it now sits in the icebox under *Closing
+> the estimation loop* rather than attached to a milestone that is finished.
+
 **What shipped.** Three questions asked one at a time — bad case, good case, typical case, in
 that order and no other — with no earlier answer on screen while the next is asked, and no
 percentile named anywhere on the form. Then a review, the first and only moment the three are
@@ -750,8 +760,10 @@ count on their fingers — and this one has a hypothesis about human judgement t
 repository can settle. The form is better to use; whether it produces honester ranges is not
 knowable yet and will not be for a year.
 
-**What M8 inherits, and it is the whole of how that question gets answered.** Every estimate now
-carries `elicitation_method` — `three_point` for the rows written before this milestone, which
+**What M8 inherits, and it is the whole of how that question gets answered.** *Spent: the split is
+built, and `GET /api/calibration` returns a `byMethod` breakdown that groups the stored name — so
+the question now has an endpoint and needs only the completed work to answer it.* Every estimate
+now carries `elicitation_method` — `three_point` for the rows written before this milestone, which
 `V15` backfilled truthfully because three boxes really were the only form this product ever had,
 and `surprise_framed` for everything since. **Split the calibration record by that column and the
 answer falls out**: did changing the question change how often a band contained the truth? There
@@ -931,7 +943,7 @@ recommendation from a different model is an exact answer about a plan nobody for
 
 ---
 
-## M8 — Actuals and calibration feedback — *planned in `m8-plan.md`*
+## M8 — Actuals and calibration feedback ✅ *done* — *planned in `m8-plan.md`*
 
 Record what happened, then measure the hit rate: of the items estimated, how many landed
 inside their P10–P90 band? It should be 80%. Most teams score 30–50%.
@@ -971,6 +983,51 @@ If the concern wants surfacing before M8 exists, the cheap and honest form is a 
 screen — "this task has no estimate, so a forecast will leave it out" — rather than a
 refusal. Saying what will happen is this product's job; deciding what a team may do next is
 not.
+
+### As built
+
+`m8-plan.md` carries the six steps and what each departed from. Six things are worth having here.
+
+**The exclusion rule became three buckets rather than one filter.** The bullets above offer a
+choice — exclude late estimates, "or score them separately, which is arguably the more interesting
+report of the two" — and it is both, plus a third the bullets do not mention. *Forecasts* are the
+headline; *reports* say how large hindsight is on a team's own work; and *unbounded* holds every
+range on finished work nobody ever reported a start for, which under the rule as written would
+have been silently unscorable. `DONE` needs no start date, so that third bucket is most of the
+evidence a real organisation holds — dropping it would have thrown the majority away rather than
+excluding a minority.
+
+**The boundary is a day and an estimate is a moment, and no timezone makes that exact.** An
+estimate written at any hour of the start day is counted as a report, which costs real forecasts —
+estimating at planning and starting that afternoon is an ordinary Monday. The cost is *published*
+rather than absorbed: `movedByTheStartDay` says how much work would have counted as predicted
+under the looser rule, so if it ever turns out to be most of an organisation's estimates that
+arrives as a number rather than as a quietly better hit rate.
+
+**And the boundary needed a schema change nothing else did.** `started_on` was written over with
+no trace, so the rule could be satisfied after the fact by editing the date it is measured against.
+`V16__work_item_progress.sql` is the append-only log that closes it — the *Progress is written
+over* concern under **Cross-cutting**, spent — and the boundary reads the earliest start ever
+claimed rather than the one the row currently holds. It is M8's only migration and it backfills
+nothing, deliberately, because three of its six columns would have had to be invented.
+
+**The hit rate alone is gameable and the pair is not, which decided the whole of the reporting.**
+Estimate everything one to a thousand hours and score 100% forever. So a rate never ships without
+its 80% interval and never without the band-width multiplier beside it, which reports padded
+ranges as a number below one — and the two are one object each in the API rather than five loose
+nullable fields, so there is no shape in which a client can hold half of either. And nobody is
+ranked: rows come out in name order, because this product ranks work and not people.
+
+**The correction is reported and never applied**, which is the decision most likely to be undone
+as an obvious improvement. Feeding it back closes a loop on M8's own evidence — the record then
+converges on 80% while the estimating does not change — and it would make two runs of one plan
+differ for a reason stored on neither, which is exactly what M10's detector exists to catch.
+
+**And the honest caveat.** For most organisations this answers "nothing scored yet" for months,
+because it needs finished work carrying both an estimate and a measured actual and the actual is
+optional by design. The empty state is written as the main screen rather than as a fallback, and
+the two counts behind it are two different things to go and do. **Whether that changes is the
+thing to watch**, and the work that would change it is *Closing the estimation loop* in the icebox.
 
 ---
 
@@ -1327,7 +1384,7 @@ turned into a feature. Two-factor authentication is independent of both and can 
 time — though it is worth noting that the account it protects can still be held for twelve
 hours by anybody who obtained a token before the factor was added.
 
-### Progress is written over, and the record is what M8 reads
+### ~~Progress is written over, and the record is what M8 reads~~ — *spent in M8 step 1*
 
 **Perishable, in the same way `forecast_runs` was.** M2 handed M3 one obligation in as many
 words — persist every run from the first commit rather than once the engine works, because
@@ -1356,6 +1413,17 @@ by diffing two forecast snapshots, rather than reading what somebody reported an
 instead of them — the item keeps its latest state for the screen and the scheduler, and the
 log holds who said what, when. That is the estimates pattern exactly, and it is the reason an
 estimate costs nothing to reason about.
+
+> **Built as described, in `V16__work_item_progress.sql`.** `work_item_progress` holds every
+> claim ever made about a piece of work — status, both dates, the effort, who reported it and
+> when the server heard it — beside the four columns rather than instead of them, and nothing
+> updates or deletes a row. M8's boundary now reads the *earliest* start ever claimed, so moving
+> a start date later cannot promote a report into a forecast, which is the flattery this section
+> named. It backfills nothing and says why at length: a row already holding a start date has no
+> reporter and no report instant, so three of the six columns would have to be guessed in the one
+> table whose whole purpose is to say who said what. **The half M10 wants is now available and
+> unread** — the log can say what somebody reported and when, where the movement decomposition
+> currently has to infer its "−1 progress" term by diffing two forecast snapshots.
 
 ### Which forecast runs are history
 
@@ -1621,10 +1689,14 @@ to. The tick list is over the plan's own work and nothing on that panel changes 
 a ranking and a coin flip that looks exactly like a ranking, and which no test downstream of it
 would have announced. `Engine.VERSION` is still 2.
 
-**What is next is M8**, and the ordering principle is why: everything built so far is a claim
-about the future that nothing has yet checked against what happened. M8 is the first milestone
-that can tell whether any of it is any good — and M5 shipped `elicitation_method` specifically so
-that M8 can split its calibration record by how the question was put.
+**What is next is M9**, and what changed is that M8 is spent. Everything built before it was a
+claim about the future that nothing had checked against what happened; M8 is the machinery that
+checks, and `GET /api/calibration` splits its record by `elicitation_method` exactly as M5 shipped
+that column for. **What it does not yet have is data**, and it will not for months: the record
+needs finished work carrying both an estimate and a measured actual, and the actual is optional
+because most teams do not track it. So the honest reading is that M8 built the instrument and the
+reading is still pending — which is why *Closing the estimation loop* sits in the icebox flagged as
+probably mis-filed, and why M9 is worth having as an answer that needs no estimate at all.
 
 The temptation that has not changed is the *plan-entry UI that already exists and looks bad*. It
 is meant to. M5 replaces what it asks, and the interface rework is recorded under *Future*;
