@@ -149,11 +149,11 @@ class CalibrationApiTests {
 		read(this.ada).andExpect(status().isOk())
 			.andExpect(jsonPath("$.forecasts.scored").value(0))
 			.andExpect(jsonPath("$.forecasts.hits").value(0))
-			.andExpect(jsonPath("$.forecasts.hitRate").value(nullValue()))
-			.andExpect(jsonPath("$.forecasts.hitRateLow").value(nullValue()))
-			.andExpect(jsonPath("$.forecasts.hitRateHigh").value(nullValue()))
-			.andExpect(jsonPath("$.forecasts.medianPercentile").value(nullValue()))
-			.andExpect(jsonPath("$.forecasts.bandWidthMultiplier").value(nullValue()))
+			// One absent object rather than five absent fields, which is the whole of why
+			// they were grouped: there is no shape here that holds a rate and not its
+			// bounds, so no client can render the half that means nothing on its own.
+			.andExpect(jsonPath("$.forecasts.rate").value(nullValue()))
+			.andExpect(jsonPath("$.forecasts.corrections").value(nullValue()))
 			.andExpect(jsonPath("$.byEstimator", hasSize(0)))
 			.andExpect(jsonPath("$.byMethod", hasSize(0)))
 			.andExpect(jsonPath("$.firstScored").value(nullValue()))
@@ -193,11 +193,11 @@ class CalibrationApiTests {
 		read(this.ada).andExpect(status().isOk())
 			.andExpect(jsonPath("$.forecasts.scored").value(2))
 			.andExpect(jsonPath("$.forecasts.hits").value(1))
-			.andExpect(jsonPath("$.forecasts.hitRate").value(0.5))
-			.andExpect(jsonPath("$.forecasts.hitRateLow").isNumber())
-			.andExpect(jsonPath("$.forecasts.hitRateHigh").isNumber())
-			.andExpect(jsonPath("$.forecasts.medianPercentile").isNumber())
-			.andExpect(jsonPath("$.forecasts.bandWidthMultiplier").isNumber())
+			.andExpect(jsonPath("$.forecasts.rate.value").value(0.5))
+			.andExpect(jsonPath("$.forecasts.rate.low").isNumber())
+			.andExpect(jsonPath("$.forecasts.rate.high").isNumber())
+			.andExpect(jsonPath("$.forecasts.corrections.medianPercentile").isNumber())
+			.andExpect(jsonPath("$.forecasts.corrections.bandWidthMultiplier").isNumber())
 			.andExpect(jsonPath("$.forecasts.aboveP90").value(1))
 			.andExpect(jsonPath("$.forecasts.belowP10").value(0))
 			.andExpect(jsonPath("$.forecasts.pointEstimates").value(0));
@@ -212,10 +212,9 @@ class CalibrationApiTests {
 		estimated(finished("Hit it", HIT), this.ada, FORESEEN);
 
 		read(this.ada).andExpect(status().isOk())
-			.andExpect(jsonPath("$.forecasts.hitRate").value(1.0))
-			.andExpect(jsonPath("$.forecasts.hitRateLow").isNumber())
-			.andExpect(jsonPath("$.forecasts.medianPercentile").value(nullValue()))
-			.andExpect(jsonPath("$.forecasts.bandWidthMultiplier").value(nullValue()));
+			.andExpect(jsonPath("$.forecasts.rate.value").value(1.0))
+			.andExpect(jsonPath("$.forecasts.rate.low").isNumber())
+			.andExpect(jsonPath("$.forecasts.corrections").value(nullValue()));
 	}
 
 	/** The three buckets are three answers and the response keeps them apart. */
@@ -230,11 +229,11 @@ class CalibrationApiTests {
 
 		read(this.ada).andExpect(status().isOk())
 			.andExpect(jsonPath("$.forecasts.scored").value(1))
-			.andExpect(jsonPath("$.forecasts.hitRate").value(0.0))
+			.andExpect(jsonPath("$.forecasts.rate.value").value(0.0))
 			.andExpect(jsonPath("$.reports.scored").value(1))
-			.andExpect(jsonPath("$.reports.hitRate").value(1.0))
+			.andExpect(jsonPath("$.reports.rate.value").value(1.0))
 			.andExpect(jsonPath("$.unbounded.scored").value(1))
-			.andExpect(jsonPath("$.unbounded.hitRate").value(1.0));
+			.andExpect(jsonPath("$.unbounded.rate.value").value(1.0));
 	}
 
 	/**
@@ -270,10 +269,10 @@ class CalibrationApiTests {
 			.andExpect(jsonPath("$.byMethod", hasSize(2)))
 			.andExpect(jsonPath("$.byMethod[0].method").value("surprise_framed"))
 			.andExpect(jsonPath("$.byMethod[0].record.scored").value(2))
-			.andExpect(jsonPath("$.byMethod[0].record.hitRate").value(1.0))
+			.andExpect(jsonPath("$.byMethod[0].record.rate.value").value(1.0))
 			.andExpect(jsonPath("$.byMethod[1].method").value("three_point"))
 			.andExpect(jsonPath("$.byMethod[1].record.scored").value(1))
-			.andExpect(jsonPath("$.byMethod[1].record.hitRate").value(0.0));
+			.andExpect(jsonPath("$.byMethod[1].record.rate.value").value(0.0));
 	}
 
 	/**
@@ -292,9 +291,9 @@ class CalibrationApiTests {
 			.andExpect(jsonPath("$.byEstimator", hasSize(2)))
 			.andExpect(jsonPath("$.byEstimator[0].estimatorName").value("Ada"))
 			.andExpect(jsonPath("$.byEstimator[0].estimatorId").value(this.ada.getUser().getId().toString()))
-			.andExpect(jsonPath("$.byEstimator[0].record.hitRate").value(0.0))
+			.andExpect(jsonPath("$.byEstimator[0].record.rate.value").value(0.0))
 			.andExpect(jsonPath("$.byEstimator[1].estimatorName").value("Zara"))
-			.andExpect(jsonPath("$.byEstimator[1].record.hitRate").value(1.0));
+			.andExpect(jsonPath("$.byEstimator[1].record.rate.value").value(1.0));
 	}
 
 	/**

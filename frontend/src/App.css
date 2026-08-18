@@ -502,7 +502,8 @@ button.link {
 }
 
 .members,
-.projects {
+.projects,
+.calibration {
   margin: auto;
   width: 100%;
   max-width: 720px;
@@ -1351,4 +1352,166 @@ button.danger {
   font-size: 14px;
   cursor: pointer;
   color: var(--muted);
+}
+
+/*
+  How often the ranges written here contained the truth.
+
+  The page frame is the members and projects one — this is another signed-in page and it has
+  no reason to look like a different application. What is particular to it is one drawing,
+  and it is a *position* rather than a quantity: where the truth typically lands inside
+  somebody's own range, marked on a bar running between the two ends the estimate form
+  actually asks for. That is the alternative to printing a percentile, which nobody can
+  reason about — and the tick at the middle is what a well-judged record looks like, so a
+  reader sees the gap without this page having to classify it.
+*/
+.calibration .track-record {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/*
+  Section by section, ruled off and spaced exactly as the members page rules off its pending
+  invitations and its invite form. This page has more sections than any other, which is the
+  reason to follow that rhythm rather than invent one: five runs of prose with nothing
+  between them read as one long run.
+*/
+.calibration section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.calibration section + section {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.calibration h3 {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+/* The one number the page leads on, and it never appears without the lines under it. */
+.calibration .rate {
+  margin: 0;
+  font-size: 26px;
+  letter-spacing: -0.4px;
+  color: var(--text-h);
+}
+
+/*
+  Only inside the record, so that the title and the lede above it space themselves exactly as
+  they do on every other signed-in page — this page owns its own sections and nothing else.
+*/
+.calibration .track-record p {
+  margin: 0;
+}
+
+.calibration .caveat {
+  font-size: 13px;
+}
+
+.calibration .empty {
+  font-size: 15px;
+}
+
+.calibration .scale {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.calibration .scale .end {
+  flex: 0 0 auto;
+}
+
+.calibration .scale .track {
+  position: relative;
+  flex: 1 1 auto;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+}
+
+/* Where a well-judged record would sit, drawn so the gap is visible without being named. */
+.calibration .scale .middle {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--accent-border);
+}
+
+.calibration .scale .marker {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 3px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--text-h);
+}
+
+/*
+  The three buckets, the two breakdowns: rows in the same bordered boxes the plan and member
+  lists use, because they are the same kind of thing — a list of rows each with a figure
+  against it — and a second treatment for it would be a second look for one application.
+*/
+.calibration .buckets ul,
+.calibration .methods ul,
+.calibration .estimators ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .what {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 180px;
+    color: var(--text-h);
+  }
+
+  .what .hint {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .figure {
+    flex: 0 0 auto;
+    font-size: 14px;
+  }
+}
+
+/* Each line is a different thing to go and do, so they read as a list rather than prose. */
+.calibration .coverage ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
 }

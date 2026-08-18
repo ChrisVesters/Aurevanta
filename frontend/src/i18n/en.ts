@@ -16,6 +16,10 @@ export const en = {
       overview: 'Overview',
       projects: 'Projects',
       members: 'Members',
+      // Not "Calibration". The route and the API keep the precise word; the person reading
+      // the nav gets the plain one, which is the same rule the estimate form follows when
+      // it refuses to print "P90".
+      trackRecord: 'Track record',
       settings: 'Settings'
     },
     switcher: {
@@ -333,6 +337,14 @@ export const en = {
       // Beside the number rather than behind a link. The first two below are retired:
       // M3b models what they name, so nothing writes them any more — and the wording stays
       // because the runs a plan made before it are still on this screen.
+      // What the ranges feeding this band have historically been worth. A caveat about the
+      // *inputs* and never a correction to the number: applying a calibration factor would
+      // close a loop on its own evidence, so this says what the estimates have been worth
+      // and leaves the band exactly as the engine produced it.
+      trackRecord: {
+        line: 'Estimates in this organisation have contained the outcome {{rate}}% of the time, over {{scored}} scored so far.',
+        link: 'See the track record'
+      },
       limitations: {
         title: 'What this forecast does not do',
         no_team_factor:
@@ -657,6 +669,13 @@ export const en = {
         startedOn: 'Started on',
         completedOn: 'Finished on',
         actualEffortHours: 'Actual effort (hours)',
+        // Asked for and never required — V10 settled that, because refusing to let somebody
+        // mark work finished until they can say how long it took would refuse the common
+        // case. What the hint does is say what the box is *for*: it is the only number the
+        // track record can compare a range against, and a range nobody checks is a range
+        // nobody learns from.
+        actualEffortHint:
+          'Optional, and the one number your track record is built from — without it there is nothing to compare the estimate against.',
         // Said before saving rather than discovered after: the boxes holding these have
         // just disappeared, and somebody who does not know why would reasonably assume
         // what was in them is still there.
@@ -696,6 +715,132 @@ export const en = {
       unarchived: 'Back in the list of current projects.',
       archivedNotice:
         'This project is archived. Bring it back to work in it again.'
+    }
+  },
+  // How often this organisation's ranges contained the truth.
+  //
+  // **Nothing here names a percentile**, which is the estimate form's rule reappearing:
+  // "landed inside the range" says the same thing to more people than "P10–P90 coverage",
+  // and nobody can reason about tail probability whether they are answering or reading.
+  // Where a position inside somebody's own range has to be shown, it is shown as a position
+  // — a marker on a bar between the two ends they were asked for — rather than as a number
+  // that would have to be explained.
+  //
+  // **And no threshold lives here.** Whether a record is good is not a judgement the browser
+  // may make: two rules about one estimate is what `EstimateQuality` exists to prevent, so
+  // this page states what a well-judged set scores and shows what this one scored, and lets
+  // the reader do the subtraction.
+  calibration: {
+    title: 'Track record',
+    lede: 'How often the ranges written here contained what the work actually took.',
+    loading: 'Loading your track record…',
+    // The target, stated beside the number, because 45% means nothing without it — and
+    // because 100% is not the target and somebody has to be told so.
+    target:
+      'A well-judged set of ranges contains the outcome about 8 times in 10. Higher is not better: ranges wide enough to contain everything predict nothing.',
+    headline: {
+      title: 'Estimates written before the work began',
+      rate: '{{rate}}% contained what the work actually took',
+      // The count and the interval travel with the rate and never below it. Four out of
+      // five is 80% and says nothing whatever; this is the sentence that says so.
+      confidence:
+        '{{hits}} of {{scored}} · likely between {{low}}% and {{high}}%',
+      tails:
+        '{{above}} ran past the top of the range, {{below}} came in under the bottom.',
+      // A rate with one outcome behind it has no spread to report, and a bias reported with
+      // no spread beside it is the half of this record that reads as a target to hit.
+      tooLittle:
+        'Not enough finished work yet to say whether these ranges sit high or low, or how wide they should have been.'
+    },
+    // The two corrections, and they are shown together or not at all. A hit rate on its own
+    // is gamed in one move — estimate everything one to a thousand hours and score 100%
+    // forever — and the width below is what reports that as a number under one.
+    corrections: {
+      title: 'What that says about the ranges themselves',
+      // Shown as a position rather than as a number, so that nobody has to be told what a
+      // percentile is. The two ends are the two questions the estimate form actually asks.
+      biasTitle: 'Where the work usually lands in your own range',
+      good: 'Good case',
+      bad: 'Bad case',
+      biasReading:
+        'Half the work lands above this point. Well-judged ranges put it in the middle.',
+      widthTitle: 'How wide the ranges should have been',
+      widthReading:
+        'These ranges would have had to be {{multiplier}} times as wide to have contained the outcome as often as they claimed. Well-judged ranges read 1.0.',
+      // Not an edge case: three identical numbers is somebody saying they are certain, and
+      // M2 accepts it on purpose. It counts in the rate above and cannot count in either
+      // reading here, so the two denominators differ and this says by how much.
+      certain_one:
+        '1 estimate claimed certainty and is counted in the rate above but not here.',
+      certain_other:
+        '{{count}} estimates claimed certainty and are counted in the rate above but not here.'
+    },
+    // The three buckets, stacked rather than summed. They are one question asked of ranges
+    // written at three moments, and the second is expected to be very good precisely because
+    // hindsight is not a skill.
+    buckets: {
+      title: 'When each range was written',
+      lede: 'These are three separate answers about three sets of estimates. They do not add up to anything.',
+      forecasts: 'Before the work began',
+      forecastsHint:
+        'The only ones that were predictions. Everything above is these.',
+      reports: 'After the work began',
+      reportsHint:
+        'Written by somebody who could already see how it was going. Expect these to be very good; how much better than the forecasts is the size of hindsight on your own work.',
+      unbounded: 'Work with no start date reported',
+      unboundedHint:
+        'Nobody said when this work began, so these cannot be told apart from the ones above — named rather than quietly counted as predictions.',
+      nothing: 'None yet',
+      // Short, because the heading and the sentence above have already said what the
+      // number means — repeating it on every row pushed the labels into wrapping and made
+      // three tidy rows look like a paragraph.
+      figure_one: '{{rate}}% of 1 estimate',
+      figure_other: '{{rate}}% of {{count}} estimates',
+      scored_one: '{{count}} estimate',
+      scored_other: '{{count}} estimates'
+    },
+    // What V15 exists for, and the only evidence M5's claim will ever have.
+    methods: {
+      title: 'By how the range was asked for',
+      lede: 'The question changed in August 2026. Whether that produced honester ranges is a thing only this table can answer.',
+      three_point: 'Three boxes, filled in together',
+      surprise_framed: 'One question at a time, bad case first',
+      unknown: 'Asked in a way this page does not recognise'
+    },
+    // Named, never ranked. A hit rate sorted best-first is a leaderboard, and a hit-rate
+    // leaderboard is won by writing one to a thousand — the failure this whole page exists
+    // to expose. So: alphabetical, with the count beside every row.
+    estimators: {
+      title: 'By estimator',
+      lede: 'In name order, not in any order of merit — and with the count beside each, because six outcomes are not ninety.',
+      name: 'Estimator',
+      scored: 'Scored',
+      rate: 'Contained the outcome'
+    },
+    // The main screen of this page for most of its first year, and written as such: each
+    // line is a different thing to go and do rather than an apology.
+    coverage: {
+      title: 'What is not being scored',
+      nothingFinished:
+        'Nothing has been finished here yet. A track record starts with work that is done, estimated, and measured.',
+      noActual_one:
+        '1 finished task did not record how long it took. That is the number that has to change: without it there is nothing to compare a range against.',
+      noActual_other:
+        '{{count}} finished tasks did not record how long they took. That is the number that has to change: without it there is nothing to compare a range against.',
+      noEstimate_one:
+        '1 finished task was never estimated, so there was no prediction to be right or wrong about.',
+      noEstimate_other:
+        '{{count}} finished tasks were never estimated, so there was no prediction to be right or wrong about.',
+      scored_one: '1 finished task is being scored.',
+      scored_other: '{{count}} finished tasks are being scored.',
+      // Decision 1's price, published rather than absorbed. An estimate is a moment and a
+      // start is a day, so an estimate written at any hour of the start day is counted as a
+      // report — which costs real forecasts, and the cost is stated instead of hidden.
+      startDay_one:
+        '1 estimate counted as written after the work began only because it was written on the start day itself. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
+      startDay_other:
+        '{{count}} estimates counted as written after the work began only because they were written on the start day itself. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
+      span: 'Covering estimates written between {{first}} and {{last}}.'
     }
   },
   members: {

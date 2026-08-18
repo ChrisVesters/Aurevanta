@@ -1407,6 +1407,82 @@ describe('WorkItems', () => {
     expect(screen.queryByText(/Last reported by/)).toBeNull();
   });
 
+  /**
+   * <strong>Optional, and the nudge says why rather than pressing.</strong> It is the only
+   * number a track record can compare a range against, and refusing to let somebody mark
+   * work finished until they can supply it would refuse the common case — so the honest
+   * form of the ask is to explain what leaving it empty costs.
+   */
+  it('says what the actual effort box is for without requiring it', async () => {
+    await open();
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
+
+    expect(
+      screen.getByText(
+        'Optional, and the one number your track record is built from — without it there is nothing to compare the estimate against.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Actual effort (hours)')).not.toBeRequired();
+  });
+
+  /**
+   * The history is fetched when the form opens and the form can be closed before it lands.
+   * Nothing arriving then may touch a form that has gone.
+   */
+  it('ignores a report history that arrives after the form has closed', async () => {
+    await open();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      url.endsWith('/progress') && init?.method === 'GET'
+        ? new Promise<Response>((resolve, reject) => {
+            settle = resolve;
+            fail = reject;
+          })
+        : Promise.resolve(jsonResponse(200, WORK_ITEMS))
+    );
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    settle(
+      jsonResponse(200, [
+        {
+          id: '90909090-9090-9090-9090-909090909090',
+          itemId: WORK_ITEMS[0].id,
+          reportedById: '11111111-1111-1111-1111-111111111111',
+          reportedByName: 'Linus',
+          reportedAt: '2026-08-15T02:00:00Z',
+          status: 'IN_PROGRESS',
+          startedOn: '2026-08-10',
+          completedOn: null,
+          actualEffortHours: null
+        }
+      ])
+    );
+
+    // And the same on the way out through the failure path, which is the one that would
+    // otherwise clear a line belonging to a form somebody has since reopened.
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Record progress for Migrate the auth service'
+      })
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Last reported by/)).toBeNull()
+    );
+  });
+
   it('closes the progress form when it is cancelled', async () => {
     await open();
     await userEvent.click(

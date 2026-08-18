@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 import { RedirectWhenSignedIn } from './auth/RedirectWhenSignedIn';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppLayout } from './routes/AppLayout';
+import { CalibrationPage } from './routes/CalibrationPage';
 import { DashboardPage } from './routes/DashboardPage';
 import { ForgotPasswordPage } from './routes/ForgotPasswordPage';
 import { LandingPage } from './routes/LandingPage';
@@ -56,6 +57,12 @@ function App() {
           <Route path="/app/projects" element={<ProjectsPage />} />
           <Route path="/app/projects/:projectId" element={<ProjectPage />} />
           <Route path="/app/members" element={<MembersPage />} />
+          {/*
+            Organisation-wide rather than per plan, and reachable by everybody: a hit rate
+            needs tens of completed items before it can tell 45% from 80%, which no single
+            plan supplies, and what it measures is people rather than plans.
+          */}
+          <Route path="/app/calibration" element={<CalibrationPage />} />
           <Route path="/app/settings" element={<SettingsPage />} />
         </Route>
       </Route>

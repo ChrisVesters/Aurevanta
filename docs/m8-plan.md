@@ -1,6 +1,6 @@
 # M8 — Actuals and calibration feedback: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 4 are built.** Six steps, one migration, no new problem code, and no change to
+> **Proposal, 2026-08-18. Steps 1 to 5 are built.** Six steps, one migration, no new problem code, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -44,7 +44,7 @@
 | 2 | What one actual says about one range ✅ *done* | M2 |
 | 3 | Which estimates were forecasts, and which were reports ✅ *done* | 1, 2 |
 | 4 | The record, on an endpoint ✅ *done* | 3 |
-| 5 | On screen, starting with the empty one | 4 |
+| 5 | On screen, starting with the empty one ✅ *done* | 4 |
 | 6 | Close out | 1–5 |
 
 **M8 adds one migration, and it creates a table rather than a column.** `V16__work_item_progress.sql` is an
@@ -753,7 +753,7 @@ instructions.
 
 ---
 
-## Step 5 — On screen, starting with the empty one
+## Step 5 — On screen, starting with the empty one ✅ *done*
 
 **Goal.** A member can see what their organisation's ranges have been worth, and — for the first
 year — exactly what is missing before that question has an answer.
@@ -800,6 +800,78 @@ test setup enforces.
 
 **Done when** somebody can find out that their team is at 45% without being told what a percentile
 is.
+
+### As built — where it differs from the above
+
+**The response was reshaped, and the coverage report is what asked for it.** Step 4 published five
+independently nullable scalars — `hitRate`, `hitRateLow`, `hitRateHigh`, `medianPercentile`,
+`bandWidthMultiplier` — for two facts that are always absent or present together. Every one of them
+then needed a `?? 0` or a redundant null check on this side, and each of those is a branch nothing
+can reach, because the server never sends a rate without its bounds. Rather than write four pieces
+of dead defence, the two facts became two objects: `rate: { value, low, high } | null` and
+`corrections: { medianPercentile, bandWidthMultiplier } | null`. **That makes decision 6 structural
+instead of conventional** — there is now no shape in which a client can hold the rate and not hold
+the interval, or the bias and not the width — which is a better outcome than the wording that was
+meant to enforce it. The uncoverable branch was the symptom; the loose modelling was the fault.
+
+**The bias is drawn rather than printed, and that is what "names no percentile" cost.** A median
+percentile of 0.78 has no plain-English rendering that does not ask a reader to think about tail
+probability, which is exactly what `EstimateForm` refuses to do. So it is a marker on a bar running
+between **Good case** and **Bad case** — the two questions somebody was actually asked — with a
+tick at the middle showing where a well-judged record would sit. The reader sees the gap; the page
+never names the number. M6's "a bar rather than a number, deliberately" arriving for a different
+reason.
+
+**And no threshold went into the browser, which took some care.** The obvious page classifies:
+"you are optimistic", "your ranges are too tight". Every one of those needs a cut-off, and a
+cut-off in the browser is a second rule about one estimate — the thing `EstimateQuality` exists to
+prevent. So the page states what a well-judged set scores (8 in 10, 1.0× as wide, the marker in the
+middle), shows what this one scored, and leaves the subtraction to the reader. No number on this
+screen is judged by this screen.
+
+**The empty state's three lines are two subtractions and a count, and the third one the plan asked
+for does not exist.** "Work finished with no start date" is not in `coverage` — what the server
+publishes about that is the `unbounded` bucket, which is a count of *estimates* rather than of
+work. Rather than invent a backend count in a step called "on screen", the bucket table names it
+and says why it is kept out of the headline.
+
+**Two doubles had to learn about the new request, and one of them mattered.** `ForecastPanel` reads
+the record on mount, so every one of its forty-odd cases hit a double that answered
+`/api/calibration` with a forecast *list* — an array where the panel expects a record. Twelve
+`mockImplementation` sites needed the branch. That is the "answers every URL alike" rule again, in
+the shape this file was most exposed to: not one test misled, but a whole suite.
+
+**Three after-unmount guards needed cases of their own**, including one from step 1 that had gone
+uncovered — the progress form's history read. Each is the same property the contributions request
+already had a test for: nothing arriving after somebody has navigated away may touch a screen that
+has gone, on the success path *and* on the failure path. They are what took the frontend to 100% of
+branches.
+
+**It shipped looking like a different application, and the fix was to stop styling it.** The first
+version gave the page its own frame — no centring, no page padding, its own heading sizes, its own
+list treatment — so it rendered flush against the left edge at full width while every other
+signed-in page sits in a 720px column. `.calibration` now joins the `.members, .projects` rule that
+carries that frame, its sections are ruled off with the `border-top` and `padding-top` the members
+page separates its own sections with, and the three tables use the bordered rows the plan and member
+lists use. The page-specific CSS that remains is the bar and the marker, which is the only thing on
+it that is not a list or a paragraph. **The lesson is narrower than "reuse the styles"**: every
+override was a local decision that looked reasonable beside the component it was written for, and
+nothing failed — a suite that renders in jsdom cannot see a layout at all, so this was invisible
+until somebody looked at it.
+
+**Two things that only a rendered page shows.** The row figures repeated the whole sentence — "45%
+contained what the work actually took — 40 estimates" — which pushed every label into wrapping and
+made three tidy rows read as a paragraph; they are now "45% of 40 estimates", since the heading
+above has already said what the number means. And a blanket `p { margin: 0 }` made the title and
+lede sit tighter than on every other page, so the reset is scoped to inside the record.
+
+**Found while doing it, and unrelated:** `--muted` is used fifteen times in `App.css` and defined
+nowhere, so every one of them is a declaration the browser discards. It is pre-existing, it affects
+the forecast panel rather than this page, and it is left alone here rather than folded into a
+milestone it has nothing to do with.
+
+**Counts.** 28 new frontend cases; 423 frontend tests and 888 backend tests pass, with the frontend
+at 100% of statements, branches, functions and lines.
 
 ---
 

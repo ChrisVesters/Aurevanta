@@ -377,7 +377,10 @@ export const INVITATION: Invitation = {
   email: 'dave@elsewhere.test',
   role: 'MEMBER',
   status: 'PENDING',
-  expiresAt: '2026-08-18T08:00:00Z',
+  // Relative to now rather than written down, because a fixture with a date in it is a
+  // fixture that expires: this one said 2026-08-18 and the suite went red on the morning of
+  // the eighteenth. The case that wants an expired invitation overrides it with one.
+  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
   createdAt: '2026-08-11T08:00:00Z'
 };
 

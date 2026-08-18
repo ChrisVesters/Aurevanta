@@ -215,6 +215,16 @@ export function ProgressForm({
               defaultValue={item.actualEffortHours ?? ''}
               aria-invalid={fieldErrors.actualEffortHours ? true : undefined}
             />
+            {/*
+              Says what the box is for rather than pressing somebody to fill it in. It is
+              optional in every state on purpose, and it is also the only number a track
+              record can compare a range against — so the honest nudge is to explain the
+              consequence of leaving it empty, not to make leaving it empty feel like an
+              error.
+            */}
+            <span className="hint">
+              {t('projects.items.progress.actualEffortHint')}
+            </span>
             {fieldErrors.actualEffortHours && (
               <span className="field-error">
                 {fieldErrors.actualEffortHours}

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
 import type { TFunction } from 'i18next';
 import { useAuth } from '../auth/AuthContext';
+import type { Calibration } from '../calibration/types';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { numberField, optionalField } from './fields';
@@ -126,6 +128,15 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
   /** Which run somebody has asked about, which is what starts the work below. */
   const [explaining, setExplaining] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<Confidence>(USUAL_CONFIDENCE);
+  /**
+   * What the ranges feeding this band have historically been worth.
+   *
+   * A caveat about the *inputs* and never a correction to the number: folding a calibration
+   * factor into a forecast would close a loop on its own evidence, so the record converges
+   * on 80% while nothing about the estimating changes. This says what the estimates have
+   * been worth and leaves the band exactly as the engine produced it.
+   */
+  const [track, setTrack] = useState<Calibration | null>(null);
   const asking = useFormFailure(ASKED_FOR);
 
   useEffect(() => {
@@ -174,6 +185,27 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
     },
     [request, projectId, asking]
   );
+
+  // Its own read, and one this panel must survive losing. A forecast is not less true
+  // because the record beside it could not be loaded, so a failure here leaves the line off
+  // and touches nothing else — which is why it has no failure state of its own to render.
+  useEffect(() => {
+    let cancelled = false;
+    request<Calibration>('/calibration')
+      .then((record) => {
+        if (!cancelled) {
+          setTrack(record);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTrack(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [request]);
 
   // An effect rather than a handler, and the reason is the half second it takes: this is by
   // far the slowest request this panel makes, so it is by far the likeliest to be still in
@@ -613,6 +645,26 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             reported without them is narrower than the truth by an amount nobody on this
             screen could guess.
           */}
+          {/*
+            Beside the band for the reason the limitations are beside it: a band's own track
+            record is the most useful thing that can sit next to it, and a number pasted into
+            a plan without it is this product's failure mode with a chart on. Absent when
+            nothing has been scored, because "no estimate here has ever been checked" on
+            every forecast anybody runs is noise rather than a caveat — the track record page
+            is where that belongs, and it says it properly.
+          */}
+          {track?.forecasts.rate != null && (
+            <p className="caveat">
+              {t('projects.forecast.trackRecord.line', {
+                rate: Math.round(track.forecasts.rate.value * 100),
+                scored: track.forecasts.scored
+              })}{' '}
+              <Link to="/app/calibration">
+                {t('projects.forecast.trackRecord.link')}
+              </Link>
+            </p>
+          )}
+
           <div className="limitations">
             <h3>{t('projects.forecast.limitations.title')}</h3>
             <ul>

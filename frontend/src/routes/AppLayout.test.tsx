@@ -70,12 +70,23 @@ describe('AppLayout', () => {
       'href',
       '/app/projects'
     );
+    // Named for what it is rather than for what the API calls it: the route and the
+    // endpoint keep "calibration", and the person reading the nav gets the plain words.
+    expect(screen.getByRole('link', { name: 'Track record' })).toHaveAttribute(
+      'href',
+      '/app/calibration'
+    );
   });
 
   it('offers projects to a member as well as to an owner', async () => {
     await signedIn([ACME_MEMBERSHIP], { ...ACCOUNT, role: 'MEMBER' });
 
     expect(screen.getByRole('link', { name: 'Projects' })).toBeInTheDocument();
+    // Every member's, like the member list: colleagues may see what their colleagues
+    // estimated, and the estimates themselves are already on the plan screen.
+    expect(
+      screen.getByRole('link', { name: 'Track record' })
+    ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull();
   });
 
