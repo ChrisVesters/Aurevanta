@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,8 +38,11 @@ class ForecastController {
 
 	private final ForecastService forecasts;
 
-	ForecastController(ForecastService forecasts) {
+	private final MovementService movements;
+
+	ForecastController(ForecastService forecasts, MovementService movements) {
 		this.forecasts = forecasts;
+		this.movements = movements;
 	}
 
 	@PostMapping("/api/projects/{projectId}/forecasts")
@@ -87,6 +91,25 @@ class ForecastController {
 	List<ContributionResponse> contributions(@AuthenticationPrincipal AuthenticatedUser caller,
 			@PathVariable UUID runId) {
 		return this.forecasts.contributionsTo(caller.userId(), caller.tenantId(), runId);
+	}
+
+	/**
+	 * Why the date moved between this run and another of the same plan.
+	 *
+	 * <p>
+	 * <strong>The terms add up to the whole distance between the two</strong>, which is
+	 * the only reason a sentence like "out eight days: five new scope, four re-estimates,
+	 * one of progress" is worth publishing at all. It costs six simulations and says so.
+	 *
+	 * <p>
+	 * Which of the two runs is the older one is worked out here rather than demanded —
+	 * that is a fact about the rows, and a refusal for naming them the wrong way round
+	 * would be one nobody could act on without going and looking it up.
+	 */
+	@GetMapping("/api/forecasts/{runId}/movement")
+	MovementResponse movement(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID runId,
+			@RequestParam UUID since) {
+		return this.movements.between(caller.userId(), caller.tenantId(), since, runId);
 	}
 
 	/**

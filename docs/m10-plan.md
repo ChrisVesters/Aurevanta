@@ -1,6 +1,6 @@
 # M10 — Communicating to people who do not know what P90 means: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 and 2 are built.** Six steps, **no migration expected**, and no change to anything the
+> **Proposal, 2026-08-18. Steps 1 to 3 are built.** Six steps, **no migration expected**, and no change to anything the
 > engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -39,7 +39,7 @@
 |---|---|---|
 | 1 | One sentence anybody can read ✅ *done* | M4 |
 | 2 | When two forecasts may be compared ✅ *done* | M3, M4 |
-| 3 | Why the date moved | 2, M6's replay |
+| 3 | Why the date moved ✅ *done* | 2, M6's replay |
 | 4 | Whether it keeps moving out | 2 |
 | 5 | The burn-up, and the first chart in this product | M9 |
 | 6 | Close out | 1–5 |
@@ -463,7 +463,7 @@ added to cover.
 
 ---
 
-## Step 3 — Why the date moved
+## Step 3 — Why the date moved ✅ *done*
 
 **Goal.** "Out 8 days: +5 new scope, +4 re-estimates, −1 progress" — and the terms sum to eight.
 
@@ -493,6 +493,61 @@ weeks ago and only *recorded* between the two runs is attributed to progress, wh
 alone cannot distinguish from work that happened in between.
 
 **Done when** the five numbers explain the whole of the movement and not most of it.
+
+### As built — where it differs from the above
+
+**There are seven terms, not five, and both extra ones are load-bearing.**
+
+**`SAMPLING`, because two runs never share a seed.** The bullets have the account start at the
+older run's stored date and end at the newer run's, with the plan's changes in between — and there
+is no arrangement of those steps that does it, because the two runs were sampled from different
+places in the stream and neither seed is something anybody chose. Hold the older seed and the last
+state is not the newer run; hold the newer seed and the first state is not the older run. So
+re-running is its own term, measured against the older run's own stored result, and it is what
+makes "they sum by construction" true rather than nearly true. **The measurement at the top of this
+plan made it look like a formality and the tests say otherwise**: on the two-item fixture the
+sampling term moves the date by days, because that measurement was taken on a twelve-item chain
+where the relative sampling error is far smaller. Two cases had to be rewritten when they asserted
+an unchanged plan gives the same date — it does not, on a small plan, and the term is why the
+account still adds up.
+
+**`CALENDAR`, because decision 7's order has no place for it.** A working day that changed moves
+the date and not one hour of the answer, so it is invisible to every step in the bullets and would
+have landed in the residual — where a reader who has just adjusted a working day would see "out
+four days" attributed to nothing they recognise. It sits after the assumptions and before the start,
+and `changingTheWorkingDayIsACalendarTermAndMovesNoHours` asserts every other term is zero.
+
+**Six simulations rather than the bullets' five, and for the opposite reason to the one expected.**
+The calendar and the start move the date without touching an hour, so the last two states need no
+replay at all — but the *older* run needs one of its own to prove it still reproduces, or a baseline
+the engine no longer makes is absorbed silently into the sampling term. Five model-changing states
+plus that check is six, and the count is published the way M7 publishes its own.
+
+**`Movement` is in `forecast` and not `forecast.model`.** It orders changes to `ForecastInputs`,
+which is a feature-package type, so a rule about it cannot live in the package that imports nothing
+from this codebase — the same reasoning that moved step 2's service method.
+
+**The endpoint is here rather than later**, because a service method whose only caller is its own
+test is what the M8 and M9 cleanups deleted twice. **And that exposes a gap in this plan: no step
+puts any of this on screen.** Steps 4 and 5 are the detector and the burn-up, and step 6 is close
+out — so the decomposition and the detector both end the milestone with an endpoint and no reader.
+That is for step 6's review pass to settle rather than something to quietly add here.
+
+**`ForecastService` gained one shared replay rather than a second one.** A decomposition varies the
+terms deliberately, so it cannot take them off a row the way the existing replay does — and two
+ways of re-running one stored forecast is precisely what this codebase warns would become one right
+way and one that had drifted. There is one `Engine.run` for replays and both callers go through it.
+
+**Four refusal and edge cases came from the coverage gate and three are real scenarios.** The
+not-comparable check never fired at all, because the first fixture used another *organisation's*
+run — which the tenant-scoped lookup refuses first, for a different reason. A second plan in the
+same organisation is what actually reaches it. The engine-version refusal, a calendar that arrived
+between two runs, and a calendar rule this version cannot read all needed a row aged by hand, which
+is what a version bump or `V14` does to every run already stored. Only the last — a *newer* run
+that lost its calendar — is a guard rather than a scenario, and its test says so.
+
+**Counts.** 22 cases in `MovementApiTests`; 974 backend tests pass, with every `Movement` type and
+the new refusal at zero missed branches and zero missed instructions. No frontend change.
 
 ---
 

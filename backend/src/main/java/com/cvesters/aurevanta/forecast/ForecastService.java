@@ -30,6 +30,7 @@ import com.cvesters.aurevanta.forecast.model.Contributions;
 import com.cvesters.aurevanta.forecast.model.Engine;
 import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.forecast.model.Forecast;
+import com.cvesters.aurevanta.forecast.model.ForecastTerms;
 import com.cvesters.aurevanta.forecast.model.ItemModel;
 import com.cvesters.aurevanta.forecast.model.RunObserver;
 import com.cvesters.aurevanta.forecast.model.Schedule;
@@ -538,8 +539,38 @@ public class ForecastService {
 	 * with whatever the caller has imagined away.
 	 */
 	private static Forecast replay(ForecastRun run, ForecastInputs inputs, List<ItemModel> plan, RunObserver watching) {
-		return Engine.run(plan, inputs.toPrecedences(), run.getCapacity(), teamFactorOf(run), scopeGrowthOf(run),
-				run.getSampleCount(), run.getSeed(), watching);
+		return replayWith(plan, inputs, termsOf(run), run.getSampleCount(), run.getSeed(), watching);
+	}
+
+	/**
+	 * The engine run for a plan and a set of terms that need not be any one run's.
+	 *
+	 * <p>
+	 * <strong>The one place a stored forecast is re-run.</strong> A decomposition varies
+	 * the terms deliberately — the older plan under the newer capacity, and so on — so it
+	 * cannot take them off a row the way the replay above does. Two ways of re-running
+	 * one stored forecast would eventually be one right way and one that had drifted, and
+	 * the drifted one would explain a plan nobody forecast while looking entirely
+	 * reasonable.
+	 */
+	static Forecast replayWith(List<ItemModel> plan, ForecastInputs inputs, ForecastTerms terms, int sampleCount,
+			long seed, RunObserver watching) {
+		return Engine.run(plan, inputs.toPrecedences(), terms.capacity(),
+				TeamFactor.from(terms.teamFactorWorseByPercent().doubleValue()), ScopeGrowth
+					.from(terms.scopeGrowthP10Percent().doubleValue(), terms.scopeGrowthP90Percent().doubleValue()),
+				sampleCount, seed, watching);
+	}
+
+	/** What a run was asked on, as {@code Comparison} and a decomposition take it. */
+	static ForecastTerms termsOf(ForecastRun run) {
+		return new ForecastTerms(run.getEngineVersion(), run.getCalendarRule(), run.getWorkingHoursPerDay(),
+				run.getCapacity(), run.getTeamFactorWorseByPercent(), run.getScopeGrowthP10Percent(),
+				run.getScopeGrowthP90Percent(), run.getStartsOn());
+	}
+
+	/** Whether a replay of this run still produces the run — M6's guard, shared. */
+	static void requireReproduces(ForecastRun run, Forecast replayed) {
+		requireSameRun(run, replayed);
 	}
 
 	/**
