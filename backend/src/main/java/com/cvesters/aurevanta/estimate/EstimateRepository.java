@@ -62,7 +62,8 @@ public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 	 */
 	@Query("""
 			select new com.cvesters.aurevanta.estimate.ScorableEstimate(
-			    e.workItem.id, e.estimator.id, e.p10Hours, e.p90Hours, e.createdAt, e.workItem.actualEffortHours)
+			    e.workItem.id, e.estimator.id, e.estimator.displayName, e.p10Hours, e.p90Hours,
+			    e.elicitationMethod, e.createdAt, e.workItem.actualEffortHours)
 			from Estimate e
 			where e.tenant.id = :tenantId
 			  and e.workItem.status = :done and e.workItem.actualEffortHours is not null

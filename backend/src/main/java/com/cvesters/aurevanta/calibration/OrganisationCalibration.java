@@ -1,5 +1,8 @@
 package com.cvesters.aurevanta.calibration;
 
+import java.time.Instant;
+import java.util.List;
+
 import com.cvesters.aurevanta.forecast.model.Calibration;
 
 /**
@@ -23,7 +26,18 @@ import com.cvesters.aurevanta.forecast.model.Calibration;
  * @param unbounded every range on finished work nobody ever reported a start for. It
  * cannot be told from a report, so it is named rather than guessed at — and kept out of
  * the headline rather than laundered into it.
+ * @param byEstimator and {@code byMethod} split the forecasts and only the forecasts, in
+ * name order and in method order — a total order in both cases, because two people may
+ * share a display name and a list that rearranges itself between requests is one nobody
+ * can read twice.
+ * @param firstScored and {@code lastScored} are when the earliest and latest scored
+ * <em>estimates</em> were written, not when the work finished. A calibration record is a
+ * statement about how an organisation estimates, so what makes it stale is the age of the
+ * estimating in it: a last-scored date eight months old says that nothing predicted since
+ * has finished yet, which is exactly what a reader needs to know before acting on the
+ * number. Null when nothing has been scored.
  */
 public record OrganisationCalibration(Calibration forecasts, Calibration reports, Calibration unbounded,
-		CalibrationCoverage coverage) {
+		List<EstimatorCalibration> byEstimator, List<MethodCalibration> byMethod, CalibrationCoverage coverage,
+		Instant firstScored, Instant lastScored) {
 }

@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,36 +76,105 @@ public class CalibrationService {
 		Calibration forecasts = new Calibration();
 		Calibration reports = new Calibration();
 		Calibration unbounded = new Calibration();
+		Map<UUID, Attributed> byEstimator = new HashMap<>();
+		Map<String, Calibration> byMethod = new HashMap<>();
 		Set<UUID> scoredItems = new HashSet<>();
+		List<Instant> scoredAt = new ArrayList<>();
 		int movedByTheStartDay = 0;
 
 		for (List<ScorableEstimate> said : byItemAndEstimator(scorable).values()) {
 			UUID itemId = said.get(0).itemId();
 			scoredItems.add(itemId);
 			LocalDate started = began.get(itemId);
+			ScorableEstimate counted;
 			if (started == null) {
 				// Nobody ever said when this began, so nothing here can be told from a
 				// report. Named rather than dropped: `DONE` needs no start date, so
 				// excluding these outright would silently discard most of the evidence a
 				// typical organisation holds.
-				unbounded.scored(score(newest(said)));
-				continue;
+				counted = newest(said);
+				unbounded.scored(score(counted));
 			}
-			Instant boundary = startOfDay(started);
-			ScorableEstimate beforehand = lastBefore(said, boundary);
-			if (beforehand != null) {
-				forecasts.scored(score(beforehand));
-				continue;
+			else {
+				Instant boundary = startOfDay(started);
+				ScorableEstimate beforehand = lastBefore(said, boundary);
+				if (beforehand != null) {
+					counted = beforehand;
+					forecasts.scored(score(counted));
+					// The two breakdowns attribute the forecasts and nothing else: a
+					// report
+					// is what somebody wrote once they could see how the task was going,
+					// and
+					// crediting that to a person — or to the way the question was put —
+					// would
+					// measure how late they filed rather than how well they predicted.
+					attributed(byEstimator, counted).record().scored(score(counted));
+					byMethod.computeIfAbsent(counted.elicitationMethod(), (method) -> new Calibration())
+						.scored(score(counted));
+				}
+				else {
+					counted = newest(said);
+					reports.scored(score(counted));
+					if (lastBefore(said, boundary.plus(1, ChronoUnit.DAYS)) != null) {
+						movedByTheStartDay++;
+					}
+				}
 			}
-			reports.scored(score(newest(said)));
-			if (lastBefore(said, boundary.plus(1, ChronoUnit.DAYS)) != null) {
-				movedByTheStartDay++;
-			}
+			scoredAt.add(counted.createdAt());
 		}
 
 		CalibrationCoverage coverage = new CalibrationCoverage(completed.completed(), completed.withActual(), estimated,
 				scoredItems.size(), movedByTheStartDay);
-		return new OrganisationCalibration(forecasts, reports, unbounded, coverage);
+		return new OrganisationCalibration(forecasts, reports, unbounded, named(byEstimator), byMethod(byMethod),
+				coverage, endOf(scoredAt, Comparator.naturalOrder()), endOf(scoredAt, Comparator.reverseOrder()));
+	}
+
+	/**
+	 * The rows of the two breakdowns, each in a total order.
+	 *
+	 * <p>
+	 * <strong>By name and then by identifier</strong>, which is the lesson
+	 * {@code ProjectRepository} states about its own listing: two people may share a
+	 * display name, and an order settled only by name is one that rearranges itself
+	 * between requests. Never by hit rate — see {@link EstimatorCalibration}.
+	 */
+	private static List<EstimatorCalibration> named(Map<UUID, Attributed> byEstimator) {
+		return byEstimator.entrySet()
+			.stream()
+			.map((entry) -> new EstimatorCalibration(entry.getKey(), entry.getValue().name(),
+					entry.getValue().record()))
+			.sorted(Comparator.comparing(EstimatorCalibration::estimatorName)
+				.thenComparing(EstimatorCalibration::estimatorId))
+			.toList();
+	}
+
+	private static List<MethodCalibration> byMethod(Map<String, Calibration> byMethod) {
+		return byMethod.entrySet()
+			.stream()
+			.map((entry) -> new MethodCalibration(entry.getKey(), entry.getValue()))
+			.sorted(Comparator.comparing(MethodCalibration::method))
+			.toList();
+	}
+
+	private static Attributed attributed(Map<UUID, Attributed> byEstimator, ScorableEstimate counted) {
+		return byEstimator.computeIfAbsent(counted.estimatorId(),
+				(id) -> new Attributed(counted.estimatorName(), new Calibration()));
+	}
+
+	/**
+	 * The first or last of the moments the scored estimates were written, or null when
+	 * nothing was scored.
+	 *
+	 * <p>
+	 * A fold over the whole list rather than a running minimum kept beside the loop,
+	 * which is not only shorter: the order rows arrive in is the order of their items'
+	 * identifiers, so a hand-written comparison has one arm that a given fixture may
+	 * never reach, and which arm that is changes with the random identifiers a test
+	 * happens to generate. Order-independent here means order-independent in the coverage
+	 * report too.
+	 */
+	private static Instant endOf(List<Instant> scoredAt, Comparator<Instant> order) {
+		return scoredAt.stream().min(order).orElse(null);
 	}
 
 	/**
@@ -178,6 +249,14 @@ public class CalibrationService {
 
 	/** One person's opinion of one piece of work, however many times they revised it. */
 	private record Said(UUID itemId, UUID estimatorId) {
+	}
+
+	/**
+	 * A person's record while it is being accumulated, holding the name off whichever of
+	 * their estimates arrived first — the display name is on every row, so any of them
+	 * will do and none of them needs a second lookup.
+	 */
+	private record Attributed(String name, Calibration record) {
 	}
 
 }

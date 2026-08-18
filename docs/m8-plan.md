@@ -1,6 +1,6 @@
 # M8 — Actuals and calibration feedback: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 3 are built.** Six steps, one migration, no new problem code, and no change to
+> **Proposal, 2026-08-18. Steps 1 to 4 are built.** Six steps, one migration, no new problem code, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -43,7 +43,7 @@
 | 1 | The progress record stops being written over ✅ *done* | — |
 | 2 | What one actual says about one range ✅ *done* | M2 |
 | 3 | Which estimates were forecasts, and which were reports ✅ *done* | 1, 2 |
-| 4 | The record, on an endpoint | 3 |
+| 4 | The record, on an endpoint ✅ *done* | 3 |
 | 5 | On screen, starting with the empty one | 4 |
 | 6 | Close out | 1–5 |
 
@@ -671,7 +671,7 @@ touched services are at zero missed branches and zero missed instructions.
 
 ---
 
-## Step 4 — The record, on an endpoint
+## Step 4 — The record, on an endpoint ✅ *done*
 
 **Goal.** `GET /api/calibration` answers what this organisation's ranges have been worth.
 
@@ -710,6 +710,46 @@ the query that answers M5's question is exercised rather than merely present.
 
 **Done when** the question "did changing how we ask change anything" has an endpoint that answers
 it.
+
+### As built — where it differs from the above
+
+**`firstScored` and `lastScored` are when the estimates were *written*, not when the work
+finished**, and the plan does not say which — "the span the record covers" admits both readings and
+they answer different questions. A calibration record is a statement about how an organisation
+estimates, so what makes it stale is the age of the estimating in it: a last-scored date eight
+months old says that nothing predicted since has finished yet, which is what a reader needs before
+acting on the number. They go out as instants, like step 1's `reported_at`, because that is what
+they are — the browser converts them to where its reader is sitting.
+
+**Computing that span is a fold and not a running minimum, and the reason is the coverage report
+rather than taste.** Written as `earlier(held, arriving)` / `later(held, arriving)` it has one arm
+per direction that a given fixture may never reach — and *which* arm is not fixed, because rows
+arrive in item-identifier order and those identifiers are random per run. A test would have passed
+with a branch uncovered, and a different run would have covered that one and missed the other.
+`endOf(scoredAt, comparator)` has no arm at all. Order-independent in the answer is worth having;
+order-independent in the coverage report is what made it necessary.
+
+**The two breakdowns order by name *and then by identifier*, where the plan says only by name.**
+That is `ProjectRepository`'s own rule about its listing arriving here — two people may share a
+display name, and an order settled only by name is one that rearranges itself between requests.
+`namesTheEstimatorsInNameOrderAndNotInRankOrder` also pins the negative: the fixture is built so
+that the person who scores best sorts last, which is what makes it a test of the decision rather
+than of the alphabet.
+
+**`byMethod` groups the stored string and knows nothing about `Elicitation`.** A method this server
+has never heard of comes back under its own name rather than as nothing, which is the property that
+column is a `varchar` for. Grouping through the constants would have quietly dropped rows written by
+a future version.
+
+**Two things the plan predicted and it is worth confirming.** There is **no new problem code** — a
+derived read that stores nothing has nothing to refuse beyond the `not_a_member` every tenant-scoped
+endpoint already shares. And there is **no change to `SecurityConfiguration`**: `anyRequest()` is
+already `hasAuthority(TENANT_SCOPED)`, so a new endpoint is access-token-only by default and would
+have to be *deliberately* opened rather than accidentally left so.
+
+**Counts.** 13 cases in `CalibrationApiTests`, beside step 3's 16; 888 backend tests pass. Every
+type in `calibration`, plus `ScorableEstimate`, is at zero missed branches and zero missed
+instructions.
 
 ---
 
