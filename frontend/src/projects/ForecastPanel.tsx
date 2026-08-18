@@ -60,21 +60,19 @@ const CONFIDENCES = [50, 80, 95] as const;
 
 type Confidence = (typeof CONFIDENCES)[number];
 
-/** Which percentile each of them reads. The other two dates have no control and no need. */
+/**
+ * Which percentile each of them reads. The other two dates have no control and no need.
+ *
+ * **Both forecasts, because a throughput answer carries the same five percentiles under the
+ * same names.** That is what keeps the trade immediate on both sides: moving from 95 to 80
+ * changes two dates and sends no request. A second constant holding the same three fields
+ * would be two names for one thing and a reader having to check whether they agree.
+ */
 const DATE_AT: Record<Confidence, 'p50Date' | 'p80Date' | 'p95Date'> = {
   50: 'p50Date',
   80: 'p80Date',
   95: 'p95Date'
 };
-
-/**
- * The same three confidences read off the other forecast, so the control moves both.
- *
- * A throughput answer carries all five percentiles too, which is what keeps the trade
- * immediate on this side as well: moving from 95 to 80 changes two dates and sends no
- * request. Two round trips would make one question look like four forecasts.
- */
-const WEEKS_AT: Record<Confidence, 'p50Date' | 'p80Date' | 'p95Date'> = DATE_AT;
 
 /**
  * Eight tenths of the probability, which is what the band sentence beneath already states.
@@ -170,6 +168,18 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
    * the history beside it could not be read, so losing this leaves the band alone.
    */
   const [throughput, setThroughput] = useState<Throughput | null>(null);
+  /**
+   * Why there is no history to show, when there is a reason worth passing on.
+   *
+   * **Losing the read must leave the band alone; it must not leave the reader guessing.** The
+   * first version set the state to null and rendered nothing, so a plan holding one task
+   * marked finished next week — which this product's own progress form will accept — lost the
+   * entire comparison with no sentence anywhere saying why. A refusal that names something
+   * fixable in somebody's own plan is exactly the one to pass on.
+   */
+  const [throughputFailure, setThroughputFailure] = useState<string | null>(
+    null
+  );
   const asking = useFormFailure(ASKED_FOR);
 
   useEffect(() => {
@@ -252,15 +262,15 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
           setThroughput(history);
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!cancelled) {
-          setThroughput(null);
+          setThroughputFailure(describeFailure(t, error));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [request, projectId]);
+  }, [request, projectId, t]);
 
   // An effect rather than a handler, and the reason is the half second it takes: this is by
   // far the slowest request this panel makes, so it is by far the likeliest to be still in
@@ -604,9 +614,10 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             that disagree are the output, because "six weeks against eleven" starts a
             conversation and one number in the middle ends it.
           */}
-          {throughput !== null && (
+          {(throughput !== null || throughputFailure !== null) && (
             <ThroughputComparison
               history={throughput}
+              failure={throughputFailure}
               run={latest}
               confidence={confidence}
             />
@@ -811,15 +822,27 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
  */
 function ThroughputComparison({
   history,
+  failure,
   run,
   confidence
 }: {
-  history: Throughput;
+  history: Throughput | null;
+  failure: string | null;
   run: Forecast;
   confidence: Confidence;
 }) {
   const { t, i18n } = useTranslation();
-  const theirs = history.projection?.[WEEKS_AT[confidence]] ?? null;
+
+  if (history === null) {
+    return (
+      <div className="throughput">
+        <h3>{t('projects.forecast.throughput.title')}</h3>
+        <p className="empty">{failure}</p>
+      </div>
+    );
+  }
+
+  const theirs = history.projection?.[DATE_AT[confidence]] ?? null;
   const ours = run[DATE_AT[confidence]];
 
   return (
@@ -852,6 +875,16 @@ function ThroughputComparison({
               date: formatDay(theirs, i18n.language)
             })}
           </p>
+          {/*
+            The one limitation that qualifies an answer rather than replacing it, and the
+            window alone does not carry it: a reader has to be told that a short window is
+            *why* the worst week above may be missing. Whether it fires is the server's to
+            decide, as `EstimateQuality`'s thresholds are — this end renders a flag it was
+            sent.
+          */}
+          {history.limitations.includes('throughput_window_is_short') && (
+            <p className="caveat">{t('projects.forecast.throughput.short')}</p>
+          )}
           {ours !== null && (
             <>
               <p className="hint">

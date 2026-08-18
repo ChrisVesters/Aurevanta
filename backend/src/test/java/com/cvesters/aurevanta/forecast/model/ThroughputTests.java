@@ -38,9 +38,11 @@ class ThroughputTests {
 				List.of(MONDAY, MONDAY.plusDays(3), MONDAY.plusWeeks(1), MONDAY.plusWeeks(1).plusDays(4)),
 				MONDAY.plusWeeks(1).plusDays(6));
 
-		assertThat(history.weeks()).containsExactly(2, 2);
+		assertThat(history.weekCount()).isEqualTo(2);
 		assertThat(history.completed()).isEqualTo(4);
 		assertThat(history.perWeek()).isEqualTo(2.0);
+		assertThat(history.best()).isEqualTo(2);
+		assertThat(history.worst()).isEqualTo(2);
 	}
 
 	/**
@@ -55,7 +57,8 @@ class ThroughputTests {
 
 		Throughput history = Throughput.of(tenInOneWeek, MONDAY.plusWeeks(3));
 
-		assertThat(history.weeks()).containsExactly(10, 0, 0, 0);
+		assertThat(history.weekCount()).isEqualTo(4);
+		assertThat(history.completed()).isEqualTo(10);
 		assertThat(history.perWeek()).isEqualTo(2.5);
 		assertThat(history.worst()).isZero();
 		assertThat(history.best()).isEqualTo(10);
@@ -108,14 +111,17 @@ class ThroughputTests {
 	void aWeekBeginsOnItsMondayAndEndsOnTheSunday() {
 		Throughput history = Throughput.of(List.of(MONDAY, MONDAY.plusDays(6)), MONDAY.plusDays(6));
 
-		assertThat(history.weeks()).containsExactly(2);
+		assertThat(history.weekCount()).isEqualTo(1);
+		assertThat(history.completed()).isEqualTo(2);
 	}
 
 	@Test
 	void theNextMondayIsTheNextWeek() {
 		Throughput history = Throughput.of(List.of(MONDAY.plusDays(6), MONDAY.plusDays(7)), MONDAY.plusDays(7));
 
-		assertThat(history.weeks()).containsExactly(1, 1);
+		assertThat(history.weekCount()).isEqualTo(2);
+		assertThat(history.best()).isEqualTo(1);
+		assertThat(history.worst()).isEqualTo(1);
 	}
 
 	/**
@@ -132,7 +138,8 @@ class ThroughputTests {
 				List.of(LocalDate.parse("2025-12-31"), LocalDate.parse("2026-01-01"), LocalDate.parse("2026-01-04")),
 				LocalDate.parse("2026-01-04"));
 
-		assertThat(history.weeks()).containsExactly(3);
+		assertThat(history.weekCount()).isEqualTo(1);
+		assertThat(history.completed()).isEqualTo(3);
 		assertThat(history.from()).isEqualTo(LocalDate.parse("2025-12-29"));
 		assertThat(history.to()).isEqualTo(LocalDate.parse("2025-12-29"));
 	}
@@ -149,7 +156,6 @@ class ThroughputTests {
 		assertThat(history.observed()).isFalse();
 		assertThat(history.weekCount()).isZero();
 		assertThat(history.completed()).isZero();
-		assertThat(history.weeks()).isEmpty();
 		assertThat(history.worthShowing()).isFalse();
 		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(history::perWeek);
 		assertThatExceptionOfType(IllegalStateException.class).isThrownBy(history::best);
@@ -171,22 +177,16 @@ class ThroughputTests {
 	 */
 	@Test
 	void theOrderTheCompletionsArriveInDoesNotMatter() {
-		List<LocalDate> forwards = List.of(MONDAY, MONDAY.plusWeeks(2), MONDAY.plusWeeks(1));
-		List<LocalDate> backwards = List.of(MONDAY.plusWeeks(2), MONDAY.plusWeeks(1), MONDAY);
+		LocalDate asOf = MONDAY.plusWeeks(2);
+		Throughput forwards = Throughput.of(List.of(MONDAY, asOf, MONDAY.plusWeeks(1)), asOf);
+		Throughput backwards = Throughput.of(List.of(asOf, MONDAY.plusWeeks(1), MONDAY), asOf);
 
-		assertThat(Throughput.of(backwards, MONDAY.plusWeeks(2)).weeks())
-			.containsExactly(Throughput.of(forwards, MONDAY.plusWeeks(2)).weeks());
-	}
-
-	/** A history that handed out the array it is made of would not be a value. */
-	@Test
-	void theWeeksCannotBeEditedFromOutside() {
-		Throughput history = Throughput.of(List.of(MONDAY), MONDAY);
-
-		history.weeks()[0] = 99;
-
-		assertThat(history.weeks()).containsExactly(1);
-		assertThat(history.completed()).isEqualTo(1);
+		// Compared through what they produce rather than through their counts, which is
+		// the
+		// stronger statement: two histories that project identically are the same
+		// history.
+		assertThat(backwards.from()).isEqualTo(forwards.from());
+		assertThat(backwards.project(6, RUNS, SEED)).isEqualTo(forwards.project(6, RUNS, SEED));
 	}
 
 	// How little is too little -------------------------------------------------

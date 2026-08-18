@@ -147,18 +147,14 @@ public final class Throughput {
 	}
 
 	/**
-	 * How many items were finished in each week, oldest first — the thing a projection
-	 * resamples.
+	 * How many weeks the history covers, empty ones included.
 	 *
 	 * <p>
-	 * A copy, because a history that hands out the array it is made of is not a value. It
-	 * is taken once by whatever is sampling from it rather than per run.
+	 * The per-week counts themselves are not published. {@link #project} is the only
+	 * thing that resamples them and it is on this class, so an accessor would have been a
+	 * defensive copy handed to nobody — and what a reader is shown is the figures below
+	 * rather than a list of integers.
 	 */
-	public int[] weeks() {
-		return this.weeks.clone();
-	}
-
-	/** How many weeks the history covers, empty ones included. */
 	public int weekCount() {
 		return this.weeks.length;
 	}

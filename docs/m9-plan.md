@@ -1,8 +1,11 @@
 # M9 — Throughput cross-check: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 5 are built.** Six steps, **no migration**, no new column, and no change to
-> anything the engine samples — `Engine.VERSION` does not move. Each step gains its
-> `### As built — where it differs from the above` in the same change as its code, not at the end.
+> **Built, 2026-08-18.** All six steps are done and each carries its own *As built* section.
+> **No migration, no column and no index**, and no change to anything the engine samples —
+> `Engine.VERSION` is still 2. **It is the one forecast in this product that needs nothing of
+> anybody**: no estimate, no assumption, no measured actual, only that work has been finished and
+> dated, which this product already requires. That is why it can answer on the day it ships where
+> M8's calibration cannot.
 >
 > **Scope.** `roadmap.md` M9: a second, independent forecast from historical throughput, with no
 > estimation involved — and **the gap between the two forecasts is the deliverable**. When the
@@ -42,7 +45,7 @@
 | 3 | Reading a plan's history and what is left in it ✅ *done* | 1 |
 | 4 | On an endpoint ✅ *done* | 2, 3 |
 | 5 | The gap, beside the band ✅ *done* | 4 |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 **M9 adds no migration.** Every number it reads is already stored: `work_items.completed_on` is
 required on anything marked done, and the backlog is the items that are not. No index either —
@@ -694,7 +697,7 @@ lines.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 **Goal.** The record matches what was built.
 
@@ -710,6 +713,79 @@ lines.
   its own decision.
 
 **Done when** the next reader can tell what M9 decided without reading its code.
+
+### As built — where it differs from the above
+
+`roadmap.md` marks M9 done, carries its own *As built*, and — the part that mattered — **has the
+"implicitly absorbs … scope growth" sentence corrected in place**, because the wrong version is the
+quotable one and a note in a plan nobody opens would not have stopped it being repeated.
+`product-concept.md` says the same, and adds what the build learnt that "present them alongside"
+did not anticipate. `CLAUDE.md` has a throughput section in the shape of the others. *What is next*
+is M10.
+
+### The review pass — what a read of the whole milestone changed
+
+**It found three things, and one of them was this milestone contradicting an argument it had made
+one step earlier.**
+
+**`ThroughputService.historyOf` trusted the query's ordering.** It took the last element of the
+completions to decide whether the request should be refused — while `Throughput.of`, written the
+step before, deliberately *finds* the earliest rather than taking the front, and step 3's *As
+built* says so in as many words. One of the two assuming an order and the other not is the worse of
+both: the `order by` becomes load-bearing in one place and documented as not load-bearing in the
+other. It is `Collections.max` now, with a test that passes today either way and exists so the
+check is not what breaks when somebody relaxes the query.
+
+**`WEEKS_AT` was `DATE_AT` under a second name.** A throughput answer carries the same five
+percentiles under the same field names, so the alias held nothing — two names for one object, and a
+reader having to check whether they agree. Gone, with the reason moved onto `DATE_AT`.
+
+**And the one found by using it rather than by reading it.** A plan in the development database
+held a task marked `DONE` with a completion date a week in the future — typed into this product's
+own progress form, which puts no upper bound on the date. The endpoint refused correctly with
+`throughput_out_of_order`, and the panel's `catch` then **took the entire comparison off the screen
+with nothing anywhere saying why**. Two things were wrong: the catalogue comment asserted the code
+was "reached by a client other than this one", which the data disproves; and "a failure must leave
+the band alone" had been built as "say nothing at all". A refusal that names something fixable in
+somebody's own plan is exactly the one to pass on, so the block now renders with the reason where
+the second date would have gone, and the wording says which task to go and correct. **The
+underlying gap — that nothing in the domain refuses a day that has not happened — is written up in
+`roadmap.md` under *Dates the schema accepts and reality does not*, and is not M9's to fix.**
+
+**One case the read added rather than corrected.** A run made before M4 has no dates, and the
+history beside it still has one of its own: it now shows what it has rather than nothing, and a
+test says so.
+
+**A second pass for dead weight found two more, and one of them was another decision the build had
+not kept.**
+
+**`throughput_window_is_short` was emitted by the server and rendered nowhere.** Decision 12 asks
+for a bar "below which the answer is published *and* flagged", and decision 5 says the window ships
+so a reader can judge whether it contains their own bad week. The window shipped; the flag did not,
+so an answer drawn from a quarter of history looked exactly like one drawn from three years. It now
+sits under the date and says what the window alone cannot — that a short history is *why* the worst
+week above may be missing. The sample plan generated while demonstrating the feature has 27 weeks
+and would have shown a date with no warning at all, which is how it was noticed.
+
+**`Throughput.weeks()` was called by no application code.** `project` resamples the array directly
+because it is on the same class, and the response reports figures rather than a list of integers —
+so a public accessor, its defensive copy and the test asserting that copy all existed for nobody.
+That is `BandScore.percentile()` from M8's cleanup, in a second place. The step 1 assertions that
+used it now go through the accessors a reader is actually shown, and they pin the same cases
+exactly: `weekCount`, `completed`, `perWeek`, `best` and `worst` distinguish ten-then-nothing from a
+steady two and a half just as an array comparison did. The order-independence case compares the two
+*projections* instead, which is the stronger statement — two histories that project identically are
+the same history.
+
+**And one thing checked and deliberately left.** `throughput_excludes_unlisted_work` is also never
+rendered as a limitation, and that is correct rather than an oversight: its content is on screen as
+the first of the four differences, which says the history does not model growth and is short by
+whatever nobody has written down. Rendering the code as well would say it twice.
+
+**What the read did not find** is worth recording, since two decisions were the ones most likely to
+have quietly drifted: nothing anywhere averages the two forecasts or picks between them, and no
+week that had no completions is ever dropped from a history. Decisions 3 and 10 are intact, and
+each has a test whose failure would be the first thing anybody saw.
 
 ---
 

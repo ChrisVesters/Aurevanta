@@ -363,6 +363,13 @@ export const en = {
         differenceEarlier:
           'The history is {{days}} days earlier than the estimates.',
         differenceSame: 'The two land on the same day.',
+        // Decision 12's flag, which the window alone does not carry: between a quarter of
+        // history and a year the answer is published *and* marked, because a bootstrap can
+        // draw nothing worse than the worst week it has seen and at a quarter roughly one
+        // team in four has not yet seen its own. Whether it fires is the server's to decide
+        // — the browser holds no threshold, which is `EstimateQuality`'s rule.
+        short:
+          'This is a short history. It can never produce a week worse than the worst one above, so if your team loses a week now and then and none is in that window, this date is optimistic.',
         // The window, because a reader who knows their team is the only one who can tell
         // whether it contains the bad week they are worried about.
         window:
@@ -1033,10 +1040,14 @@ export const en = {
       nothing_to_forecast:
         'Nothing in this plan has been estimated yet, so there is nothing to forecast. Add a range to some of the work above.',
       forecast_not_found: 'That forecast is no longer in this project.',
-      // Reached by a client other than this one: this screen asks about today, and today is
-      // never before something that has already been finished.
+      // **Reachable through this product's own screens, which a comment here once denied.**
+      // The progress form's date input carries no upper bound, so anybody can record a task
+      // as finished next week — and a plan holding one loses its throughput answer entirely
+      // until somebody corrects the date. `roadmap.md` carries that under *Dates the schema
+      // accepts and reality does not*; until it is fixed this wording is what a reader gets,
+      // so it says what to go and look for rather than that something went wrong.
       throughput_out_of_order:
-        'Work in this plan was finished after the day being asked about.',
+        'Some work in this plan is marked as finished on a day that has not happened yet, so its delivery history cannot be read. Correct the completion date on that task.',
       // A run the engine no longer reproduces exactly. Breaking it down would mean ranking
       // a plan under a model that never forecast it — which would look entirely reasonable,
       // and is why the server refuses rather than approximates.

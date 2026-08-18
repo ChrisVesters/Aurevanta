@@ -431,6 +431,36 @@ describe('ForecastPanel', () => {
   });
 
   /**
+   * <strong>Decision 12's flag, which the window alone does not carry.</strong> A bootstrap can
+   * draw nothing worse than the worst week it has seen, and at a quarter of history roughly one
+   * team in four has not yet had one — so a short window is published *and* marked. Whether it
+   * fires is the server's to decide; this end renders a flag it was sent.
+   */
+  it('marks an answer drawn from a short history', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      limitations: [
+        'throughput_excludes_unlisted_work',
+        'throughput_window_is_short'
+      ]
+    });
+
+    expect(
+      await screen.findByText(
+        /It can never produce a week worse than the worst one above/
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** And a year of history is not marked, or the warning is one nobody reads. */
+  it('leaves a long history unmarked', async () => {
+    await openWithHistory(DELIVERING);
+
+    await screen.findByText('Its own history says 80% likely by Nov 2, 2026.');
+    expect(screen.queryByText(/It can never produce a week worse/)).toBeNull();
+  });
+
+  /**
    * One control, two dates, no request — which is the property M4 built the control for,
    * kept by holding both sets of percentiles on this side.
    */
@@ -568,6 +598,67 @@ describe('ForecastPanel', () => {
     expect(
       screen.getByText(/Every item carries an estimate/)
     ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>A refusal that names something fixable in somebody's own plan is passed on.</strong>
+   * A task marked finished next week — which this product's own progress form accepts — used to
+   * take the entire comparison off the screen with nothing anywhere saying why. Leaving the band
+   * alone does not mean leaving the reader guessing.
+   */
+  it('says why the history could not be read rather than vanishing', async () => {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(400, { code: 'throughput_out_of_order' })
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : jsonResponse(200, [FORECAST])
+      )
+    );
+    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+
+    expect(
+      await screen.findByText(
+        /marked as finished on a day that has not happened yet/
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: 'What this plan has actually been delivering'
+      })
+    ).toBeInTheDocument();
+    // And the band it sits under is untouched.
+    expect(
+      screen.getByText(/An 80% chance of taking between 14.2 and 52.6 hours/)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * A run made before there was a calendar has no date to compare against, and the history
+   * still has one of its own. It shows what it has rather than nothing.
+   */
+  it('shows the history’s date beside a run that has none', async () => {
+    await openWithHistory(DELIVERING, {
+      ...FORECAST,
+      startsOn: null,
+      workingHoursPerDay: null,
+      calendarRule: null,
+      p10Date: null,
+      p50Date: null,
+      p80Date: null,
+      p90Date: null,
+      p95Date: null
+    });
+
+    expect(
+      await screen.findByText('Its own history says 80% likely by Nov 2, 2026.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/The estimates above say/)).toBeNull();
+    expect(screen.queryByText(/days later than the estimates/)).toBeNull();
   });
 
   /**

@@ -2,8 +2,8 @@
 
 > **Status: proposal, as of 2026-08-06; last revised 2026-08-18.** `product-concept.md`
 > says *what* Aurevanta is and why; this document says *in what order we build it, and what
-> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5**, **M6**, **M7** and
-> **M8** exist in code, so **Tier 1 and Tier 2 are both complete**: a plan with ranges in it produces a
+> has to be decided first*. M0, M1, M1a, M2, **all of M3**, **M4**, **M5**, **M6**, **M7**, **M8**
+> and **M9** exist in code, so **Tier 1 and Tier 2 are both complete**: a plan with ranges in it produces a
 > band that models common cause and unlisted work, states every assumption that produced it, and
 > resolves to a date at a confidence somebody chooses. That was this document's own bar for
 > beating a spreadsheet — a Monte Carlo rollup and a ship date at a confidence level — and both
@@ -1031,15 +1031,61 @@ thing to watch**, and the work that would change it is *Closing the estimation l
 
 ---
 
-## M9 — Throughput cross-check — *planned in `m9-plan.md`*
+## M9 — Throughput cross-check ✅ *done* — *planned in `m9-plan.md`*
 
 A second, independent forecast from historical throughput, with no estimation involved. It
-implicitly absorbs interruptions, holidays, scope growth, and the fact that nobody works
-eight focused hours.
+implicitly absorbs interruptions, holidays, and the fact that nobody works eight focused
+hours.
+
+> **This sentence used to include *scope growth* and that was wrong** — corrected here rather
+> than only in the plan, because the wrong version is the quotable one. What a history absorbs
+> is the **drag** of past discovered work: a team that closed five a week while two in ten were
+> unlisted has a rate of five, earned partly on work nobody had written down. Project the items
+> you *can* see at that rate and the answer is optimistic by exactly that share. Nothing in the
+> schema records which items were discovered mid-flight, so it cannot be measured — it is said
+> instead, on every answer, as `throughput_excludes_unlisted_work`.
 
 **The gap between the two forecasts is the deliverable.** When the team says six weeks and
 their own history says eleven, that is far harder to dismiss than either number alone,
 because both came from the team.
+
+### As built
+
+`m9-plan.md` carries the six steps. **No migration, no column, no index, and `Engine.VERSION` is
+still 2** — every number this reads was already stored, because a completion date is required on
+anything marked done. That is what makes it the one forecast that could say something on the day it
+shipped, and the contrast with M8 is the point: calibration needs an *optional* column and answers
+"nothing yet" for months.
+
+**Four things are worth having here.**
+
+**Items and not hours, weeks and not effort.** The unit is items completed per calendar week, so no
+estimate and no measured actual is involved anywhere — and the answer is already in wall-clock time,
+which is exactly why it absorbs holidays for free where the engine needs a stated working day.
+Nothing in M9 reads `working_hours_per_day` and nothing should.
+
+**A week nobody finished anything in is part of the history**, and it is the easiest thing here to
+get wrong: completion dates arrive as a list, grouping a list of dates yields only the weeks that
+had something in them, and that inflates the rate by exactly the fraction of the time the team was
+not delivering. Ten items in one week and nothing for three is two and a half a week.
+
+**A bootstrap cannot draw a week worse than the worst one it has seen**, and that is reported
+rather than corrected for. Simulated against a team that loses one week in ten, 41% of teams at two
+months of history have never observed their own bad week — and theirs is the answer that comes back
+early and confident, in the one direction this product exists to correct. So the window ships with
+every answer, the floor is a quarter, and between a quarter and a year the answer carries a warning.
+
+**And the comparison is two dates rather than one number.** Four things differ between the two
+forecasts and two of them make the engine look slow while two make it look fast, so a subtraction
+is not interpretable on its own — the screen names all four, with scope growth and coverage filled
+in from the run being compared against. Nothing averages them or picks one.
+
+**What it cost elsewhere.** M9 is the first endpoint in the product with a required query
+parameter, and a missing or unreadable one arrived as Boot's default: a problem document with no
+`code`, which is `ApiExceptionHandler`'s own recorded failure mode. That advice now answers both
+cases. And using the feature turned up the concern now written up under *Dates the schema accepts
+and reality does not* — a plan holding a task marked finished next week loses its throughput answer
+entirely, because nothing anywhere refuses a day that has not happened.
 
 ---
 
@@ -1737,7 +1783,13 @@ to. The tick list is over the plan's own work and nothing on that panel changes 
 a ranking and a coin flip that looks exactly like a ranking, and which no test downstream of it
 would have announced. `Engine.VERSION` is still 2.
 
-**What is next is M9**, and what changed is that M8 is spent. Everything built before it was a
+**What is next is M10**, and both of the forecasts it has to communicate now exist. M8 built the
+instrument that says whether the estimates are any good and is still waiting for data; M9 answers
+the same question from the other side and needs none, which is why it went second and why it is the
+one that can speak today. What is left is the half this document has always said is hardest: saying
+any of it to somebody who does not know what P90 means.
+
+**What changed with M8** is that it is spent. Everything built before it was a
 claim about the future that nothing had checked against what happened; M8 is the machinery that
 checks, and `GET /api/calibration` splits its record by `elicitation_method` exactly as M5 shipped
 that column for. **What it does not yet have is data**, and it will not for months: the record

@@ -11,13 +11,14 @@ designing schema or domain logic. It is design intent, not a description of exis
 `docs/roadmap.md` sequences that intent into milestones and records the decisions each one
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
 are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
-commit to), M5 (elicitation), M6 (variance contribution), M7 (inverse queries) and M8 (actuals and
-calibration) are built. M4
+commit to), M5 (elicitation), M6 (variance contribution), M7 (inverse queries), M8 (actuals and
+calibration) and M9 (throughput) are built. M4
 completed **Tier 1** — the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup
 and a ship date at a confidence level — M5 then replaced the question the ranges feeding it are
 collected by, M6 made the band say what it is made of, and M7 ran the question backwards.
-**Tier 2 is complete**, and M8 is the first milestone that checks any of it against what happened.
-M9 (throughput) is next.
+**Tier 2 is complete**, and M8 is the first milestone that checks any of it against what happened —
+M9 then answers the same question from the other side and needs no estimate at all, which is why it
+is the one that can speak today. M10 (communicating it) is next.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -41,6 +42,13 @@ one to read for how a plan should be argued with**: its decision 6 predicted whi
 effects would be the heavier, the build measured it, and the measurement pointed the other way
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
+
+`docs/m9-plan.md` is the throughput cross-check, and is **built**: a second forecast from what a
+plan has actually delivered, with no estimation in it. It added **no migration, no column and no
+index** — a completion date is required on anything marked done, so the history was already there —
+and `Engine.VERSION` is still 2. **Read its decision 6 before repeating what `roadmap.md` used to
+say**: throughput does *not* absorb scope growth, and the error runs in the flattering direction.
+Decision 5 is the one that decides whether the answer is honest.
 
 `docs/m8-plan.md` is actuals and calibration, and is **built**: how often the ranges written here
 contained what the work actually took. It is the first milestone whose headline number this
@@ -1276,3 +1284,71 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   because most teams do not track it. So `coverage` publishes the two gaps as two different
   things to go and do, and `ProgressForm` says what the effort box is *for* rather than pressing
   anybody to fill it in.
+
+### Throughput: a second forecast, with no estimate in it
+
+- **Items completed per calendar week, never hours.** `completed_on` is required on anything
+  marked `DONE`, so this history exists in full for every plan — where `actual_effort_hours` is
+  optional and mostly absent, which is M8's own problem and the reason M9 can answer today and
+  M8 cannot. Counting items also means **an unestimated item is ordinary evidence**, where the
+  engine carries it at zero effort and reports a limitation: that is the one place this
+  forecast is better informed than the engine's.
+- **A week nobody finished anything in is part of the history, and it is the easiest thing here
+  to get wrong.** Completion dates arrive as a list and grouping a list of dates yields only the
+  weeks that had something in them — which inflates the rate by exactly the fraction of the time
+  the team was not delivering, and those weeks are what "absorbs interruptions and holidays"
+  means. Ten items in one week and nothing for three is 2.5 a week, not ten, and
+  `ThroughputTests` says so.
+- **The history begins at the first completion**, not at the plan's creation: counting the idle
+  months before anybody began would make the rate a property of when somebody opened a form.
+  That is a bias in the optimistic direction and it is named rather than hidden.
+- **`Throughput.RULE` is a name for the same reason `WorkingCalendar.RULE` is.** A week
+  beginning Sunday is a second name, never an edit to this one — and the bucket is keyed by the
+  Monday on or before rather than by an ISO week *number*, which needs a year beside it and
+  disagrees with the calendar for a few days every January.
+- **A bootstrap over observed weeks, never a fitted distribution.** A Poisson fit asserts that
+  weeks are independent draws of one rate, which is false of every real team; resampling asserts
+  only that future weeks look like some multiset of past ones — and unlike a fit it has an
+  oracle, because twenty weeks of exactly five must answer exactly eight weeks for forty items
+  in every run with no spread.
+- **It cannot draw a week worse than the worst one observed, and that is published rather than
+  patched.** Simulated against a team losing one week in ten, 41% at two months of history have
+  never seen their own bad week, and theirs is the answer that comes back early and confident.
+  So `worst()` is on screen, the floor is a quarter (`WORTH_SHOWING`) and a year is where the
+  warning stops (`WORTH_TRUSTING`). Inventing a tail nobody observed is the alternative, and it
+  would be a number with no source inside a forecast whose whole claim is that it came from the
+  team.
+- **It does not absorb scope growth, whatever `roadmap.md` used to say.** It absorbs the *drag*
+  of past discovered work, not the fact that more will appear, so projecting the listed items at
+  a rate earned partly on unlisted work is optimistic by that share.
+  `throughput_excludes_unlisted_work` goes out with every answer.
+- **The plan's own history, not the organisation's.** An organisation-wide rate applied to one
+  of three plans is optimistic by however much attention goes elsewhere, and nothing in this
+  schema records how attention is split — that waits on M11. A young plan gets a window and no
+  forecast, which is M8's empty state in a second place.
+- **Elapsed weeks, and no working day anywhere.** A week of history already contains its
+  holidays and its Friday afternoons; multiplying it by a working day would be M4's own error —
+  capacity counted twice — from the other side. The as-of day is stated by the caller for
+  `todayHere`'s reason.
+- **Nothing is stored, and there is no run.** `GET /api/projects/{id}/throughput?asOf=…` writes
+  nothing: the history is already dated, so an answer as of any day is reproducible from it, and
+  a row would be a cached answer to a cheap question. It also keeps `forecast_runs` meaning one
+  thing — somebody asked the engine — which is what M10's detector walks. The seed is derived
+  from the question rather than random or configurable, so asking twice agrees.
+- **`ThroughputLimitation` is its own enum and not `ForecastLimitation`'s.** That one is
+  serialised into `forecast_runs.outputs` and read back years later, which is why nothing may be
+  deleted from it; nothing here is stored at all. One enum would have handed the looser rules to
+  the stricter.
+- **Three ways to have no projection, and the window ships in all of them** — nothing left to
+  deliver, too little history, or a rate that would not clear the backlog inside ten years. Each
+  says which rather than answering with an absence, because the window is the half a reader can
+  judge for themselves.
+- **The gap is two dates and never one number.** Four things differ between the two forecasts
+  and **two make the engine look slow while two make it look fast**, so a subtraction is not
+  interpretable alone — the screen names all four, with scope growth and coverage filled in from
+  the run. Nothing averages them, ranks them or resolves them: "six weeks against eleven" starts
+  a conversation and a number in the middle ends it.
+- **A refusal about the plan's own data is passed on, not swallowed.** Losing the read leaves the
+  band alone; it does not leave the reader guessing. A task marked finished next week — which the
+  progress form accepts, see *Dates the schema accepts and reality does not* in `roadmap.md` —
+  takes the throughput answer away, and the screen says which task to go and fix.

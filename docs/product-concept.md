@@ -189,6 +189,26 @@ Presented alongside the bottom-up estimate, the *gap* is the valuable artifact: 
 team says six weeks and their own history says eleven, that is much harder to dismiss
 than any single forecast, because both numbers came from the team.
 
+> **Built, 2026-08-18, and one word in the paragraph above is wrong.** Interruptions, holidays
+> and the eight-focused-hours point are all inside a history of weeks; **scope growth is not**.
+> What the history absorbs is the *drag* of past discovered work — a team that closed five a week
+> while two in ten were unlisted has a rate of five, earned partly on work nobody had written
+> down — so projecting the items you can see at that rate is optimistic by exactly that share.
+> Nothing in the schema says which items were discovered mid-flight, so it cannot be measured; it
+> is said instead, on every answer.
+>
+> **And the gap turned out to need more care than "present them alongside".** Four things differ
+> between the two forecasts, and two of them make the estimate-based one look slow while two make
+> it look fast — so a subtraction of the two dates is partly a difference in the question rather
+> than a disagreement the team is having with itself. What ships is both dates with the four
+> differences named underneath, and the two that vary carrying the run's own numbers. Nothing
+> averages them: one number in the middle ends the conversation this exists to start.
+>
+> **What it needs is what nothing else here needs: nothing.** No estimate, no assumption, no
+> actual — only that work has been finished and dated, which this product already requires. That
+> is why it can answer on the day it ships where M8's calibration cannot, and it is the strongest
+> argument for the pair of them existing side by side.
+
 ### Deferred
 
 **Dependencies and parallelism**, and **capacity modelling** (people, allocation,

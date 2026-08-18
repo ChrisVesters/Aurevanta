@@ -272,6 +272,22 @@ class ThroughputApiTests {
 			.andExpect(jsonPath("$.code").value("throughput_out_of_order"));
 	}
 
+	/**
+	 * And it is the latest completion that decides, wherever it happens to sit in the
+	 * answer. The query orders ascending, so this passes either way today — it is here
+	 * because the check must not be the thing that breaks when somebody relaxes an `order
+	 * by`.
+	 */
+	@Test
+	void refusesOnTheLatestCompletionAndNotOnTheLastRow() throws Exception {
+		finished(WEEK_ONE.plusWeeks(30));
+		finished(WEEK_ONE);
+		remaining(40);
+
+		read(this.ada, WEEK_ONE.plusWeeks(19)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("throughput_out_of_order"));
+	}
+
 	@Test
 	void anotherOrganisationsPlanIsNotThere() throws Exception {
 		steady(5, 20);

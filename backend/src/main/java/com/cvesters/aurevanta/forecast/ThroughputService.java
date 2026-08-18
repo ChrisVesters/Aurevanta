@@ -2,6 +2,7 @@ package com.cvesters.aurevanta.forecast;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -124,7 +125,14 @@ public class ThroughputService {
 	 * can fail that way, so the catch is narrow on purpose.
 	 */
 	private static Throughput historyOf(List<LocalDate> completions, LocalDate asOf) {
-		if (!completions.isEmpty() && completions.get(completions.size() - 1).isAfter(asOf)) {
+		// The latest is found rather than taken off the end, for the reason
+		// `Throughput.of`
+		// finds the earliest rather than taking the front: the query's `order by` is
+		// exactly
+		// the kind of thing a later change relaxes, and this decides whether a request is
+		// refused at all. One of these two assuming an order and the other not would have
+		// been the worse of both.
+		if (!completions.isEmpty() && Collections.max(completions).isAfter(asOf)) {
 			throw new ThroughputOutOfOrderException();
 		}
 		return Throughput.of(completions, asOf);
