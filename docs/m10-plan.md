@@ -1,6 +1,6 @@
 # M10 — Communicating to people who do not know what P90 means: implementation plan
 
-> **Proposal, 2026-08-18. Step 1 is built.** Six steps, **no migration expected**, and no change to anything the
+> **Proposal, 2026-08-18. Steps 1 and 2 are built.** Six steps, **no migration expected**, and no change to anything the
 > engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -38,7 +38,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | One sentence anybody can read ✅ *done* | M4 |
-| 2 | When two forecasts may be compared | M3, M4 |
+| 2 | When two forecasts may be compared ✅ *done* | M3, M4 |
 | 3 | Why the date moved | 2, M6's replay |
 | 4 | Whether it keeps moving out | 2 |
 | 5 | The burn-up, and the first chart in this product | M9 |
@@ -396,7 +396,7 @@ functions and lines. No backend change.
 
 ---
 
-## Step 2 — When two forecasts may be compared
+## Step 2 — When two forecasts may be compared ✅ *done*
 
 **Goal.** The rule both of the next two steps rest on, in one place.
 
@@ -421,6 +421,45 @@ rather than dividing by zero.
 
 **Done when** a run made under a different working day cannot be silently subtracted from one made
 under this one.
+
+### As built — where it differs from the above
+
+**The class is `Comparison` and not `Comparable`, and that is not a preference.**
+`java.lang.Comparable` is auto-imported into every file, so a class of that name in
+`forecast.model` shadows it for the whole package — a landmine that costs nothing to avoid and
+would have been found by whoever next wanted to sort something.
+
+**`ForecastService.comparable(…)` is not here, and has moved to the step that consumes it.** The
+bullets put it in this step; nothing calls it until steps 3 and 4, and a service method whose only
+caller is its own test is precisely what the M8 and M9 cleanups deleted twice. The pure half is
+genuinely shared by both later steps and is built now; the list-shaped read is step 4's own shape —
+step 3 wants a *pair*, not a history — so each will build what it needs where it needs it.
+
+**The differences are named per field rather than per category.** The bullets describe four things
+that can differ; `Comparison.Difference` has seven, because "the assumptions changed" is not a
+sentence anybody can act on and *"you halved the capacity"* is. The four groupings the bullets
+actually use are derived from the set — `comparable()`, `sameCalendar()`, `sameAssumptions()` — so
+nothing downstream has to know the finer grain unless it wants it.
+
+**`sameStart()` is its own question rather than one of the assumptions.** Decision 7 applies the
+start date *last* and separately, as *time simply passing* rather than a judgement somebody made,
+so folding it into `sameAssumptions()` would have made step 3 take it apart again.
+
+**And the trap that would have survived every test.** These assumptions are `BigDecimal`s, and
+`30` is not `equals` to `30.00`. Both sides arrive from `numeric` columns and so agree on scale in
+practice — which is exactly what makes it the kind of bug that passes until one value comes from
+somewhere else. It is `compareTo` throughout, with a case asserting the same number written two
+ways is the same assumption.
+
+**One case the coverage gate asked for and it turned out to be the right property.** The null
+branch for a run made before M4 was covered in one direction only — older-without-calendar against
+newer-with. Rather than a mirror of that one case, the test asserts the *symmetry*: which of the
+two is older changes nothing about what they disagree about. A screen walking a history backwards
+and one walking it forwards must say the same thing, and that is worth more than the branch it was
+added to cover.
+
+**Counts.** 12 cases in `ComparisonTests`; 952 backend tests pass, with `Comparison` and
+`ForecastTerms` at zero missed branches and zero missed instructions. No frontend change.
 
 ---
 
