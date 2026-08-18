@@ -66,4 +66,24 @@ public interface WorkItemRepository extends JpaRepository<WorkItem, UUID> {
 			""")
 	List<ReportedStart> currentStarts(@Param("tenantId") UUID tenantId);
 
+	/**
+	 * How much of this organisation's finished work says how long it took.
+	 *
+	 * <p>
+	 * Archived items are counted, unlike everywhere a listing is drawn. Evidence is
+	 * evidence: excluding it would make putting work away a means of leaving a record,
+	 * and the whole value of a hit rate is that nothing about it can be arranged.
+	 *
+	 * <p>
+	 * {@code count} over a nullable column counts the rows that filled it in, so both
+	 * figures come from one pass rather than from two queries that could disagree about
+	 * which items are finished.
+	 */
+	@Query("""
+			select new com.cvesters.aurevanta.item.CompletedWork(count(w), count(w.actualEffortHours))
+			from WorkItem w
+			where w.tenant.id = :tenantId and w.status = :done
+			""")
+	CompletedWork completedWork(@Param("tenantId") UUID tenantId, @Param("done") WorkItemStatus done);
+
 }

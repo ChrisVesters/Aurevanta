@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.cvesters.aurevanta.item.WorkItemStatus;
+
 public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 
 	/**
@@ -35,5 +37,53 @@ public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 			order by w.createdAt asc, e.createdAt asc
 			""")
 	List<Estimate> findCurrentInProject(@Param("tenantId") UUID tenantId, @Param("projectId") UUID projectId);
+
+	/**
+	 * Every range this organisation ever wrote against work that is finished and said how
+	 * long it took.
+	 *
+	 * <p>
+	 * <strong>All of them, not the current one per estimator</strong>, which is where
+	 * this parts company with the query above. Which bucket an estimate lands in depends
+	 * on <em>when</em> it was written — before the work began it is a forecast, after it
+	 * is a report by somebody who could already see how the task was going — so the
+	 * newest one per pair is exactly the wrong shape, and a flag on that query would have
+	 * been one method answering two questions.
+	 *
+	 * <p>
+	 * <strong>Archived items are included</strong>, which is the other line these two
+	 * differ on. There it matters that the coverage count and the screen agree about what
+	 * a plan holds; here evidence is evidence, and leaving archived work out would make
+	 * putting a task away a way to drop a miss.
+	 *
+	 * <p>
+	 * Ordered so that a reader can group in one pass and find the last estimate before
+	 * any moment without sorting: by item, by estimator, then oldest first.
+	 */
+	@Query("""
+			select new com.cvesters.aurevanta.estimate.ScorableEstimate(
+			    e.workItem.id, e.estimator.id, e.p10Hours, e.p90Hours, e.createdAt, e.workItem.actualEffortHours)
+			from Estimate e
+			where e.tenant.id = :tenantId
+			  and e.workItem.status = :done and e.workItem.actualEffortHours is not null
+			order by e.workItem.id asc, e.estimator.id asc, e.createdAt asc
+			""")
+	List<ScorableEstimate> findScorableInTenant(@Param("tenantId") UUID tenantId, @Param("done") WorkItemStatus done);
+
+	/**
+	 * How many finished items anybody estimated at all, whether or not they said how long
+	 * they took.
+	 *
+	 * <p>
+	 * The other half of why a record is empty, beside {@code CompletedWork}: work
+	 * finished without an estimate can never be scored, and work finished without an
+	 * actual cannot be scored yet. Distinct, because three people estimating one task is
+	 * one item covered.
+	 */
+	@Query("""
+			select count(distinct e.workItem.id) from Estimate e
+			where e.tenant.id = :tenantId and e.workItem.status = :done
+			""")
+	long countCompletedItemsEstimated(@Param("tenantId") UUID tenantId, @Param("done") WorkItemStatus done);
 
 }

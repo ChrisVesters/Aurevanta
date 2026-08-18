@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.cvesters.aurevanta.forecast.model.EstimateQuality;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
+import com.cvesters.aurevanta.item.WorkItemStatus;
 import com.cvesters.aurevanta.membership.MembershipService;
 import com.cvesters.aurevanta.problem.EstimateOutOfOrderException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
@@ -108,6 +109,42 @@ public class EstimateService {
 	public List<Estimate> currentInProject(UUID callerId, UUID tenantId, UUID projectId) {
 		this.projects.get(callerId, tenantId, projectId);
 		return this.estimates.findCurrentInProject(tenantId, projectId);
+	}
+
+	/**
+	 * Every range this organisation ever wrote against work that finished and said how
+	 * long it took — all of them, oldest first within each pair of item and estimator.
+	 *
+	 * <p>
+	 * <strong>Scoped to one organisation, and that corrects a comment in
+	 * {@code V9}</strong>, which says M8 calibrates "across everything they ever
+	 * estimated, in whichever organisation". It does not, and it must not:
+	 * {@code estimates} carries a {@code tenant_id}, isolation is enforced here, and
+	 * reading somebody's estimates from another organisation would be a cross-tenant leak
+	 * however true it is that the same person made them. A consultant with two clients
+	 * has two records and the two never meet.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 */
+	@Transactional(readOnly = true)
+	public List<ScorableEstimate> scorable(UUID callerId, UUID tenantId) {
+		this.memberships.requireMember(callerId, tenantId);
+		return this.estimates.findScorableInTenant(tenantId, WorkItemStatus.DONE);
+	}
+
+	/**
+	 * How many finished items anybody estimated, whether or not anybody measured them.
+	 *
+	 * <p>
+	 * Beside {@code WorkItemService.completedWork}, and the pair of them is what an empty
+	 * calibration record is made of: finished work with no estimate can never be scored,
+	 * and finished work with no actual cannot be scored yet. Two different things to go
+	 * and do about it.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 */
+	@Transactional(readOnly = true)
+	public long completedItemsEstimated(UUID callerId, UUID tenantId) {
+		this.memberships.requireMember(callerId, tenantId);
+		return this.estimates.countCompletedItemsEstimated(tenantId, WorkItemStatus.DONE);
 	}
 
 	/**

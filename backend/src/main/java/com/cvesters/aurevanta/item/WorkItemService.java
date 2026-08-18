@@ -287,6 +287,22 @@ public class WorkItemService {
 	}
 
 	/**
+	 * How much of this organisation's finished work says how long it took.
+	 *
+	 * <p>
+	 * Two numbers rather than a list, because the only thing anybody does with them is
+	 * subtract: work reported as done and never measured is why a calibration record is
+	 * empty, and saying so with a count is the difference between a screen that explains
+	 * itself and one that says "no data".
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 */
+	@Transactional(readOnly = true)
+	public CompletedWork completedWork(UUID callerId, UUID tenantId) {
+		this.memberships.requireMember(callerId, tenantId);
+		return this.items.completedWork(tenantId, WorkItemStatus.DONE);
+	}
+
+	/**
 	 * Puts one item away, or brings it back.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws WorkItemNotFoundException if no item in it has that identifier

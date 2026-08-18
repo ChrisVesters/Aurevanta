@@ -1,6 +1,6 @@
 # M8 — Actuals and calibration feedback: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 and 2 are built.** Six steps, one migration, no new problem code, and no change to
+> **Proposal, 2026-08-18. Steps 1 to 3 are built.** Six steps, one migration, no new problem code, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -42,7 +42,7 @@
 |---|---|---|
 | 1 | The progress record stops being written over ✅ *done* | — |
 | 2 | What one actual says about one range ✅ *done* | M2 |
-| 3 | Which estimates were forecasts, and which were reports | 1, 2 |
+| 3 | Which estimates were forecasts, and which were reports ✅ *done* | 1, 2 |
 | 4 | The record, on an endpoint | 3 |
 | 5 | On screen, starting with the empty one | 4 |
 | 6 | Close out | 1–5 |
@@ -581,7 +581,7 @@ warns about; they were derived outside this codebase from `erf`.
 
 ---
 
-## Step 3 — Which estimates were forecasts, and which were reports
+## Step 3 — Which estimates were forecasts, and which were reports ✅ *done*
 
 **Goal.** The three buckets of decision 2 exist, filled by the boundary rule of decision 1.
 
@@ -625,6 +625,49 @@ rows and their name.
 
 **Done when** moving a start date, archiving an item, or writing an estimate late cannot improve
 the headline.
+
+### As built — where it differs from the above
+
+**`ScorableEstimate` carries six columns and not nine.** The bullet lists the estimator, the three
+numbers, the method, the timestamp and the actual. The stated middle is gone for step 2's reason —
+the band is P10 to P90 and the fit takes the two ends, so there is nowhere for it to go. The
+estimator's *name* and `elicitation_method` are gone because nothing in this step reads them: they
+exist for step 4's two breakdowns, and a projection column nothing reads is a column fetched on
+every row of an organisation's history for nobody. They go in when the thing that reads them does.
+
+**`CalibrationService` has no membership check of its own, which contradicts the bullet above.**
+The plan says one check "at the entry point ... because this service is the caller rather than a
+passenger". Written that way it would need `EstimateService.scorable` to skip *its* check, and that
+is the rule the four domain services own — no method touches a row before it has passed. So each
+read enforces it and the caller adds nothing: `recordFor` makes four service calls and every one of
+them re-reads the caller's standing. Four indexed lookups is the price of not having a fourth copy
+of the rule to keep in step, which is the trade `MembershipService.requireMember` was extracted to
+make.
+
+**Three of the four coverage figures cannot come from "the same pass", and that is not a
+shortcut.** Finished work nobody estimated and finished work nobody measured are precisely the rows
+the scorable query excludes, so counting them means asking about them —
+`WorkItemRepository.completedWork` for the first two and `EstimateRepository.countCompletedItemsEstimated`
+for the third. Only `scoredItems` and `movedByTheStartDay` fall out of the pass. That is four reads
+for the whole record, on a population bounded by what a team has actually finished.
+
+**`movedByTheStartDay` needed a definition, and the plan's phrase does not supply one.** "The number
+of estimates excluded by the ambiguous-day rule" could mean several things — every estimate written
+that day, or the rows the rule moved. It is the second: a scored pair counts here when nothing was
+written before the boundary *and* something was written before the next midnight, which is exactly
+the set that would have been forecasts had the day been included. That is the number decision 1
+promises to publish, because it is what the rule cost.
+
+**The service returns a domain result rather than a response**, which is the opposite of what
+`ForecastService.contributionsTo` and `cutsFor` do. The difference is that those are the last stop
+and this is not: step 4 groups the same pass two more ways, so `OrganisationCalibration` and
+`CalibrationCoverage` are the seam it groups over. `Calibration` itself is exposed on that record —
+a mutable accumulator on a returned value, which is loose, and acceptable because this service is
+its only writer and it has no setters worth the name.
+
+**Counts.** 16 cases in `CalibrationServiceTests`; 875 backend tests pass. `CalibrationService`,
+`CalibrationCoverage`, `OrganisationCalibration`, `ScorableEstimate`, `CompletedWork` and both
+touched services are at zero missed branches and zero missed instructions.
 
 ---
 
