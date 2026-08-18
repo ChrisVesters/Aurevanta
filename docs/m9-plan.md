@@ -1,6 +1,6 @@
 # M9 — Throughput cross-check: implementation plan
 
-> **Proposal, 2026-08-18.** Six steps, **no migration**, no new column, and no change to
+> **Proposal, 2026-08-18. Step 1 is built.** Six steps, **no migration**, no new column, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -37,7 +37,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | A team's weeks, including the empty ones | M2 |
+| 1 | A team's weeks, including the empty ones ✅ *done* | M2 |
 | 2 | The projection, and what a bootstrap cannot see | 1 |
 | 3 | Reading a plan's history and what is left in it | 1 |
 | 4 | On an endpoint | 2, 3 |
@@ -326,7 +326,7 @@ Two numbers, both in the pure class next to the function they bound, following
 
 ---
 
-## Step 1 — A team's weeks, including the empty ones
+## Step 1 — A team's weeks, including the empty ones ✅ *done*
 
 **Goal.** A list of completion dates becomes a history, and the weeks nothing happened in are in
 it.
@@ -355,6 +355,45 @@ what a plan going quiet looks like and must not be invisible. Best and worst com
 rather than as fitted. A completion after the as-of date is refused.
 
 **Done when** a week nobody finished anything in counts as a week.
+
+### As built — where it differs from the above
+
+**The rule is `monday_week`, and choosing it deleted a test rather than passing one.** The bullets
+above ask for a case at the year boundary "where ISO week numbering is at its least intuitive" —
+and the reason it is unintuitive is that a week *number* needs a year beside it, and the pair
+disagree with the calendar for a few days each January. Keying a bucket by **the Monday on or
+before** is the same bucketing with none of that arithmetic: 1 January 2026 is a Thursday whose
+week begins on 29 December 2025, and nothing has to know which year's week one that is. The test
+survives and now asserts the property rather than guarding a calculation that no longer exists.
+
+**The two bars are 13 and 52, and the javadoc says the quarter is a concession.** The measurement
+does not really support a cliff at a quarter: one month of history answers 7–13 weeks against a
+truth of 10, and a quarter answers 8–12 — wider than it looks and not much better. What separates
+them is the second table, where 41% of teams at two months have never observed their own bad week
+against 23% at a quarter. **Neither is good**, and the floor sits at a quarter because decision 5
+already rejected refusing more: two teams in five would then never see a forecast at all. The
+constant carries that reasoning so nobody later reads 13 as a measured threshold.
+
+**An empty history is legal and is not an error.** The bullets do not say what a plan nobody has
+finished anything in produces, and the answer matters because step 4 reports the window whether or
+not there is a forecast. It is a history of no weeks: `observed()` is false, the counts are true
+zeros, and the five accessors that would have to invent something — the mean, the best and worst
+week, both ends of the span — refuse. That is `Proportion.measured()`'s shape, and for its reason:
+nought weeks is not a rate of nought.
+
+**The order the completions arrive in is not assumed**, which the bullets left to step 3's query.
+The earliest is found rather than taken off the front, so a caller that sorts and one that does not
+get the same history — and the test says so, because the query's `order by` is exactly the kind of
+thing a later change relaxes without noticing what depended on it.
+
+**Two smaller things the tests made explicit.** `to()` is the week the *question* was asked in and
+not the week the last item landed in, because otherwise a plan that has gone quiet reads exactly
+like one still moving — `askingLaterAboutTheSameWorkReadsAsASlowerTeam` is that property. And
+`weeks()` hands back a clone, asserted, because a history that gives away the array it is made of
+is not a value.
+
+**Counts.** 14 cases in `ThroughputTests`; 901 backend tests pass, with `Throughput` at zero missed
+branches and zero missed instructions.
 
 ---
 
