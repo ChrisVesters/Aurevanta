@@ -1587,6 +1587,54 @@ Threaded through the above rather than scheduled as a block.
   problem and leave two shapes of the same code.
 - **API documentation** — OpenAPI, once the domain endpoints exist and are stable.
 
+### Dates the schema accepts and reality does not
+
+**Found in use rather than in review, which is the reason it is written up here.** A plan in the
+development database held a task marked `DONE` with a completion date of 25 August while the day
+was the 18th, and another `IN_PROGRESS` with a start date in December. Both were typed into this
+product's own progress form, and the server took them.
+
+**The gap is that every check in the domain is about *internal* consistency and none is about
+external.** `WorkItemService.requireConsistent` asks whether the four fields agree with each other
+— a state that needs a date has one, a completion is not before its start, nothing carries what its
+status cannot hold — and never whether they agree with *when it is*. Nothing anywhere refuses a day
+that has not happened.
+
+**What it costs is not a tidy record but a feature that silently stops working.** M9's throughput
+reads `completed_on`, and a completion after the day being asked about is refused with
+`throughput_out_of_order` — correctly, because a history whose last week is before its own last
+delivery would give wrong numbers nobody could see. The panel then catches the refusal and shows
+nothing, so the whole comparison disappears from a plan for a reason no screen names. **The
+downstream readers are the ones who suffer, and they are all the recent ones**: M8 scores an
+estimate against an outcome dated in the future, M10's burn-up draws work completing before it
+happened, and M9 refuses outright.
+
+**Three things to settle, and only the first is obvious.**
+
+- **Refuse or warn?** This product does both elsewhere and the split is principled:
+  `progress_out_of_order` refuses because a completion before its start is a typo and nothing
+  downstream can tell a typo from a fact, while `EstimateQuality` only advises because a tight band
+  is sometimes correct. A completion date in the future is the first kind. **Refuse**, alongside
+  the check that already sits beside it.
+- **Where "now" is, which is the sharp part.** A server cannot know the caller's today — that is
+  the whole of why `starts_on` and M9's `asOf` are stated by the browser and why `todayHere` exists.
+  So the check has M8's decision 1 problem in miniature: a completion dated "tomorrow" is a typo in
+  Lisbon and this morning in Auckland. A day of tolerance against the server's own UTC date is the
+  cheap answer and it is a *claim*, so it belongs written down beside the check rather than inferred
+  from a comparison operator.
+- **What happens to the rows already stored.** A new refusal does not reach back, so every reader
+  must still cope with a date that could not be written today — which means M9's refusal stays and
+  the fix is at both ends. **That is the honest scope**: a validation rule alone would make the
+  problem stop growing and would not fix one plan that already has it.
+
+**And the smaller half, which is free.** The progress form's `<input type="date">` carries no
+`max`, so the browser invites the value the server would then refuse. That is the rule this product
+already follows on the progress form — offering only the boxes a status has room for, so nobody is
+invited to type something that will be thrown back — applied to a date rather than to a field.
+
+**Not scheduled, and here rather than in a milestone for this section's stated reason**: a
+correctness list inside a milestone's bullets is scope, and scope is what gets cut.
+
 ### Security debt
 
 Four findings from the review taken after M1a and before M2. **`security.md` is the record** —

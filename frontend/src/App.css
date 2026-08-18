@@ -1257,6 +1257,57 @@ button.danger {
 }
 
 /*
+  What the plan's own history says, beside what its estimates say.
+
+  Ruled off above rather than boxed, because it is a second reading of the same plan and not a
+  second panel: the confidence control above moves both dates, and two boxes would read as two
+  screens. The list underneath is the four things the two are not agreeing about, and it sits
+  *below* both dates deliberately — a reader who has taken the difference and stopped has taken
+  a subtraction of two answers to slightly different questions.
+*/
+.forecast .throughput {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+
+  h3,
+  h4 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  h4 {
+    margin-top: 6px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .date {
+    margin: 0;
+    font-size: 16px;
+    color: var(--text-h);
+  }
+
+  .hint,
+  .caveat,
+  .empty {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+  }
+}
+
+/*
   A date somebody wants, and what it would take. The two lists in here are deliberately not
   a table: what each candidate buys *alone* and what a measured set of them reaches are
   different answers, and columns side by side is how somebody comes to add one to the other.

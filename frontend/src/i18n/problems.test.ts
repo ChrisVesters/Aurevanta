@@ -32,6 +32,7 @@ const BACKEND_CODES = [
   'dependency_not_found',
   'nothing_to_forecast',
   'forecast_not_found',
+  'throughput_out_of_order',
   'forecast_replay_mismatch',
   'forecast_has_no_calendar',
   'candidate_not_in_forecast',

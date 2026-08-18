@@ -1,6 +1,6 @@
 # M9 — Throughput cross-check: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 4 are built.** Six steps, **no migration**, no new column, and no change to
+> **Proposal, 2026-08-18. Steps 1 to 5 are built.** Six steps, **no migration**, no new column, and no change to
 > anything the engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -41,7 +41,7 @@
 | 2 | The projection, and what a bootstrap cannot see ✅ *done* | 1 |
 | 3 | Reading a plan's history and what is left in it ✅ *done* | 1 |
 | 4 | On an endpoint ✅ *done* | 2, 3 |
-| 5 | The gap, beside the band | 4 |
+| 5 | The gap, beside the band ✅ *done* | 4 |
 | 6 | Close out | 1–5 |
 
 **M9 adds no migration.** Every number it reads is already stored: `work_items.completed_on` is
@@ -623,7 +623,7 @@ the new refusal and `ApiExceptionHandler` at zero missed branches and zero misse
 
 ---
 
-## Step 5 — The gap, beside the band
+## Step 5 — The gap, beside the band ✅ *done*
 
 **Goal.** Two dates, side by side, with the four things that differ named under them.
 
@@ -653,6 +653,44 @@ ones carry this run's numbers. Mocked by URL, since the panel now makes four req
 
 **Done when** somebody can see that their plan says six weeks and their history says eleven, and
 what the two are not agreeing about.
+
+### As built — where it differs from the above
+
+**The difference *is* named in days, which the bullets could be read as forbidding.** They say the
+screen "shows … the difference in days — and it does not name that difference as a measured
+figure". Built, the sentence is *"The history is 69 days later than the estimates — which is the
+ordinary result, and the reason to look at both"*: the number is there because subtracting two
+dates on screen is something a reader does anyway and doing it badly is worse, and what keeps it
+honest is that it is a sentence rather than a figure, it sits above the four differences rather
+than instead of them, and later says out loud that later is expected.
+
+**Both "no difference" cases are sentences too.** A run that assumed no growth is short by unlisted
+work exactly as the history is, and a fully estimated plan does not have decision 7's second
+difference at all. The bullets only describe the rows when they differ; saying *"this is the one
+difference the two do not have"* is more useful than leaving somebody to notice a line is missing,
+and it is what the two extra branches cover.
+
+**The throughput read is keyed on the plan and not on the run.** Everything else in this panel
+reloads when a forecast is made; this answer moves when work is *finished*, so re-running the
+engine leaves it alone. That is the same distinction M8's track-record line draws, arriving for a
+different reason.
+
+**And the step broke four tests in another suite, which is the finding worth keeping.**
+`ProjectPage.test.tsx` already carried a comment explaining that `mockResolvedValueOnce` is the
+wrong tool on a page with several reads in flight — written up when the *refusals* were fixed and
+left in place for the four *successes*. Adding a sixth read is what finally made it fail, and it
+failed only under coverage, which is slow enough to change the ordering. The four one-shot queues
+are now `answerWrites`, keyed on the method the way `refuseWrites` already was, so the race is gone
+rather than made less likely. **That comment predicted its own next failure and nobody acted on it**,
+which is the argument for fixing a known-latent thing when you are next in the file.
+
+**`NOTHING_SCORED` and `NO_HISTORY` moved into `src/test/render.tsx`.** Two suites now render the
+panel, so two suites need doubles for the two reads it makes on mount — and a copy in each is how
+one of them comes to answer `/throughput` with a project, which is precisely what the second suite
+was doing before this.
+
+**Counts.** 10 new cases, 434 frontend tests pass, at 100% of statements, branches, functions and
+lines.
 
 ---
 

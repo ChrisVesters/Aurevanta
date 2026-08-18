@@ -479,3 +479,57 @@ export function mockFetch() {
   });
   return fetchMock;
 }
+
+/** One calibration bucket with nothing in it: true zeros, and no rate to read off them. */
+export const EMPTY_CALIBRATION_RECORD = {
+  scored: 0,
+  hits: 0,
+  belowP10: 0,
+  aboveP90: 0,
+  pointEstimates: 0,
+  rate: null,
+  corrections: null
+};
+
+/**
+ * An organisation that has scored nothing, which is what keeps the track-record line off a
+ * forecast panel.
+ *
+ * Shared, because two suites now render that panel and **a double that let `/api/calibration`
+ * fall through to the forecast list would hand it an array where it expects a record.** The
+ * panel reads both of these on mount, so one suite getting it wrong takes every case in that
+ * suite with it — which is how it went wrong the first time.
+ */
+export const NOTHING_SCORED = {
+  forecasts: EMPTY_CALIBRATION_RECORD,
+  reports: EMPTY_CALIBRATION_RECORD,
+  unbounded: EMPTY_CALIBRATION_RECORD,
+  byEstimator: [],
+  byMethod: [],
+  coverage: {
+    completedItems: 0,
+    withActual: 0,
+    withEstimate: 0,
+    scoredItems: 0,
+    movedByTheStartDay: 0
+  },
+  firstScored: null,
+  lastScored: null
+};
+
+/**
+ * A plan with too little history to project from, which keeps the second date off the panel.
+ * The cases that want it on say so for themselves.
+ */
+export const NO_HISTORY = {
+  projectId: PROJECTS[0].id,
+  asOf: '2026-08-18',
+  rule: 'monday_week',
+  remaining: 4,
+  window: null,
+  projection: null,
+  limitations: [
+    'throughput_excludes_unlisted_work',
+    'throughput_history_too_short'
+  ]
+};

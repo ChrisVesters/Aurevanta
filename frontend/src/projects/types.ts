@@ -363,3 +363,65 @@ export type Forecast = {
   limitations: ForecastLimitation[];
   histogram: Histogram;
 };
+
+/**
+ * The weeks a throughput forecast was drawn from.
+ *
+ * **`worst` is the most useful number here.** A bootstrap cannot draw a week worse than the
+ * worst one in its window, so a reader who knows their team stops for a week each quarter can
+ * tell at a glance whether the window contains such a week — and if it does not, the forecast
+ * beside it is early and confident for a reason no arithmetic reports.
+ */
+export type ThroughputWindow = {
+  /** Empty weeks included: a week nobody finished anything in is a week the team had. */
+  weeks: number;
+  from: string;
+  to: string;
+  completed: number;
+  /** The average, which is not what the projection uses — a mean cannot see a bad week. */
+  perWeek: number;
+  best: number;
+  worst: number;
+};
+
+/** When the backlog runs out, in weeks and in the days those weeks land on. */
+export type ThroughputProjection = {
+  meanWeeks: number;
+  p10Weeks: number;
+  p50Weeks: number;
+  p80Weeks: number;
+  p90Weeks: number;
+  p95Weeks: number;
+  p10Date: string;
+  p50Date: string;
+  p80Date: string;
+  p90Date: string;
+  p95Date: string;
+  /** A string, not a number: sixty-four bits do not survive a JSON number in a browser. */
+  seed: string;
+  sampleCount: number;
+};
+
+/**
+ * What a plan's own history says about when it will be finished.
+ *
+ * **A second opinion and never a tiebreaker.** Nothing averages this with the engine's band or
+ * resolves a disagreement between them: two forecasts that disagree are the output, because
+ * "the team says six weeks and their own history says eleven" starts a conversation and one
+ * number in the middle ends it.
+ *
+ * **The window and the projection are separately absent.** A plan nobody has finished anything
+ * in has neither; a plan with a month of history has a window and no projection worth
+ * publishing. There is no shape here that holds half of either.
+ */
+export type Throughput = {
+  projectId: string;
+  asOf: string;
+  /** Which week the history was cut into — two definitions give two different histories. */
+  rule: string;
+  /** Work left, unestimated items included: what is counted is work rather than effort. */
+  remaining: number;
+  window: ThroughputWindow | null;
+  projection: ThroughputProjection | null;
+  limitations: string[];
+};

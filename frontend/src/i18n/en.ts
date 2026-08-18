@@ -345,6 +345,60 @@ export const en = {
         line: 'Estimates in this organisation have contained the outcome {{rate}}% of the time, over {{scored}} scored so far.',
         link: 'See the track record'
       },
+      // What the plan's own history says, beside what its estimates say.
+      //
+      // **The gap is the deliverable and it is deliberately not a number.** Two of the four
+      // differences below make the engine look slow and two make it look fast, so a
+      // subtraction of the two dates is not interpretable on its own — what ships is both
+      // dates and what they are not agreeing about. Nothing here averages them or picks one:
+      // "six weeks against eleven" starts a conversation and a number in the middle ends it.
+      throughput: {
+        title: 'What this plan has actually been delivering',
+        // Read at whichever confidence the control above is set to, so the two move together.
+        date: 'Its own history says {{confidence}}% likely by {{date}}.',
+        against: 'The estimates above say {{date}}.',
+        // Named rather than computed into a figure, for the reason above.
+        differenceLater:
+          'The history is {{days}} days later than the estimates — which is the ordinary result, and the reason to look at both.',
+        differenceEarlier:
+          'The history is {{days}} days earlier than the estimates.',
+        differenceSame: 'The two land on the same day.',
+        // The window, because a reader who knows their team is the only one who can tell
+        // whether it contains the bad week they are worried about.
+        window:
+          '{{weeks}} weeks of history, {{completed}} delivered — best week {{best}}, worst week {{worst}}.',
+        remaining_one: '1 item left to deliver.',
+        remaining_other: '{{count}} items left to deliver.',
+        // Decision 7's table. The first two carry this run's own numbers; the last two are
+        // properties of the two methods and are the same on every plan.
+        differences: {
+          title: 'What the two are not agreeing about',
+          unlistedGrowth:
+            'This forecast assumed the plan will grow by {{low}}–{{high}}%. The history does not model growth at all, so it is short by however much work nobody has written down yet.',
+          unlistedNone:
+            'This forecast assumed no growth at all. The history does not model growth either, so both are short by however much work nobody has written down yet.',
+          unestimated:
+            '{{unestimated}} of {{total}} items carry no estimate. The forecast counted them as no effort; the history counts them as items like any other.',
+          estimated:
+            'Every item carries an estimate, so this is the one difference the two do not have.',
+          calendar:
+            'The forecast turns effort into days through a working day somebody stated. The history is already in wall-clock weeks, with the holidays and the interruptions inside them.',
+          interruptions:
+            'Anything that stops the team is in the history by construction, and in the forecast only if somebody put it into the bad-week assumption.'
+        },
+        // Three ways to have no second date, and each says which rather than showing a gap.
+        none: {
+          title: 'No second opinion yet',
+          throughput_history_too_short:
+            'There is not enough finished work here to project from. A quarter of history is where this starts saying something.',
+          throughput_nothing_left:
+            'Everything in this plan is finished, so there is nothing left to project.',
+          throughput_beyond_horizon:
+            'At the rate this plan has been delivering, the work left would not be finished within ten years — so no date is given rather than one nobody could act on.',
+          unknown:
+            'This version of the app cannot say why there is no second opinion.'
+        }
+      },
       limitations: {
         title: 'What this forecast does not do',
         no_team_factor:
@@ -979,6 +1033,10 @@ export const en = {
       nothing_to_forecast:
         'Nothing in this plan has been estimated yet, so there is nothing to forecast. Add a range to some of the work above.',
       forecast_not_found: 'That forecast is no longer in this project.',
+      // Reached by a client other than this one: this screen asks about today, and today is
+      // never before something that has already been finished.
+      throughput_out_of_order:
+        'Work in this plan was finished after the day being asked about.',
       // A run the engine no longer reproduces exactly. Breaking it down would mean ranking
       // a plan under a model that never forecast it — which would look entirely reasonable,
       // and is why the server refuses rather than approximates.

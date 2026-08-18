@@ -11,6 +11,9 @@ import {
   WORK_ITEMS,
   jsonResponse,
   mockFetch,
+  EMPTY_CALIBRATION_RECORD,
+  NO_HISTORY,
+  NOTHING_SCORED,
   renderRouted,
   storeAccessToken
 } from '../test/render';
@@ -20,44 +23,52 @@ const PROJECT_ID = PROJECTS[0].id;
 const FORECASTS_URL = `/api/projects/${PROJECT_ID}/forecasts`;
 const CONTRIBUTIONS_URL = `/api/forecasts/${FORECAST.id}/contributions`;
 const CALIBRATION_URL = '/api/calibration';
-
-const EMPTY_RECORD = {
-  scored: 0,
-  hits: 0,
-  belowP10: 0,
-  aboveP90: 0,
-  pointEstimates: 0,
-  rate: null,
-  corrections: null
-};
+const THROUGHPUT_URL = `/api/projects/${PROJECT_ID}/throughput`;
 
 /**
- * The organisation's track record, answered separately from everything else here.
+ * What the plan's own history says, answered separately from everything else here.
  *
  * **A double that let this fall through to the forecast list would hand the panel an array
- * where it expects a record**, which is the "answers every URL alike" failure in the shape
- * this file is most exposed to: the panel reads it on mount, so every case in this suite
- * would have been affected by one that got it wrong.
+ * where it expects a record**, and the panel reads it on mount — so one that got it wrong
+ * would take every case in this suite with it, which is exactly what happened when the
+ * calibration read was added.
  *
- * Nothing scored, which is the state that keeps the line off the screen — the cases that
- * want it on say so for themselves.
+ * Too little history, which keeps the second date off the screen. The cases that want it on
+ * say so for themselves.
  */
-const NOTHING_SCORED = {
-  forecasts: EMPTY_RECORD,
-  reports: EMPTY_RECORD,
-  unbounded: EMPTY_RECORD,
-  byEstimator: [],
-  byMethod: [],
-  coverage: {
-    completedItems: 0,
-    withActual: 0,
-    withEstimate: 0,
-    scoredItems: 0,
-    movedByTheStartDay: 0
+/** Half a year of delivery, so both dates are on screen and the control moves both. */
+const DELIVERING = {
+  projectId: PROJECT_ID,
+  asOf: '2026-08-18',
+  rule: 'monday_week',
+  remaining: 40,
+  window: {
+    weeks: 26,
+    from: '2026-02-16',
+    to: '2026-08-17',
+    completed: 104,
+    perWeek: 4,
+    best: 7,
+    worst: 0
   },
-  firstScored: null,
-  lastScored: null
+  projection: {
+    meanWeeks: 9.4,
+    p10Weeks: 7,
+    p50Weeks: 8,
+    p80Weeks: 11,
+    p90Weeks: 12,
+    p95Weeks: 13,
+    p10Date: '2026-10-05',
+    p50Date: '2026-10-12',
+    p80Date: '2026-11-02',
+    p90Date: '2026-11-09',
+    p95Date: '2026-11-16',
+    seed: '834729',
+    sampleCount: 10000
+  },
+  limitations: ['throughput_excludes_unlisted_work']
 };
+
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 const CUTS_URL = `/api/forecasts/${FORECAST.id}/cuts`;
 
@@ -72,25 +83,45 @@ describe('ForecastPanel', () => {
   function answer(runs: Forecast[], spread: unknown = CONTRIBUTIONS) {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : url === FORECASTS_URL
-              ? jsonResponse(200, runs)
-              : url === CONTRIBUTIONS_URL
-                ? jsonResponse(200, spread)
-                : // The work a target date could be asked to drop, which the panel below
-                  // loads for itself. Answered by URL like everything else here: a double
-                  // that answered in *order* would hand this list to whichever request
-                  // happened to go out first.
-                  url === ITEMS_URL
-                  ? jsonResponse(200, WORK_ITEMS)
-                  : url === CUTS_URL
-                    ? jsonResponse(200, CUT_OPTIONS)
-                    : jsonResponse(404)
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : url === FORECASTS_URL
+                ? jsonResponse(200, runs)
+                : url === CONTRIBUTIONS_URL
+                  ? jsonResponse(200, spread)
+                  : // The work a target date could be asked to drop, which the panel below
+                    // loads for itself. Answered by URL like everything else here: a double
+                    // that answered in *order* would hand this list to whichever request
+                    // happened to go out first.
+                    url === ITEMS_URL
+                    ? jsonResponse(200, WORK_ITEMS)
+                    : url === CUTS_URL
+                      ? jsonResponse(200, CUT_OPTIONS)
+                      : jsonResponse(404)
       )
     );
+  }
+
+  /** The plan, with a history behind it — answered by URL like everything else here. */
+  async function openWithHistory(history: unknown, run: Forecast = FORECAST) {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, history)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : jsonResponse(200, [run])
+      )
+    );
+    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    await screen.findByRole('heading', { name: 'Forecast' });
   }
 
   async function open(runs: Forecast[] = [], spread: unknown = CONTRIBUTIONS) {
@@ -104,13 +135,15 @@ describe('ForecastPanel', () => {
   function refuse(problem: Record<string, unknown>) {
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(400, problem)
-              : jsonResponse(200, [])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(400, problem)
+                : jsonResponse(200, [])
       )
     );
   }
@@ -370,6 +403,230 @@ describe('ForecastPanel', () => {
    * their wording would tell somebody their own history was something it could not
    * understand.
    */
+  // What the plan has actually been delivering -------------------------------
+
+  /**
+   * <strong>The gap, which is the whole of what this is for.</strong> Both dates at the
+   * confidence already chosen, the distance between them named rather than left to be
+   * subtracted, and the window a reader needs to judge whether the history contains their own
+   * bad week.
+   */
+  it('says what the plan’s own history says, beside what its estimates say', async () => {
+    await openWithHistory(DELIVERING);
+
+    expect(
+      await screen.findByText('Its own history says 80% likely by Nov 2, 2026.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('The estimates above say Aug 25, 2026.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/The history is 69 days later/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '26 weeks of history, 104 delivered — best week 7, worst week 0.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * One control, two dates, no request — which is the property M4 built the control for,
+   * kept by holding both sets of percentiles on this side.
+   */
+  it('moves both dates when the confidence changes', async () => {
+    await openWithHistory(DELIVERING);
+    await screen.findByText('Its own history says 80% likely by Nov 2, 2026.');
+    const before = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
+
+    expect(
+      await screen.findByText(
+        'Its own history says 50% likely by Oct 12, 2026.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('The estimates above say Aug 21, 2026.')
+    ).toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(before);
+  });
+
+  /**
+   * Decision 7's table, and the two rows that carry this run's own numbers are the two
+   * somebody can act on. Named rather than folded into the difference above, because two of
+   * the four make the forecast look slow and two make it look fast.
+   */
+  it('names what the two forecasts are not agreeing about', async () => {
+    await openWithHistory(DELIVERING, {
+      ...FORECAST,
+      itemCount: 4,
+      estimatedItemCount: 2
+    });
+    await screen.findByText('What the two are not agreeing about');
+
+    expect(
+      screen.getByText(/This forecast assumed the plan will grow by 20–60%/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/2 of 4 items carry no estimate/)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/already in wall-clock weeks/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/in the history by construction/)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Earlier is a real result and not a bug</strong>, and it is what a half-estimated
+   * plan looks like: the engine carries unestimated items at zero effort and says so, while
+   * the history counts them like anything else. The engine is the one under-reporting there.
+   */
+  it('says when the history is the earlier of the two', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      projection: { ...DELIVERING.projection, p80Date: '2026-08-11' }
+    });
+
+    expect(
+      await screen.findByText(
+        'The history is 14 days earlier than the estimates.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** And two that land together, which is the reading to be most suspicious of. */
+  it('says when the two land on the same day', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      projection: { ...DELIVERING.projection, p80Date: '2026-08-25' }
+    });
+
+    expect(
+      await screen.findByText('The two land on the same day.')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * Three ways to have no second date and each says which — and the window still ships,
+   * because it is the half a reader can judge for themselves.
+   */
+  it('says why there is no second opinion rather than showing a gap', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      projection: null,
+      limitations: [
+        'throughput_excludes_unlisted_work',
+        'throughput_history_too_short'
+      ]
+    });
+
+    expect(
+      await screen.findByText(
+        /There is not enough finished work here to project from/
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '26 weeks of history, 104 delivered — best week 7, worst week 0.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Its own history says/)).toBeNull();
+  });
+
+  /** A reason this version has never heard of gets a sentence rather than nothing. */
+  it('says so when it cannot explain the absence', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      projection: null,
+      limitations: ['throughput_gone_sideways']
+    });
+
+    expect(
+      await screen.findByText(
+        'This version of the app cannot say why there is no second opinion.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The other side of the two live rows. A run that assumed no growth is short by unlisted
+   * work exactly as the history is — the two agree, and saying so is more useful than leaving
+   * a reader to notice a sentence is missing.
+   */
+  it('says so when the two rows that vary do not differ', async () => {
+    await openWithHistory(DELIVERING, {
+      ...FORECAST,
+      scopeGrowthP10Percent: 0,
+      scopeGrowthP90Percent: 0
+    });
+    await screen.findByText('What the two are not agreeing about');
+
+    expect(
+      screen.getByText(/This forecast assumed no growth at all/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Every item carries an estimate/)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * A forecast is not less true because the history beside it could not be read, so a failure
+   * there leaves the band alone — the same rule the track-record line keeps.
+   */
+  it('still shows the band when the history cannot be read', async () => {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(500, null)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : jsonResponse(200, [FORECAST])
+      )
+    );
+    renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+
+    await screen.findByRole('heading', { name: 'Forecast' });
+    expect(screen.queryByText(/Its own history says/)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /** Nothing arriving after somebody has navigated away may touch a panel that has gone. */
+  it('ignores a history that arrives after the panel has gone', async () => {
+    storeAccessToken();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url.startsWith(THROUGHPUT_URL)
+        ? new Promise<Response>((resolve, reject) => {
+            settle = resolve;
+            fail = reject;
+          })
+        : url === CALIBRATION_URL
+          ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
+          : url === '/api/auth/me'
+            ? Promise.resolve(jsonResponse(200, ACCOUNT))
+            : Promise.resolve(jsonResponse(200, [FORECAST]))
+    );
+
+    const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    await screen.findByRole('heading', { name: 'Forecast' });
+    answered.unmount();
+    settle(jsonResponse(200, DELIVERING));
+
+    const refused = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
+    await screen.findByRole('heading', { name: 'Forecast' });
+    refused.unmount();
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Its own history says/)).toBeNull()
+    );
+  });
+
   // What the ranges feeding this band have historically been worth ------------
 
   /**
@@ -382,19 +639,21 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, {
-              ...NOTHING_SCORED,
-              forecasts: {
-                ...EMPTY_RECORD,
-                scored: 40,
-                hits: 18,
-                rate: { value: 0.45, low: 0.353, high: 0.551 }
-              }
-            })
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : jsonResponse(200, [FORECAST])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, {
+                ...NOTHING_SCORED,
+                forecasts: {
+                  ...EMPTY_CALIBRATION_RECORD,
+                  scored: 40,
+                  hits: 18,
+                  rate: { value: 0.45, low: 0.353, high: 0.551 }
+                }
+              })
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : jsonResponse(200, [FORECAST])
       )
     );
     renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
@@ -417,14 +676,16 @@ describe('ForecastPanel', () => {
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
     fetchMock.mockImplementation((url: string) =>
-      url === CALIBRATION_URL
-        ? new Promise<Response>((resolve, reject) => {
-            settle = resolve;
-            fail = reject;
-          })
-        : url === '/api/auth/me'
-          ? Promise.resolve(jsonResponse(200, ACCOUNT))
-          : Promise.resolve(jsonResponse(200, [FORECAST]))
+      url.startsWith(THROUGHPUT_URL)
+        ? Promise.resolve(jsonResponse(200, NO_HISTORY))
+        : url === CALIBRATION_URL
+          ? new Promise<Response>((resolve, reject) => {
+              settle = resolve;
+              fail = reject;
+            })
+          : url === '/api/auth/me'
+            ? Promise.resolve(jsonResponse(200, ACCOUNT))
+            : Promise.resolve(jsonResponse(200, [FORECAST]))
     );
 
     const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
@@ -434,7 +695,7 @@ describe('ForecastPanel', () => {
       jsonResponse(200, {
         ...NOTHING_SCORED,
         forecasts: {
-          ...EMPTY_RECORD,
+          ...EMPTY_CALIBRATION_RECORD,
           scored: 40,
           hits: 18,
           rate: { value: 0.45, low: 0.353, high: 0.551 }
@@ -472,11 +733,13 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(500, null)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : jsonResponse(200, [FORECAST])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(500, null)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : jsonResponse(200, [FORECAST])
       )
     );
     renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
@@ -522,13 +785,15 @@ describe('ForecastPanel', () => {
     await open();
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(201, FORECAST)
-              : jsonResponse(200, [FORECAST])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(201, FORECAST)
+                : jsonResponse(200, [FORECAST])
       )
     );
 
@@ -644,13 +909,15 @@ describe('ForecastPanel', () => {
     await open();
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(201, FORECAST)
-              : jsonResponse(200, [FORECAST])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(201, FORECAST)
+                : jsonResponse(200, [FORECAST])
       )
     );
 
@@ -713,16 +980,18 @@ describe('ForecastPanel', () => {
     await open();
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(422, {
-                  code: 'nothing_to_forecast',
-                  detail: 'nothing'
-                })
-              : jsonResponse(200, [])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(422, {
+                    code: 'nothing_to_forecast',
+                    detail: 'nothing'
+                  })
+                : jsonResponse(200, [])
       )
     );
 
@@ -746,17 +1015,19 @@ describe('ForecastPanel', () => {
     await open();
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(400, {
-                  code: 'validation_failed',
-                  detail: 'invalid',
-                  errors: { capacity: { code: 'not_null' } }
-                })
-              : jsonResponse(200, [])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(400, {
+                    code: 'validation_failed',
+                    detail: 'invalid',
+                    errors: { capacity: { code: 'not_null' } }
+                  })
+                : jsonResponse(200, [])
       )
     );
 
@@ -864,17 +1135,19 @@ describe('ForecastPanel', () => {
     await open();
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(400, {
-                  code: 'validation_failed',
-                  detail: 'invalid',
-                  errors: { sampleCount: { code: 'max', value: 100000 } }
-                })
-              : jsonResponse(200, [])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(400, {
+                    code: 'validation_failed',
+                    detail: 'invalid',
+                    errors: { sampleCount: { code: 'max', value: 100000 } }
+                  })
+                : jsonResponse(200, [])
       )
     );
 
@@ -903,14 +1176,16 @@ describe('ForecastPanel', () => {
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
     fetchMock.mockImplementation((url: string) =>
-      url === CALIBRATION_URL
-        ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
-        : url === '/api/auth/me'
-          ? Promise.resolve(jsonResponse(200, ACCOUNT))
-          : new Promise<Response>((resolve, reject) => {
-              settle = resolve;
-              fail = reject;
-            })
+      url.startsWith(THROUGHPUT_URL)
+        ? Promise.resolve(jsonResponse(200, NO_HISTORY))
+        : url === CALIBRATION_URL
+          ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
+          : url === '/api/auth/me'
+            ? Promise.resolve(jsonResponse(200, ACCOUNT))
+            : new Promise<Response>((resolve, reject) => {
+                settle = resolve;
+                fail = reject;
+              })
     );
 
     const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
@@ -1217,16 +1492,18 @@ describe('ForecastPanel', () => {
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
     fetchMock.mockImplementation((url: string) =>
-      url === CALIBRATION_URL
-        ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
-        : url === '/api/auth/me'
-          ? Promise.resolve(jsonResponse(200, ACCOUNT))
-          : url === CONTRIBUTIONS_URL
-            ? new Promise<Response>((resolve, reject) => {
-                settle = resolve;
-                fail = reject;
-              })
-            : Promise.resolve(jsonResponse(200, [FORECAST]))
+      url.startsWith(THROUGHPUT_URL)
+        ? Promise.resolve(jsonResponse(200, NO_HISTORY))
+        : url === CALIBRATION_URL
+          ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
+          : url === '/api/auth/me'
+            ? Promise.resolve(jsonResponse(200, ACCOUNT))
+            : url === CONTRIBUTIONS_URL
+              ? new Promise<Response>((resolve, reject) => {
+                  settle = resolve;
+                  fail = reject;
+                })
+              : Promise.resolve(jsonResponse(200, [FORECAST]))
     );
 
     const answered = renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
@@ -1263,14 +1540,16 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : jsonResponse(404, {
-                code: 'project_not_found',
-                detail: 'gone'
-              })
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : jsonResponse(404, {
+                  code: 'project_not_found',
+                  detail: 'gone'
+                })
       )
     );
     renderRouted(<ForecastPanel projectId={PROJECT_ID} />);
@@ -1284,13 +1563,15 @@ describe('ForecastPanel', () => {
     await open();
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
-        url === CALIBRATION_URL
-          ? jsonResponse(200, NOTHING_SCORED)
-          : url === '/api/auth/me'
-            ? jsonResponse(200, ACCOUNT)
-            : init?.method === 'POST'
-              ? jsonResponse(201, FORECAST)
-              : jsonResponse(200, [FORECAST])
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : init?.method === 'POST'
+                ? jsonResponse(201, FORECAST)
+                : jsonResponse(200, [FORECAST])
       )
     );
 

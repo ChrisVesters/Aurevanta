@@ -11,7 +11,12 @@ import { numberField, optionalField } from './fields';
 import { formatDay, todayHere } from './dates';
 import { describeWork } from './work';
 import { TargetDate } from './TargetDate';
-import type { Contribution, Forecast, ForecastLimitation } from './types';
+import type {
+  Contribution,
+  Forecast,
+  ForecastLimitation,
+  Throughput
+} from './types';
 
 /**
  * Every box on this form that the server wants as a number, which is all of them but one.
@@ -63,11 +68,33 @@ const DATE_AT: Record<Confidence, 'p50Date' | 'p80Date' | 'p95Date'> = {
 };
 
 /**
+ * The same three confidences read off the other forecast, so the control moves both.
+ *
+ * A throughput answer carries all five percentiles too, which is what keeps the trade
+ * immediate on this side as well: moving from 95 to 80 changes two dates and sends no
+ * request. Two round trips would make one question look like four forecasts.
+ */
+const WEEKS_AT: Record<Confidence, 'p50Date' | 'p80Date' | 'p95Date'> = DATE_AT;
+
+/**
  * Eight tenths of the probability, which is what the band sentence beneath already states.
  * A view has to start somewhere and this is the reading the rest of the screen agrees with
  * — unlike the assumptions above, which have no right answer and so are left empty.
  */
 const USUAL_CONFIDENCE: Confidence = 80;
+
+/**
+ * The three ways to have no second date, in the order they are looked for.
+ *
+ * Each is a different thing to say, and a code this version has never heard of gets a sentence
+ * saying so rather than nothing — the rule `describeLimitation` follows, because the server is
+ * what versions ahead here.
+ */
+const NO_SECOND_OPINION = [
+  'throughput_nothing_left',
+  'throughput_history_too_short',
+  'throughput_beyond_horizon'
+] as const;
 
 const LIMITATIONS: ForecastLimitation[] = [
   'no_team_factor',
@@ -137,6 +164,12 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
    * been worth and leaves the band exactly as the engine produced it.
    */
   const [track, setTrack] = useState<Calibration | null>(null);
+  /**
+   * What this plan's own history says, which is the second half of the only comparison this
+   * screen makes. Its own request and its own failure: a forecast is not less true because
+   * the history beside it could not be read, so losing this leaves the band alone.
+   */
+  const [throughput, setThroughput] = useState<Throughput | null>(null);
   const asking = useFormFailure(ASKED_FOR);
 
   useEffect(() => {
@@ -206,6 +239,28 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
       cancelled = true;
     };
   }, [request]);
+
+  // Asked about *today*, stated from here rather than left to the server: what day it is
+  // where somebody is sitting is a fact only this end holds, which is the argument `todayHere`
+  // exists to make. Keyed on the plan alone — the answer moves when work is finished, not when
+  // a forecast is run, so it does not reload with the rest of the panel.
+  useEffect(() => {
+    let cancelled = false;
+    request<Throughput>(`/projects/${projectId}/throughput?asOf=${todayHere()}`)
+      .then((history) => {
+        if (!cancelled) {
+          setThroughput(history);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setThroughput(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [request, projectId]);
 
   // An effect rather than a handler, and the reason is the half second it takes: this is by
   // far the slowest request this panel makes, so it is by far the likeliest to be still in
@@ -541,6 +596,22 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
             })}
           </p>
 
+          {/*
+            The gap, which is the whole of what M9 is for — and deliberately not a number
+            called "the gap". Two of the four differences named underneath make the engine
+            look slow and two make it look fast, so a subtraction of the two dates is not
+            interpretable on its own. Nothing here averages them or picks one: two forecasts
+            that disagree are the output, because "six weeks against eleven" starts a
+            conversation and one number in the middle ends it.
+          */}
+          {throughput !== null && (
+            <ThroughputComparison
+              history={throughput}
+              run={latest}
+              confidence={confidence}
+            />
+          )}
+
           <table className="percentiles">
             <tbody>
               {(['p10', 'p50', 'p80', 'p90', 'p95'] as const).map((point) => (
@@ -725,6 +796,144 @@ export function ForecastPanel({ projectId }: { projectId: string }) {
       )}
     </section>
   );
+}
+
+/**
+ * What the plan's own history says, beside what its estimates say.
+ *
+ * **Both dates or neither, and the window either way.** A plan with too little history, one
+ * with nothing left, and one whose rate would not clear the backlog in ten years each say
+ * which they are rather than showing a gap — and each still shows the weeks behind the
+ * answer, because the window is the half a reader can judge for themselves. It is also the
+ * only thing on screen that reports what a bootstrap cannot see: it can never draw a week
+ * worse than the worst one in the window, so somebody who knows their team stops for a week
+ * each quarter can tell whether that week is in there.
+ */
+function ThroughputComparison({
+  history,
+  run,
+  confidence
+}: {
+  history: Throughput;
+  run: Forecast;
+  confidence: Confidence;
+}) {
+  const { t, i18n } = useTranslation();
+  const theirs = history.projection?.[WEEKS_AT[confidence]] ?? null;
+  const ours = run[DATE_AT[confidence]];
+
+  return (
+    <div className="throughput">
+      <h3>{t('projects.forecast.throughput.title')}</h3>
+
+      {history.window !== null && (
+        <p className="hint">
+          {t('projects.forecast.throughput.window', {
+            weeks: history.window.weeks,
+            completed: history.window.completed,
+            best: history.window.best,
+            worst: history.window.worst
+          })}
+        </p>
+      )}
+      <p className="hint">
+        {t('projects.forecast.throughput.remaining', {
+          count: history.remaining
+        })}
+      </p>
+
+      {theirs === null ? (
+        <p className="empty">{describeNoSecondOpinion(t, history)}</p>
+      ) : (
+        <>
+          <p className="date">
+            {t('projects.forecast.throughput.date', {
+              confidence,
+              date: formatDay(theirs, i18n.language)
+            })}
+          </p>
+          {ours !== null && (
+            <>
+              <p className="hint">
+                {t('projects.forecast.throughput.against', {
+                  date: formatDay(ours, i18n.language)
+                })}
+              </p>
+              <p className="caveat">{describeDifference(t, ours, theirs)}</p>
+            </>
+          )}
+        </>
+      )}
+
+      {/*
+        Named rather than subtracted into a figure. Two of these make the forecast look slow
+        and two make it look fast, and the first two carry this run's own numbers because
+        those are the ones somebody can act on.
+      */}
+      <h4>{t('projects.forecast.throughput.differences.title')}</h4>
+      <ul>
+        <li>{describeGrowth(t, run, i18n.language)}</li>
+        <li>{describeEstimated(t, run)}</li>
+        <li>{t('projects.forecast.throughput.differences.calendar')}</li>
+        <li>{t('projects.forecast.throughput.differences.interruptions')}</li>
+      </ul>
+    </div>
+  );
+}
+
+/** Which of the three reasons there is no second date, or that this version cannot say. */
+function describeNoSecondOpinion(t: TFunction, history: Throughput): string {
+  const reason = NO_SECOND_OPINION.find((code) =>
+    history.limitations.includes(code)
+  );
+  return reason
+    ? t(`projects.forecast.throughput.none.${reason}`)
+    : t('projects.forecast.throughput.none.unknown');
+}
+
+/**
+ * How far apart the two are, in days and in words.
+ *
+ * Later is the ordinary result and says so: the engine sums estimates of focused work and the
+ * history contains every meeting, incident and holiday. A team seeing the two agree closely
+ * should be more suspicious than one seeing them differ.
+ */
+function describeDifference(
+  t: TFunction,
+  ours: string,
+  theirs: string
+): string {
+  const days = Math.round(
+    (Date.parse(theirs) - Date.parse(ours)) / (24 * 60 * 60 * 1000)
+  );
+  if (days === 0) {
+    return t('projects.forecast.throughput.differenceSame');
+  }
+  return days > 0
+    ? t('projects.forecast.throughput.differenceLater', { days })
+    : t('projects.forecast.throughput.differenceEarlier', { days: -days });
+}
+
+/** What this run assumed about work nobody has written down, which the history cannot see. */
+function describeGrowth(t: TFunction, run: Forecast, locale: string): string {
+  const grows = run.scopeGrowthP10Percent > 0 || run.scopeGrowthP90Percent > 0;
+  return grows
+    ? t('projects.forecast.throughput.differences.unlistedGrowth', {
+        low: decimal(run.scopeGrowthP10Percent, locale, 0),
+        high: decimal(run.scopeGrowthP90Percent, locale, 0)
+      })
+    : t('projects.forecast.throughput.differences.unlistedNone');
+}
+
+/** The one place the history is better informed than the engine — decision 7's second row. */
+function describeEstimated(t: TFunction, run: Forecast): string {
+  const unestimated = run.itemCount - run.estimatedItemCount;
+  return unestimated > 0
+    ? t('projects.forecast.throughput.differences.unestimated', {
+        unestimated,
+        total: run.itemCount
+      })
+    : t('projects.forecast.throughput.differences.estimated');
 }
 
 /**
