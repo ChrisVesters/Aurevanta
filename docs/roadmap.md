@@ -931,7 +931,7 @@ recommendation from a different model is an exact answer about a plan nobody for
 
 ---
 
-## M8 — Actuals and calibration feedback
+## M8 — Actuals and calibration feedback — *planned in `m8-plan.md`*
 
 Record what happened, then measure the hit rate: of the items estimated, how many landed
 inside their P10–P90 band? It should be 80%. Most teams score 30–50%.
