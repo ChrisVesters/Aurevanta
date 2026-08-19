@@ -37,7 +37,7 @@
 | 2 | The scheduler stops counting slots ✅ *done* | 1, M3a's `Schedule` |
 | 3 | A run that knows who was available ✅ *done* | 2, M3a's snapshot |
 | 4 | Saying it: declaring resources, and what the forecast reports ✅ *done* | 3 |
-| 5 | What if we hire someone? | 3, M7's counterfactuals |
+| 5 | What if we hire someone? ✅ *done* | 3, M7's counterfactuals |
 | 6 | Close out | 1–5 |
 
 **Two migrations are expected**, and they are the first schema this product has added since
@@ -678,7 +678,7 @@ functions and lines, and every backend class this step touched at zero missed in
 
 ---
 
-## Step 5 — What if we hire someone?
+## Step 5 — What if we hire someone? ✅ *done*
 
 **Goal.** The question `roadmap.md` calls the most compelling one this unlocks, answered with
 M7's machinery.
@@ -700,6 +700,54 @@ plan whose finish is decided by a dependency chain buys nothing at all, which is
 being able to demonstrate.
 
 **Done when** the answer to *should we hire* is a distribution rather than a feeling.
+
+### As built — where it differs from the above
+
+**The answer is a short series rather than one number, and that is the whole feature.** The
+bullets say "a pool and a number of units"; what ships weighs *every* count from one up to
+that number, because the second person being worth less than the first is the answer to
+"should we hire" and a single figure hides it. The rows are cumulative and measured — the
+difference between two of them is what the next person adds — and nothing on screen puts them
+in a column that invites addition, which is M7's rule about cuts arriving here.
+
+**The pairing came free, where M7's had to be arranged.** A cut takes its draw and discards
+it, because an item that took no draw would shift every later number in the run and turn the
+measurement into noise. Units change what may *start* and never what is sampled, so the two
+runs being compared draw the same numbers in the same order without anything being done about
+it. That is worth knowing before somebody "simplifies" the cut to match.
+
+**A run scheduled against a capacity is refused rather than answered**
+(`forecast_has_no_resources`), which the bullets do not mention and which is the line worth
+drawing. A capacity is one undifferentiated pool, so "one more" has an answer — and it is the
+question the forecast form already asks, one field away, by running the plan again with a
+larger number. What this endpoint exists for is *which* pool, which only means anything once a
+team has been described.
+
+**A screen came with it.** The plan's bullets describe an endpoint, and M10 learnt what that
+costs: its steps 3 and 4 both ended with an endpoint and no reader, and step 6 had to settle
+it. So the panel is here — offering only the pools the run was actually scheduled against,
+because a pool declared since is refused and a screen that invited somebody to pick it would
+be a trap rather than a check.
+
+**The model has no ramp-up and the screen says so.** A unit added is at full rate from its
+first hour, which no new joiner is — so every answer carries that caveat beside it rather than
+behind a disclosure. It is the one place this milestone's own model is optimistic in a way the
+number cannot show, and decision 5 is why it is a sentence rather than a curve: a ramp nobody
+measured is a number with no source.
+
+**And it found a bug in M10's decomposition.** `MovementService` rebuilds the older run's
+inputs twice — once with the newer progress, once with the newer estimates — and both rebuilds
+dropped the team, so those states were scheduled against a capacity while the states either
+side of them used the pools. The account's terms would still have summed, because the sum
+telescopes and the last state is the newer run either way; what would have been wrong is every
+term in the middle, silently. **The test that catches it took two attempts**, and the reason is
+worth keeping: with every item naming nothing, any number of pools behaves exactly like one
+capacity of the same total, so the fixture needs a *requirement* before the difference exists
+at all.
+
+**Counts.** 10 new cases in `ForecastApiTests`, 2 in `ForecastInputsTests`, 1 in
+`MovementApiTests` and 6 in `ForecastPanel.test.tsx`; 1,091 backend tests and 497 frontend
+tests pass, the frontend at 100% of statements, branches, functions and lines.
 
 ---
 

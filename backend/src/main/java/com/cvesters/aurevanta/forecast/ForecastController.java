@@ -150,6 +150,22 @@ class ForecastController {
 	 * plan's whole history is described in one answer, and a name is the only thing here
 	 * that comes from anywhere but the run itself.
 	 */
+	/**
+	 * What hiring into one pool would be worth, weighed against this run.
+	 *
+	 * <p>
+	 * <strong>A POST that writes nothing</strong>, like the cuts beside it, and one for
+	 * the same reason: it is a question rather than a change. Nothing here hires anybody,
+	 * and the answer is a number of days rather than a recommendation — what a person
+	 * costs and how long they take to be useful are facts this server does not have.
+	 */
+	@PostMapping("/api/forecasts/{runId}/hires")
+	HireOptionsResponse hires(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID runId,
+			@Valid @RequestBody HiresRequest request) {
+		return this.forecasts.hiresFor(caller.userId(), caller.tenantId(), runId, request.resourceId(),
+				request.units());
+	}
+
 	private ForecastResponse described(ForecastRun run, Map<UUID, Resource> pools) {
 		return ForecastResponse.of(run, this.forecasts.outputsOf(run), ForecastService.teamOf(run, pools));
 	}

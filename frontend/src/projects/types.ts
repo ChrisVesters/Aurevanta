@@ -548,6 +548,42 @@ export type Movement = {
   at: MovementAt[];
 };
 
+/**
+ * One more unit of a pool, and the date it buys.
+ *
+ * **Cumulative and never a column to add up.** Each row is the plan with that many added,
+ * measured — so the second row is what two people buy, not what the second person buys on
+ * top of the first. The difference between two rows is the honest way to read the
+ * diminishing return.
+ */
+export type HireStep = {
+  units: number;
+  by: string;
+  /** Zero is an answer, and often the right one. */
+  daysEarlier: number;
+};
+
+/** What hiring would be worth at one confidence, with the date the run gives today. */
+export type HireAt = {
+  confidence: number;
+  stands: string;
+  hires: HireStep[];
+};
+
+/**
+ * What adding to one pool would be worth, weighed against one stored run.
+ *
+ * **It weighs and never decides.** The answer is days, not a recommendation — and the model
+ * behind it has no ramp-up, so a unit added is at full rate from the first hour, which no
+ * new joiner is.
+ */
+export type HireOptions = {
+  resourceId: string;
+  /** One per unit asked about, plus the one that proves the run still reproduces. */
+  simulations: number;
+  at: HireAt[];
+};
+
 /** One week of what a plan has actually delivered, as a running total. */
 export type BurnUpWeek = {
   /** The Monday that week began on, which is the bucket the history is cut into. */

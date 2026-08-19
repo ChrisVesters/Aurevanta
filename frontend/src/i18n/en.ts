@@ -595,6 +595,30 @@ export const en = {
           entry: '{{what}} — {{confidence}}%, {{buys}} points better.'
         }
       },
+      // `roadmap.md`'s most compelling question, answered with M7's machinery. It weighs
+      // and never decides: what a person costs and how long they take to be useful are
+      // judgements this application holds none of.
+      hiring: {
+        title: 'What if we had one more?',
+        lede: 'Each of these is the plan simulated again with that many added — measured, not multiplied.',
+        which: 'More of which resource?',
+        unnamed: 'A resource that is no longer here',
+        howMany: 'How many more?',
+        weigh: 'Weigh it',
+        weighing: 'Simulating…',
+        stands: 'As it stands, {{confidence}}% by {{date}}.',
+        step_one: 'One more',
+        step_other: '{{count}} more',
+        buys_one: '1 day sooner — {{date}}',
+        buys_other: '{{count}} days sooner — {{date}}',
+        // Zero is an answer rather than a rounding error, and the sentence says which.
+        buysNothing: 'no sooner at all',
+        // The one place this product's own model is optimistic in a way the number cannot
+        // show, said beside the number rather than behind a disclosure.
+        rampUp:
+          'Nobody here ramps up: a resource added is at full rate from the first hour, which no new joiner is. Read these as the best case.',
+        cost: 'It cost {{simulations}} simulations, and changed nothing.'
+      },
       // What a run was scheduled against, printed with the other assumptions because that is
       // what it is. The run's own team and not today's: hiring somebody does not rewrite what
       // last month's forecast assumed.
@@ -1222,6 +1246,12 @@ export const en = {
       // as the plan and item codes are: telling them apart would make the endpoint a way
       // of discovering which identifiers exist elsewhere.
       resource_not_found: 'That resource is no longer in this organisation.',
+      // A pool declared since the run: a counterfactual is only meaningful against the plan
+      // that was actually forecast, so the remedy is a new forecast rather than a retry.
+      resource_not_in_forecast:
+        'That resource was not part of this forecast. Ask for a new one and it will be.',
+      forecast_has_no_resources:
+        'This forecast was made against a capacity rather than a team, so there is nothing to add to. Forecast it again once your resources are described.',
       // About the person somebody named, and never about the caller — which is why it is
       // not `not_a_member`. One of those would have somebody re-authenticating over a
       // mistyped colleague.

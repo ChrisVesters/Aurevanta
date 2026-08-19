@@ -200,7 +200,11 @@ public class MovementService {
 			PlannedItem is = now.get(was.id());
 			items.add((is == null) ? was : new PlannedItem(was.id(), is.status(), is.spentHours(), was.estimates()));
 		}
-		return new ForecastInputs(items, older.edges());
+		// The team comes through untouched: what somebody reported about a task is not a
+		// change to who was available, and a state rebuilt without it would be scheduled
+		// against a capacity — which would move the date for a reason no term names and
+		// leave the account summing to something nobody was shown.
+		return new ForecastInputs(items, older.edges(), older.pools(), older.needs());
 	}
 
 	/** And what everybody now thinks it will take, for that same work. */
@@ -211,7 +215,7 @@ public class MovementService {
 			PlannedItem is = now.get(was.id());
 			items.add((is == null) ? was : new PlannedItem(was.id(), was.status(), was.spentHours(), is.estimates()));
 		}
-		return new ForecastInputs(items, partway.edges());
+		return new ForecastInputs(items, partway.edges(), partway.pools(), partway.needs());
 	}
 
 	private static Map<UUID, PlannedItem> byId(ForecastInputs inputs) {

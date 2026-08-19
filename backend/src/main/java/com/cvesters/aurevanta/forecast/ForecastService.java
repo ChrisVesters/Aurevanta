@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -46,11 +47,13 @@ import com.cvesters.aurevanta.problem.CandidateNotInForecastException;
 import com.cvesters.aurevanta.problem.CapacityNotApplicableException;
 import com.cvesters.aurevanta.problem.CapacityRequiredException;
 import com.cvesters.aurevanta.problem.ForecastHasNoCalendarException;
+import com.cvesters.aurevanta.problem.ForecastHasNoResourcesException;
 import com.cvesters.aurevanta.problem.ForecastNotFoundException;
 import com.cvesters.aurevanta.problem.ForecastReplayMismatchException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.NothingToForecastException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
+import com.cvesters.aurevanta.problem.ResourceNotInForecastException;
 import com.cvesters.aurevanta.problem.ScopeGrowthOutOfOrderException;
 import com.cvesters.aurevanta.problem.TooManyCandidatesException;
 import com.cvesters.aurevanta.project.Project;
@@ -576,6 +579,102 @@ public class ForecastService {
 		ConfidenceBy counted = new ConfidenceBy(budget.doubleValue());
 		replay(run, inputs, without, counted);
 		return percent(counted);
+	}
+
+	/**
+	 * What adding to one pool would be worth, measured against a stored run.
+	 *
+	 * <p>
+	 * <strong>M7's machinery answering `roadmap.md`'s most compelling question.</strong>
+	 * Every counterfactual is a replay of the stored run from its own seed with one pool
+	 * larger — nothing is written, and forty simulations could go past without
+	 * {@code forecast_runs} gaining a row.
+	 *
+	 * <p>
+	 * <strong>The pairing is exact for free here, where a cut had to work for
+	 * it.</strong> M7's cut takes a draw and discards it, because an item that took no
+	 * draw would shift every later number in the run and turn the measurement into noise.
+	 * Units change what may <em>start</em> and never what is sampled, so the two runs
+	 * being compared draw the same numbers in the same order without anything being
+	 * arranged.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 * @throws ForecastNotFoundException if no run in it has that identifier
+	 * @throws ForecastHasNoResourcesException if the run was scheduled against a capacity
+	 * @throws ResourceNotFoundException if the pool is not this organisation's
+	 * @throws ResourceNotInForecastException if the run was not scheduled against it
+	 * @throws ForecastHasNoCalendarException if the run has no calendar to read a date
+	 * through
+	 * @throws ForecastReplayMismatchException if the run no longer reproduces
+	 */
+	@Transactional(readOnly = true)
+	public HireOptionsResponse hiresFor(UUID callerId, UUID tenantId, UUID runId, UUID resourceId, int units) {
+		ForecastRun run = get(callerId, tenantId, runId);
+		if (!run.hasReadableCalendar()) {
+			throw new ForecastHasNoCalendarException();
+		}
+		// Looked up so that a pool belonging to somebody else is not there at all, rather
+		// than being reported as one this run did not use.
+		this.resources.get(callerId, tenantId, resourceId);
+		ForecastInputs inputs = inputsOf(run);
+		if (inputs.pools().isEmpty()) {
+			throw new ForecastHasNoResourcesException();
+		}
+		if (inputs.pools().stream().noneMatch((pool) -> pool.resourceId().equals(resourceId))) {
+			throw new ResourceNotInForecastException();
+		}
+
+		List<ItemModel> plan = inputs.toModels();
+		// The baseline does two jobs, as M7's does: it is what every row below is
+		// measured
+		// against, and it proves this engine still reproduces the run it is about to give
+		// advice on.
+		Forecast stands = replay(run, inputs, plan, RunObserver.NONE);
+		requireSameRun(run, stands);
+
+		List<List<HireStepResponse>> steps = new ArrayList<>(CONFIDENCES.length);
+		for (int at = 0; at < CONFIDENCES.length; at++) {
+			steps.add(new ArrayList<>(units));
+		}
+		for (int extra = 1; extra <= units; extra++) {
+			// Cumulative and measured rather than the first row multiplied: the second
+			// person is worth less than the first, and how much less is the answer.
+			ForecastInputs larger = inputs.withMore(resourceId, extra);
+			Forecast with = replay(run, larger, plan, RunObserver.NONE);
+			for (int at = 0; at < CONFIDENCES.length; at++) {
+				steps.get(at).add(step(run, extra, stands, with, CONFIDENCES[at]));
+			}
+		}
+
+		List<HireAtResponse> at = new ArrayList<>(CONFIDENCES.length);
+		for (int which = 0; which < CONFIDENCES.length; which++) {
+			at.add(new HireAtResponse(CONFIDENCES[which], dateOf(run, stands, CONFIDENCES[which]),
+					List.copyOf(steps.get(which))));
+		}
+		return new HireOptionsResponse(resourceId, units + 1, at);
+	}
+
+	/**
+	 * One row: the date that many extra units buys, and how much sooner it is.
+	 *
+	 * <p>
+	 * Days are the difference between two <em>dates</em> and never hours converted, which
+	 * is M4's step function met from the same direction M10's decomposition met it: each
+	 * end is rounded up to a whole day on its own.
+	 */
+	private static HireStepResponse step(ForecastRun run, int units, Forecast stands, Forecast with, int confidence) {
+		LocalDate was = dateOf(run, stands, confidence);
+		LocalDate now = dateOf(run, with, confidence);
+		return new HireStepResponse(units, now, (int) ChronoUnit.DAYS.between(now, was));
+	}
+
+	/** One percentile of a replayed forecast, as a day under the run's own calendar. */
+	private static LocalDate dateOf(ForecastRun run, Forecast forecast, int confidence) {
+		double hours = switch (confidence) {
+			case 50 -> forecast.p50Hours();
+			case 80 -> forecast.p80Hours();
+			default -> forecast.p95Hours();
+		};
+		return WorkingCalendar.finishOn(run.getStartsOn(), ForecastRun.hours(hours), run.getWorkingHoursPerDay());
 	}
 
 	/**

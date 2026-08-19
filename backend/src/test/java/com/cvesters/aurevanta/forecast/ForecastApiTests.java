@@ -1435,6 +1435,166 @@ class ForecastApiTests {
 		assertThat(answer.get("resources").isEmpty()).isTrue();
 	}
 
+	// What if we hire somebody? -------------------------------------------------
+
+	/**
+	 * <strong>A pool the plan is actually waiting for buys something, and the second one
+	 * buys less.</strong> That diminishing return is the answer to "should we hire" — the
+	 * first person is worth more than the second, and how much more is the thing nobody
+	 * can feel their way to.
+	 */
+	@Test
+	void hiringIntoTheBindingPoolBuysTimeAndBuysLessTheSecondTime() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		needs(this.migration, backend, 1);
+		needs(this.rollout, backend, 1);
+		ForecastRun run = forecast(withoutCapacity());
+
+		JsonNode answer = hires(run, backend, 3);
+
+		JsonNode steps = at(answer, 80).get("hires");
+		assertThat(steps.size()).isEqualTo(3);
+		assertThat(steps.get(0).get("daysEarlier").asInt()).isPositive();
+		// Cumulative, so the rows climb — and what each extra person adds does not.
+		int first = steps.get(0).get("daysEarlier").asInt();
+		int second = steps.get(1).get("daysEarlier").asInt() - first;
+		assertThat(second).isLessThan(first);
+		assertThat(answer.get("simulations").asInt()).isEqualTo(4);
+	}
+
+	/**
+	 * <strong>A pool nothing is waiting for buys nothing, and says so with a
+	 * zero.</strong> Which is the whole reason this is simulated rather than reasoned
+	 * about: the pool with the fewest units is not necessarily the one holding the plan
+	 * up.
+	 */
+	@Test
+	void hiringIntoAPoolNothingIsWaitingForBuysNothing() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		Resource idle = pool("Technical writers", 4);
+		needs(this.migration, backend, 1);
+		needs(this.rollout, backend, 1);
+		ForecastRun run = forecast(withoutCapacity());
+
+		JsonNode steps = at(hires(run, idle, 2), 80).get("hires");
+
+		assertThat(steps.get(0).get("daysEarlier").asInt()).isZero();
+		assertThat(steps.get(1).get("daysEarlier").asInt()).isZero();
+	}
+
+	/**
+	 * <strong>And a plan held up by its own order buys nothing from anybody</strong>,
+	 * which is the case worth being able to demonstrate: no amount of hiring shortens a
+	 * chain, and a team that believes otherwise is about to spend money on it.
+	 */
+	@Test
+	void hiringBuysNothingWhereADependencyChainDecidesTheFinish() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		needs(this.migration, backend, 1);
+		needs(this.rollout, backend, 1);
+		this.dependencies.save(new Dependency(this.migration, this.rollout, BigDecimal.ZERO, CREATED_AT));
+		ForecastRun run = forecast(withoutCapacity());
+
+		JsonNode steps = at(hires(run, backend, 2), 80).get("hires");
+
+		assertThat(steps.get(0).get("daysEarlier").asInt()).isZero();
+		assertThat(steps.get(1).get("daysEarlier").asInt()).isZero();
+	}
+
+	/**
+	 * Every confidence at once, because the control moves and the simulations are bought.
+	 */
+	@Test
+	void hiringIsAnsweredAtEveryConfidenceTheControlOffers() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		needs(this.migration, backend, 1);
+		ForecastRun run = forecast(withoutCapacity());
+
+		JsonNode answer = hires(run, backend, 1);
+
+		assertThat(answer.get("at").size()).isEqualTo(3);
+		for (int confidence : new int[] { 50, 80, 95 }) {
+			assertThat(at(answer, confidence).get("stands").isNull()).as("%d%%", confidence).isFalse();
+		}
+	}
+
+	/**
+	 * A run scheduled against a capacity is refused rather than answered: "one more" is
+	 * the question the forecast form already asks one field away, and what this exists
+	 * for is <em>which</em> pool — which only means something once a team has been
+	 * described.
+	 */
+	@Test
+	void aRunAgainstACapacityHasNoResourceToAddTo() throws Exception {
+		// The run first and the pool second, because the two cannot coexist the other way
+		// round: once a team is described, naming a capacity is refused.
+		ForecastRun run = forecast(2);
+		Resource backend = pool("Backend engineers", 1);
+
+		asking(run, backend.getId(), 1).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("forecast_has_no_resources"));
+	}
+
+	/** And a pool declared since the run is a question about a team nobody had. */
+	@Test
+	void aPoolDeclaredSinceTheRunIsNotInIt() throws Exception {
+		pool("Backend engineers", 1);
+		ForecastRun run = forecast(withoutCapacity());
+		Resource later = pool("Designers", 2);
+
+		asking(run, later.getId(), 1).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("resource_not_in_forecast"));
+	}
+
+	/**
+	 * A pool belonging to somebody else is not there at all, which is the isolation rule.
+	 */
+	@Test
+	void anotherOrganisationsPoolIsNotSomethingToHireInto() throws Exception {
+		pool("Backend engineers", 1);
+		ForecastRun run = forecast(withoutCapacity());
+
+		asking(run, UUID.randomUUID(), 1).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("resource_not_found"));
+	}
+
+	@Test
+	void hiringIntoARunWithNoCalendarHasNoDateToMove() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		ForecastRun run = forecast(withoutCapacity());
+		madeBeforeThereWasACalendar(run.getId());
+
+		asking(run, backend.getId(), 1).andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.code").value("forecast_has_no_calendar"));
+	}
+
+	@Test
+	void refusesMoreHiresThanItWillWeigh() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		ForecastRun run = forecast(withoutCapacity());
+
+		asking(run, backend.getId(), 11).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.units.code").value("max"));
+		asking(run, backend.getId(), 0).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.errors.units.code").value("positive"));
+	}
+
+	/**
+	 * <strong>Nothing is written.</strong> Forty simulations can go past for one question
+	 * without {@code forecast_runs} gaining a row, which is what keeps that table meaning
+	 * one thing — somebody asked the engine — and is what M10's detector walks.
+	 */
+	@Test
+	void weighingAHireWritesNothing() throws Exception {
+		Resource backend = pool("Backend engineers", 1);
+		ForecastRun run = forecast(withoutCapacity());
+		long before = this.runs.count();
+
+		hires(run, backend, 3);
+
+		assertThat(this.runs.count()).isEqualTo(before);
+	}
+
 	/**
 	 * <strong>A snapshot written before there was a team to describe reads back as one
 	 * pool.</strong> Jackson hands a missing field back as null and a run stored in July
@@ -1751,6 +1911,30 @@ class ForecastApiTests {
 		return """
 				{"teamFactorWorseByPercent":0,"scopeGrowthP10Percent":0,"scopeGrowthP90Percent":0,\
 				"startsOn":"%s","workingHoursPerDay":%s}""".formatted(MONDAY, WORKING_DAY);
+	}
+
+	private ResultActions asking(ForecastRun run, UUID resourceId, int units) throws Exception {
+		return this.mvc.perform(
+				post("/api/forecasts/" + run.getId() + "/hires").header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"resourceId\":\"" + resourceId + "\",\"units\":" + units + "}"));
+	}
+
+	private JsonNode hires(ForecastRun run, Resource pool, int units) throws Exception {
+		return parsed(asking(run, pool.getId(), units).andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString());
+	}
+
+	/** One confidence's answer out of the three every reply carries. */
+	private static JsonNode at(JsonNode answer, int confidence) {
+		for (JsonNode reading : answer.get("at")) {
+			if (reading.get("confidence").asInt() == confidence) {
+				return reading;
+			}
+		}
+		throw new AssertionError("no answer at " + confidence + "%");
 	}
 
 	private ResultActions asking(String body) throws Exception {

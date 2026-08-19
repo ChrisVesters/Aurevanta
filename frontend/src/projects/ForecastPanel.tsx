@@ -11,6 +11,7 @@ import { describeFailure } from '../i18n/problems';
 import { numberField, optionalField } from './fields';
 import { formatDay, todayHere } from './dates';
 import { describeWork } from './work';
+import { HiringPanel } from './HiringPanel';
 import { TargetDate } from './TargetDate';
 import type {
   BurnUp,
@@ -944,6 +945,18 @@ export function ForecastPanel({
             about a run that is no longer on screen.
           */}
           <TargetDate key={latest.id} run={latest} />
+
+          {/*
+            The other question a team asks about a date, and the one M11 makes answerable:
+            not *what do we drop* but *what if there were more of us*. Keyed on the run for
+            `TargetDate`'s reason — an answer measured against a forecast that is no longer
+            on screen is an answer about a plan nobody is looking at.
+          */}
+          <HiringPanel
+            key={`hiring-${latest.id}`}
+            run={latest}
+            confidence={confidence}
+          />
 
           {earlier.length > 0 && (
             <div className="earlier">

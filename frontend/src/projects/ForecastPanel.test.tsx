@@ -323,6 +323,76 @@ describe('ForecastPanel', () => {
     };
   }
 
+  /** A run scheduled against a team, which is what makes the hiring question askable. */
+  const RESOURCED: Forecast = {
+    ...FORECAST,
+    resources: [
+      { resourceId: 'r1', name: 'Backend engineers', archived: false, units: 2 }
+    ]
+  };
+
+  /**
+   * What the server says one and two more would buy: nine days and then three more, which
+   * is the diminishing return the rows exist to show.
+   */
+  const HIRES = {
+    resourceId: 'r1',
+    simulations: 3,
+    at: [
+      {
+        confidence: 50,
+        stands: '2026-08-21',
+        hires: [
+          { units: 1, by: '2026-08-14', daysEarlier: 7 },
+          { units: 2, by: '2026-08-12', daysEarlier: 9 }
+        ]
+      },
+      {
+        confidence: 80,
+        stands: '2026-08-25',
+        hires: [
+          { units: 1, by: '2026-08-16', daysEarlier: 9 },
+          { units: 2, by: '2026-08-13', daysEarlier: 12 }
+        ]
+      },
+      {
+        confidence: 95,
+        stands: '2026-09-01',
+        hires: [
+          { units: 1, by: '2026-08-20', daysEarlier: 12 },
+          { units: 2, by: '2026-08-17', daysEarlier: 15 }
+        ]
+      }
+    ]
+  };
+
+  /**
+   * The panel over a run with a team behind it. A null answer means the server refuses the
+   * question, which is what a pool declared since the run gets.
+   */
+  async function openWithResourcedRun(hires: unknown = HIRES) {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.includes('/hires')
+          ? hires === null
+            ? jsonResponse(400, { code: 'resource_not_in_forecast' })
+            : jsonResponse(200, hires)
+          : url.startsWith(THROUGHPUT_URL)
+            ? jsonResponse(200, NO_HISTORY)
+            : url === CALIBRATION_URL
+              ? jsonResponse(200, NOTHING_SCORED)
+              : url === '/api/auth/me'
+                ? jsonResponse(200, ACCOUNT)
+                : otherReads(url, [RESOURCED])
+      )
+    );
+    renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'What if we had one more?' });
+  }
+
   /**
    * The burn-up's table, found the way a reader finds it — by its caption. The panel holds
    * another table and this is what tells the two apart, which is also the assertion that the
@@ -2299,6 +2369,105 @@ describe('ForecastPanel', () => {
     await waitFor(() =>
       expect(screen.queryByRole('heading', { name: 'Forecast' })).toBeNull()
     );
+  });
+
+  // What if we had one more? --------------------------------------------------
+
+  /** A run scheduled against a capacity has no pool to add to, so nothing is offered. */
+  it('asks nothing about hiring where there was no team', async () => {
+    await openWithHistory(DELIVERING);
+
+    await screen.findByText(/An 80% chance/);
+    expect(
+      screen.queryByRole('heading', { name: 'What if we had one more?' })
+    ).toBeNull();
+  });
+
+  /**
+   * <strong>Measured rather than multiplied, and cumulative.</strong> Each row is the plan
+   * simulated again with that many added, so the difference between two rows is what the
+   * next person adds — and that shrinking is the answer to "should we hire".
+   */
+  it('weighs what one more would buy, and what two would', async () => {
+    await openWithResourcedRun();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
+
+    expect(
+      await screen.findByText('As it stands, 80% by Aug 25, 2026.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('One more')).toBeInTheDocument();
+    expect(
+      screen.getByText('9 days sooner — Aug 16, 2026')
+    ).toBeInTheDocument();
+    expect(screen.getByText('2 more')).toBeInTheDocument();
+    // The second buys three more days where the first bought nine, which is the whole
+    // point of measuring each rather than doubling the first.
+    expect(
+      screen.getByText('12 days sooner — Aug 13, 2026')
+    ).toBeInTheDocument();
+  });
+
+  /** Nothing at all is an answer, and it says so rather than showing a zero. */
+  it('says when hiring buys nothing at all', async () => {
+    await openWithResourcedRun({
+      resourceId: 'r1',
+      simulations: 3,
+      at: [50, 80, 95].map((confidence) => ({
+        confidence,
+        stands: '2026-08-25',
+        hires: [
+          { units: 1, by: '2026-08-25', daysEarlier: 0 },
+          { units: 2, by: '2026-08-25', daysEarlier: 0 }
+        ]
+      }))
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
+
+    expect(await screen.findAllByText('no sooner at all')).toHaveLength(2);
+  });
+
+  /**
+   * <strong>The model has no ramp-up and the screen says so.</strong> A unit added is at
+   * full rate from the first hour, which no new joiner is — the one place this product's
+   * own model is optimistic in a way the number cannot show.
+   */
+  it('says that nobody here ramps up, beside the answer', async () => {
+    await openWithResourcedRun();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
+
+    expect(await screen.findByText(/Nobody here ramps up/)).toBeInTheDocument();
+    expect(
+      screen.getByText('It cost 3 simulations, and changed nothing.')
+    ).toBeInTheDocument();
+  });
+
+  /** One answer covers every confidence, so the control moves it and sends no request. */
+  it('moves the answer with the confidence and sends no request', async () => {
+    await openWithResourcedRun();
+    await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
+    await screen.findByText('As it stands, 80% by Aug 25, 2026.');
+    const before = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
+
+    expect(
+      await screen.findByText('As it stands, 50% by Aug 21, 2026.')
+    ).toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(before);
+  });
+
+  /** And a refusal is passed on rather than leaving the panel silent. */
+  it('says why a hire could not be weighed', async () => {
+    await openWithResourcedRun(null);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
+
+    expect(
+      await screen.findByText(/That resource was not part of this forecast/)
+    ).toBeInTheDocument();
   });
 
   // Whether it keeps moving out, and why it moved ----------------------------

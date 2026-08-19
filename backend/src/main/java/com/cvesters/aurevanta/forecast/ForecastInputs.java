@@ -143,6 +143,38 @@ public record ForecastInputs(List<PlannedItem> items, List<PlannedEdge> edges, L
 	}
 
 	/**
+	 * The same plan against a pool with more in it, which is what hiring is.
+	 *
+	 * <p>
+	 * <strong>Nothing else moves, and that is what makes the comparison exact.</strong>
+	 * The items, the arrows and every range are the same objects, so a replay draws the
+	 * same numbers in the same order from the same seed — unlike M7's cut, which had to
+	 * take a draw and discard it to keep the stream aligned. Adding units changes what
+	 * may start, never what is sampled.
+	 * @param resourceId which pool gains, which must be one this run was scheduled
+	 * against
+	 * @param extra how many units it gains
+	 * @throws IllegalArgumentException if this run never held that pool
+	 */
+	public ForecastInputs withMore(UUID resourceId, int extra) {
+		List<PlannedPool> larger = new ArrayList<>(this.pools.size());
+		boolean found = false;
+		for (PlannedPool pool : this.pools) {
+			if (pool.resourceId().equals(resourceId)) {
+				larger.add(new PlannedPool(resourceId, pool.units() + extra));
+				found = true;
+			}
+			else {
+				larger.add(pool);
+			}
+		}
+		if (!found) {
+			throw new IllegalArgumentException("This forecast was not scheduled against " + resourceId);
+		}
+		return new ForecastInputs(this.items, this.edges, larger, this.needs);
+	}
+
+	/**
 	 * The team as the scheduler takes it, and what each piece of work needs of it.
 	 *
 	 * <p>

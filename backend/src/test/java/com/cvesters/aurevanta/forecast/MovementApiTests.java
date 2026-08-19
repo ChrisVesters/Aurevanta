@@ -33,6 +33,10 @@ import com.cvesters.aurevanta.membership.Membership;
 import com.cvesters.aurevanta.membership.MembershipRepository;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.project.ProjectRepository;
+import com.cvesters.aurevanta.requirement.Requirement;
+import com.cvesters.aurevanta.requirement.RequirementRepository;
+import com.cvesters.aurevanta.resource.Resource;
+import com.cvesters.aurevanta.resource.ResourceRepository;
 import com.cvesters.aurevanta.security.AccessTokenService;
 import com.cvesters.aurevanta.tenant.Tenant;
 import com.cvesters.aurevanta.tenant.TenantRepository;
@@ -97,6 +101,12 @@ class MovementApiTests {
 	private ForecastRunRepository runs;
 
 	@Autowired
+	private ResourceRepository resources;
+
+	@Autowired
+	private RequirementRepository requirements;
+
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -120,6 +130,8 @@ class MovementApiTests {
 	@BeforeEach
 	void seedAPlanWithEstimatedWorkInIt() {
 		this.runs.deleteAll();
+		this.requirements.deleteAll();
+		this.resources.deleteAll();
 		this.estimates.deleteAll();
 		this.items.deleteAll();
 		this.projects.deleteAll();
@@ -277,6 +289,37 @@ class MovementApiTests {
 		// seed.
 		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "ASSUMPTIONS", "STARTS_ON" }) {
 			assertThat(termOf(at, step)).as("%s of a plan that only changed its working day", step).isZero();
+		}
+		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
+	}
+
+	/**
+	 * <strong>A team that did not change moves nothing</strong>, and this is sharper than
+	 * it looks. Every state of the account is rebuilt from the older run's snapshot — the
+	 * plan with the newer progress, then the newer estimates — and a rebuild that dropped
+	 * the declaration would schedule those states against a capacity instead. The terms
+	 * would still sum, because the sum telescopes and the last state is the newer run
+	 * either way; what would be wrong is every term in the middle, silently.
+	 */
+	@Test
+	void aTeamThatDidNotChangeMovesNoTerm() throws Exception {
+		// **The requirement is what makes this bite, and it took two goes to find that
+		// out.** With every item naming nothing, any number of pools behaves exactly like
+		// one capacity of the same total — work takes a unit of whatever is free — so a
+		// fixture without one cannot tell a state scheduled against the team from one
+		// scheduled against a number, and the bug this case exists for passed it.
+		Resource backend = this.resources
+			.save(new Resource(this.plan.getTenant(), "Backend engineers", 1, null, CREATED_AT));
+		this.resources
+			.save(new Resource(this.plan.getTenant(), "Staging environment", 1, null, CREATED_AT.plusSeconds(1)));
+		this.requirements.save(new Requirement(this.plan.getTenant(), this.migration, backend, 1, CREATED_AT));
+		UUID before = forecast(scheduled());
+		UUID after = forecast(scheduled());
+
+		JsonNode at = readMovement(after, before, 80);
+
+		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "ASSUMPTIONS", "CALENDAR", "STARTS_ON" }) {
+			assertThat(termOf(at, step)).as("%s of a plan whose team did not change", step).isZero();
 		}
 		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
 	}
@@ -599,6 +642,13 @@ class MovementApiTests {
 
 	private void madeUnderACalendarWeCannotRead(UUID runId) {
 		this.database.update("update forecast_runs set calendar_rule = 'lunar_month' where id = ?", runId);
+	}
+
+	/** What a forecast asks for once the organisation has described its team. */
+	private static String scheduled() {
+		return """
+				{"teamFactorWorseByPercent":0,"scopeGrowthP10Percent":0,\
+				"scopeGrowthP90Percent":0,"startsOn":"%s","workingHoursPerDay":%s}""".formatted(MONDAY, WORKING_DAY);
 	}
 
 	private static String assuming(int capacity) {
