@@ -67,6 +67,8 @@ class ApiExceptionHandler {
 
 	static final String UNIQUE_DEPENDENCY_EDGE_INDEX = "uq_dependencies_edge";
 
+	static final String UNIQUE_REQUIREMENT_INDEX = "uq_requirements_item_resource";
+
 	/**
 	 * Unique indexes whose violation has a better answer than "something conflicted", and
 	 * the answer each one has.
@@ -93,7 +95,7 @@ class ApiExceptionHandler {
 	private static final Map<String, Supplier<ApiProblemException>> CONSTRAINT_CONFLICTS = Map.of(UNIQUE_SLUG_INDEX,
 			() -> new SlugTakenException(null), UNIQUE_EMAIL_INDEX, EmailAlreadyRegisteredException::new,
 			UNIQUE_PENDING_INVITATION_INDEX, InvitationAlreadyPendingException::new, UNIQUE_DEPENDENCY_EDGE_INDEX,
-			DependencyAlreadyExistsException::new);
+			DependencyAlreadyExistsException::new, UNIQUE_REQUIREMENT_INDEX, DuplicateRequirementException::new);
 
 	/**
 	 * Every index name this advice reads, for the test that pins them to the database.

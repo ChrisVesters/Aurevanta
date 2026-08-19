@@ -33,7 +33,7 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | What a resource is, and what needs one | M2's schema conventions |
+| 1 | What a resource is, and what needs one ✅ *done* | M2's schema conventions |
 | 2 | The scheduler stops counting slots | 1, M3a's `Schedule` |
 | 3 | A run that knows who was available | 2, M3a's snapshot |
 | 4 | Saying it: declaring resources, and what the forecast reports | 3 |
@@ -367,7 +367,7 @@ are named and never ranked*.
 
 ---
 
-## Step 1 — What a resource is, and what needs one
+## Step 1 — What a resource is, and what needs one ✅ *done*
 
 **Goal.** The schema, and the two endpoints that fill it.
 
@@ -395,6 +395,61 @@ refuses a second requirement on the same item and pool rather than silently addi
 
 **Done when** a plan can say *this needs a backend engineer and the staging environment* and read
 it back.
+
+### As built — where it differs from the above
+
+**Archiving is a `POST` and there is no `DELETE`, which the bullets got wrong.** They say
+`PATCH|DELETE /api/resources/{id} (archive)`, and `ProjectController` settled this two
+milestones ago in as many words: *a `POST` rather than a `DELETE` because nothing is deleted*.
+A pool has a second reason of its own — a run stores the declaration it was scheduled under, so
+a pool that had vanished would leave that snapshot describing an identifier. It is
+`POST /{id}/archive` and `POST /{id}/unarchive`, exactly as a plan is.
+
+**The table is `requirements` and not `work_item_resources`.** The plan named it for the two
+ends it joins; every other table here is named for the concept — `estimates`, `dependencies` —
+and `dependencies` is a join with a payload too. One word across the table, the entity and the
+package is worth more than a name that describes the foreign keys, and *requirement* is the word
+the roadmap and this plan both already use.
+
+**Its own package, and the arrows are why.** A requirement points at `item` and at `resource` at
+once, so putting it in either would have made those two depend on each other for the sake of a
+join. `estimate` and `dependency` are the precedent — a thing that hangs off an item is a
+package that points at `item` — and this hangs off two.
+
+**Two endpoints the bullets did not name, and one they did that has no reader.**
+`GET /api/projects/{id}/requirements` is `estimate`'s rule arriving: a screen drawing five
+hundred rows reads a plan's worth at once, and asking per item would be five hundred requests to
+draw one page. `GET /api/items/{id}/requirements` is what the form editing one row reads back.
+And `GET /api/resources/{id}` was **built and then removed** — a team is read as a team, every
+screen that wants one wants the list, and the coverage gate is what found it: the only exercise
+that endpoint had was its own refusal.
+
+**`PUT` is the first one in this application** and it earns the verb: replacing a whole set is
+what a `PUT` means, and the alternative — add a line, change a line, remove a line — would make
+*it needs these two things* a sequence a reader has to reassemble rather than a fact arriving
+once. An empty set is a claim rather than a mistake, and it is how somebody says this is generic
+work anybody can pick up.
+
+**A pool may be named after a person, and that needed a refusal of its own.**
+`person_not_a_member` is about the person somebody named, where `not_a_member` is about the
+caller; one code for both would have somebody re-authenticating over a mistyped colleague. It is
+checked on the way in and never on the way out, which is the estimator rule exactly: a pool named
+after somebody who has since left keeps naming them, because it records what a team was.
+
+**`MembershipService` gained one method rather than this reaching around it.** `select` records
+a visit, because choosing an organisation to act under *is* a visit, and naming a resource after
+somebody is not — so `memberOf` is the lookup without the side effect, and `hasMember` is now
+expressed in terms of it rather than being a second copy of the query.
+
+**Four accessors were written and deleted.** `Resource.getTenant`, and `Requirement`'s `getId`,
+`getTenant` and `getCreatedAt`: nothing reads them, and every existing entity in this codebase
+carries none. The coverage gate is what says so — the accepted exclusion is accessors *no logic
+reads*, and the honest way to take it is to not write them until something does.
+
+**Counts.** 19 cases in `ResourceApiTests` and 14 in `RequirementApiTests`; 1,050 backend tests
+pass, with every new class at zero missed branches and zero missed instructions. Three new codes
+reached the frontend catalogue and `BACKEND_CODES`, which is the list that claims to be the whole
+contract — 461 frontend tests still pass at 100%.
 
 ---
 
@@ -533,7 +588,9 @@ being able to demonstrate.
 **Two, and they are the first since `V16`.**
 
 - `V17__resources.sql` — the pools, per tenant, with units, an optional user and an `archived_at`.
-- `V18__work_item_resources.sql` — what each item needs, unique on the pair.
+- `V18__requirements.sql` — what each item needs, unique on the pair. **Named for the concept
+  rather than for the two ends it joins**, which step 1's record argues: `dependencies` is a join
+  with a payload too, and it is not called `work_item_work_items`.
 
 **Neither backfills anything**, and that is a claim rather than an omission: a plan forecast
 before this milestone was forecast against a capacity number, and inventing a pool for it would

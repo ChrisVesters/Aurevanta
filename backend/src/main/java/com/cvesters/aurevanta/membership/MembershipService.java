@@ -69,7 +69,23 @@ public class MembershipService {
 	/** Whether somebody already belongs to one organisation, however they got there. */
 	@Transactional(readOnly = true)
 	public boolean hasMember(UUID userId, UUID tenantId) {
-		return this.memberships.findForUserInTenant(userId, tenantId).isPresent();
+		return memberOf(userId, tenantId).isPresent();
+	}
+
+	/**
+	 * The same question asked so that the answer can be used.
+	 *
+	 * <p>
+	 * {@link #select} is the other lookup of one person's standing and it is not this
+	 * one: it records the visit, because choosing an organisation to act under is a
+	 * visit. This is for the callers that need to know somebody is here and then say
+	 * something about them — naming a resource after a person is the first — and
+	 * recording an access those callers never made would put a moment on a row that
+	 * nobody was there for.
+	 */
+	@Transactional(readOnly = true)
+	public Optional<Membership> memberOf(UUID userId, UUID tenantId) {
+		return this.memberships.findForUserInTenant(userId, tenantId);
 	}
 
 	/**

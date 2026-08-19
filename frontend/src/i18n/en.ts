@@ -1134,6 +1134,19 @@ export const en = {
       nothing_to_forecast:
         'Nothing in this plan has been estimated yet, so there is nothing to forecast. Add a range to some of the work above.',
       forecast_not_found: 'That forecast is no longer in this project.',
+      // One answer for "there is no such pool" and "it belongs to another organisation",
+      // as the plan and item codes are: telling them apart would make the endpoint a way
+      // of discovering which identifiers exist elsewhere.
+      resource_not_found: 'That resource is no longer in this organisation.',
+      // About the person somebody named, and never about the caller — which is why it is
+      // not `not_a_member`. One of those would have somebody re-authenticating over a
+      // mistyped colleague.
+      person_not_a_member:
+        'That person is not in this organisation, so a resource cannot be named after them.',
+      // Two lines for one pool are two spellings of one number, and a scheduler adding
+      // them up would read a data-entry mistake as a claim about a team.
+      duplicate_requirement:
+        'That work already needs that resource. Say how many units it needs on one line rather than two.',
       // **Reachable through this product's own screens, which a comment here once denied.**
       // The progress form's date input carries no upper bound, so anybody can record a task
       // as finished next week — and a plan holding one loses its throughput answer entirely
