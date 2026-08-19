@@ -40,11 +40,20 @@ public final class Movement {
 	 * The order, and it is the whole of the rule above.
 	 *
 	 * <p>
-	 * Settled things first, then opinions, then new work, then what somebody changed
-	 * about the question, and last the part nobody decided.
+	 * Settled things first, then opinions, then new work, then who was there to do it,
+	 * then what somebody changed about the question, and last the part nobody decided.
+	 *
+	 * <p>
+	 * <strong>{@link Step#RESOURCES} was split out of {@link Step#SCOPE} rather than
+	 * added to the order</strong>, which is why {@link #RULE} did not have to change: no
+	 * two existing terms swapped places, exactly as {@link Step#CALENDAR} is a split out
+	 * of the assumptions beside it. It had to be split, because M11 put the team inside
+	 * the stored inputs — so a run made after somebody hired a second designer differed
+	 * from its predecessor in the <em>plan</em> as far as this class could see, and a
+	 * reader who had changed nothing about the work was told their scope had grown.
 	 */
 	public static final List<Step> ORDER = List.of(Step.SAMPLING, Step.PROGRESS, Step.ESTIMATES, Step.SCOPE,
-			Step.ASSUMPTIONS, Step.CALENDAR, Step.STARTS_ON);
+			Step.RESOURCES, Step.ASSUMPTIONS, Step.CALENDAR, Step.STARTS_ON);
 
 	private Movement() {
 	}
@@ -76,8 +85,30 @@ public final class Movement {
 
 		/**
 		 * Work that was not there before, or is no longer there — and the arrows with it.
+		 * Scheduled against the team as it was, which is what leaves the next step
+		 * something to say.
 		 */
 		SCOPE,
+
+		/**
+		 * The team, and what the work needs of it: a pool that grew, one that was
+		 * declared for the first time, a requirement somebody wrote down.
+		 *
+		 * <p>
+		 * <strong>Its own term because hiring is not scope.</strong> The two are one
+		 * question only in the storage — {@code ForecastInputs} holds the pools beside
+		 * the items — and a decomposition that read the storage rather than the question
+		 * reported a fortnight of new people as a fortnight of new work.
+		 *
+		 * <p>
+		 * <strong>The requirements move with the pools rather than with the
+		 * work</strong>, and that is not only tidiness: a requirement can only be read
+		 * against a declaration that holds the pool it names, so a state carrying the
+		 * newer requirements against the older team is not a state that can be scheduled
+		 * at all. Keeping them together is what makes every state on this path a plan
+		 * somebody could have run.
+		 */
+		RESOURCES,
 
 		/**
 		 * Capacity, the bad-week assumption, the growth range: the question, not the

@@ -23,9 +23,13 @@ type RequirementFormProps = {
  * it in one go. Nothing here adds a line and nothing removes one — a box left empty is the
  * claim that this work needs none of that pool.
  *
- * **Only pools in use are offered.** A team that has put one away is a team that no longer
- * has it, and a forecast leaves such a requirement out and says so — so inviting somebody
- * to make a new one would be inviting them to make a limitation.
+ * **Only pools in use are offered, and one that this work already names is shown whatever
+ * its state.** A team that has put one away is a team that no longer has it, and a forecast
+ * leaves such a requirement out and says so — so inviting somebody to make a *new* one
+ * would be inviting them to make a limitation. Hiding one that is already there is a
+ * different thing entirely: this endpoint replaces the whole set, so a row the form did not
+ * render is a row pressing save would delete, silently, on a screen that never mentioned
+ * it. Shown, marked, and clearable — which is also the only place anybody can act on it.
  *
  * **An empty set is a claim and the form says which claim it is.** Work that names nothing
  * is scheduled against one unit of whatever is free, which is generic work anybody can pick
@@ -47,10 +51,32 @@ export function RequirementForm({
     )
   );
 
+  // Every pool in use, and then any this work already names that is not among them. The
+  // second list is almost always empty and is what stops save from being a deletion.
+  const offered: { id: string; name: string; units: number; away: boolean }[] =
+    [
+      ...resources.map((resource) => ({
+        id: resource.id,
+        name: resource.name,
+        units: resource.units,
+        away: false
+      })),
+      ...needs
+        .filter((need) => need.resourceArchived)
+        .map((need) => ({
+          id: need.resourceId,
+          name: need.resourceName,
+          // What it holds is not on this screen for a pool nobody is offering, and the box
+          // is only ever going down from a number the server already accepted.
+          units: need.units,
+          away: true
+        }))
+    ];
+
   function handle(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     onSubmit(
-      resources
+      offered
         .map((resource) => ({
           resourceId: resource.id,
           units: Number(wanted[resource.id] ?? '')
@@ -61,7 +87,7 @@ export function RequirementForm({
     );
   }
 
-  if (resources.length === 0) {
+  if (offered.length === 0) {
     return (
       <div className="needs">
         <p className="empty">{t('projects.items.needs.noResources')}</p>
@@ -82,7 +108,7 @@ export function RequirementForm({
           {banner}
         </p>
       )}
-      {resources.map((resource) => (
+      {offered.map((resource) => (
         <p className="field" key={resource.id}>
           <label htmlFor={`${id}-${resource.id}`}>{resource.name}</label>
           <input
@@ -101,17 +127,22 @@ export function RequirementForm({
             }
           />
           <span className="hint">
-            {t('projects.items.needs.available', { units: resource.units })}
+            {resource.away
+              ? t('projects.items.needs.putAway')
+              : t('projects.items.needs.available', { units: resource.units })}
           </span>
         </p>
       ))}
+      {offered.some((resource) => resource.away) && (
+        <p className="hint">{t('projects.items.needs.putAwayHint')}</p>
+      )}
       {/*
         Said where somebody is deciding rather than left to be discovered in a limitation
         beside a date: leaving every box empty is a claim, and it is the ordinary one.
       */}
       <p className="hint">{t('projects.items.needs.anyone')}</p>
       <p className="actions">
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="primary" disabled={busy}>
           {t('projects.items.needs.submit')}
         </button>
         <button type="button" className="secondary" onClick={onCancel}>

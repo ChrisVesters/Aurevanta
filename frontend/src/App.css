@@ -503,6 +503,7 @@ button.link {
 
 .members,
 .projects,
+.resources,
 .calibration {
   margin: auto;
   width: 100%;
@@ -560,7 +561,8 @@ button.link {
 }
 
 .project-list,
-.work-item-list {
+.work-item-list,
+.resource-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -841,6 +843,63 @@ button.link {
   }
 }
 
+/*
+  What one piece of work ties up, opened under the task it is about. The same shape as the
+  ordering form beside it, because they are the same gesture — a row opening in place to be
+  told something about the plan.
+*/
+.needs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+
+  .field {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0;
+  }
+
+  /*
+    Both fixed, so every pool's box starts at the same place and the boxes read as one
+    column. It is the *hint* that takes the slack, and that is the whole of the rule: with
+    the label taking it instead, each row's box sat wherever that row's hint left it —
+    "3 available" and "put away" are different lengths, so no two boxes lined up.
+  */
+  .field label {
+    flex: 0 0 auto;
+    width: 180px;
+  }
+
+  .field input {
+    width: 72px;
+  }
+
+  .field .hint {
+    flex: 1;
+    min-width: 110px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .hint,
+  .empty {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+}
+
 /* The plan's own coverage, above the list it describes. */
 .work > .coverage {
   margin: 0;
@@ -1035,6 +1094,86 @@ button.danger {
 
   button.primary {
     align-self: flex-start;
+  }
+}
+
+/*
+  What the organisation has to work with. Arranged as the members screen is, because it is
+  the same gesture — a list of what there is, with the way to add one underneath — and two
+  screens of one shape that looked different would read as two features that arrived
+  separately.
+*/
+.resources {
+  .listing-switch {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  .empty {
+    margin: 0;
+    font-size: 15px;
+  }
+}
+
+.resource-list {
+  /*
+    Both controls on the row's centre line and clear of the name, which is the arrangement
+    the member list argues for: "aligned" is otherwise a coincidence of whichever of them
+    happens to be tallest.
+  */
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+/*
+  Changing a pool opens under the row it is about, exactly as estimating opens under a
+  task. Dashed above rather than solid, which is what tells a form opened *inside*
+  something from the one that declares a new one below the whole list.
+*/
+.resource-list form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+/* And declaring one sits under the list, separated the way the invite form is. */
+.resources > form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+
+  button.primary {
+    align-self: flex-start;
+  }
+}
+
+.resource-list form,
+.resources > form {
+  select {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+  }
+
+  .actions {
+    margin: 0;
   }
 }
 
@@ -1522,6 +1661,101 @@ button.danger {
     margin: 0;
     font-size: 13px;
     color: var(--muted);
+  }
+}
+
+/*
+  What another unit would buy, arranged as the cuts above it are: they are one question
+  asked from two directions — what to drop, and who to add — and a reader who has just read
+  one should not have to learn a second layout to read the other.
+*/
+.forecast .hiring {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  /*
+    The two questions side by side, as the forecast's own range asks its pair. "How many
+    more?" takes a number between one and ten, and a box the width of the panel for it
+    reads as though something longer were wanted.
+  */
+  form {
+    display: flex;
+    /* Stated, because `.forecast form` above turns every form in the panel into a column
+       and this one is the exception rather than an addition to it. */
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .field {
+    flex: 1 1 140px;
+    gap: 6px;
+    margin: 0;
+  }
+
+  select {
+    font: inherit;
+    font-size: 16px;
+    padding: 10px 12px;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+  }
+
+  .actions {
+    margin: 0;
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .empty {
+    margin: 0;
+    font-size: 14px;
+    color: var(--danger);
+  }
+
+  /*
+    One row per extra unit, and the two halves apart rather than run together: what is read
+    here is the diminishing return between rows, which is a comparison down the right-hand
+    column.
+  */
+  .hires {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+
+    li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .what {
+      color: var(--text-h);
+    }
   }
 }
 

@@ -16,6 +16,7 @@ import com.cvesters.aurevanta.item.WorkItemService;
 import com.cvesters.aurevanta.problem.DuplicateRequirementException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
+import com.cvesters.aurevanta.problem.RequirementExceedsPoolException;
 import com.cvesters.aurevanta.problem.ResourceNotFoundException;
 import com.cvesters.aurevanta.problem.WorkItemNotFoundException;
 import com.cvesters.aurevanta.project.ProjectService;
@@ -118,7 +119,16 @@ public class RequirementService {
 		WorkItem item = this.items.get(callerId, tenantId, itemId);
 		List<Resource> pools = new ArrayList<>(wanted.size());
 		for (RequiredUnits line : wanted) {
-			pools.add(this.resources.get(callerId, tenantId, line.resourceId()));
+			Resource pool = this.resources.get(callerId, tenantId, line.resourceId());
+			// Work that needs more of a pool than the pool holds never starts, in any run
+			// at any moment — so it is not a plan that forecasts badly, it is a plan with
+			// no schedule. Refused here where the person can see the bound, and refused
+			// again where a forecast is asked for, because shrinking the pool afterwards
+			// reaches the same state by a door this check cannot watch.
+			if (line.units() > pool.getUnits()) {
+				throw new RequirementExceedsPoolException();
+			}
+			pools.add(pool);
 		}
 		// Cleared and written rather than diffed. A requirement carries no history
 		// anything

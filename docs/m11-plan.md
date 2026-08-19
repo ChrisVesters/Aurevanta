@@ -1,6 +1,6 @@
 # M11 — Resources and people: implementation plan
 
-> **Proposal, 2026-08-19.** Six steps, **two migrations**, and the first change to the engine's
+> **Proposal, 2026-08-19. Built, 2026-08-19.** Six steps, **two migrations**, and the first change to the engine's
 > model since M3b — `Engine.VERSION` moves to **3**. Nothing here draws a random number: what
 > changes is what the scheduler is allowed to start, not what anything is sampled from. Each step
 > gains its `### As built — where it differs from the above` in the same change as its code, not at
@@ -38,7 +38,7 @@
 | 3 | A run that knows who was available ✅ *done* | 2, M3a's snapshot |
 | 4 | Saying it: declaring resources, and what the forecast reports ✅ *done* | 3 |
 | 5 | What if we hire someone? ✅ *done* | 3, M7's counterfactuals |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 **Two migrations are expected**, and they are the first schema this product has added since
 `V16`. Everything M6 through M10 needed was already stored; this is not — a resource is a thing
@@ -751,7 +751,7 @@ tests pass, the frontend at 100% of statements, branches, functions and lines.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 **Goal.** The record matches what was built.
 
@@ -768,6 +768,164 @@ tests pass, the frontend at 100% of statements, branches, functions and lines.
   found the milestone reintroducing a form its own second decision existed to remove.
 
 **Done when** the next reader can tell what M11 decided without reading its code.
+
+### As built — where it differs from the above
+
+**The review pass found one property this milestone rests on and had never asserted.** Work
+that names no resource takes one unit of whichever pool has one free — and it follows that **a
+team nobody has annotated behaves exactly like the capacity it adds up to**, however many pools
+it holds. That is not a footnote: it is what makes describing a team safe to adopt, it is why
+declaring one changes nothing until somebody says what the work needs, and it is the reason the
+bug step 5 found in M10's decomposition hid behind two fixtures before a requirement made it
+visible. It is now `poolsNobodyHasNamedAreTheCapacityTheyAddUpTo`, with its mirror beside it:
+one named requirement is enough to tell the two apart.
+
+**And it sharpened what the milestone claims.** The 14–59% is real and it is *earned*: a team
+gets exactly its old answers until the work is annotated, one item at a time, through a form
+this product opens per row. That is the first thing a real user will feel and nothing in the
+icebox covers it, so it is written into `roadmap.md`'s *what I would build next* rather than
+left as a pleasant surprise.
+
+**Two capacity overloads survive with only tests calling them**, and that is a judgement rather
+than an oversight. `Schedule.of(…, int capacity)` and `Engine.run(…, int capacity, …)` are the
+place the containment is *stated* — "this is the method, and the one above is it with one pool"
+— and they are what let the whole engine suite go through this milestone unedited, which is the
+evidence that version 3 gives version 2's answers. M10's review deleted `Comparison.identical()`
+for having no caller but its own test; the difference is that this pair says something, and
+deleting it would mean thirty call sites expressing the containment through the very code path
+being tested.
+
+**What the close-out changed outside the code.**
+
+- `roadmap.md`: M11 marked done with its own *As built*; **the *duration from effort* bullet
+  struck through and corrected in place**, because the wrong version is the quotable one;
+  **availability promoted out of M11's bullets into its own M12 section** rather than left
+  inside a milestone that did not build it; and *what makes this hard* re-weighted against the
+  measurements — both of its warnings are kept and both are now followed by what they turned
+  out to be worth.
+- `product-concept.md`: the *capacity modelling* deferral is three-quarters answered, and the
+  note says the part that paragraph never mentions — treating a team as one number is not a
+  simplification with an acceptable error, it is optimistic by 14 to 59%.
+- `CLAUDE.md`: a section on what a resource is, what version 3 contains, why occupancy is not
+  speed, and why a team nobody has annotated answers exactly as a capacity does.
+
+**Counts.** 2 new cases in `ScheduleTests`; 1,093 backend tests and 497 frontend tests pass, the
+frontend at 100% of statements, branches, functions and lines and every class this milestone
+added at zero missed branches and zero missed instructions.
+
+
+### The code review, and what it changed
+
+**A review of the whole milestone found six things and all six were acted on.** That is
+unlike M10, where three of eight were argued down; the difference is worth naming, because
+five of these six are one shape — **M11 introduced a second dimension to the model and each
+of them is somewhere that dimension was not carried through.**
+
+**The scheduler's scan was bounded by the wrong question, and it is bounded by that question
+in exactly the shape this milestone exists to model.** `anyFree` stops the scan when no pool
+has a free unit, which restores what counting slots did and is what the step 2 build measured
+against its budget. But a team of ten backend and one designer running work that is nearly all
+backend leaves the designer's unit free for most of the plan — so the guard is true throughout,
+and every completion event walks every ready item again. Measured on the same five-hundred-item
+plan: **449 ms with one pool, 2,276 ms with those two, against a budget of 2,000.** The
+milestone's own budget case never saw it, because it forecasts against a capacity. The guard
+now asks whether anything *waiting* could use anything free — a per-pool demand tally
+maintained as items become startable — and the same plan comes back in **531 ms**. It is a
+strictly tighter stopping condition, so it can only end the scan earlier and never differently:
+the whole engine suite, `ForecastApiTests`' stored-snapshot replays included, passes unedited.
+`EngineTests` now budgets both shapes, because the single-pool one demonstrably does not cover
+the other.
+
+**A requirement larger than the pool it names turned every forecast of that plan into a 500.**
+`Resourcing.of` refuses it — decision 4's termination argument depends on there being none —
+but nothing on the write path did, and an `IllegalArgumentException` is the one failure shape
+this codebase's conventions forbid: Boot's default document, no `code`, nothing for the browser
+to translate. It is reachable two ways and the second is the one that matters: a requirement
+larger than the pool can simply be *typed*, and a pool can be **shrunk below a requirement that
+was legal when it was written**. Both are now refused, and they need two refusals rather than
+one because the second is a door neither package may watch alone — `requirement` cannot see a
+later edit to a pool, and `resource` cannot look at what depends on it without pointing an
+arrow back the way it came. So `RequirementExceedsPoolException` turns somebody away where the
+bound is on screen, and `WorkNeedsMoreThanTheTeamHasException` refuses the forecast, which
+catches every route into that state including any added later. **Neither drops the need
+instead**: leaving it out makes the work generic and the answer sooner than the plan can
+possibly be delivered, with nothing on screen looking amiss.
+
+**M10's decomposition attributed hiring to scope.** This is the one that would have been read
+and believed. `ForecastInputs` holds the pools beside the items, so to a decomposition reading
+that snapshot a run made after somebody joined differed from its predecessor in the *plan* —
+and a reader who had changed nothing about the work was told their scope had grown by however
+long the new person saved them, with `ASSUMPTIONS` reporting zero. The terms still summed,
+because the sum telescopes whichever line the days are put on; what was wrong was the line, and
+nothing about the number could show it. `Movement.Step.RESOURCES` is now its own term, **split
+out of `SCOPE` rather than added beside it** — no two existing terms swapped places, exactly as
+`CALENDAR` is a split out of the assumptions, which is why `Movement.RULE` stays
+`progress_first`. **The requirements travel with the pools and not with the work**, and that is
+load-bearing rather than tidy: a requirement is only readable against a declaration holding the
+pool it names, so a state carrying the newer needs against the older team is not a state
+anybody could have run. An account costs seven simulations now rather than six.
+
+**The needs form deleted requirements it had never rendered.** It is built from the
+organisation's live pools and the endpoint replaces the whole set, so opening it on work that
+named a pool the team had since put away and pressing save destroyed that row without a word.
+The API publishes `resourceArchived` precisely so a reader can be told, and no screen read it.
+It now renders such a row, marked, and preserves it — while still offering only pools *in use*
+for a *new* requirement, which is a different rule and still right.
+
+**And a hire can make the date later.** `daysEarlier` is a difference between two dates and
+this is a fixed-priority list scheduler over a precedence graph, which is where Graham's anomaly
+lives: another unit can let low-priority work start early, tie up what a critical-path successor
+was about to need, and push the finish out — and each end is rounded up to a whole day on its
+own besides. The panel had two sentences for a number with three signs, so a negative arrived as
+"-2 days sooner", which reads as a bug in the page rather than as a fact about the plan. There
+is a third sentence now. Clamping it to zero was the alternative and it would have turned "more
+people can be slower here" — worth knowing, and hard to believe without being shown — into a
+shrug.
+
+**The sixth was a stranded Javadoc block**: `described`'s documentation had been left above
+`hires` by the step 5 build, where it compiled into nothing and the method it belonged to had
+none. Moved.
+
+**And one thing the review did not find, which the coverage gate did.** `ForecastInputs`'
+two-argument constructor — the plan with no team — has had no caller since step 5 fixed
+`withProgress` and `withEstimates` to carry the declaration through. Deleted, on M10's review's
+own precedent for `Comparison.identical()`. The capacity overloads on `Schedule` and `Engine`
+stay for the reason recorded above: those *state* the containment, and this stated nothing.
+
+### The layout, which nothing had
+
+**M11 shipped five class names and no CSS for any of them** — `resources`, `resource-list`,
+`needs`, `hiring`, `hires` — so the resources page rendered as an unstyled bulleted list at the
+window's full width, and both of the milestone's submit buttons were raw browser buttons: they
+are the only two `type="submit"` in this application that never got `className="primary"`. **The
+code review did not find this and could not have**, which is worth recording as a property of
+review rather than as a lapse: it reads source, and a stylesheet with nothing in it for a screen
+looks exactly like a screen that needs nothing. The check that finds it is opening the page.
+
+Nothing here is new design. Each block is the rule its sibling already keeps — `.resources` is
+`.members`, `.resource-list` is `.project-list`, the form that changes a pool opens under its row
+with the dashed rule `.estimate-form` uses, the form that declares one is separated from the list
+the way `.invite-form` is, `.needs` is `.dependency-form`, and `.hiring` is `.forecast .target`,
+because the cuts and the hires are one question asked from two directions.
+
+**Two things only rendering could have told me**, and both were wrong on the first attempt:
+
+- **The needs form's boxes did not line up.** Every row is label, box, hint, and the label took
+  the slack — so each row's box sat wherever that row's hint left it, and "3 available" and "Put
+  away — this still needs it" are different lengths. The hint takes the slack now and the label
+  and box are fixed, which is the whole of what makes the column read as a column.
+- **The hiring form came out as a right-aligned stack.** `.forecast form` turns every form in the
+  panel into a column, and a rule that sets `display: flex` without restating `flex-direction`
+  inherits it — so `align-items: flex-end`, meant to sit the button on the fields' baseline,
+  pushed everything to the right instead. It is stated explicitly now, with a comment saying it
+  is an exception to the rule above rather than an addition to it.
+
+Checked at 1,504px and at 390px, both screens.
+
+**Counts.** 6 new backend cases and 3 new frontend ones; **1,100 backend tests and 500 frontend
+tests pass**, the frontend at 100% of statements, branches, functions and lines, and every class
+this review touched at zero missed branches and zero missed instructions.
+
 
 ---
 

@@ -613,6 +613,11 @@ export const en = {
         buys_other: '{{count}} days sooner — {{date}}',
         // Zero is an answer rather than a rounding error, and the sentence says which.
         buysNothing: 'no sooner at all',
+        // And so is later. Another unit can let low-priority work tie up what the
+        // critical path was about to need — worth knowing, and unbelievable unless it is
+        // said plainly rather than shown as a negative number of days sooner.
+        buysLater_one: '1 day later — {{date}}',
+        buysLater_other: '{{count}} days later — {{date}}',
         // The one place this product's own model is optimistic in a way the number cannot
         // show, said beside the number rather than behind a disclosure.
         rampUp:
@@ -652,7 +657,7 @@ export const en = {
       driftBand_one: '1 day wide',
       driftBand_other: '{{count}} days wide',
       // Why the date moved, between this forecast and an earlier one. Loaded only when
-      // somebody asks, because it costs six whole simulations.
+      // somebody asks, because it costs seven whole simulations.
       movement: {
         open: 'Why did the date move?',
         loading: 'Working out why the date moved…',
@@ -673,6 +678,10 @@ export const en = {
           PROGRESS: 'Work reported since',
           ESTIMATES: 'Estimates revised',
           SCOPE: 'Work added or put away',
+          // Split out of the line above rather than added beside it: hiring is not scope,
+          // and this is the term that stops a second designer reading as a fortnight of
+          // new work.
+          RESOURCES: 'The team, and what the work needs of it',
           ASSUMPTIONS: 'Assumptions changed',
           CALENDAR: 'The working day changed',
           STARTS_ON: 'Time passing'
@@ -838,10 +847,18 @@ export const en = {
         openNamed: 'Say what {{title}} needs',
         lede: 'How many of each does this tie up while it is being done?',
         available: '{{units}} available',
+        // A pool the team has put away that this work still names. Shown rather than
+        // dropped: the form replaces the whole set, so a row it did not render would be a
+        // row it deleted without saying so.
+        putAway: 'Put away — this still needs it',
         anyone:
           'Leave them all empty and anybody can pick this up — it will take one of whoever is free.',
         noResources:
           'Nothing has been declared to need yet. Add your team and equipment on the resources page, and this will ask which of them this work ties up.',
+        // Said where a requirement on a put-away pool is edited, because that is the one
+        // place somebody can act on it — a forecast reports the same thing after the fact.
+        putAwayHint:
+          'A resource that has been put away is left out of forecasts, and the forecast says so. Clear the box to stop this work asking for it.',
         submit: 'Save what it needs',
         cancel: 'Cancel'
       },
@@ -1261,6 +1278,16 @@ export const en = {
       // them up would read a data-entry mistake as a claim about a team.
       duplicate_requirement:
         'That work already needs that resource. Say how many units it needs on one line rather than two.',
+      // Work needing three of a pool of two never starts, in any run at any moment — so
+      // this is not a plan that forecasts badly but a plan with no schedule, and the
+      // number to compare against is printed under the box.
+      requirement_exceeds_pool:
+        'That is more of that resource than the organisation has, so the work could never start. Ask for no more than the number shown under the box.',
+      // The same fact reached from the other side: the pool was made smaller after the
+      // requirement was written. Named as a thing to go and find, because it is somewhere
+      // in the plan rather than in what was just typed.
+      work_needs_more_than_the_team_has:
+        'Some work in this plan needs more of a resource than the team now has, so it could never start. Either raise that resource back up or lower what the work needs of it.',
       // **Reachable through this product's own screens, which a comment here once denied.**
       // The progress form's date input carries no upper bound, so anybody can record a task
       // as finished next week — and a plan holding one loses its throughput answer entirely

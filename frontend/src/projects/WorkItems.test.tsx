@@ -191,6 +191,86 @@ describe('WorkItems', () => {
     expect(screen.getByLabelText('Backend engineers')).toHaveValue(2);
   });
 
+  /**
+   * <strong>The endpoint replaces the whole set, so a row this form does not render is a
+   * row pressing save deletes.</strong> A pool the team has put away is left out of the
+   * listing the form is built from — so before this, opening the panel on work that named
+   * one and saving destroyed that requirement without a word on screen about it.
+   */
+  it('keeps a requirement on a pool the team has put away, and says it is put away', async () => {
+    await openWithResources(
+      [BACKEND],
+      [
+        {
+          workItemId: WORK_ITEMS[0].id,
+          resourceId: 'a9a9a9a9-a9a9-a9a9-a9a9-a9a9a9a9a9a9',
+          resourceName: 'Staging environment',
+          resourceArchived: true,
+          units: 1
+        }
+      ]
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+
+    expect(screen.getByLabelText('Staging environment')).toHaveValue(1);
+    expect(
+      screen.getByText('Put away — this still needs it')
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save what it needs' })
+    );
+
+    const sent = fetchMock.mock.calls.find(
+      (call) => (call[1] as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(JSON.parse(String((sent?.[1] as RequestInit).body))).toEqual({
+      needs: [{ resourceId: 'a9a9a9a9-a9a9-a9a9-a9a9-a9a9a9a9a9a9', units: 1 }]
+    });
+  });
+
+  /** And it can be cleared, which is the one place anybody can act on it. */
+  it('lets a requirement on a put-away pool be cleared', async () => {
+    await openWithResources(
+      [],
+      [
+        {
+          workItemId: WORK_ITEMS[0].id,
+          resourceId: 'a9a9a9a9-a9a9-a9a9-a9a9-a9a9a9a9a9a9',
+          resourceName: 'Staging environment',
+          resourceArchived: true,
+          units: 1
+        }
+      ]
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+
+    expect(
+      screen.getByText(
+        /A resource that has been put away is left out of forecasts/
+      )
+    ).toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText('Staging environment'));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save what it needs' })
+    );
+
+    const sent = fetchMock.mock.calls.find(
+      (call) => (call[1] as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(JSON.parse(String((sent?.[1] as RequestInit).body))).toEqual({
+      needs: []
+    });
+  });
+
   it('sends the whole set in place of whatever was there', async () => {
     await openWithResources();
     await userEvent.click(

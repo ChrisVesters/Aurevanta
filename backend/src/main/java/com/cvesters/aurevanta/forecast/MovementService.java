@@ -5,14 +5,17 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedItem;
+import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedNeed;
 import com.cvesters.aurevanta.forecast.Movement.Step;
 import com.cvesters.aurevanta.forecast.model.Comparison;
 import com.cvesters.aurevanta.forecast.model.Forecast;
@@ -103,18 +106,19 @@ public class MovementService {
 		Forecast progressed = run(withProgress(olderInputs, newerInputs), olderTerms, samples, seed);
 		Forecast reEstimated = run(withEstimates(withProgress(olderInputs, newerInputs), newerInputs), olderTerms,
 				samples, seed);
-		Forecast rescoped = run(newerInputs, olderTerms, samples, seed);
+		Forecast rescoped = run(withScope(olderInputs, newerInputs), olderTerms, samples, seed);
+		Forecast reteamed = run(newerInputs, olderTerms, samples, seed);
 		Forecast reasked = run(newerInputs, newerTerms, samples, seed);
 		// Identical inputs, identical assumptions, identical seed: this *is* the newer
 		// run.
 		ForecastService.requireReproduces(newer, reasked);
 
-		List<Forecast> states = List.of(sampled, progressed, reEstimated, rescoped, reasked);
+		List<Forecast> states = List.of(sampled, progressed, reEstimated, rescoped, reteamed, reasked);
 		List<MovementAtResponse> at = new ArrayList<>(ForecastService.CONFIDENCES.length);
 		for (int confidence : ForecastService.CONFIDENCES) {
 			at.add(read(older, olderTerms, newerTerms, confidence, states));
 		}
-		return new MovementResponse(older.getId(), newer.getId(), Movement.RULE, 6, at);
+		return new MovementResponse(older.getId(), newer.getId(), Movement.RULE, 7, at);
 	}
 
 	/**
@@ -144,9 +148,9 @@ public class MovementService {
 		// last
 		// two terms change nothing but how the same hours are read.
 		List<BigDecimal> hoursByStep = List.of(from, after.get(0), after.get(1), after.get(2), after.get(3),
-				after.get(4), after.get(4), after.get(4));
+				after.get(4), after.get(5), after.get(5), after.get(5));
 		List<ForecastTerms> termsByStep = List.of(olderTerms, olderTerms, olderTerms, olderTerms, olderTerms,
-				olderTerms, calendarOf(newerTerms, olderTerms), newerTerms);
+				olderTerms, olderTerms, calendarOf(newerTerms, olderTerms), newerTerms);
 
 		List<MovementTermResponse> terms = new ArrayList<>(Movement.ORDER.size());
 		for (int step = 0; step < Movement.ORDER.size(); step++) {
@@ -155,8 +159,8 @@ public class MovementService {
 			terms.add(new MovementTermResponse(Movement.ORDER.get(step), now.subtract(was),
 					daysBetween(termsByStep.get(step), was, termsByStep.get(step + 1), now)));
 		}
-		return new MovementAtResponse(confidence, dateUnder(olderTerms, from), dateUnder(newerTerms, after.get(4)),
-				from, after.get(4), terms);
+		return new MovementAtResponse(confidence, dateUnder(olderTerms, from), dateUnder(newerTerms, after.get(5)),
+				from, after.get(5), terms);
 	}
 
 	/**
@@ -205,6 +209,37 @@ public class MovementService {
 		// against a capacity — which would move the date for a reason no term names and
 		// leave the account summing to something nobody was shown.
 		return new ForecastInputs(items, older.edges(), older.pools(), older.needs());
+	}
+
+	/**
+	 * Then the work itself: whatever the plan now holds, against the team as it was.
+	 *
+	 * <p>
+	 * <strong>The team stays behind so that the next step has something to say</strong> —
+	 * hiring is not scope, and a state that took the newer pools here would attribute a
+	 * second designer to "work added or put away".
+	 *
+	 * <p>
+	 * <strong>The requirements stay behind with it, and they have to.</strong> A
+	 * requirement is read against the declaration that holds the pool it names, so the
+	 * newer ones against the older team is not a state anybody could have run — a task
+	 * needing a pool declared since would have nothing to be scheduled against. The older
+	 * ones on work the plan no longer holds go too, for the same reason: they describe
+	 * nothing that is there. New work therefore arrives here as work anybody can pick up,
+	 * and acquires what it needs in the step that acquires the team.
+	 */
+	private static ForecastInputs withScope(ForecastInputs older, ForecastInputs newer) {
+		Set<UUID> held = new HashSet<>();
+		for (PlannedItem item : newer.items()) {
+			held.add(item.id());
+		}
+		List<PlannedNeed> needs = new ArrayList<>();
+		for (PlannedNeed need : older.needs()) {
+			if (held.contains(need.workItemId())) {
+				needs.add(need);
+			}
+		}
+		return new ForecastInputs(newer.items(), newer.edges(), older.pools(), needs);
 	}
 
 	/** And what everybody now thinks it will take, for that same work. */

@@ -56,6 +56,7 @@ import com.cvesters.aurevanta.problem.ProjectNotFoundException;
 import com.cvesters.aurevanta.problem.ResourceNotInForecastException;
 import com.cvesters.aurevanta.problem.ScopeGrowthOutOfOrderException;
 import com.cvesters.aurevanta.problem.TooManyCandidatesException;
+import com.cvesters.aurevanta.problem.WorkNeedsMoreThanTheTeamHasException;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.requirement.Requirement;
 import com.cvesters.aurevanta.requirement.RequirementService;
@@ -209,11 +210,11 @@ public class ForecastService {
 			}
 		}
 
-		Set<UUID> declared = new HashSet<>();
+		Map<UUID, Integer> declared = new HashMap<>();
 		List<PlannedPool> team = new ArrayList<>(pools.size());
 		int units = 0;
 		for (Resource pool : pools) {
-			declared.add(pool.getId());
+			declared.put(pool.getId(), pool.getUnits());
 			team.add(new PlannedPool(pool.getId(), pool.getUnits()));
 			units += pool.getUnits();
 		}
@@ -226,12 +227,21 @@ public class ForecastService {
 			}
 			// A pool that has been put away is left out and said out loud, exactly as an
 			// arrow into archived work is.
-			if (declared.contains(requirement.getResource().getId())) {
-				needs.add(new PlannedNeed(item, requirement.getResource().getId(), requirement.getUnits()));
-			}
-			else {
+			Integer holds = declared.get(requirement.getResource().getId());
+			if (holds == null) {
 				droppedNeeds = true;
+				continue;
 			}
+			// And a pool still in use that has since been shrunk below what this work
+			// needs is refused rather than left out: dropping it would make the work
+			// generic and the forecast sooner than the plan can possibly be delivered.
+			// `requirement` refuses this on the way in; a pool can be shrunk afterwards,
+			// and `resource` may not look at what depends on it without pointing an arrow
+			// back the way it came.
+			if (requirement.getUnits() > holds) {
+				throw new WorkNeedsMoreThanTheTeamHasException();
+			}
+			needs.add(new PlannedNeed(item, requirement.getResource().getId(), requirement.getUnits()));
 		}
 		// **One of the two, never both and never neither.** Once a team is described the
 		// concurrency is what it holds, and a second number beside it would leave a

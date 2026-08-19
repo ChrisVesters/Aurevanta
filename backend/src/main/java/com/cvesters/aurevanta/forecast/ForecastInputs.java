@@ -51,13 +51,6 @@ public record ForecastInputs(List<PlannedItem> items, List<PlannedEdge> edges, L
 	}
 
 	/**
-	 * The plan as it stood, and the team as it stood — which are two different things.
-	 */
-	public ForecastInputs(List<PlannedItem> items, List<PlannedEdge> edges) {
-		this(items, edges, List.of(), List.of());
-	}
-
-	/**
 	 * One piece of work as the forecast saw it.
 	 *
 	 * @param estimates one per estimator, in the order they were read — which is what

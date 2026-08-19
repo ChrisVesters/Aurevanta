@@ -41,6 +41,8 @@ const BACKEND_CODES = [
   'forecast_has_no_resources',
   'person_not_a_member',
   'duplicate_requirement',
+  'requirement_exceeds_pool',
+  'work_needs_more_than_the_team_has',
   'forecast_replay_mismatch',
   'forecast_has_no_calendar',
   'candidate_not_in_forecast',

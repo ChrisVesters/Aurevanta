@@ -231,7 +231,7 @@ export function ForecastPanel({
    * Which earlier forecast somebody is asking about, and the account that came back.
    *
    * Its own request, like the breakdown above and for the same reason: an account of a
-   * movement costs six whole simulations, which is cheap for somebody who asked and rude to
+   * movement costs seven whole simulations, which is cheap for somebody who asked and rude to
    * charge everybody who opened the page.
    */
   const [explainingMove, setExplainingMove] = useState<string | null>(null);
@@ -355,7 +355,7 @@ export function ForecastPanel({
     };
   }, [request, projectId, t]);
 
-  // The same shape as the breakdown below, and for the same reason: six simulations is long
+  // The same shape as the breakdown below, and for the same reason: seven simulations is long
   // enough that somebody can navigate away while it is in flight, and nothing arriving
   // afterwards may touch a panel that has gone.
   useEffect(() => {
@@ -1331,7 +1331,7 @@ function readingOf<T extends { confidence: number }>(
 /**
  * The question "why did the date move?", and its answer once somebody has asked it.
  *
- * **It costs six simulations and says so.** M7's rule: a number that is expensive to produce
+ * **It costs seven simulations and says so.** M7's rule: a number that is expensive to produce
  * should say what it cost rather than surprise somebody, and this is the second place in the
  * product where a read runs the engine.
  */

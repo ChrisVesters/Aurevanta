@@ -235,6 +235,24 @@ core value.
 > landing later cannot move a date this product has already published — which is the one thing
 > a holiday list would otherwise do to every historical forecast at once.
 
+> **Three-quarters answered, 2026-08-19, and the deferral splits once more.** M11 built *people*
+> and *allocation* and deliberately did not build *holidays*: a resource is a named pool with a
+> number of units, an item says how many units of which pools it ties up, and the scheduler
+> starts only what can have what it needs. All of that is still in **effort**, which is what
+> made it separable — units decide what may start, and the calendar over the answer is still
+> M4's.
+>
+> **The part of this paragraph that turned out to matter is the part it does not mention.** The
+> deferral treats capacity modelling as schema complexity to be avoided; measured, treating a
+> team as one number is not a simplification but a **lower bound** — the same six units read as
+> six interchangeable slots finish 14% to 59% earlier than as two pools work cannot cross
+> between, and it gets worse the more specialised a team is. A flat capacity does not demonstrate
+> the core value with an acceptable error; it demonstrates it optimistically, in the one
+> direction this product exists to correct.
+>
+> **What is left is holidays and part-time**, which is M12 and is the only half that needs the
+> engine to know what day it is.
+
 ## Modelling concerns to design around
 
 ### The input problem is harder than the maths ✅ *mostly built by M5*

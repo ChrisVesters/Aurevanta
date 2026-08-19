@@ -215,6 +215,25 @@ class RequirementApiTests {
 			.andExpect(jsonPath("$.code").value("duplicate_requirement"));
 	}
 
+	/**
+	 * <strong>Work needing more of a pool than the pool holds never starts</strong> — in
+	 * any run, at any moment — so a plan holding it has no schedule rather than a
+	 * pessimistic one. Refused here where the person can see the bound: every box on that
+	 * form carries how many the pool has.
+	 */
+	@Test
+	void workCannotNeedMoreOfAPoolThanThePoolHolds() throws Exception {
+		needs(this.migration, needing(this.staging, 2)).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("requirement_exceeds_pool"));
+	}
+
+	/** Exactly what it holds is not more than it holds. */
+	@Test
+	void workMayNeedEveryUnitAPoolHolds() throws Exception {
+		needs(this.migration, needing(this.backend, 3)).andExpect(status().isOk())
+			.andExpect(jsonPath("$[0].units").value(3));
+	}
+
 	/** And nothing was written on the way to refusing it. */
 	@Test
 	void aRefusedSetLeavesWhatWasThereAlone() throws Exception {

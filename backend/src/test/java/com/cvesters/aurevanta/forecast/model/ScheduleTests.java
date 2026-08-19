@@ -440,6 +440,47 @@ class ScheduleTests {
 	}
 
 	/**
+	 * <strong>A team nobody has annotated is the capacity it adds up to, however many
+	 * pools it has</strong> — which is the property that makes describing a team safe,
+	 * and the one that says why doing so alone changes nothing.
+	 *
+	 * <p>
+	 * Work that names nothing takes one unit of whichever pool has one free, so when
+	 * <em>nothing</em> is named the pools are interchangeable and only the total matters.
+	 * It was found the hard way: a decomposition rebuilt without its team gave identical
+	 * answers on a fixture where no item named anything, and the bug it was hiding needed
+	 * a requirement before it would show at all.
+	 */
+	@Test
+	void poolsNobodyHasNamedAreTheCapacityTheyAddUpTo() {
+		double[] durations = { 4, 6, 3, 9, 2, 7 };
+		List<Precedence> links = List.of(edge(0, 3), edge(1, 4));
+
+		Schedule counted = Schedule.of(links, new double[6], new boolean[6], 5);
+
+		for (int[] pools : new int[][] { { 5 }, { 2, 3 }, { 1, 1, 3 }, { 1, 1, 1, 1, 1 } }) {
+			Schedule typed = Schedule.of(links, new double[6], new boolean[6],
+					Resourcing.of(pools, new int[6][pools.length]));
+
+			assertThat(typed.finish(durations)).as("%d pools", pools.length).isEqualTo(counted.finish(durations));
+		}
+	}
+
+	/** And one requirement is all it takes for that to stop being true. */
+	@Test
+	void oneNamedRequirementIsEnoughToTellThemApart() {
+		double[] durations = { 10, 10 };
+		int[][] bothOnTheFirst = { { 1, 0 }, { 1, 0 } };
+
+		Schedule counted = Schedule.of(List.of(), new double[2], new boolean[2], 2);
+		Schedule typed = Schedule.of(List.of(), new double[2], new boolean[2],
+				Resourcing.of(new int[] { 1, 1 }, bothOnTheFirst));
+
+		assertThat(counted.finish(durations)).isCloseTo(10.0, within(EXACT));
+		assertThat(typed.finish(durations)).isCloseTo(20.0, within(EXACT));
+	}
+
+	/**
 	 * <strong>The measurement this milestone exists for, as a case anybody can check by
 	 * hand.</strong> Four items of ten hours and four units of capacity: interchangeable,
 	 * they all run at once and the plan takes ten. Split into two pools of two with three

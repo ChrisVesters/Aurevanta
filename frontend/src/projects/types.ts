@@ -543,7 +543,7 @@ export type Movement = {
   toRunId: string;
   /** Which order the terms were attributed in — a name, because two orders give two splits. */
   rule: string;
-  /** What it cost, said rather than hidden: this is six whole simulations. */
+  /** What it cost, said rather than hidden: this is seven whole simulations. */
   simulations: number;
   at: MovementAt[];
 };

@@ -1335,6 +1335,33 @@ class ForecastApiTests {
 	}
 
 	/**
+	 * <strong>A pool shrunk below what work already needs of it is refused, not left
+	 * out.</strong> The requirement was legal when it was written and the pool got
+	 * smaller afterwards, which is a door {@code requirement} cannot watch — and
+	 * {@code resource} may not look at what depends on it without pointing an arrow back
+	 * the way it came.
+	 *
+	 * <p>
+	 * Dropping the need instead would make the work generic and the forecast sooner than
+	 * the plan can possibly be delivered, with nothing on screen looking amiss. Before
+	 * this it was neither: {@code Resourcing} refused it with an
+	 * {@code IllegalArgumentException} nothing handled, so every forecast of the plan
+	 * answered 500 with no {@code code} at all.
+	 */
+	@Test
+	void refusesAPlanNeedingMoreOfAPoolThanTheTeamStillHas() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		needs(this.migration, backend, 3);
+		backend.describe("Backend engineers", 1, null);
+		this.resources.save(backend);
+
+		asking(withoutCapacity()).andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.code").value("work_needs_more_than_the_team_has"));
+
+		assertThat(this.runs.findAll()).isEmpty();
+	}
+
+	/**
 	 * <strong>What a run was scheduled against travels with the number</strong>, which is
 	 * the rule the five assumptions and the calendar already keep. The units are the
 	 * run's own and the name is today's — a pool renamed since is not a thing that moved,

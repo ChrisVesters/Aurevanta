@@ -22,7 +22,7 @@ import java.util.UUID;
  * @param rule which order the terms were attributed in — a name, because two defensible
  * orders split the same eight days differently.
  * @param simulations how many times the plan was run to answer this, published for M7's
- * reason: a number that costs six simulations should say so rather than surprise
+ * reason: a number that costs seven simulations should say so rather than surprise
  * somebody.
  */
 public record MovementResponse(UUID fromRunId, UUID toRunId, String rule, int simulations,

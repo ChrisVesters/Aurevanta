@@ -112,7 +112,7 @@ export function ResourceForm({
         </span>
       </p>
       <p className="actions">
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="primary" disabled={busy}>
           {busy ? submitting : submit}
         </button>
       </p>

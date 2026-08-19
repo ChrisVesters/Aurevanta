@@ -168,7 +168,8 @@ class MovementApiTests {
 		JsonNode at = readMovement(second, first, 80);
 
 		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
-		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "ASSUMPTIONS", "CALENDAR", "STARTS_ON" }) {
+		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "RESOURCES", "ASSUMPTIONS", "CALENDAR",
+				"STARTS_ON" }) {
 			assertThat(termOf(at, step)).as("%s of an unchanged plan", step).isZero();
 		}
 	}
@@ -287,7 +288,7 @@ class MovementApiTests {
 		// It changes the divisor and not one hour of the answer, so every other term that
 		// could have moved the hours is nothing — and the two ends differ only by the
 		// seed.
-		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "ASSUMPTIONS", "STARTS_ON" }) {
+		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "RESOURCES", "ASSUMPTIONS", "STARTS_ON" }) {
 			assertThat(termOf(at, step)).as("%s of a plan that only changed its working day", step).isZero();
 		}
 		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
@@ -318,9 +319,68 @@ class MovementApiTests {
 
 		JsonNode at = readMovement(after, before, 80);
 
-		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "ASSUMPTIONS", "CALENDAR", "STARTS_ON" }) {
+		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "RESOURCES", "ASSUMPTIONS", "CALENDAR",
+				"STARTS_ON" }) {
 			assertThat(termOf(at, step)).as("%s of a plan whose team did not change", step).isZero();
 		}
+		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
+	}
+
+	/**
+	 * <strong>Hiring is not scope, and this is the term that says so.</strong> M11 put
+	 * the team inside the stored inputs, so a run made after somebody joined differed
+	 * from its predecessor in the <em>plan</em> as far as a decomposition reading that
+	 * snapshot could see — and a reader who had changed nothing about the work was told
+	 * their scope had grown by however long the new person saved them. The terms still
+	 * summed, because the sum telescopes whichever line the days are put on; what was
+	 * wrong was the line.
+	 */
+	@Test
+	void hiringIsItsOwnTermAndNotScope() throws Exception {
+		Resource backend = this.resources
+			.save(new Resource(this.plan.getTenant(), "Backend engineers", 1, null, CREATED_AT));
+		// Every item needing the one pool, so that a second unit is the only thing on
+		// this
+		// plan that can move the date and the term has something to carry.
+		for (WorkItem item : this.items.findAll()) {
+			this.requirements.save(new Requirement(this.plan.getTenant(), item, backend, 1, CREATED_AT));
+		}
+		UUID before = forecast(scheduled());
+		backend.describe("Backend engineers", 2, null);
+		this.resources.save(backend);
+		UUID after = forecast(scheduled());
+
+		JsonNode at = readMovement(after, before, 80);
+
+		assertThat(termOf(at, "RESOURCES")).as("what the second engineer bought").isNegative();
+		for (String step : new String[] { "PROGRESS", "ESTIMATES", "SCOPE", "ASSUMPTIONS", "CALENDAR", "STARTS_ON" }) {
+			assertThat(termOf(at, step)).as("%s of a plan that only hired somebody", step).isZero();
+		}
+		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
+	}
+
+	/**
+	 * <strong>And so is saying what work needs</strong>, which travels with the team
+	 * rather than with the plan. A requirement can only be read against a declaration
+	 * holding the pool it names, so a state carrying the newer requirements against the
+	 * older team is not a state anybody could have run — keeping the two together is what
+	 * makes every step on the path a plan that could have been forecast.
+	 */
+	@Test
+	void sayingWhatWorkNeedsIsTheSameTerm() throws Exception {
+		Resource backend = this.resources
+			.save(new Resource(this.plan.getTenant(), "Backend engineers", 2, null, CREATED_AT));
+		UUID before = forecast(scheduled());
+		for (WorkItem item : this.items.findAll()) {
+			this.requirements.save(new Requirement(this.plan.getTenant(), item, backend, 2, CREATED_AT));
+		}
+		UUID after = forecast(scheduled());
+
+		JsonNode at = readMovement(after, before, 80);
+
+		assertThat(termOf(at, "RESOURCES")).as("work that now ties up the whole pool").isPositive();
+		assertThat(termOf(at, "SCOPE")).isZero();
+		assertThat(termOf(at, "ESTIMATES")).isZero();
 		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
 	}
 
@@ -422,7 +482,7 @@ class MovementApiTests {
 
 		read(this.ada, after, before).andExpect(status().isOk())
 			.andExpect(jsonPath("$.rule").value(Movement.RULE))
-			.andExpect(jsonPath("$.simulations").value(6))
+			.andExpect(jsonPath("$.simulations").value(7))
 			.andExpect(jsonPath("$.fromRunId").value(before.toString()))
 			.andExpect(jsonPath("$.toRunId").value(after.toString()))
 			.andExpect(jsonPath("$.at.length()").value(3));
@@ -482,6 +542,28 @@ class MovementApiTests {
 		this.migration.archive(CREATED_AT);
 		this.items.save(this.migration);
 		UUID after = forecast(assuming(2));
+
+		JsonNode at = readMovement(after, before, 80);
+
+		assertThat(termOf(at, "SCOPE")).isNegative();
+		assertThat(termsSum(at)).isEqualTo(totalMoved(at));
+	}
+
+	/**
+	 * <strong>And the requirement it carried goes with it.</strong> Every state on the
+	 * path is scheduled, and a requirement is read against the item it names — so an
+	 * older need on work the newer plan no longer holds is not a row to leave lying
+	 * around, it is a state with nothing to attach to.
+	 */
+	@Test
+	void aRequirementOnWorkPutAwaySinceGoesWithIt() throws Exception {
+		Resource backend = this.resources
+			.save(new Resource(this.plan.getTenant(), "Backend engineers", 2, null, CREATED_AT));
+		this.requirements.save(new Requirement(this.plan.getTenant(), this.migration, backend, 2, CREATED_AT));
+		UUID before = forecast(scheduled());
+		this.migration.archive(CREATED_AT);
+		this.items.save(this.migration);
+		UUID after = forecast(scheduled());
 
 		JsonNode at = readMovement(after, before, 80);
 

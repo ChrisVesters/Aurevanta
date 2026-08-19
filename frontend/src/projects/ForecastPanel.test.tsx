@@ -146,6 +146,9 @@ const MOVEMENT = {
       { step: 'PROGRESS', movedHours: -6, movedDays: -1 },
       { step: 'ESTIMATES', movedHours: 24, movedDays: 4 },
       { step: 'SCOPE', movedHours: 30, movedDays: confidence === 80 ? 5 : 1 },
+      // Its own term rather than part of the one above: M11's review found that hiring
+      // was landing in "work added or put away", which is a sentence a reader believes.
+      { step: 'RESOURCES', movedHours: -12, movedDays: -2 },
       { step: 'ASSUMPTIONS', movedHours: 0, movedDays: 0 },
       { step: 'CALENDAR', movedHours: 0, movedDays: 0 },
       { step: 'STARTS_ON', movedHours: 0, movedDays: 0 }
@@ -2429,6 +2432,36 @@ describe('ForecastPanel', () => {
   });
 
   /**
+   * **And later is an answer too.** This is a fixed-priority list scheduler over a
+   * precedence graph, which is where Graham's anomaly lives: another unit can let
+   * low-priority work tie up what the critical path was about to need. Rendered through
+   * the "sooner" wording it arrives as "-2 days sooner", which reads as a bug in this
+   * page rather than as a fact about the plan.
+   */
+  it('says when hiring makes the date later rather than showing a negative', async () => {
+    await openWithResourcedRun({
+      resourceId: 'r1',
+      simulations: 3,
+      at: [50, 80, 95].map((confidence) => ({
+        confidence,
+        stands: '2026-08-25',
+        hires: [
+          { units: 1, by: '2026-08-27', daysEarlier: -2 },
+          { units: 2, by: '2026-08-26', daysEarlier: -1 }
+        ]
+      }))
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
+
+    expect(
+      await screen.findByText('2 days later — Aug 27, 2026')
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 day later — Aug 26, 2026')).toBeInTheDocument();
+    expect(screen.queryByText(/sooner/)).toBeNull();
+  });
+
+  /**
    * <strong>The model has no ramp-up and the screen says so.</strong> A unit added is at
    * full rate from the first hour, which no new joiner is — the one place this product's
    * own model is optimistic in a way the number cannot show.
@@ -2768,7 +2801,7 @@ describe('ForecastPanel', () => {
       await screen.findByRole('button', { name: 'Why did the date move?' })
     );
 
-    expect(await screen.findAllByText('not in days')).toHaveLength(7);
+    expect(await screen.findAllByText('not in days')).toHaveLength(8);
     expect(screen.queryByText(/this plan moved out/)).toBeNull();
   });
 

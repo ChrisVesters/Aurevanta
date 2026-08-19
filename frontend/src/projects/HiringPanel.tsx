@@ -135,12 +135,25 @@ export function HiringPanel({
                   {t('projects.forecast.hiring.step', { count: step.units })}
                 </span>
                 <span className="days">
-                  {step.daysEarlier === 0
-                    ? t('projects.forecast.hiring.buysNothing')
-                    : t('projects.forecast.hiring.buys', {
-                        count: step.daysEarlier,
-                        date: formatDay(step.by, i18n.language)
-                      })}
+                  {/*
+                    Three sentences rather than one, because the number has three signs.
+                    A negative is a real answer — a list scheduler over a precedence graph
+                    can finish later with more units, and each date is rounded up on its
+                    own — and rendering it through the "sooner" wording would read as a
+                    bug in this page rather than as a fact about the plan.
+                  */}
+                  {step.daysEarlier === 0 &&
+                    t('projects.forecast.hiring.buysNothing')}
+                  {step.daysEarlier > 0 &&
+                    t('projects.forecast.hiring.buys', {
+                      count: step.daysEarlier,
+                      date: formatDay(step.by, i18n.language)
+                    })}
+                  {step.daysEarlier < 0 &&
+                    t('projects.forecast.hiring.buysLater', {
+                      count: -step.daysEarlier,
+                      date: formatDay(step.by, i18n.language)
+                    })}
                 </span>
               </li>
             ))}

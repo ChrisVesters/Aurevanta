@@ -287,6 +287,10 @@ public final class Schedule {
 		Timeline running = new Timeline(total);
 		Timeline lagging = new Timeline(total);
 		int[] free = this.resourcing.freeUnits();
+		// How many pieces of work that could start right now could use each pool. The
+		// scan below stops when nothing startable can use anything still free, which is
+		// not the same question as whether anything is free at all — see anyUseful.
+		int[] demand = new int[free.length];
 		// Which pool each piece of work that named nothing took its one unit from, so
 		// that
 		// it gives that unit back rather than one of somebody else's.
@@ -312,6 +316,7 @@ public final class Schedule {
 			}
 			else if (awaiting[item] == 0) {
 				startable.set(this.positionOf[item]);
+				wanting(item, demand, 1);
 			}
 		}
 
@@ -323,18 +328,21 @@ public final class Schedule {
 			// and the class note says why: holding a slot for one piece of work while
 			// another could have it models a team nobody has.
 			for (int position = startable.nextSetBit(0); position >= 0
-					&& anyFree(free); position = startable.nextSetBit(position + 1)) {
+					&& anyUseful(free, demand); position = startable.nextSetBit(position + 1)) {
 				int item = order[position];
 				if (fits(rowOf(item, parentOf), free)) {
 					take(rowOf(item, parentOf), free, tookFrom, item);
 					startable.clear(position);
+					wanting(rowOf(item, parentOf), demand, -1);
 					running.add(now + durations[item], item);
 				}
 			}
 			now = (!running.isEmpty() && (lagging.isEmpty() || running.next() <= lagging.next())) ? running.next()
 					: lagging.next();
 			while (!lagging.isEmpty() && lagging.next() <= now) {
-				startable.set(this.positionOf[lagging.take()]);
+				int let = lagging.take();
+				startable.set(this.positionOf[let]);
+				wanting(let, demand, 1);
 			}
 			while (!running.isEmpty() && running.next() <= now) {
 				int item = running.take();
@@ -342,7 +350,7 @@ public final class Schedule {
 				finished++;
 				completion = now;
 				if (item < this.itemCount) {
-					release(item, now, awaiting, readyAt, startable, lagging);
+					release(item, now, awaiting, readyAt, startable, lagging, demand);
 					// Whatever this run discovered behind this item can begin. No lag,
 					// and
 					// nothing waits on it in turn, so there is nothing else to hand on.
@@ -351,6 +359,7 @@ public final class Schedule {
 					if (found > 0) {
 						for (int at = firstFound[item]; at >= 0; at = nextFound[at]) {
 							startable.set(this.itemCount + at);
+							wanting(parentOf[at], demand, 1);
 						}
 					}
 				}
@@ -360,7 +369,7 @@ public final class Schedule {
 	}
 
 	/**
-	 * Whether there is anything left to start anything with.
+	 * Whether anything that could start now could use anything still free.
 	 *
 	 * <p>
 	 * <strong>The scan above is bounded by this and needs to be.</strong> Stepping over
@@ -372,16 +381,53 @@ public final class Schedule {
 	 * guard.
 	 *
 	 * <p>
-	 * With one pool it restores exactly what counting slots did — no unit free is the
-	 * whole capacity in flight — so the containment holds in cost as well as in answers.
+	 * <strong>"Is anything free" is the wrong question, and it is wrong in exactly the
+	 * shape this milestone exists to model.</strong> A team of ten backend and one
+	 * designer running work that is nearly all backend leaves the designer's unit free
+	 * for most of the plan — so a guard asking only whether some pool has a unit is true
+	 * throughout, and every event walks every ready item again. Measured on the same
+	 * five-hundred-item plan: 449 ms with one pool, 2,276 ms with those two, against a
+	 * budget of two seconds. The unit being free is not the point; a unit being free
+	 * <em>that something waiting could take</em> is.
+	 *
+	 * <p>
+	 * With one pool the two questions coincide — everything startable wants the only pool
+	 * there is — so the containment holds in cost as well as in answers.
+	 * @param demand how many startable items could use each pool, which is what makes
+	 * this tighter than counting free units
 	 */
-	private static boolean anyFree(int[] free) {
-		for (int unit : free) {
-			if (unit > 0) {
+	private static boolean anyUseful(int[] free, int[] demand) {
+		for (int pool = 0; pool < free.length; pool++) {
+			if (free[pool] > 0 && demand[pool] > 0) {
 				return true;
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Counts one piece of work in or out of the demand for every pool it could use.
+	 *
+	 * <p>
+	 * Work that names nothing could use any of them, which is what makes it the case that
+	 * decides the guard above: a plan of generic work wants every pool, so the guard
+	 * relaxes to "is anything free" exactly where that is the right question.
+	 * @param row whose requirement it is scheduled by — its own, or its parent's for work
+	 * a run discovered
+	 * @param by 1 as it becomes startable and -1 as it starts
+	 */
+	private void wanting(int row, int[] demand, int by) {
+		if (this.resourcing.namesNothing(row)) {
+			for (int pool = 0; pool < demand.length; pool++) {
+				demand[pool] += by;
+			}
+			return;
+		}
+		for (int pool = 0; pool < demand.length; pool++) {
+			if (this.resourcing.needed(row, pool) > 0) {
+				demand[pool] += by;
+			}
+		}
 	}
 
 	/**
@@ -405,8 +451,9 @@ public final class Schedule {
 	 * other short would leave a unit held by nobody.
 	 *
 	 * <p>
-	 * Asked only while {@link #anyFree} holds, which is what makes the answer for work
-	 * that names nothing a constant rather than a search.
+	 * Asked only while {@link #anyUseful} holds, which is what makes the answer for work
+	 * that names nothing a constant rather than a search: work that names nothing wants
+	 * every pool, so the guard cannot hold without a unit it can take.
 	 */
 	private boolean fits(int row, int[] free) {
 		if (this.resourcing.namesNothing(row)) {
@@ -471,7 +518,8 @@ public final class Schedule {
 	 * Hands one finished item's successors whatever it was holding them up by: a
 	 * predecessor fewer, and a moment before which they cannot begin.
 	 */
-	private void release(int item, double now, int[] awaiting, double[] readyAt, BitSet startable, Timeline lagging) {
+	private void release(int item, double now, int[] awaiting, double[] readyAt, BitSet startable, Timeline lagging,
+			int[] demand) {
 		int[] next = this.successors[item];
 		for (int at = 0; at < next.length; at++) {
 			int successor = next[at];
@@ -484,6 +532,7 @@ public final class Schedule {
 			}
 			if (readyAt[successor] <= now) {
 				startable.set(this.positionOf[successor]);
+				wanting(successor, demand, 1);
 			}
 			else {
 				// Counting down a wait rather than occupying a slot, so nothing else is

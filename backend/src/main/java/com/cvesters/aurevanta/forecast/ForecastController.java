@@ -110,7 +110,8 @@ class ForecastController {
 	 * <p>
 	 * <strong>The terms add up to the whole distance between the two</strong>, which is
 	 * the only reason a sentence like "out eight days: five new scope, four re-estimates,
-	 * one of progress" is worth publishing at all. It costs six simulations and says so.
+	 * one of progress" is worth publishing at all. It costs seven simulations and says
+	 * so.
 	 *
 	 * <p>
 	 * Which of the two runs is the older one is worked out here rather than demanded —
@@ -143,14 +144,6 @@ class ForecastController {
 	}
 
 	/**
-	 * One run as the API describes it, with the team it was scheduled against named.
-	 *
-	 * <p>
-	 * The organisation's pools are looked up once per request rather than once per run: a
-	 * plan's whole history is described in one answer, and a name is the only thing here
-	 * that comes from anywhere but the run itself.
-	 */
-	/**
 	 * What hiring into one pool would be worth, weighed against this run.
 	 *
 	 * <p>
@@ -166,6 +159,14 @@ class ForecastController {
 				request.units());
 	}
 
+	/**
+	 * One run as the API describes it, with the team it was scheduled against named.
+	 *
+	 * <p>
+	 * The organisation's pools are looked up once per request rather than once per run: a
+	 * plan's whole history is described in one answer, and a name is the only thing here
+	 * that comes from anywhere but the run itself.
+	 */
 	private ForecastResponse described(ForecastRun run, Map<UUID, Resource> pools) {
 		return ForecastResponse.of(run, this.forecasts.outputsOf(run), ForecastService.teamOf(run, pools));
 	}

@@ -299,7 +299,7 @@ gone.
 |---|---|
 | Unit of estimation — task, story, or epic? | **Task.** Coarser units hide scope growth inside the estimate, which M3's scope-uncertainty model then double-counts. |
 | Multi-estimator (wideband Delphi / planning poker)? | **Design the schema for it now, build the UI later.** An estimate already has an estimator; allowing several per item is a uniqueness constraint, not a rewrite. Disagreement between estimators is itself signal. |
-| Are estimates in effort or duration? | **Effort.** With resources (M11) this becomes load-bearing: duration is effort divided by what is assigned to it. Storing duration would bake an allocation assumption into the estimate and make M11 impossible without re-estimating everything. |
+| Are estimates in effort or duration? | **Effort.** Storing duration would bake an allocation assumption into the estimate and make M11 impossible without re-estimating everything. *(This row used to add "duration is effort divided by what is assigned to it", and **M11 decided against exactly that** — units are occupancy and never speed. The decision here stands; its stated reason was the sentence that milestone corrects.)* |
 | Dependency types — just finish-to-start, or SS/FF/SF too? | **Finish-to-start only, with lag.** It covers the overwhelming majority of real plans; the other three multiply scheduling complexity for cases most teams never model. |
 | What happens to items with no estimate? | **Settled: forecast what is estimated, and report coverage.** An estimate is optional and a forecast states how many items it left out. Imputing from a reference class is defensible, invents data, and needs a per-forecast record of what was invented — which is a forecast-run concern, and those are M3. |
 | Can a MEMBER edit estimates, or only an OWNER? | **Settled: any member may do everything.** Roles govern administration only. Estimation is a team activity and multi-estimator support is meaningless without it. The cost is that destructive acts become everyone's, so M2 has no hard delete — projects and items archive. |
@@ -569,6 +569,11 @@ named resources in M11 are a refinement of the capacity number rather than a rew
 engine. Retrofitting a scheduler into a summing aggregator later would mean rebuilding the
 core.
 
+> **Confirmed rather than merely hoped, 2026-08-19.** M11's scheduler takes pools of units and
+> one undifferentiated pool of *n* reproduces capacity *n* to the last bit — which is what let
+> `Engine.VERSION` move to 3 while every run made before it still replays. Had M3 summed, that
+> bump would have been a rewrite and every stored forecast would have become read-only history.
+
 Merge bias also stops being a talking point and becomes output: joining two five-item
 branches costs **+15% at the P50** over either branch alone, and it compounds at every join.
 
@@ -659,12 +664,15 @@ one failure M10 cannot recover from. And the whole frontend suite now runs in `A
 because a date bug that only appears west of the meridian is invisible in a suite that runs in
 UTC.
 
-**What M11 inherits.** The working day is a *stated* number today and becomes a derived one when
+**What M12 inherits** — and it was written here as M11's, which is where availability sat until
+that milestone cut it. The working day is a *stated* number today and becomes a derived one when
 real availability arrives — and that arrives as a **new calendar rule name**, never as an edit to
 `five_day_week`. Every run made under this one keeps resolving under it, which is what stops a
-holiday calendar landing in M11 from silently moving every date this product has ever published.
-`WorkingCalendar.RULE` and `ForecastRun.calendar_rule` are the whole of the mechanism; M11 adds a
-constant and a branch, and `m4-plan.md`'s decision 3 is the argument for why it must.
+holiday calendar landing later from silently moving every date this product has ever published.
+`WorkingCalendar.RULE` and `ForecastRun.calendar_rule` are the whole of the mechanism; it adds a
+constant and a branch, and `m4-plan.md`'s decision 3 is the argument for why it must. **M11 took
+none of it**, deliberately: units decide what may start, and nothing about a working day reaches
+the scheduler.
 
 **What M10 inherits.** Every run now carries a date *and* the calendar that produced it, which is
 exactly what a sliding-date detector needs to tell a plan that moved from a calendar that changed.
@@ -928,14 +936,18 @@ baseline plus twelve cuts at the scale ceiling. The cap stays at twelve rather t
 count coming down, exactly as this document's own rule says — if the budget gives, it gives on
 what is visible.
 
-**What M11 inherits.** "What if we add a person?" is this machinery with `capacity` as the lever
-instead of a cut: a stored run replayed under a changed parameter, counted against the same hours
-budget, with the same paired comparison making the difference readable. It is **a parameter change
-on a replayed run rather than a second feature** — which is why M11's own bullet can say it falls
-straight out of here. The two limits M7 states are what it inherits alongside: capacity is not a
-draw, so a counterfactual over it does not disturb the stream at all, but M11's real availability
-arrives as a **new calendar rule name** and a run made under the old one still answers under the
-old one.
+**What M11 inherited, and it landed almost exactly as written.** "What if we add a person?" is
+this machinery with the team as the lever instead of a cut: a stored run replayed with one pool
+larger, with the same paired comparison making the difference readable. It is **a parameter change
+on a replayed run rather than a second feature**, and it writes nothing.
+
+> **One line above is sharper than it knew.** "Capacity is not a draw, so a counterfactual over it
+> does not disturb the stream at all" — which is why the pairing here came *free*, where a cut has
+> to take its draw and discard it to keep the stream aligned. Units change what may **start** and
+> never what is sampled. What M11 changed is the lever's shape: not a capacity but a named pool,
+> because the useful question is *which* one, and a plan with no pools is refused rather than
+> answered — "one more" against an undifferentiated capacity is the question the forecast form
+> already asks. Real availability is now M12's, and still arrives as a new calendar rule name.
 
 **What M10 inherits.** A target date and a confidence are now things a plan can hold an opinion
 about, which is precisely what a plain-language sentence needs: "85% likely by 20 November" is
@@ -1177,7 +1189,7 @@ needed to draw them.
 
 ---
 
-## M11 — Resources and people — *planned in `m11-plan.md`*
+## M11 — Resources and people ✅ *done* — *planned in `m11-plan.md`*
 
 Turns Aurevanta from a forecaster into a planning tool. This is the largest single
 complexity jump in the plan, so it comes after the analysis features have proved the
@@ -1187,17 +1199,35 @@ engine.
   environments, licences and equipment are others. Modelling them uniformly avoids a
   parallel hierarchy, and a person-resource may optionally link to a `users` row, since
   plenty of people who consume capacity never log in.
+
+  > **Built as *one* concept rather than two.** This bullet describes resources and then
+  > types over them, and the measurement needed neither hierarchy: what moved a forecast was
+  > work being unable to cross from one pool to another, and nothing in it depended on which
+  > individual did what. So a resource is a named pool with a unit count — *Backend engineers
+  > × 3*, *Staging environment × 1*, *Ada × 1* — and "people are one type" is a pool of one.
+
 - **Requirements** — an item needs *n* units of a resource, or of a resource type, for its
   duration. Type-level requirements ("any backend engineer") are what make the model useful
   for planning rather than just recording an existing assignment.
 - **Availability** — working days, holidays, part-time allocation. Unglamorous and the
   place where forecasts quietly stop matching reality if it is skipped.
-- **Duration from effort** — with an allocation, M2's stored effort finally converts to
-  duration honestly, replacing M4's crude working-day assumption. **As a new calendar rule
-  name, never as an edit to `five_day_week`**: every run M4 produced stored the rule it was
-  read under precisely so that a better calendar arriving here cannot move a date that was
-  already published. A run under a rule the code no longer implements reports its hours and
-  says so, rather than being resolved under the wrong one.
+
+  > **Cut from M11 and promoted to M12**, which is the section below. It is the change that
+  > makes the engine date-aware, and everything else here is not: the model deals in effort
+  > from end to end and M4 lays a calendar over the answer afterwards, which is exactly why a
+  > calendar change is not a model change. A person who is away next Thursday cannot be
+  > modelled in hours.
+
+- ~~**Duration from effort**~~ — **this bullet is wrong and M11 decided against it.** It says
+  that with an allocation, M2's stored effort "finally converts to duration honestly"; what
+  ships is that *n* units means the work **occupies** *n*, not that it goes *n* times faster.
+  Three reasons, and the third decides: an estimate is what somebody said the *task* would
+  take and already implies whoever does it; effort divided by headcount is linear speed-up
+  with no communication cost, which is false of every task anybody has measured; and there is
+  no oracle — every other modelling decision in M3 is checkable against arithmetic that exists
+  outside this codebase, and "two people finish this in 60% of the time" is checkable against
+  nothing. **The calendar half of the bullet stands and is M12's**: a better working day
+  arrives as a new rule name, never as an edit to `five_day_week`.
 - **"What if we hire someone?"** — the most compelling question this unlocks, and it falls
   straight out of M7's inverse-query machinery once capacity is a variable.
 
@@ -1212,16 +1242,95 @@ the standard choice — inside *every* Monte Carlo run.
 different forecasts from identical data. Users will not intuit this, so the rule has to be
 visible and stable rather than an implementation detail.
 
+> **Measured, and it is second-order.** The rule is worth **0–4.4%** where every slot is
+> interchangeable and up to **8.7%** once the resources are typed — against **14–59%** for the
+> typing itself. Both sentences above stay true; what changes is that this was the loudest
+> warning in this section and belongs below the thing it was warning about. The measurement
+> also turned up a property of the shipped rule worth knowing: on a plan with no dependencies,
+> `most_work_waiting` **is** write order, because nothing is waiting behind anything.
+
 **This is the first genuinely expensive thing in the plan.** Summing is trivial; scheduling
 a few hundred items per run, across 100k runs, is seconds rather than milliseconds, and
 grows with both item count and resource count. It is also, per the commercial note below,
 the first feature where metering would have real economics behind it.
 
+> **Not from resources, measured.** Scheduling is 46% of a forecast that takes about a third
+> of a second at five hundred items and ten thousand runs, and a resource check is a loop over
+> the pools an item names — bounded, constant, and inside a decision the scheduler already
+> makes. The same plan runs in **347 ms** against **344 ms** before the milestone. What would
+> cost seconds is availability, and this paragraph should be re-read when M12 builds it.
+
+### As built
+
+`m11-plan.md` carries the six steps. **Three migrations** — `V17` resources, `V18`
+requirements, `V19` the team a run was scheduled against — and **`Engine.VERSION` is 3**.
+
+**The measurement is the milestone.** Six units read as six interchangeable slots finish 14%
+to 59% earlier than the same six split into two pools that work cannot cross between, and
+further the more specialised the team. Pooling is a relaxation, so the error only ever runs one
+way: **a capacity number is a lower bound on when a plan finishes rather than an approximation
+of it**, and it errs in the one direction this product exists to correct.
+
+**Version 3 contains version 2, and that was the milestone's largest liability.** M6 replays a
+stored run to rank what widened it, M7 replays it to weigh cuts, M10 replays a pair of them to
+account for a movement — so a bump that could not reproduce version 2 would have cut every
+plan's history in two on the day this shipped. It does reproduce it: one pool of *n* units with
+nothing named takes the same decisions in the same order as counting *n* slots did, pinned by
+six finishes read out of `Schedule` before it knew what a resource was. What M10's *comparison*
+does across the bump is refuse, which is correct — a plan re-forecast against a team described
+for the first time answered a different question.
+
+**Occupancy is not speed**, which is the corrected bullet above and the decision most likely to
+be undone by somebody looking at a plan where two people will obviously pair on a task.
+
+**Two things follow from decision 6 that are worth knowing before judging the measurement.** An
+item that names no resource takes one unit of whichever pool has one free, in declaration order
+— so **a team that nobody has annotated behaves exactly like the capacity it adds up to**,
+however many pools it has. Declaring a team therefore changes nothing on its own, and one
+requirement is enough for it to start mattering. That makes adopting this safe and it makes the
+14–59% something a team has to *earn* by saying what its work needs, one item at a time.
+`unassigned_work` is reported on every forecast where it could matter — where there is more
+than one pool and something names nothing — and deliberately not where there is one, since
+naming nothing and naming that pool are the same claim.
+
+**What it cost elsewhere.** `GET /api/projects/{id}/forecasts` and the run response carry the
+team; `MembershipService` gained a lookup that records no visit; and M10's decomposition had a
+bug this milestone introduced and step 5 found — the states it rebuilds dropped the declaration,
+so the terms in the middle of an account were wrong while the sum still telescoped to the right
+total.
+
+---
+
+## M12 — Availability: when anybody is actually there
+
+**Promoted out of M11's bullets rather than invented here.** That milestone cut it (its
+decision 1) and named this as where it goes, because it is the change that moves the engine
+from effort to wall-clock time — and everything M11 built deliberately does not.
+
+- **Working days, holidays and part-time allocation, per resource.** A pool of three where one
+  is away next week is not a pool of three that week, and nothing in M11 can say so: units are
+  whole things and there is no calendar inside the scheduler.
+- **A new calendar rule name, never an edit to `five_day_week`.** M4 stored the rule every run
+  was read under precisely so that a better calendar arriving later cannot move a date already
+  published, and `WorkingCalendar.RULE` is the mechanism. A run under a rule this code no longer
+  implements reports its hours and says so.
+- **Duration from effort, honestly** — the half of M11's fourth bullet that survives. With a
+  real allocation, hours become a duration through somebody's actual availability rather than
+  through one stated working day. It is *not* effort divided by headcount, which M11 refused
+  and this does not reopen.
+
+**What makes it hard, and it is not the same thing M11 was hard for.** The scheduler currently
+decides *what may start*; this makes it decide *when*, which means dates enter `Schedule`,
+`Engine`, the stored snapshot and every replay — and it is where M11's cost measurement stops
+applying, because a walk over a calendar per item per run is not a constant check. It is also a
+second `Engine.VERSION` bump, and the containment question has to be asked again: an engine with
+availability has to contain one without it, or every run made before it becomes read-only.
+
 ---
 
 ## Deferred — genuinely later
 
-Refinements of M11 that are not needed to make it useful.
+Refinements of M11 and M12 that are not needed to make either useful.
 
 - **Skills and matching** — resource types cover "any backend engineer"; individual skill
   levels and proficiency-adjusted durations are a further step.
@@ -1566,11 +1675,16 @@ somebody asked twice; M10's sliding-date detector walks successive runs and its 
 decomposition diffs two of them. Both readers assume every row is a person deliberately
 re-forecasting the same plan.
 
-**M7 threatened that assumption and M11 threatens it harder.** Inverse queries rank candidate
+**M7 threatened that assumption and M11 threatened it harder.** Inverse queries rank candidate
 scope cuts by re-running the schedule without each one, and "what if we hire someone?" sweeps a
-capacity — dozens of runs to answer one question. Landing those in the same table gives the
-detector a history that is mostly hypotheticals, and gives the diff two runs that were never
-about the same plan.
+team — dozens of runs to answer one question. Landing those in the same table would give the
+detector a history that is mostly hypotheticals, and give the diff two runs that were never about
+the same plan.
+
+> **Neither did, and both were built to.** M7's cuts and M11's hires are read-only replays out of
+> a stored run's own seed: forty simulations can go past for one question without
+> `forecast_runs` gaining a row. That table still means one thing — somebody asked the engine —
+> which is what M10's detector walks.
 
 **So the question is what a run is *for*, and it was cheap to answer then and awkward
 afterwards.** Either a scenario is never persisted — the engine is pure and a run costs about
@@ -1900,19 +2014,32 @@ re-forecasts keep moving out* is the bullet, and a rule about direction fires on
 re-forecast weekly for six months that are not sliding at all. Magnitude against the plan's own
 band is what shipped, and the measurement is in the plan rather than in a paragraph of judgement.
 
-**What is next is M11**, and it is the largest single complexity jump in this document: allocating
-finite resources across a precedence graph, inside every Monte Carlo run. Everything analytical now
-exists over one engine and one schema — a band, a date, an elicitation that produces honest ranges,
-a ranking of what widens it, a list of what to cut, a calibration record, a second forecast that
-needs no estimates, and a way to say all of it to somebody who does not know what P90 means. What
-has never existed is any notion of *who* is doing the work, which is also the assumption every one
-of those features quietly makes.
+**M11 is spent, and it is the first milestone whose case was measured before it was designed.**
+Two of its five bullets were cut on that evidence — availability, which is now M12, and
+duration-from-effort, which is now a correction rather than a feature — and the warning this
+document shouted loudest about, the scheduling heuristic, turned out to be worth a fifth of the
+thing it was warning about. What ships is one sentence made true: *we do not have four
+interchangeable people, we have two backend engineers and a staging environment, and only one
+thing can use the environment at a time.*
 
-**Two things worth deciding before it starts.** M4's working day is the placeholder M11 replaces,
-and it must arrive as a **new calendar rule name** rather than as a better `five_day_week`, or
-every date this product has already published moves. And the scheduling heuristic is a modelling
-assumption with two defensible answers, which is `Schedule.PRIORITY_RULE`'s situation a level up —
-it has to be visible and stable rather than an implementation detail.
+**What is next is M12**, and it is the other half of M11's fourth bullet: when anybody is
+actually there. It is the change that moves the engine from effort to wall-clock time, which is
+why it was separated rather than squeezed in — and it inherits two things already built for it,
+M4's named calendar rule and M11's demonstration that a version bump can contain the version
+before it.
+
+**One thing worth deciding before it starts.** M11 asked whether the new engine could reproduce
+the old one and could answer yes, because a capacity is one pool. Availability has no such
+reduction sitting there waiting: an engine that knows what day it is has to be shown to agree
+with one that does not, and if it cannot, every forecast this product has made becomes read-only
+history — which is a decision to take deliberately at the start rather than to discover at the
+end.
+
+**And one thing M11 leaves for whoever picks up adoption.** A team that describes itself gets
+exactly its old answers until somebody says what the work needs, one item at a time — so the
+14–59% this milestone measured is real and has to be earned by data entry the product currently
+asks for one row at a time. Nothing in the icebox covers that, and it is the first thing a real
+user will feel.
 
 **What changed with M8** is that it is spent. Everything built before it was a
 claim about the future that nothing had checked against what happened; M8 is the machinery that

@@ -824,7 +824,9 @@ deliberately.** Both now have one:
   against, and says **nothing at all** when the plan is merely churning — a warning that fires
   on a plan that is fine is the 86% this milestone measured, arriving through the screen.
 - **The account of why the date moved sits under the earlier forecast it is measured against**,
-  behind a question somebody has to ask, because it costs six simulations. The terms render in
+  behind a question somebody has to ask, because it costs six simulations — **seven since M11's
+  review split hiring out of the scope term**, which is where that decomposition is now read.
+  The terms render in
   the order the server attributed them and are never re-sorted: the order *is* the rule, so a
   list sorted by size would be an account read under an order nobody stated. It is offered only
   where both runs have a date — a run made before there was a calendar has hours and no day, and

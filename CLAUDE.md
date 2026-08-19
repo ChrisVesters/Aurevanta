@@ -12,18 +12,15 @@ designing schema or domain logic. It is design intent, not a description of exis
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
 are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
 commit to), M5 (elicitation), M6 (variance contribution), M7 (inverse queries), M8 (actuals and
-calibration), M9 (throughput) and M10 (communicating it) are built. M4
+calibration), M9 (throughput), M10 (communicating it) and M11 (resources and people) are built. M4
 completed **Tier 1** — the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup
 and a ship date at a confidence level — M5 then replaced the question the ranges feeding it are
 collected by, M6 made the band say what it is made of, and M7 ran the question backwards.
 **Tier 2 is complete**, and M8 is the first milestone that checks any of it against what happened —
 M9 then answers the same question from the other side and needs no estimate at all, which is why it
 is the one that can speak today. M10 is the one whose output is prose and pictures rather than
-numbers, and so the first that can be wrong in a way no test catches. M11 (resources and people) is
-next — planned in `docs/m11-plan.md`, and the largest complexity jump in the plan. **Read that
-plan's measurements before arguing with its scope**: what `roadmap.md` warns loudest about there,
-the scheduling heuristic, is worth 0–9%, and what it lists as an ordinary bullet — a team being
-typed rather than pooled — is worth 14–59% in the optimistic direction.
+numbers, and so the first that can be wrong in a way no test catches. M11 stopped a team
+being one number, and M12 (availability — when anybody is actually there) is next.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -47,6 +44,14 @@ one to read for how a plan should be argued with**: its decision 6 predicted whi
 effects would be the heavier, the build measured it, and the measurement pointed the other way
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
+
+`docs/m11-plan.md` is resources and people, and is **built**: a team is pools of units, and work
+says how many of which it ties up. It added **three migrations** and moved `Engine.VERSION` to
+**3**. **Read its measurements before arguing with its scope** — it cut two of `roadmap.md`'s five
+bullets on them, and what that document warns loudest about (the scheduling heuristic, worth
+0–9%) is a fifth of what it lists as an ordinary bullet (a team being typed rather than pooled,
+worth 14–59%, always optimistic). Decision 5 is the one most likely to be undone by somebody
+being helpful.
 
 `docs/m10-plan.md` is communicating any of it, and is **built**: a sentence anybody can read,
 a burn-up, and the two questions somebody asks second — *has this been getting worse?* and *why
@@ -1440,3 +1445,102 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   already holds every run's inputs, seed, calendar and version, and `work_item_progress` holds
   the rest. M6's decision 1 a fourth time, and the strongest instance of it — a decomposition
   computed at read time explains every pair of runs this product has ever held.
+
+### Resources: a team is not a number
+
+- **A resource is a named pool with a unit count, and that is the only concept.**
+  `roadmap.md` describes resources *and* types over them; the measurement needed neither
+  hierarchy — what moves a forecast is work being unable to cross from one pool to another,
+  and nothing in it depends on which individual does what. *Backend engineers × 3*, *Staging
+  environment × 1* and *Ada × 1* are three rows of one table. A person is a pool of one.
+- **A capacity number is a lower bound on when a plan finishes, not an approximation of it.**
+  Six units read as six interchangeable slots finish **14% to 59% earlier** than the same six
+  split into two pools work cannot cross between, and further the more specialised the team.
+  Pooling is a relaxation, so the error only ever runs one way — which is why this milestone
+  exists and why the numbers are in `m11-plan.md` rather than in an argument.
+- **`Engine.VERSION` is 3 and contains 2 exactly.** One pool of *n* units with nothing named
+  takes the same decisions in the same order as counting *n* slots did — not approximately:
+  `ScheduleTests.answersExactlyWhatItAnsweredBeforeThereWereResources` holds six finishes read
+  out of that class before it knew what a resource was. That containment is what keeps M6's
+  ranking, M7's cuts and M10's decomposition answering for every run made before M11. M10's
+  *comparison* refuses across the bump, and that is correct rather than unfortunate.
+- **Units are occupancy and never speed.** Two units means the work ties up two, not that it
+  goes twice as fast. `roadmap.md` says the opposite and is corrected in place: an estimate is
+  what somebody said the *task* would take and already implies whoever does it, effort divided
+  by headcount is linear speed-up with no communication cost, and — the reason that decides it
+  — there is no oracle, where every other modelling decision in M3 is checkable against
+  arithmetic that exists outside this codebase.
+- **Work that names no resource takes one unit of whichever pool has one free, in declaration
+  order.** Not unconstrained, which would make the first forecast after describing a team
+  wildly optimistic, and not required, which would be five hundred rows of data entry before
+  anybody could ask a question. **It follows that a team nobody has annotated behaves exactly
+  like the capacity it adds up to**, however many pools it has — so declaring one changes
+  nothing on its own, and one requirement is enough for it to start mattering. That is why
+  `ResourceRepository` orders by when a pool was declared rather than by name: renaming would
+  otherwise change what a forecast scheduled.
+- **A blocked item does not hold its place.** When the next piece of work in priority order
+  cannot have what it needs, the one behind it starts instead — a team that will not do
+  available work because one person is busy is not a team anybody has. The scan that does this
+  needs a bound and **"is any unit free" is the wrong one**, in exactly the shape this milestone
+  models: ten backend and one designer running work that is nearly all backend leaves the
+  designer's unit free for most of the plan, so that guard is true throughout and every event
+  walks every ready item again — 2,276 ms on a five-hundred-item plan against a budget of 2,000,
+  where one pool takes 449 ms. `Schedule.anyUseful` asks whether anything *waiting* could use
+  anything free, counted in a per-pool demand tally as items become startable, and it comes back
+  to 531 ms. With one pool the two questions coincide, so the containment holds in cost as well
+  as in answers, and `EngineTests` now budgets both shapes.
+- **`Resourcing` refuses work that asks for more of a pool than exists**, at the moment the
+  declaration is made. `Schedule.finish` has no guard against work that cannot fit and its
+  termination argument depends on there being none — with nothing running every unit is free,
+  so anything that can ever start can start then.
+- **That refusal is reached by two doors and both are watched.** `RequirementExceedsPoolException`
+  turns somebody away where they can see the bound, since every box on the needs form carries how
+  many the pool holds; `WorkNeedsMoreThanTheTeamHasException` catches the state reached by
+  *shrinking a pool afterwards*, which no check on the requirement can see and which `resource`
+  may not check for itself without pointing an arrow back at `requirement`. Both refuse rather
+  than dropping the need: leaving it out makes the work generic and the forecast sooner than the
+  plan can possibly be delivered, with nothing on screen looking amiss. Left unwatched it was
+  neither — an `IllegalArgumentException` nothing handles, so every forecast of that plan
+  answered 500 with no `code` at all.
+- **The needs form renders a put-away pool the work already names.** It replaces the whole set,
+  so a row the form does not render is a row pressing save deletes — silently, on a screen that
+  never mentioned it. Only pools *in use* are offered for a new requirement, which is a different
+  rule and still holds: making one on a pool the team no longer has would be making a limitation.
+- **Capacity is one of two ways to say one thing, and neither is defaulted.** An organisation
+  with no pools must say how much can be under way; one with pools must not, because the pools
+  say — `capacity_required` and `capacity_not_applicable`, refused rather than ignored, which
+  is `progress_not_applicable`'s rule. The field is optional in the request and decided by the
+  service, because Bean Validation cannot know whether a team has been described.
+- **A run stores the team it was scheduled against**, in a column as well as in the snapshot.
+  Two readers want it per run — the panel that prints what a forecast assumed and M10's
+  detector, which walks a whole history — and the snapshot beside it holds five hundred items.
+  It is also what lets `Comparison` see the *shape* of a team and not only its size: 3+3
+  becoming 2+4 is the same capacity and a different question.
+- **Units come off the run and names off today's list**, which is M6's split for the work it
+  ranks. A pool renamed since is not a thing that moved; one put away since is marked; one this
+  organisation no longer holds says so rather than rendering as a blank.
+- **Hiring is weighed and never decided.** `POST /api/forecasts/{runId}/hires` replays the
+  stored run with one pool larger, one count at a time up to the number asked about, so the
+  diminishing return is visible rather than inferred. Nothing is written. **The pairing is
+  exact for free**, unlike M7's cut, which has to take a draw and discard it: units change what
+  may *start* and never what is sampled. A run scheduled against a capacity is refused — "one
+  more" is the question the forecast form already asks, and what this exists for is *which*
+  pool.
+- **Hiring is not scope, and `Movement.Step.RESOURCES` is what says so.** M11 put the team
+  inside `ForecastInputs`, so to a decomposition reading that snapshot a run made after somebody
+  joined differed from its predecessor in the *plan* — and a reader who had changed nothing about
+  the work was told their scope had grown by whatever the new person saved them. Split out of
+  `SCOPE` rather than added, exactly as `CALENDAR` is a split out of the assumptions, so no two
+  existing terms swapped places and `Movement.RULE` stays `progress_first`. **The requirements
+  travel with the pools and not with the work**: a requirement is only readable against a
+  declaration holding the pool it names, so the newer needs against the older team is not a state
+  anybody could have run. An account now costs seven simulations rather than six.
+- **A hire can make the date later, and the screen says "later" rather than a negative number of
+  days sooner.** This is a fixed-priority list scheduler over a precedence graph, which is where
+  Graham's anomaly lives — another unit can let low-priority work tie up what the critical path
+  was about to need — and each end is rounded up to a whole day on its own. Clamping it to zero
+  would turn "more people can be slower here" into a shrug.
+- **Nothing here reports on anybody.** A pool may name a person and that is a label for
+  finding them; there is no screen that says what anybody is working on, and the moment one
+  ranked people by how busy they are this would be a different product. M8 made the same call:
+  people are named and never ranked.

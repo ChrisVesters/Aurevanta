@@ -703,6 +703,47 @@ class EngineTests {
 	}
 
 	/**
+	 * <strong>The same budget for a team with a shape, which is not the same
+	 * test.</strong>
+	 *
+	 * <p>
+	 * The case above runs against one pool, so the scheduler's scan stops the moment the
+	 * last unit is spent and it never exercises the guard that decides when to stop with
+	 * several. Ten backend and one designer against work that is nearly all backend is
+	 * the ordinary shape of a real team and the worst one for that guard: the designer's
+	 * unit is free for most of the plan, so a scan bounded by "is anything free" is
+	 * bounded by nothing at all. Measured, that version took 2,276 ms against this
+	 * budget's 2,000 — and 531 ms once the guard asked whether anything waiting could use
+	 * what was free.
+	 */
+	@Test
+	void aTeamWithAShapeForecastsInsideARequestToo() {
+		List<ItemModel> plan = new ArrayList<>();
+		List<Precedence> links = new ArrayList<>();
+		int[][] needed = new int[500][2];
+		for (int at = 0; at < 500; at++) {
+			plan.add(item(List.of(LogNormalFit.from(4.0 + at % 7, 20.0 + at % 11))));
+			if (at % 5 != 0) {
+				links.add(new Precedence(at - 1, at, 0.0));
+			}
+			// Five design tasks scattered through five hundred, which is what leaves the
+			// one designer idle for most of the run.
+			needed[at][(at % 100 == 7) ? 1 : 0] = 1;
+		}
+		Resourcing team = Resourcing.of(new int[] { 10, 1 }, needed);
+		Engine.run(plan, links, team, TeamFactor.NONE, ScopeGrowth.NONE, 200, SEED, RunObserver.NONE);
+
+		long before = System.nanoTime();
+		Forecast forecast = Engine.run(plan, links, team, TeamFactor.NONE, ScopeGrowth.NONE,
+				Engine.DEFAULT_SAMPLE_COUNT, SEED, RunObserver.NONE);
+		long took = System.nanoTime() - before;
+
+		assertThat(forecast.p90Hours()).isPositive();
+		assertThat(took).as("five hundred items against two pools, ten thousand runs, in nanoseconds")
+			.isLessThan(2_000_000_000L);
+	}
+
+	/**
 	 * A plan chosen to be awkward rather than representative: work under way with hours
 	 * against it, work nobody estimated, a fork and a lag. It is what the golden numbers
 	 * above were recorded from, so every branch of the sampler is on the path between the
