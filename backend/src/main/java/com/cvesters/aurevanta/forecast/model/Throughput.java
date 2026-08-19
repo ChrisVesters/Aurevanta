@@ -4,10 +4,13 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.random.RandomGenerator;
+
+import com.cvesters.aurevanta.forecast.model.ThroughputForecast.Delivered;
 
 /**
  * How much a team finished, week by week — including the weeks it finished nothing.
@@ -148,15 +151,31 @@ public final class Throughput {
 
 	/**
 	 * How many weeks the history covers, empty ones included.
-	 *
-	 * <p>
-	 * The per-week counts themselves are not published. {@link #project} is the only
-	 * thing that resamples them and it is on this class, so an accessor would have been a
-	 * defensive copy handed to nobody — and what a reader is shown is the figures below
-	 * rather than a list of integers.
 	 */
 	public int weekCount() {
 		return this.weeks.length;
+	}
+
+	/**
+	 * What had been delivered by the end of each week, running total, oldest first.
+	 *
+	 * <p>
+	 * <strong>The past half of a burn-up, and the only reason the weeks are published at
+	 * all.</strong> They were deliberately not, until something needed to draw them: a
+	 * copy handed to nobody is a copy nobody can be wrong about. A picture of what a team
+	 * delivered is that reader, and it wants the running total rather than the weekly
+	 * counts — which is also what stops this becoming a second way to compute
+	 * {@link #perWeek}, since a cumulative series cannot be averaged into a rate without
+	 * differencing it first.
+	 */
+	public int[] deliveredByWeek() {
+		int[] delivered = new int[this.weeks.length];
+		int running = 0;
+		for (int week = 0; week < this.weeks.length; week++) {
+			running += this.weeks[week];
+			delivered[week] = running;
+		}
+		return delivered;
 	}
 
 	/** How much was finished across all of them. */
@@ -299,6 +318,10 @@ public final class Throughput {
 		}
 		RandomGenerator random = new Random(seed);
 		int[] finishes = new int[runs];
+		// How many runs had covered the backlog exactly at each week, which is what tells
+		// the trajectory below where the runs that are no longer running have got to.
+		int[] finishedInWeek = new int[MOST_WEEKS + 1];
+		List<int[]> delivered = new ArrayList<>();
 		int unfinished = 0;
 		for (int run = 0; run < runs; run++) {
 			int done = 0;
@@ -306,16 +329,111 @@ public final class Throughput {
 			while (done < remaining && week < MOST_WEEKS) {
 				done += this.weeks[random.nextInt(this.weeks.length)];
 				week++;
+				while (delivered.size() < week) {
+					delivered.add(new int[remaining + 1]);
+				}
+				// Capped, because a week that overshoots delivers the backlog and not
+				// more: a burn-up that rose above its own total would be reporting work
+				// nobody has.
+				delivered.get(week - 1)[Math.min(done, remaining)]++;
 			}
 			if (done < remaining) {
 				unfinished++;
 			}
 			finishes[run] = week;
+			finishedInWeek[week]++;
 		}
-		return summarise(finishes, unfinished);
+		// Sorted once and read twice: the percentiles are order statistics of it, and so
+		// is how far ahead the trajectory below is worth drawing.
+		int[] sorted = finishes.clone();
+		Arrays.sort(sorted);
+		return summarise(finishes, sorted, unfinished,
+				trajectory(delivered, finishedInWeek, runs, remaining, at(sorted, 0.95)));
 	}
 
-	private static ThroughputForecast summarise(int[] finishes, int unfinished) {
+	/**
+	 * The route the runs took, as a band per week.
+	 *
+	 * <p>
+	 * <strong>It takes no draw of its own</strong>, which is {@code RunObserver}'s
+	 * argument arriving in a smaller place: every number here is one the loop above
+	 * already produced, so a trajectory added to this method moves no percentile and no
+	 * seeded answer anybody was given before it existed. A test asserts exactly that.
+	 *
+	 * <p>
+	 * <strong>Counted into a histogram per week rather than kept per run.</strong> The
+	 * obvious shape is a run-by-week matrix sorted a column at a time, and at ten
+	 * thousand runs against the ten-year horizon that is five million integers —
+	 * allocated, in the one case where the answer is thrown away unread, by a plan whose
+	 * rate does not clear its backlog. A count of how many runs stood at each delivered
+	 * figure is bounded by the backlog instead, and answers the same order statistic.
+	 *
+	 * <p>
+	 * It is drawn as far as {@code p95Weeks}, which is the last week any figure this
+	 * product publishes lands on. The cone's own low edge closes onto the backlog at
+	 * {@code p90Weeks}, so the picture shows it close rather than cutting it off in mid
+	 * air.
+	 */
+	private static List<Delivered> trajectory(List<int[]> delivered, int[] finishedInWeek, int runs, int remaining,
+			int lastWeek) {
+		int horizon = Math.min(lastWeek, delivered.size());
+		List<Delivered> weeks = new ArrayList<>(horizon + 1);
+		// Week zero is the question being asked, and nothing has been delivered into it.
+		weeks.add(new Delivered(0, 0, 0, 0));
+		int alreadyFinished = 0;
+		for (int week = 1; week <= horizon; week++) {
+			alreadyFinished += finishedInWeek[week - 1];
+			int[] standing = delivered.get(week - 1).clone();
+			// A run that finished earlier stopped being counted, and is standing on the
+			// backlog rather than missing from the week.
+			standing[remaining] += alreadyFinished;
+			weeks
+				.add(new Delivered(week, at(standing, runs, 0.10), at(standing, runs, 0.50), at(standing, runs, 0.90)));
+		}
+		return weeks;
+	}
+
+	/**
+	 * The figure that share of the runs had reached, read off a count of how many stood
+	 * at each.
+	 *
+	 * <p>
+	 * The same nearest rank {@link #at(int[], double)} takes, and it has to be: a cone
+	 * read one way beside a date read another would disagree about its own plan in the
+	 * fourth week and nobody could say why.
+	 *
+	 * <p>
+	 * <strong>The walk has no fallback and must not grow one.</strong> Every run stands
+	 * somewhere in every week — still running and counted where it got to, or finished
+	 * and added to the backlog by the caller — so these counts always sum to {@code runs}
+	 * and a rank below that is always reached. A guard for the case where it is not would
+	 * be a branch no test could ever cover, which is the hole in the coverage gate
+	 * {@code WorkItemService.requireConsistent} refuses a {@code switch} over an enum
+	 * for.
+	 */
+	private static int at(int[] standing, int runs, double share) {
+		int rank = Math.max(0, Math.min((int) Math.ceil(share * runs) - 1, runs - 1));
+		int counted = 0;
+		int figure = -1;
+		while (counted <= rank) {
+			figure++;
+			counted += standing[figure];
+		}
+		return figure;
+	}
+
+	/**
+	 * <strong>The mean and the deviation are summed in the order the runs happened, and
+	 * the percentiles are read off the same figures sorted.</strong> Both arrays are here
+	 * for that reason and one of them would have been tidier: summing the sorted copy
+	 * instead moves the standard deviation in its eleventh decimal, because
+	 * floating-point addition is not associative and every run is added to a different
+	 * running total. Nothing a reader could see would change, which is exactly why it is
+	 * worth a parameter — an answer this product has already given must not move because
+	 * somebody removed a copy of an array.
+	 */
+	private static ThroughputForecast summarise(int[] finishes, int[] sorted, int unfinished,
+			List<Delivered> trajectory) {
 		double total = 0.0;
 		for (int finish : finishes) {
 			total += finish;
@@ -330,10 +448,8 @@ public final class Throughput {
 		// thousand runs the difference is far under the sampling error either way, and it
 		// means a single run answers with zero instead of a NaN.
 		double deviation = Math.sqrt(squares / finishes.length);
-		int[] sorted = finishes.clone();
-		Arrays.sort(sorted);
 		return new ThroughputForecast(mean, deviation, at(sorted, 0.10), at(sorted, 0.50), at(sorted, 0.80),
-				at(sorted, 0.90), at(sorted, 0.95), unfinished);
+				at(sorted, 0.90), at(sorted, 0.95), unfinished, trajectory);
 	}
 
 	/**

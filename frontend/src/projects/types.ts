@@ -456,6 +456,49 @@ export type ThroughputProjection = {
   sampleCount: number;
 };
 
+/** One week of what a plan has actually delivered, as a running total. */
+export type BurnUpWeek = {
+  /** The Monday that week began on, which is the bucket the history is cut into. */
+  week: string;
+  /** By the end of it, cumulatively — a flat stretch is a week nobody delivered in. */
+  delivered: number;
+};
+
+/**
+ * How much will have been delivered by one future week.
+ *
+ * **These percentiles read the other way round from the dates beside them.** Each is the
+ * percentile of the thing it names, so `p90Date` is the *late* end of a finish while `p90`
+ * here is the *good* end of a delivery count. The edge to plan against is `p10`.
+ */
+export type BurnUpConeWeek = {
+  /** This many weeks after the day asked about, counted from then rather than from a Monday. */
+  week: string;
+  p10: number;
+  p50: number;
+  p90: number;
+};
+
+/**
+ * What has been delivered and what is left, week by week.
+ *
+ * **One series in two halves, both already on the same scale.** The cone carries the past
+ * total inside it rather than starting again from zero, so nothing on this side adds the two
+ * together — which is the arithmetic that gets done wrong.
+ *
+ * **The cone is M9's bootstrap and never the engine's band.** A burn-up's future is how many
+ * *items* are done by each week, and the engine has no notion of that: it forecasts effort.
+ * Same history, same sampler and same seed as the date beside it, so the picture and the
+ * number cannot disagree.
+ */
+export type BurnUp = {
+  delivered: number;
+  total: number;
+  past: BurnUpWeek[];
+  /** Null exactly when the projection is, and for the same three reasons. */
+  cone: BurnUpConeWeek[] | null;
+};
+
 /**
  * What a plan's own history says about when it will be finished.
  *
@@ -477,5 +520,7 @@ export type Throughput = {
   remaining: number;
   window: ThroughputWindow | null;
   projection: ThroughputProjection | null;
+  /** The same numbers drawn rather than summarised. Null when nothing has been delivered. */
+  burnUp: BurnUp | null;
   limitations: string[];
 };

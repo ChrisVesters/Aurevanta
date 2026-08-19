@@ -198,6 +198,116 @@ class ThroughputApiTests {
 			.andExpect(jsonPath("$.limitations", not(hasItem("throughput_window_is_short"))));
 	}
 
+	// The burn-up ---------------------------------------------------------------
+
+	/**
+	 * <strong>The picture is the same numbers as the sentence above it.</strong> Twenty
+	 * weeks of five a week, forty left: the past climbs by five a week to a hundred, and
+	 * the cone continues from a hundred to a hundred and forty in the eighth week — which
+	 * is the same eight weeks {@code projection.p50Weeks} publishes, because the two are
+	 * one forecast read twice rather than two forecasts.
+	 */
+	@Test
+	void drawsWhatHasBeenDeliveredAndWhatTheHistorySaysIsLeft() throws Exception {
+		steady(5, 20);
+		remaining(40);
+		LocalDate asOf = WEEK_ONE.plusWeeks(19);
+
+		read(this.ada, asOf).andExpect(status().isOk())
+			.andExpect(jsonPath("$.burnUp.delivered").value(100))
+			.andExpect(jsonPath("$.burnUp.total").value(140))
+			.andExpect(jsonPath("$.burnUp.past.length()").value(20))
+			.andExpect(jsonPath("$.burnUp.past[0].week").value(WEEK_ONE.toString()))
+			.andExpect(jsonPath("$.burnUp.past[0].delivered").value(5))
+			.andExpect(jsonPath("$.burnUp.past[19].week").value(WEEK_ONE.plusWeeks(19).toString()))
+			.andExpect(jsonPath("$.burnUp.past[19].delivered").value(100))
+			.andExpect(jsonPath("$.burnUp.cone.length()").value(9))
+			.andExpect(jsonPath("$.burnUp.cone[0].week").value(asOf.toString()))
+			.andExpect(jsonPath("$.burnUp.cone[0].p10").value(100))
+			.andExpect(jsonPath("$.burnUp.cone[0].p90").value(100))
+			.andExpect(jsonPath("$.burnUp.cone[8].week").value(asOf.plusWeeks(8).toString()))
+			.andExpect(jsonPath("$.burnUp.cone[8].p10").value(140))
+			.andExpect(jsonPath("$.burnUp.cone[8].p90").value(140));
+	}
+
+	/**
+	 * <strong>The cone carries what is already finished rather than starting again from
+	 * nothing.</strong> A reader adding the past to the future themselves is a reader who
+	 * might not, and the picture would have two lines that do not meet.
+	 */
+	@Test
+	void theConeContinuesTheLineRatherThanRestartingIt() throws Exception {
+		steady(5, 20);
+		remaining(40);
+		LocalDate asOf = WEEK_ONE.plusWeeks(19);
+
+		read(this.ada, asOf).andExpect(status().isOk())
+			// The last week delivered and the first week projected are the same figure.
+			.andExpect(jsonPath("$.burnUp.past[19].delivered").value(100))
+			.andExpect(jsonPath("$.burnUp.cone[0].p50").value(100));
+	}
+
+	/**
+	 * <strong>A quiet fortnight is flat in the picture, which is the whole of decision 2
+	 * arriving where somebody can see it.</strong> Ten in the first week and nothing for
+	 * three is a line that climbs once and then holds — not three weeks nobody drew.
+	 */
+	@Test
+	void aQuietFortnightIsAFlatStretchRatherThanAMissingWeek() throws Exception {
+		for (int item = 0; item < 10; item++) {
+			finished(WEEK_ONE);
+		}
+		remaining(5);
+
+		read(this.ada, WEEK_ONE.plusWeeks(3)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.burnUp.past.length()").value(4))
+			.andExpect(jsonPath("$.burnUp.past[0].delivered").value(10))
+			.andExpect(jsonPath("$.burnUp.past[1].delivered").value(10))
+			.andExpect(jsonPath("$.burnUp.past[3].delivered").value(10))
+			.andExpect(jsonPath("$.burnUp.past[3].week").value(WEEK_ONE.plusWeeks(3).toString()));
+	}
+
+	/**
+	 * <strong>Its past and no cone, saying which</strong> — M9's three states arriving
+	 * here unchanged. The cone is absent exactly when the projection is, so a picture can
+	 * never show a future the sentence beside it declines to state.
+	 */
+	@Test
+	void tooLittleHistoryDrawsItsPastAndNoCone() throws Exception {
+		steady(5, Throughput.WORTH_SHOWING - 1);
+		remaining(40);
+
+		read(this.ada, WEEK_ONE.plusWeeks(Throughput.WORTH_SHOWING - 2L)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.burnUp.past.length()").value(Throughput.WORTH_SHOWING - 1))
+			.andExpect(jsonPath("$.burnUp.cone").value(nullValue()))
+			.andExpect(jsonPath("$.limitations", hasItem("throughput_history_too_short")));
+	}
+
+	/**
+	 * And a finished plan draws its own past, arriving at its total with nothing left.
+	 */
+	@Test
+	void aFinishedPlanDrawsItsPastAndNoCone() throws Exception {
+		steady(5, 20);
+
+		read(this.ada, WEEK_ONE.plusWeeks(19)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.burnUp.delivered").value(100))
+			.andExpect(jsonPath("$.burnUp.total").value(100))
+			.andExpect(jsonPath("$.burnUp.cone").value(nullValue()));
+	}
+
+	/**
+	 * A plan nobody has finished anything in has no picture at all, for the reason it has
+	 * no window: an empty axis is a chart of nothing, and the limitation already says
+	 * why.
+	 */
+	@Test
+	void aPlanWithNoHistoryHasNothingToDraw() throws Exception {
+		remaining(40);
+
+		read(this.ada, WEEK_ONE).andExpect(status().isOk()).andExpect(jsonPath("$.burnUp").value(nullValue()));
+	}
+
 	// The three ways to have no projection --------------------------------------
 
 	/**

@@ -78,13 +78,19 @@ public class ThroughputService {
 		// work
 		// nobody had listed does not cover the listed work at that rate.
 		limitations.add(ThroughputLimitation.EXCLUDES_UNLISTED_WORK);
-		ThroughputProjectionResponse projection = project(history, remaining, projectId, asOf, limitations);
+		long seed = seedFor(projectId, asOf, remaining);
+		ThroughputForecast forecast = project(history, remaining, seed, limitations);
+		// The date and the cone are two readings of one forecast rather than two
+		// forecasts, which is what makes it impossible for the picture and the number
+		// beside it to disagree about a plan.
 		return new ThroughputResponse(projectId, asOf, Throughput.RULE, remaining, ThroughputWindowResponse.of(history),
-				projection, List.copyOf(limitations));
+				(forecast == null) ? null : ThroughputProjectionResponse.of(forecast, asOf, seed, SAMPLE_COUNT),
+				BurnUpResponse.of(history, remaining, forecast, asOf), List.copyOf(limitations));
 	}
 
 	/**
-	 * The projection, or nothing and a reason.
+	 * The forecast this answer's date and its cone are both read from, or nothing and a
+	 * reason.
 	 *
 	 * <p>
 	 * <strong>Three ways there is no answer, and each says which.</strong> Nothing left
@@ -94,8 +100,8 @@ public class ThroughputService {
 	 * number that reads as a date. In all three the window still ships, because the
 	 * window is what a reader can judge for themselves.
 	 */
-	private static ThroughputProjectionResponse project(Throughput history, int remaining, UUID projectId,
-			LocalDate asOf, List<ThroughputLimitation> limitations) {
+	private static ThroughputForecast project(Throughput history, int remaining, long seed,
+			List<ThroughputLimitation> limitations) {
 		if (remaining == 0) {
 			limitations.add(ThroughputLimitation.NOTHING_LEFT);
 			return null;
@@ -107,13 +113,12 @@ public class ThroughputService {
 		if (!history.worthTrusting()) {
 			limitations.add(ThroughputLimitation.WINDOW_IS_SHORT);
 		}
-		long seed = seedFor(projectId, asOf, remaining);
 		ThroughputForecast forecast = history.project(remaining, SAMPLE_COUNT, seed);
 		if (forecast.unfinishedRuns() > 0) {
 			limitations.add(ThroughputLimitation.BEYOND_HORIZON);
 			return null;
 		}
-		return ThroughputProjectionResponse.of(forecast, asOf, seed, SAMPLE_COUNT);
+		return forecast;
 	}
 
 	/**

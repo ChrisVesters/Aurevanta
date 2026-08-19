@@ -1308,6 +1308,82 @@ button.danger {
 }
 
 /*
+  The burn-up. **The table is the feature and the drawing is the enhancement**, so the table
+  is styled as content and the drawing is styled as an illustration beside it — which is also
+  the half that survives the interface rework `roadmap.md` warns charts get built twice by.
+*/
+.forecast .burnup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+
+  .weeks {
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+  }
+
+  caption {
+    caption-side: top;
+    padding-bottom: 4px;
+    color: var(--muted);
+    text-align: left;
+  }
+
+  th,
+  td {
+    padding: 2px 16px 2px 0;
+    font-weight: 400;
+  }
+
+  thead th,
+  th[scope='colgroup'] {
+    color: var(--muted);
+  }
+
+  th[scope='colgroup'] {
+    padding-top: 8px;
+  }
+
+  /*
+    Coloured from the same variables as everything else rather than from anything of its own,
+    so it follows a theme instead of pinning one — which is what makes a restyle a restyle.
+  */
+  .drawing {
+    width: 100%;
+    height: auto;
+  }
+
+  .ceiling {
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 4 4;
+  }
+
+  .cone {
+    fill: var(--accent-bg);
+    stroke: var(--accent-border);
+    stroke-width: 1;
+  }
+
+  .middle {
+    fill: none;
+    stroke: var(--accent-border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  .delivered {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+/*
   A date somebody wants, and what it would take. The two lists in here are deliberately not
   a table: what each candidate buys *alone* and what a measured set of them reaches are
   different answers, and columns side by side is how somebody comes to add one to the other.

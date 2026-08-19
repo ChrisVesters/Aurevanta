@@ -528,6 +528,9 @@ export const NO_HISTORY = {
   remaining: 4,
   window: null,
   projection: null,
+  // No week has ever been delivered, so there is no past to draw and no cone either — the
+  // absence the window is already null for.
+  burnUp: null,
   limitations: [
     'throughput_excludes_unlisted_work',
     'throughput_history_too_short'

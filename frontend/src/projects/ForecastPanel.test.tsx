@@ -67,8 +67,51 @@ const DELIVERING = {
     seed: '834729',
     sampleCount: 10000
   },
+  burnUp: burnUp(),
   limitations: ['throughput_excludes_unlisted_work']
 };
+
+/**
+ * The two halves of `DELIVERING` drawn out: twenty-six weeks climbing to 104, and a cone
+ * continuing from 104 and closing on 144.
+ *
+ * **Built rather than written out, and built to agree with the projection above it.** Each
+ * edge tops out on the week that projection says it should — the good edge at seven weeks,
+ * the middle at eight, the low edge at twelve — because a fixture whose picture disagrees
+ * with its own dates would let a component that mixed the two up pass.
+ */
+function burnUp() {
+  return {
+    delivered: 104,
+    total: 144,
+    past: Array.from({ length: 26 }, (_, week) => ({
+      week: weekAfter('2026-02-16', week),
+      delivered: (week + 1) * 4
+    })),
+    cone: Array.from({ length: 14 }, (_, ahead) => ({
+      week: weekAfter('2026-08-18', ahead),
+      p10: climb(ahead, 12),
+      p50: climb(ahead, 8),
+      p90: climb(ahead, 7)
+    }))
+  };
+}
+
+/** One edge of the cone, arriving at the backlog in that many weeks and staying there. */
+function climb(ahead: number, weeks: number) {
+  return Math.min(144, 104 + Math.round((ahead * 40) / weeks));
+}
+
+/**
+ * A day that many weeks on, in UTC rather than through the local clock: this suite runs in
+ * New York on purpose, and a fixture built through the browser's own timezone would be a
+ * fixture that moved with it.
+ */
+function weekAfter(from: string, weeks: number) {
+  const day = new Date(`${from}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + weeks * 7);
+  return day.toISOString().slice(0, 10);
+}
 
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 const CUTS_URL = `/api/forecasts/${FORECAST.id}/cuts`;
@@ -160,10 +203,31 @@ describe('ForecastPanel', () => {
               : otherReads(url, [run])
       )
     );
-    renderRouted(
+    const rendered = renderRouted(
       <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
+    return rendered;
+  }
+
+  /**
+   * The burn-up's table, found the way a reader finds it — by its caption. The panel holds
+   * another table and this is what tells the two apart, which is also the assertion that the
+   * caption is doing its job as a label.
+   */
+  function burnUpTable() {
+    return screen.getByRole('table', { name: /weeks delivered/ });
+  }
+
+  function burnUpTableWhenReady() {
+    return screen.findByRole('table', { name: /weeks delivered/ });
+  }
+
+  /** Where one shape in the drawing actually sits, read back off what was rendered. */
+  function pointsOf(container: HTMLElement, selector: string) {
+    return (container.querySelector(selector)?.getAttribute('points') ?? '')
+      .split(' ')
+      .filter((point) => point !== '');
   }
 
   async function open(runs: Forecast[] = [], spread: unknown = CONTRIBUTIONS) {
@@ -730,6 +794,155 @@ describe('ForecastPanel', () => {
     expect(
       screen.getByText(/An 80% chance of taking between 14.2 and 52.6 hours/)
     ).toBeInTheDocument();
+  });
+
+  // The burn-up, which is a table first and a picture second ------------------
+
+  /**
+   * <strong>The sentence somebody reads out, and it needs no picture at all.</strong>
+   * "Delivered 104 of 144" is what a plan is, and the two dates beside it are the same
+   * projection the second opinion above already published — read here as when the last of
+   * the work lands rather than as a confidence.
+   */
+  it('says what has been delivered and when the last of it lands', async () => {
+    await openWithHistory(DELIVERING);
+
+    expect(
+      await screen.findByText(/Delivered 104 of 144\./)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /On this history the last of it is done between Oct 5, 2026 and Nov 9, 2026\./
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>The table says how many weeks it holds, and then holds them.</strong> Decision 9
+   * inverted: the equivalent is not a fallback bolted to a picture, it is the thing that is
+   * asserted — so a week the drawing draws and the table does not is a failing test rather
+   * than a reader told less than a viewer.
+   */
+  it('renders every week it says it does', async () => {
+    await openWithHistory(DELIVERING);
+
+    expect(
+      await screen.findByText(
+        '26 weeks delivered, then 13 weeks this history projects.'
+      )
+    ).toBeInTheDocument();
+    // Twenty-six delivered, thirteen projected, the heading over each half, and the row of
+    // column headings: every week is a row and nothing is summarised away.
+    expect(within(burnUpTable()).getAllByRole('row')).toHaveLength(41);
+    expect(
+      within(burnUpTable()).getByRole('rowheader', { name: 'Feb 16, 2026' })
+    ).toBeInTheDocument();
+    expect(
+      within(burnUpTable()).getByRole('rowheader', { name: 'Nov 17, 2026' })
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>The past is a figure and the future is a band, and the table is what says
+   * which.</strong> A row carrying a range has not happened yet; one without a range has.
+   * The group heading says it in words as well, because a range column alone is thin to hang
+   * that on when it is being read out one cell at a time.
+   */
+  it('separates what happened from what is projected', async () => {
+    await openWithHistory(DELIVERING);
+
+    const rows = within(await burnUpTableWhenReady()).getAllByRole('row');
+
+    // The last delivered week, which carries a number and no range.
+    expect(within(rows[26]).getByRole('rowheader')).toHaveTextContent(
+      'Aug 10, 2026'
+    );
+    expect(within(rows[26]).getAllByRole('cell')[0]).toHaveTextContent('104');
+    expect(within(rows[26]).getAllByRole('cell')[1]).toBeEmptyDOMElement();
+    // The heading over the projected half, and then the first week of it.
+    expect(rows[27]).toHaveTextContent('What the history projects');
+    expect(within(rows[28]).getAllByRole('cell')[1]).toHaveTextContent(
+      '107 to 110'
+    );
+  });
+
+  /**
+   * <strong>The drawing is out of the accessibility tree and the table is not.</strong> A
+   * picture and its equivalent saying the same thing twice to a screen reader is worse than
+   * either alone — so the enhancement is hidden from it and the feature is what is read.
+   */
+  it('hides the drawing from a screen reader and not the table', async () => {
+    const { container } = await openWithHistory(DELIVERING);
+
+    await burnUpTableWhenReady();
+    const drawing = container.querySelector('.burnup svg');
+    expect(drawing).not.toBeNull();
+    expect(drawing).toHaveAttribute('aria-hidden', 'true');
+    // And it carries a cone as well as a line, or the hidden half is hiding nothing.
+    expect(container.querySelector('.burnup polygon')).not.toBeNull();
+    expect(container.querySelector('.burnup polyline')).not.toBeNull();
+  });
+
+  /**
+   * <strong>The two halves meet, which is the whole reason the drawing holds a point the
+   * table does not.</strong> The cone's first week is today with nothing further delivered —
+   * the last delivered week under another name — so it is the join, and a picture whose line
+   * and band did not touch would be showing a plan that delivered nothing for a week and then
+   * caught up.
+   */
+  it('joins the delivered line to the cone', async () => {
+    const { container } = await openWithHistory(DELIVERING);
+
+    await burnUpTableWhenReady();
+    const line = pointsOf(container, '.burnup .delivered');
+    const band = pointsOf(container, '.burnup .cone');
+
+    expect(line[line.length - 1]).toEqual(band[0]);
+    // And nothing anywhere is a NaN, which is what a divide by no weeks would leave.
+    expect([...line, ...band].join(' ')).not.toContain('NaN');
+  });
+
+  /**
+   * <strong>Its past and no cone, saying which</strong> — M9's three states arriving here
+   * unchanged. A plan too young to project from has still delivered something, and what it
+   * has delivered is worth drawing.
+   */
+  it('draws the past of a plan too young to project from', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      projection: null,
+      burnUp: { ...burnUp(), cone: null },
+      limitations: [
+        'throughput_excludes_unlisted_work',
+        'throughput_history_too_short'
+      ]
+    });
+
+    expect(
+      await screen.findByText(
+        '26 weeks delivered, then 0 weeks this history projects.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('What the history projects')).toBeNull();
+    expect(screen.queryByText(/On this history the last of it/)).toBeNull();
+    // And the reason is on screen, where it already was.
+    expect(
+      screen.getByText(/There is not enough finished work here to project from/)
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * A plan nobody has finished anything in has no picture at all, for the reason it has no
+   * window: an empty axis is a chart of nothing, and the sentence beside it already says why.
+   */
+  it('draws nothing for a plan that has delivered nothing', async () => {
+    await openWithHistory(NO_HISTORY);
+
+    await screen.findByRole('heading', {
+      name: 'What this plan has actually been delivering'
+    });
+    expect(screen.queryByText(/Delivered 0 of/)).toBeNull();
+    expect(screen.queryByText(/weeks delivered, then/)).toBeNull();
   });
 
   /**

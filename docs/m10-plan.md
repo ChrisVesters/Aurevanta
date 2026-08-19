@@ -1,6 +1,6 @@
 # M10 — Communicating to people who do not know what P90 means: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 4 are built.** Six steps, **no migration expected**, and no change to anything the
+> **Proposal, 2026-08-18. Steps 1 to 5 are built.** Six steps, **no migration expected**, and no change to anything the
 > engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -41,7 +41,7 @@
 | 2 | When two forecasts may be compared ✅ *done* | M3, M4 |
 | 3 | Why the date moved ✅ *done* | 2, M6's replay |
 | 4 | Whether it keeps moving out ✅ *done* | 2 |
-| 5 | The burn-up, and the first chart in this product | M9 |
+| 5 | The burn-up, and the first chart in this product ✅ *done* | M9 |
 | 6 | Close out | 1–5 |
 
 **No migration is expected.** Everything here is derived: `forecast_runs` already stores each run's
@@ -657,7 +657,7 @@ existed.
 
 ---
 
-## Step 5 — The burn-up, and the first chart in this product
+## Step 5 — The burn-up, and the first chart in this product ✅ *done*
 
 **Goal.** What has been delivered and what is left, with the future drawn as a cone — and readable
 without seeing it.
@@ -685,6 +685,94 @@ SVG is absent from the accessibility tree and the table is not. A plan with too 
 its past and no cone, saying which — M9's three states arriving here unchanged.
 
 **Done when** somebody who cannot see the chart is told the same thing.
+
+### As built — where it differs from the above
+
+**The cone is published as totals and the model produces increments, which is one decision
+made twice on purpose.** `ThroughputForecast.Delivered` counts what the *bootstrap* delivered,
+so its week zero is nothing and the plan's own test wording holds exactly. `BurnUpResponse`
+then carries the past total up into every figure, so the cone continues the line rather than
+starting again from zero. Publishing the increments would have left every client adding the
+two halves together — differently, at the ends — to draw a picture whose two lines otherwise
+do not meet.
+
+**The percentiles run the other way round from the dates beside them, and that is the
+sharpest thing in this step.** `p90Weeks` is the *pessimistic* end of a finish and `p90` of a
+delivery count is the *optimistic* one, because delivering more is the good outcome. Both are
+the percentile of the quantity they name, so the convention is not broken — it just reads
+inverted, and the edge somebody should plan against is `p10`. It is stated on
+`BurnUpConeWeekResponse`, on `Delivered` and in the frontend type, because it will be misread
+at least once.
+
+**The cone narrows because the backlog is a ceiling, not because the uncertainty falls away.**
+The bullets ask for the narrowing as the property the picture claims, and it is worth being
+precise about its cause: a run that covers the work stops, so every run converges on the same
+number. The drawing puts that ceiling on screen as a line for exactly that reason, and
+`theConeIsWidestInTheMiddleAndClosesOnTheBacklog` asserts the shape rather than a monotone
+narrowing, which is not what happens — the band opens for the first few weeks and then closes.
+
+**Counted into a histogram per week rather than kept per run.** The obvious implementation is a
+run-by-week matrix sorted a column at a time; at ten thousand runs against the ten-year horizon
+that is five million integers, allocated in exactly the case where the answer is thrown away
+unread — a plan whose rate does not clear its own backlog. A count of how many runs stood at
+each delivered figure is bounded by the backlog and answers the same order statistic.
+
+**The trajectory stops at `p95Weeks`**, which is the last week any figure this product
+publishes lands on. The cone's low edge closes onto the backlog at `p90Weeks`, so the picture
+shows it close rather than cutting it off in mid air —
+`theConeAndTheDateAreReadingsOfOneForecast` asserts both, and that pair is what makes the
+picture and the sentence beside it impossible to disagree.
+
+**A test written to say nothing had moved caught something that had.** The bullets promise the
+accumulation takes no draw, and it does not — but `summarise` was tidied on the way past to
+read percentiles and the mean off one sorted array instead of two, and *that* moved the
+published standard deviation from `1.2400600630615937` to `1.2400600630614833`. Floating-point
+addition is not associative, so summing the runs in a different order is a different sum.
+Nothing a reader could see would have changed, which is the whole reason it matters: the seven
+figures in `recordingTheRouteMovedNoAnswerAnybodyHadAlreadyBeenGiven` were read off this class
+*before* the trajectory was written, which is the only way an assertion like that means
+anything.
+
+**The past is bucketed by Monday and the future is counted from the day asked about**, and the
+two labels disagree by up to six days at the join. Both are right for what they are: the
+history is cut into weeks by `Throughput.RULE`, and the bootstrap draws whole weeks *from now*
+— so snapping the cone onto Mondays would claim a backlog runs out on a Monday when nothing
+measured says which day it runs out on. The drawing joins them at one point, `cone[0]`, which
+is today with nothing further delivered and is the last delivered week under another name; it
+is in the picture and not in the table, where it would have been a repeated row.
+
+**The table renders every week and is not short.** The bullets ask for "a short table … for a
+handful of future weeks", and a plan with a year of history gets sixty rows instead. The trade
+is deliberate: the alternative is sampling, and choosing which weeks to show is a claim about
+which weeks matter that nothing here can make. `Done when somebody who cannot see the chart is
+told the same thing` is the bullet that decides it — the drawing shows every week, so the
+table does too. The caption states both counts, which is what
+`renders every week it says it does` checks.
+
+**Nothing in the drawing carries information the table does not**, which is why it has no
+legend and no axis labels: it is one series with an uncertainty band, drawn from CSS variables
+the rest of the product is already coloured from so that a restyle is a restyle. It was
+rendered and looked at, not only asserted — which found the geometry sound and is now also a
+test, since `joins the delivered line to the cone` pins the one property an eyeball was
+checking.
+
+**The coverage gate found an unreachable fallback and it was removed rather than tested
+around.** Reading a percentile off a count of how many runs stood at each figure ended with a
+`return standing.length - 1` that nothing can reach: every run stands somewhere in every week,
+so the counts always sum to the run count and a rank below it is always found. A branch no
+test can cover is the hole `WorkItemService.requireConsistent` refuses a `switch` over an enum for,
+so the walk was rewritten to have no tail at all.
+
+**`BurnUpResponse` is null exactly where `window` is**, and `cone` is null exactly where
+`projection` is — M9's "separately absent" rule inherited rather than restated. That needed
+`ThroughputService.project` to hand back the forecast rather than the response built from it,
+so the date and the cone are two readings of one object; before, the only thing that knew
+whether a projection existed was a response type the burn-up could not read.
+
+**Counts.** 6 new cases in `ThroughputTests` and 7 in `ThroughputApiTests`; 1007 backend tests
+pass, with `Throughput`, `ThroughputForecast` and all three burn-up responses at zero missed
+branches and zero missed instructions. 7 new cases in `ForecastPanel.test.tsx`; 447 frontend
+tests pass at 100% of statements, branches, functions and lines.
 
 ---
 

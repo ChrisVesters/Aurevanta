@@ -27,11 +27,14 @@ import java.util.UUID;
  * @param rule which week this history was cut into, published for the reason a run
  * publishes its calendar — two defensible definitions give two different histories from
  * identical data.
+ * @param burnUp what has been delivered week by week and what the same history says about
+ * the weeks ahead. It is the window and the projection drawn rather than summarised, and
+ * it is the same numbers: nothing here is a third forecast.
  * @param limitations what this answer did not do, beside the answer rather than behind a
  * link.
  */
 public record ThroughputResponse(UUID projectId, LocalDate asOf, String rule, int remaining,
-		ThroughputWindowResponse window, ThroughputProjectionResponse projection,
+		ThroughputWindowResponse window, ThroughputProjectionResponse projection, BurnUpResponse burnUp,
 		List<ThroughputLimitation> limitations) {
 
 }

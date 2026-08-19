@@ -386,6 +386,27 @@ export const en = {
           '{{weeks}} weeks of history, {{completed}} delivered — best week {{best}}, worst week {{worst}}.',
         remaining_one: '1 item left to deliver.',
         remaining_other: '{{count}} items left to deliver.',
+        // The burn-up. **The table is the feature and the drawing is the enhancement**, so
+        // every one of these strings describes the numbers rather than the picture — a cone
+        // that has to be seen to be understood is one this product cannot ship.
+        burnUp: {
+          title: 'What has been delivered',
+          // The sentence somebody reads out. The two halves are separate because the second
+          // needs a projection and the first never does.
+          delivered: 'Delivered {{delivered}} of {{total}}.',
+          finish:
+            'On this history the last of it is done between {{from}} and {{to}}.',
+          // What the table shows, said before it rather than left to be counted.
+          caption:
+            '{{past}} weeks delivered, then {{ahead}} weeks this history projects.',
+          week: 'Week',
+          count: 'Delivered',
+          // The band, and it is the column that says a row is a projection rather than a
+          // record: the past has no range because it already happened.
+          range: 'If it goes better or worse',
+          band: '{{low}} to {{high}}',
+          projected: 'What the history projects'
+        },
         // Decision 7's table. The first two carry this run's own numbers; the last two are
         // properties of the two methods and are the same on every plan.
         differences: {
