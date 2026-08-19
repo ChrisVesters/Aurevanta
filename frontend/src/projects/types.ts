@@ -362,8 +362,32 @@ export type Forecast = {
   p80Date: string | null;
   p90Date: string | null;
   p95Date: string | null;
+  /**
+   * The team this run was scheduled against, in the order it was declared — empty for a run
+   * made by an organisation that had described none, which is what `capacity` answers for.
+   *
+   * **The run's own team and not today's.** Hiring somebody must not rewrite what last
+   * month's forecast assumed, which is the same reason the calendar is the run's own.
+   */
+  resources: ForecastResource[];
   limitations: ForecastLimitation[];
   histogram: Histogram;
+};
+
+/**
+ * One pool a forecast was scheduled against.
+ *
+ * The units are the run's and the name is today's, which is the split a contribution
+ * ranking already makes for the work it names: what a pool was called is not a thing that
+ * moved, and what it held then is.
+ */
+export type ForecastResource = {
+  resourceId: string;
+  /** Null when this organisation no longer holds that pool at all. */
+  name: string | null;
+  /** Whether it has been put away since, which is said rather than hidden. */
+  archived: boolean;
+  units: number;
 };
 
 /**

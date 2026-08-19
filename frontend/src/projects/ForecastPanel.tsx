@@ -5,6 +5,7 @@ import type { SubmitEvent } from 'react';
 import type { TFunction } from 'i18next';
 import { useAuth } from '../auth/AuthContext';
 import type { Calibration } from '../calibration/types';
+import type { Resource } from '../resource/types';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { numberField, optionalField } from './fields';
@@ -13,6 +14,7 @@ import { describeWork } from './work';
 import { TargetDate } from './TargetDate';
 import type {
   BurnUp,
+  ForecastResource,
   Contribution,
   Drift,
   Forecast,
@@ -216,6 +218,15 @@ export function ForecastPanel({
    */
   const [drift, setDrift] = useState<Drift | null>(null);
   /**
+   * The pools this organisation has declared, which decide whether a capacity is asked for
+   * at all.
+   *
+   * Its own read and one this panel survives losing: a forecast is not less true because
+   * the team could not be listed, so a failure here leaves the box where it was — which is
+   * the state every organisation is in until it describes one.
+   */
+  const [pools, setPools] = useState<Resource[]>([]);
+  /**
    * Which earlier forecast somebody is asking about, and the account that came back.
    *
    * Its own request, like the breakdown above and for the same reason: an account of a
@@ -281,6 +292,24 @@ export function ForecastPanel({
     },
     [request, projectId, asking]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    request<Resource[]>('/resources')
+      .then((declared) => {
+        if (!cancelled) {
+          setPools(declared);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPools([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [request]);
 
   // Its own read, and one this panel must survive losing. A forecast is not less true
   // because the record beside it could not be loaded, so a failure here leaves the line off
@@ -430,26 +459,42 @@ export function ForecastPanel({
           </p>
         )}
 
-        <span className="field">
-          <label htmlFor="forecast-capacity">
-            {t('projects.forecast.fields.capacity.label')}
-          </label>
-          <input
-            id="forecast-capacity"
-            name="capacity"
-            type="number"
-            inputMode="numeric"
-            min="1"
-            step="1"
-            aria-invalid={asking.fieldErrors.capacity ? true : undefined}
-          />
-          <span className="hint">
-            {t('projects.forecast.fields.capacity.hint')}
+        {/*
+          **Absent rather than disabled once a team has been described**, which is the rule
+          the confidence control already follows on a run with no dates: a box that visibly
+          does nothing reads as a broken screen, where a sentence saying the resources
+          answer this says what is true. The server refuses either way — a capacity named
+          beside a declared team is `capacity_not_applicable`, refused rather than ignored,
+          because silently dropping input is worse than refusing it.
+        */}
+        {pools.length === 0 ? (
+          <span className="field">
+            <label htmlFor="forecast-capacity">
+              {t('projects.forecast.fields.capacity.label')}
+            </label>
+            <input
+              id="forecast-capacity"
+              name="capacity"
+              type="number"
+              inputMode="numeric"
+              min="1"
+              step="1"
+              aria-invalid={asking.fieldErrors.capacity ? true : undefined}
+            />
+            <span className="hint">
+              {t('projects.forecast.fields.capacity.hint')}
+            </span>
+            {asking.fieldErrors.capacity && (
+              <span className="field-error">{asking.fieldErrors.capacity}</span>
+            )}
           </span>
-          {asking.fieldErrors.capacity && (
-            <span className="field-error">{asking.fieldErrors.capacity}</span>
-          )}
-        </span>
+        ) : (
+          <p className="hint">
+            {t('projects.forecast.fields.capacity.declared', {
+              count: pools.length
+            })}
+          </p>
+        )}
 
         {/*
           The two questions M3b exists to ask, in the only form anybody can answer them:
@@ -758,6 +803,24 @@ export function ForecastPanel({
               ...stretchAndGrowth(latest, i18n.language)
             })}
           </p>
+
+          {/*
+            **The team it was scheduled against, which is the run's own and not today's.**
+            A pool that has grown since did not grow this forecast, so what is printed is
+            what the run stored — and only the name comes off the organisation's list,
+            because a rename is not a thing that moved. A pool put away since is marked
+            rather than shown as ordinary, and one this organisation no longer holds at all
+            says so rather than rendering as a blank.
+          */}
+          {latest.resources.length > 0 && (
+            <p className="assumptions">
+              {t('projects.forecast.resources.scheduledAgainst', {
+                team: latest.resources
+                  .map((pool) => describePool(t, pool))
+                  .join(', ')
+              })}
+            </p>
+          )}
 
           {/*
             The sixth assumption, in its own sentence rather than woven into the five above
@@ -1371,6 +1434,32 @@ function describeTerm(t: TFunction, term: MovementTerm): string {
   return term.movedDays > 0
     ? t('projects.forecast.movement.termLater', { count: term.movedDays })
     : t('projects.forecast.movement.termEarlier', { count: -term.movedDays });
+}
+
+/**
+ * One pool a run was scheduled against, as a reader sees it.
+ *
+ * **Three ways it can stand today, and the same three a contribution ranking already
+ * handles**: still here, put away since, or gone from this organisation altogether. The
+ * units are always the run's own — the whole point of copying the declaration onto it is
+ * that hiring somebody does not rewrite what last month's forecast assumed.
+ */
+function describePool(t: TFunction, pool: ForecastResource): string {
+  // `count` rather than `units`, because these are the plurals i18next selects on: one
+  // backend engineer is a unit and three are units, and a key that took a differently named
+  // number would silently resolve to nothing at all.
+  if (pool.name === null) {
+    return t('projects.forecast.resources.gone', { count: pool.units });
+  }
+  return pool.archived
+    ? t('projects.forecast.resources.putAway', {
+        name: pool.name,
+        count: pool.units
+      })
+    : t('projects.forecast.resources.pool', {
+        name: pool.name,
+        count: pool.units
+      });
 }
 
 /** Which of the three reasons there is no second date, or that this version cannot say. */

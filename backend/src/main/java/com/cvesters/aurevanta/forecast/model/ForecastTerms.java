@@ -30,12 +30,18 @@ import java.time.LocalDate;
  * is laid over the engine's answer afterwards, where this is inside it, so two runs made
  * under different priority rules did not merely read one answer two ways. They are two
  * answers.
+ * @param resourcing the pools the run was scheduled against, as it wrote them down.
+ * <strong>Capacity is the size of a team and this is its shape</strong>, and the two are
+ * different questions: three backend and three frontend becoming two and four is the same
+ * capacity and a different plan, and a comparison that saw only the total would report
+ * the date it moved as a plan sliding. Compared as the text that was stored, because it
+ * is written by one mapper that nothing is allowed to reconfigure.
  * @param startsOn is in here and is the odd one of the five assumptions: a run started a
  * month later finishes a month later with nothing about the plan having changed. That is
  * *time simply passing*, and it is why a decomposition applies it last.
  */
 public record ForecastTerms(int engineVersion, String priorityRule, String calendarRule, BigDecimal workingHoursPerDay,
-		int capacity, BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent,
+		int capacity, String resourcing, BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent,
 		BigDecimal scopeGrowthP90Percent, LocalDate startsOn) {
 
 }

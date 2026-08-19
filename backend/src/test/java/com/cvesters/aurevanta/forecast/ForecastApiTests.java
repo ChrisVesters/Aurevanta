@@ -155,6 +155,9 @@ class ForecastApiTests {
 
 	private Project umbrellaPlan;
 
+	/** How many pools this case has declared, so each is a second after the last. */
+	private int declared;
+
 	private WorkItem migration;
 
 	private WorkItem rollout;
@@ -169,6 +172,7 @@ class ForecastApiTests {
 	 */
 	@BeforeEach
 	void seedAPlanWithEstimatedWorkInIt() {
+		this.declared = 0;
 		this.runs.deleteAll();
 		this.requirements.deleteAll();
 		this.resources.deleteAll();
@@ -1331,6 +1335,107 @@ class ForecastApiTests {
 	}
 
 	/**
+	 * <strong>What a run was scheduled against travels with the number</strong>, which is
+	 * the rule the five assumptions and the calendar already keep. The units are the
+	 * run's own and the name is today's — a pool renamed since is not a thing that moved,
+	 * so the run stores an identifier and the name comes off the organisation's list.
+	 */
+	@Test
+	void aRunSaysWhichTeamItWasScheduledAgainst() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		pool("Staging environment", 1);
+
+		JsonNode answer = reported(forecast(withoutCapacity()));
+
+		assertThat(answer.get("resources").size()).isEqualTo(2);
+		assertThat(answer.get("resources").get(0).get("resourceId").asString()).isEqualTo(backend.getId().toString());
+		assertThat(answer.get("resources").get(0).get("name").asString()).isEqualTo("Backend engineers");
+		assertThat(answer.get("resources").get(0).get("units").asInt()).isEqualTo(3);
+		assertThat(answer.get("resources").get(0).get("archived").asBoolean()).isFalse();
+	}
+
+	/**
+	 * <strong>And it keeps saying what it assumed after the team changes.</strong> Hiring
+	 * somebody must not silently rewrite what last month's forecast was scheduled against
+	 * — which is the whole reason the declaration is copied onto the run rather than read
+	 * from the organisation when somebody looks.
+	 */
+	@Test
+	void changingTheTeamDoesNotChangeWhatAnOldRunAssumed() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		ForecastRun run = forecast(withoutCapacity());
+		backend.describe("Platform engineers", 9, null);
+		this.resources.save(backend);
+
+		JsonNode answer = reported(run);
+
+		assertThat(answer.get("capacity").asInt()).isEqualTo(3);
+		assertThat(answer.get("resources").get(0).get("units").asInt()).isEqualTo(3);
+		// The name is the one thing that is today's, because a rename is not a thing that
+		// moved — the same split a contribution ranking makes for the work it names.
+		assertThat(answer.get("resources").get(0).get("name").asString()).isEqualTo("Platform engineers");
+	}
+
+	/** A pool put away since is named and marked, rather than rendering as a blank. */
+	@Test
+	void aPoolPutAwaySinceIsNamedAndMarked() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		ForecastRun run = forecast(withoutCapacity());
+		backend.archive(CREATED_AT);
+		this.resources.save(backend);
+
+		JsonNode answer = reported(run);
+
+		assertThat(answer.get("resources").get(0).get("archived").asBoolean()).isTrue();
+		assertThat(answer.get("resources").get(0).get("name").asString()).isEqualTo("Backend engineers");
+	}
+
+	/**
+	 * <strong>A pool this organisation no longer holds at all is named as such.</strong>
+	 * A guard rather than a scenario — nothing in this product deletes a resource, they
+	 * are put away — and it is here for {@code ForecastResponse.dateOf}'s reason: the row
+	 * is made the way something outside this application would leave it, so that the day
+	 * one exists it is described rather than rendered as a blank beside a number.
+	 */
+	@Test
+	void aPoolThisOrganisationNoLongerHoldsIsSaidRatherThanBlank() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		ForecastRun run = forecast(withoutCapacity());
+		this.database.update("delete from resources where id = ?", backend.getId());
+
+		JsonNode answer = reported(run);
+
+		assertThat(answer.get("resources").size()).isEqualTo(1);
+		assertThat(answer.get("resources").get(0).get("name").isNull()).isTrue();
+		assertThat(answer.get("resources").get(0).get("units").asInt()).isEqualTo(3);
+	}
+
+	/**
+	 * A run made before this milestone stored a declaration at all reports no team, which
+	 * is the absence {@code V19} deliberately did not backfill: such a run did not assume
+	 * an empty team, it assumed no such concept.
+	 */
+	@Test
+	void aRunFromBeforeTheColumnExistedReportsNoTeam() throws Exception {
+		ForecastRun run = forecast(2);
+		this.database.update("update forecast_runs set resourcing = null where id = ?", run.getId());
+
+		JsonNode answer = reported(run);
+
+		assertThat(answer.get("resources").isEmpty()).isTrue();
+		assertThat(answer.get("capacity").asInt()).isEqualTo(2);
+	}
+
+	/** And a run made against no team at all says so with an empty list, not a null. */
+	@Test
+	void aRunAgainstNoTeamHasNoResources() throws Exception {
+		JsonNode answer = reported(forecast(2));
+
+		assertThat(answer.get("resources").isArray()).isTrue();
+		assertThat(answer.get("resources").isEmpty()).isTrue();
+	}
+
+	/**
 	 * <strong>A snapshot written before there was a team to describe reads back as one
 	 * pool.</strong> Jackson hands a missing field back as null and a run stored in July
 	 * is not going to grow one, so this is the shape every forecast this product has
@@ -1655,8 +1760,19 @@ class ForecastApiTests {
 			.content(body));
 	}
 
+	/**
+	 * A pool, declared a second after the one before it.
+	 *
+	 * <p>
+	 * <strong>The instants are distinct on purpose.</strong> Declaration order is part of
+	 * the model — work that names no resource takes one unit of the first pool with one
+	 * free — and pools declared in the same instant fall back to their identifiers, which
+	 * is a total order for any one set of rows and an arbitrary one between two fixtures.
+	 * A test that made two at once passed and failed on alternate runs.
+	 */
 	private Resource pool(String name, int units) {
-		return this.resources.save(new Resource(this.acmePlan.getTenant(), name, units, null, CREATED_AT));
+		return this.resources
+			.save(new Resource(this.acmePlan.getTenant(), name, units, null, CREATED_AT.plusSeconds(this.declared++)));
 	}
 
 	private void needs(WorkItem item, Resource resource, int units) {

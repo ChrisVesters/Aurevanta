@@ -98,6 +98,22 @@ class ComparisonTests {
 		assertThat(comparison.differences()).containsExactly(Difference.CAPACITY);
 	}
 
+	/**
+	 * <strong>A team of the same size and a different shape is a different
+	 * question.</strong> Capacity sees six units either way; three and three becoming two
+	 * and four moves the date, and a comparison blind to it would report that as a plan
+	 * sliding — which is the one thing M10's detector exists to avoid.
+	 */
+	@Test
+	void aReshapedTeamIsAnAssumptionEvenAtTheSameCapacity() {
+		Comparison comparison = Comparison.between(with(older -> older.resourcing("[{\"units\":3},{\"units\":3}]")),
+				with(newer -> newer.resourcing("[{\"units\":2},{\"units\":4}]")));
+
+		assertThat(comparison.comparable()).isTrue();
+		assertThat(comparison.sameAssumptions()).isFalse();
+		assertThat(comparison.differences()).containsExactly(Difference.RESOURCES);
+	}
+
 	@Test
 	void aDifferentBadStretchIsAnAssumption() {
 		Comparison comparison = Comparison.between(terms(), with(newer -> newer.teamFactor("40.00")));
@@ -141,8 +157,8 @@ class ComparisonTests {
 	@Test
 	void theSameNumberWrittenTwoWaysIsTheSameAssumption() {
 		ForecastTerms scaled = new ForecastTerms(2, "most_work_waiting", "five_day_week", new BigDecimal("6.00"), 2,
-				new BigDecimal("30.00"), new BigDecimal("20.00"), new BigDecimal("60.00"), MONDAY);
-		ForecastTerms plain = new ForecastTerms(2, "most_work_waiting", "five_day_week", new BigDecimal("6"), 2,
+				"[]", new BigDecimal("30.00"), new BigDecimal("20.00"), new BigDecimal("60.00"), MONDAY);
+		ForecastTerms plain = new ForecastTerms(2, "most_work_waiting", "five_day_week", new BigDecimal("6"), 2, "[]",
 				new BigDecimal("30"), new BigDecimal("20"), new BigDecimal("60"), MONDAY);
 
 		assertThat(Comparison.between(scaled, plain).differences()).isEmpty();
@@ -154,7 +170,7 @@ class ComparisonTests {
 	 */
 	@Test
 	void twoRunsMadeBeforeThereWasACalendarAgreeWithEachOther() {
-		ForecastTerms before = new ForecastTerms(2, "most_work_waiting", null, null, 2, new BigDecimal("30.00"),
+		ForecastTerms before = new ForecastTerms(2, "most_work_waiting", null, null, 2, "[]", new BigDecimal("30.00"),
 				new BigDecimal("20.00"), new BigDecimal("60.00"), null);
 
 		assertThat(Comparison.between(before, before).differences()).isEmpty();
@@ -169,7 +185,7 @@ class ComparisonTests {
 	 */
 	@Test
 	void whichOfThemIsOlderDoesNotChangeWhatTheyDisagreeAbout() {
-		ForecastTerms before = new ForecastTerms(2, "most_work_waiting", null, null, 2, new BigDecimal("30.00"),
+		ForecastTerms before = new ForecastTerms(2, "most_work_waiting", null, null, 2, "[]", new BigDecimal("30.00"),
 				new BigDecimal("20.00"), new BigDecimal("60.00"), null);
 		ForecastTerms roomier = with((newer) -> newer.capacity(4));
 
@@ -214,6 +230,8 @@ class ComparisonTests {
 
 		private int capacity = 2;
 
+		private String resourcing = "[]";
+
 		private String teamFactor = "30.00";
 
 		private String growthLow = "20.00";
@@ -247,6 +265,11 @@ class ComparisonTests {
 			return this;
 		}
 
+		Builder resourcing(String declared) {
+			this.resourcing = declared;
+			return this;
+		}
+
 		Builder teamFactor(String percent) {
 			this.teamFactor = percent;
 			return this;
@@ -265,8 +288,9 @@ class ComparisonTests {
 
 		ForecastTerms build() {
 			return new ForecastTerms(this.engineVersion, this.priorityRule, this.calendarRule,
-					new BigDecimal(this.workingHoursPerDay), this.capacity, new BigDecimal(this.teamFactor),
-					new BigDecimal(this.growthLow), new BigDecimal(this.growthHigh), this.startsOn);
+					new BigDecimal(this.workingHoursPerDay), this.capacity, this.resourcing,
+					new BigDecimal(this.teamFactor), new BigDecimal(this.growthLow), new BigDecimal(this.growthHigh),
+					this.startsOn);
 		}
 
 	}

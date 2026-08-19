@@ -1,6 +1,7 @@
 package com.cvesters.aurevanta.forecast;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import jakarta.validation.Valid;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.cvesters.aurevanta.resource.Resource;
 import com.cvesters.aurevanta.security.AuthenticatedUser;
 
 /**
@@ -49,9 +51,11 @@ class ForecastController {
 	@ResponseStatus(HttpStatus.CREATED)
 	ForecastResponse create(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId,
 			@Valid @RequestBody CreateForecastRequest request) {
-		return described(this.forecasts.run(caller.userId(), caller.tenantId(), projectId, request.capacity(),
-				request.sampleCount(), request.teamFactorWorseByPercent(), request.scopeGrowthP10Percent(),
-				request.scopeGrowthP90Percent(), request.startsOn(), request.workingHoursPerDay()));
+		return described(
+				this.forecasts.run(caller.userId(), caller.tenantId(), projectId, request.capacity(),
+						request.sampleCount(), request.teamFactorWorseByPercent(), request.scopeGrowthP10Percent(),
+						request.scopeGrowthP90Percent(), request.startsOn(), request.workingHoursPerDay()),
+				this.forecasts.poolsOf(caller.userId(), caller.tenantId()));
 	}
 
 	/**
@@ -68,12 +72,15 @@ class ForecastController {
 	@GetMapping("/api/projects/{projectId}/forecasts")
 	ForecastHistoryResponse list(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId) {
 		List<ForecastRun> found = this.forecasts.listInProject(caller.userId(), caller.tenantId(), projectId);
-		return new ForecastHistoryResponse(found.stream().map(this::described).toList(), DriftResponse.over(found));
+		Map<UUID, Resource> pools = this.forecasts.poolsOf(caller.userId(), caller.tenantId());
+		return new ForecastHistoryResponse(found.stream().map((run) -> described(run, pools)).toList(),
+				DriftResponse.over(found));
 	}
 
 	@GetMapping("/api/forecasts/{runId}")
 	ForecastResponse read(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID runId) {
-		return described(this.forecasts.get(caller.userId(), caller.tenantId(), runId));
+		return described(this.forecasts.get(caller.userId(), caller.tenantId(), runId),
+				this.forecasts.poolsOf(caller.userId(), caller.tenantId()));
 	}
 
 	/**
@@ -135,8 +142,16 @@ class ForecastController {
 				request.candidates());
 	}
 
-	private ForecastResponse described(ForecastRun run) {
-		return ForecastResponse.of(run, this.forecasts.outputsOf(run));
+	/**
+	 * One run as the API describes it, with the team it was scheduled against named.
+	 *
+	 * <p>
+	 * The organisation's pools are looked up once per request rather than once per run: a
+	 * plan's whole history is described in one answer, and a name is the only thing here
+	 * that comes from anywhere but the run itself.
+	 */
+	private ForecastResponse described(ForecastRun run, Map<UUID, Resource> pools) {
+		return ForecastResponse.of(run, this.forecasts.outputsOf(run), ForecastService.teamOf(run, pools));
 	}
 
 }

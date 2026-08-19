@@ -22,6 +22,7 @@ import type {
   ProgressReport,
   WorkItem
 } from './types';
+import type { Requirement, Resource } from '../resource/types';
 
 const PROJECT_ID = PROJECTS[0].id;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
@@ -83,7 +84,9 @@ describe('WorkItems', () => {
     items: WorkItem[],
     estimates: Estimate[],
     dependencies: Dependency[],
-    quality: EstimateQuality = FINE
+    quality: EstimateQuality = FINE,
+    pools: Resource[] = [],
+    needs: Requirement[] = []
   ) {
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       Promise.resolve(
@@ -95,11 +98,39 @@ describe('WorkItems', () => {
               ? jsonResponse(200, estimates)
               : url === DEPENDENCIES_URL
                 ? jsonResponse(200, dependencies)
-                : url.endsWith('/progress') && init?.method === 'GET'
-                  ? jsonResponse(200, [])
-                  : jsonResponse(200, items)
+                : url === '/api/resources'
+                  ? jsonResponse(200, pools)
+                  : url.endsWith('/requirements') && init?.method !== 'PUT'
+                    ? jsonResponse(200, needs)
+                    : url.endsWith('/progress') && init?.method === 'GET'
+                      ? jsonResponse(200, [])
+                      : jsonResponse(200, items)
       )
     );
+  }
+
+  /** A pool this organisation has declared, which is what a requirement can name. */
+  const BACKEND: Resource = {
+    id: 'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1',
+    name: 'Backend engineers',
+    units: 3,
+    personId: null,
+    personName: null,
+    createdAt: '2026-08-01T09:00:00Z',
+    archivedAt: null
+  };
+
+  /** The plan, with a team behind it and whatever the work already needs of it. */
+  async function openWithResources(
+    pools: Resource[] = [BACKEND],
+    needs: Requirement[] = []
+  ) {
+    storeAccessToken();
+    answer(WORK_ITEMS, [], [], FINE, pools, needs);
+    renderRouted(<WorkItems projectId={PROJECT_ID} />, {
+      route: `/app/projects/${PROJECT_ID}`
+    });
+    await screen.findByRole('heading', { name: 'Work' });
   }
 
   async function open(
@@ -115,6 +146,169 @@ describe('WorkItems', () => {
     });
     await screen.findByRole('heading', { name: 'Work' });
   }
+
+  // What a piece of work needs ------------------------------------------------
+
+  /**
+   * <strong>A number against every pool rather than a list somebody adds to</strong>,
+   * because a requirement means little alone: what a task needs is the list, and the
+   * endpoint replaces it in one go.
+   */
+  it('asks how many of each pool a task ties up', async () => {
+    await openWithResources();
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+
+    expect(screen.getByLabelText('Backend engineers')).toBeInTheDocument();
+    expect(screen.getByText('3 available')).toBeInTheDocument();
+  });
+
+  /** And it starts from what the work already needs, rather than from nothing. */
+  it('starts from what the work already needs', async () => {
+    await openWithResources(
+      [BACKEND],
+      [
+        {
+          workItemId: WORK_ITEMS[0].id,
+          resourceId: BACKEND.id,
+          resourceName: 'Backend engineers',
+          resourceArchived: false,
+          units: 2
+        }
+      ]
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+
+    expect(screen.getByLabelText('Backend engineers')).toHaveValue(2);
+  });
+
+  it('sends the whole set in place of whatever was there', async () => {
+    await openWithResources();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+    await userEvent.type(screen.getByLabelText('Backend engineers'), '2');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save what it needs' })
+    );
+
+    const sent = fetchMock.mock.calls.find(
+      (call) => (call[1] as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(String(sent?.[0])).toBe(
+      `/api/items/${WORK_ITEMS[0].id}/requirements`
+    );
+    expect(JSON.parse(String((sent?.[1] as RequestInit).body))).toEqual({
+      needs: [{ resourceId: BACKEND.id, units: 2 }]
+    });
+  });
+
+  /**
+   * <strong>An empty set is a claim rather than an omission</strong>, and the form says so
+   * where somebody is deciding: work that names nothing is scheduled against one unit of
+   * whatever is free, which is a different thing from work outside the competition for a
+   * team altogether.
+   */
+  it('sends an empty set when every box is left empty, and says what that means', async () => {
+    await openWithResources();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+
+    expect(
+      screen.getByText(/Leave them all empty and anybody can pick this up/)
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save what it needs' })
+    );
+
+    const sent = fetchMock.mock.calls.find(
+      (call) => (call[1] as RequestInit | undefined)?.method === 'PUT'
+    );
+    expect(JSON.parse(String((sent?.[1] as RequestInit).body))).toEqual({
+      needs: []
+    });
+  });
+
+  /**
+   * Nothing to need yet says where to go and declare something, rather than showing an
+   * empty form somebody cannot fill in.
+   */
+  it('says where to declare a team when there is none', async () => {
+    await openWithResources([]);
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+
+    expect(
+      screen.getByText(/Nothing has been declared to need yet/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Save what it needs' })
+    ).toBeNull();
+  });
+
+  it('closes the form without asking the server anything when it is cancelled', async () => {
+    await openWithResources();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+    const before = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByLabelText('Backend engineers')).toBeNull();
+    expect(fetchMock.mock.calls).toHaveLength(before);
+  });
+
+  /**
+   * The two refusals a set can meet — the same pool twice, and one that is not there —
+   * belong to the set rather than to a box, so they arrive in the banner.
+   */
+  it('says why a set was refused', async () => {
+    await openWithResources();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Say what Migrate the auth service needs'
+      })
+    );
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        url === '/api/auth/me'
+          ? jsonResponse(200, ACCOUNT)
+          : init?.method === 'PUT'
+            ? jsonResponse(400, { code: 'duplicate_requirement' })
+            : jsonResponse(200, [])
+      )
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save what it needs' })
+    );
+
+    expect(
+      await screen.findByText(/That work already needs that resource/)
+    ).toBeInTheDocument();
+  });
 
   /**
    * The plan, then the progress form on the first task, with a history behind it. Its own
@@ -268,9 +462,10 @@ describe('WorkItems', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.getByText('Write the runbook')).toBeInTheDocument();
-    // Four calls: the session, the work, what it is estimated at, and how it is joined
-    // up. Cancelling asks the server nothing.
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // Six calls: the session, the work, what it is estimated at, how it is joined up, what
+    // it needs, and what the organisation has to give it. Cancelling asks the server
+    // nothing.
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 
   it('says so against the field when a reword is refused', async () => {
@@ -475,12 +670,14 @@ describe('WorkItems', () => {
       route: `/app/projects/${PROJECT_ID}`
     });
     await screen.findByRole('status');
-    await waitFor(() => expect(pending).toHaveLength(3));
+    await waitFor(() => expect(pending).toHaveLength(5));
 
     unmount();
     pending[0](jsonResponse(200, WORK_ITEMS));
     pending[1](jsonResponse(200, ESTIMATES));
     pending[2](jsonResponse(200, DEPENDENCIES));
+    pending[3](jsonResponse(200, []));
+    pending[4](jsonResponse(200, []));
 
     await waitFor(() =>
       expect(screen.queryByText('Write the runbook')).toBeNull()

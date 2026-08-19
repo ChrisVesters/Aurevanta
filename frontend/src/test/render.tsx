@@ -277,6 +277,9 @@ export const FORECAST: Forecast = {
   p80Date: '2026-08-25',
   p90Date: '2026-08-27',
   p95Date: '2026-08-31',
+  // Scheduled against a capacity rather than a declared team, which is what every
+  // organisation's forecasts look like until it describes one.
+  resources: [],
   limitations: ['inconsistent_estimates'],
   histogram: { fromHours: 8.1, toHours: 96.4, counts: [1, 2, 3] }
 };

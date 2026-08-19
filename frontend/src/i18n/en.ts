@@ -16,6 +16,10 @@ export const en = {
       overview: 'Overview',
       projects: 'Projects',
       members: 'Members',
+      // "Resources" and not "Team": people are one kind of thing in here, and a staging
+      // environment is another. The word has to cover both without implying the screen is
+      // about anybody.
+      resources: 'Resources',
       // Not "Calibration". The route and the API keep the precise word; the person reading
       // the nav gets the plain one, which is the same rule the estimate form follows when
       // it refuses to print "P90".
@@ -250,7 +254,13 @@ export const en = {
           label: 'Things that can be under way at once',
           // Not pre-filled, and this hint is why: a box already answered is a box nobody
           // reads, and this is the number that moves the answer most.
-          hint: 'Required. The same plan finishes in half the time with twice the people, so nobody can guess this for you.'
+          hint: 'Required. The same plan finishes in half the time with twice the people, so nobody can guess this for you.',
+          // Absent rather than disabled once a team exists, so the sentence has to say what
+          // answers the question instead.
+          declared_one:
+            'Your one resource says how much can be under way at once, so there is nothing to answer here.',
+          declared_other:
+            'Your {{count}} resources say how much can be under way at once, so there is nothing to answer here.'
         },
         // The two hardest questions in the model, asked as percentages because nobody has
         // an opinion about a log-standard-deviation. Neither is pre-filled, for the reason
@@ -585,6 +595,21 @@ export const en = {
           entry: '{{what}} — {{confidence}}%, {{buys}} points better.'
         }
       },
+      // What a run was scheduled against, printed with the other assumptions because that is
+      // what it is. The run's own team and not today's: hiring somebody does not rewrite what
+      // last month's forecast assumed.
+      resources: {
+        scheduledAgainst: 'Scheduled against {{team}}.',
+        pool_one: '{{name}} (1)',
+        pool_other: '{{name}} ({{count}})',
+        // Put away since, which is said rather than hidden — the plan still assumed it.
+        putAway_one: '{{name}} (1, since put away)',
+        putAway_other: '{{name}} ({{count}}, since put away)',
+        // And one this organisation no longer holds at all, which renders as what it was
+        // rather than as a blank.
+        gone_one: 'a resource that is no longer here (1)',
+        gone_other: 'a resource that is no longer here ({{count}})'
+      },
       // **Whether the date keeps moving out.** Never the direction of the last few runs — a
       // plan that is not slipping still moves out one week and in the next, and a rule about
       // direction fires on 86% of plans re-forecast weekly for six months. What is said here
@@ -781,6 +806,21 @@ export const en = {
       // on always finishes first — so there is no way to draw an arrow backwards by
       // misreading a label, and the other direction is the same arrow read from the other
       // task.
+      // What a piece of work needs before it can be under way. Asked as a whole set,
+      // because a requirement means little alone — and an empty set is a claim rather than
+      // an omission, which is why the form says so where somebody is deciding.
+      needs: {
+        open: 'Needs',
+        openNamed: 'Say what {{title}} needs',
+        lede: 'How many of each does this tie up while it is being done?',
+        available: '{{units}} available',
+        anyone:
+          'Leave them all empty and anybody can pick this up — it will take one of whoever is free.',
+        noResources:
+          'Nothing has been declared to need yet. Add your team and equipment on the resources page, and this will ask which of them this work ties up.',
+        submit: 'Save what it needs',
+        cancel: 'Cancel'
+      },
       blocks: {
         open: 'Order',
         openNamed: 'Order work around {{title}}',
@@ -891,6 +931,44 @@ export const en = {
   // may make: two rules about one estimate is what `EstimateQuality` exists to prevent, so
   // this page states what a well-judged set scores and shows what this one scored, and lets
   // the reader do the subtraction.
+  resources: {
+    title: 'Resources',
+    lede: 'What this organisation has to work with. A forecast schedules against these rather than against a number, so work that needs a particular one waits for it.',
+    loading: 'Loading resources…',
+    none: 'No resources yet. Until there are, a forecast asks how much can be under way at once.',
+    noneArchived: 'Nothing has been put away.',
+    showArchived: 'Show what has been put away',
+    showCurrent: 'Show what is in use',
+    // The unit count is the whole of what a pool is, so it is in the line rather than
+    // beside it.
+    entry_one: '{{name}} — 1 unit',
+    entry_other: '{{name}} — {{count}} units',
+    person: 'This is {{name}}.',
+    change: 'Change',
+    changing: 'Changing…',
+    putAway: 'Put away',
+    bringBack: 'Bring back',
+    fields: {
+      name: { label: 'What is it called?' },
+      units: {
+        label: 'How many are there?',
+        // Occupancy and never speed, which is the one thing about this number somebody
+        // is likely to assume the other way round.
+        hint: 'Whole units. Two people on one task means it ties up two of them, not that it goes twice as fast.'
+      },
+      person: {
+        label: 'Is this a particular person?',
+        nobody: 'Not a particular person',
+        hint: 'Optional, and only a label — nothing here says what anybody is working on.'
+      }
+    },
+    new: {
+      title: 'Add a resource',
+      lede: 'A pool of people, an environment, a licence — anything a task has to have before it can start.',
+      submit: 'Add it',
+      submitting: 'Adding…'
+    }
+  },
   calibration: {
     title: 'Track record',
     lede: 'How often the ranges written here contained what the work actually took.',

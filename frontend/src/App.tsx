@@ -9,6 +9,7 @@ import { LandingPage } from './routes/LandingPage';
 import { InvitePage } from './routes/InvitePage';
 import { LoginPage } from './routes/LoginPage';
 import { MembersPage } from './routes/MembersPage';
+import { ResourcesPage } from './routes/ResourcesPage';
 import { SettingsPage } from './routes/SettingsPage';
 import { NotFoundPage } from './routes/NotFoundPage';
 import { ProjectPage } from './routes/ProjectPage';
@@ -57,6 +58,12 @@ function App() {
           <Route path="/app/projects" element={<ProjectsPage />} />
           <Route path="/app/projects/:projectId" element={<ProjectPage />} />
           <Route path="/app/members" element={<MembersPage />} />
+          {/*
+            Organisation-wide, for the reason the calibration record is: a team is the
+            constraint on every plan at once, and declaring it per plan would be one claim
+            written down in as many places as there are to get it wrong.
+          */}
+          <Route path="/app/resources" element={<ResourcesPage />} />
           {/*
             Organisation-wide rather than per plan, and reachable by everybody: a hit rate
             needs tens of completed items before it can tell 45% from 80%, which no single

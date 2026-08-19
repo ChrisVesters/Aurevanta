@@ -39,6 +39,15 @@ describe('ProjectPage', () => {
     if (url === '/api/calibration') {
       return jsonResponse(200, NOTHING_SCORED);
     }
+    // Answered by URL like everything else here: a double that fell through to the project
+    // would hand the panel an object where it expects a list of pools, which is the shape
+    // this file's own note about lying doubles is about.
+    if (url === '/api/resources') {
+      return jsonResponse(200, []);
+    }
+    if (url.endsWith('/requirements')) {
+      return jsonResponse(200, []);
+    }
     if (url.endsWith('/forecasts')) {
       return jsonResponse(200, { runs: [], drift: null });
     }

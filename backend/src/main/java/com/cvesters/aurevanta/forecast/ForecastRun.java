@@ -86,6 +86,15 @@ public class ForecastRun {
 	private String priorityRule;
 
 	/**
+	 * The pools this run was scheduled against, in declaration order — null on a run made
+	 * before there was a team to describe, and {@code []} on one made by an organisation
+	 * that has described none. Two different facts, and the second is the one a capacity
+	 * still answers.
+	 */
+	@Column(name = "resourcing", columnDefinition = "text")
+	private String resourcing;
+
+	/**
 	 * How much longer everything takes in a bad stretch, as a percentage — the P90 of the
 	 * one multiplier every item in a run shares. Zero says the caller claimed nothing in
 	 * their world has a common cause, which is a claim rather than an absence of one.
@@ -173,8 +182,8 @@ public class ForecastRun {
 	public ForecastRun(Project project, User requestedBy, int capacity, int sampleCount,
 			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
 			LocalDate startsOn, BigDecimal workingHoursPerDay, String calendarRule, long seed, int engineVersion,
-			String priorityRule, int itemCount, int estimatedItemCount, Forecast forecast, String inputs,
-			String outputs, Instant createdAt) {
+			String priorityRule, String resourcing, int itemCount, int estimatedItemCount, Forecast forecast,
+			String inputs, String outputs, Instant createdAt) {
 		// Taken from the project rather than from a caller, so a run cannot be filed
 		// under
 		// one organisation and against another's plan.
@@ -192,6 +201,7 @@ public class ForecastRun {
 		this.seed = seed;
 		this.engineVersion = engineVersion;
 		this.priorityRule = priorityRule;
+		this.resourcing = resourcing;
 		this.itemCount = itemCount;
 		this.estimatedItemCount = estimatedItemCount;
 		this.meanHours = hours(forecast.meanHours());
@@ -309,6 +319,14 @@ public class ForecastRun {
 
 	public int getEngineVersion() {
 		return engineVersion;
+	}
+
+	/**
+	 * What was declared, as it was written down. {@code ForecastInputs.PlannedPool} is
+	 * its shape.
+	 */
+	public String getResourcing() {
+		return resourcing;
 	}
 
 	public int getItemCount() {

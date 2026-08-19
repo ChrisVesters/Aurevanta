@@ -267,10 +267,15 @@ public class ForecastService {
 		// rule's name goes with it so the run resolves under the calendar it was made
 		// with
 		// rather than the one this code has by the time somebody reads it.
+		// The team goes on the row as well as into the snapshot, and the duplication is
+		// deliberate: two readers want it per run — the panel that prints what a forecast
+		// assumed, and M10's detector, which walks a whole history — and the snapshot
+		// beside
+		// it holds five hundred items and every range anybody typed.
 		return this.runs.save(new ForecastRun(project, caller, concurrency, runCount, teamFactorWorseByPercent,
 				scopeGrowthP10Percent, scopeGrowthP90Percent, startsOn, workingHoursPerDay, WorkingCalendar.RULE, seed,
-				Engine.VERSION, Schedule.PRIORITY_RULE, work.size(), byItem.size(), answer,
-				ForecastSnapshots.write(inputs), ForecastSnapshots.write(outputs), Instant.now(this.clock)));
+				Engine.VERSION, Schedule.PRIORITY_RULE, ForecastSnapshots.write(team), work.size(), byItem.size(),
+				answer, ForecastSnapshots.write(inputs), ForecastSnapshots.write(outputs), Instant.now(this.clock)));
 	}
 
 	/**
@@ -639,8 +644,23 @@ public class ForecastService {
 	/** What a run was asked on, as {@code Comparison} and a decomposition take it. */
 	static ForecastTerms termsOf(ForecastRun run) {
 		return new ForecastTerms(run.getEngineVersion(), run.getPriorityRule(), run.getCalendarRule(),
-				run.getWorkingHoursPerDay(), run.getCapacity(), run.getTeamFactorWorseByPercent(),
+				run.getWorkingHoursPerDay(), run.getCapacity(), run.getResourcing(), run.getTeamFactorWorseByPercent(),
 				run.getScopeGrowthP10Percent(), run.getScopeGrowthP90Percent(), run.getStartsOn());
+	}
+
+	/**
+	 * The pools a stored run was scheduled against, as it wrote them down.
+	 *
+	 * <p>
+	 * Read from the column rather than from the snapshot beside it, which holds the same
+	 * list inside a document of five hundred items — the panel wants this for every run
+	 * of a plan at once.
+	 */
+	static List<PlannedPool> teamOf(ForecastRun run) {
+		if (run.getResourcing() == null) {
+			return List.of();
+		}
+		return List.of(ForecastSnapshots.read(run.getResourcing(), PlannedPool[].class));
 	}
 
 	/** Whether a replay of this run still produces the run — M6's guard, shared. */
@@ -691,6 +711,42 @@ public class ForecastService {
 			named.put(away.getId(), away);
 		}
 		return named;
+	}
+
+	/**
+	 * The team a run was scheduled against, with today's names on it.
+	 *
+	 * <p>
+	 * <strong>The units come off the run and the names off the organisation</strong>,
+	 * which is the split a contribution ranking already makes for the work it names: what
+	 * a pool was called is not a thing that moved, and what it held then is.
+	 *
+	 * <p>
+	 * One lookup of the organisation's pools serves however many runs are being
+	 * described, which is what makes a listing of a plan's whole history one query rather
+	 * than one per row. Archived pools are in it, because a run scheduled against one has
+	 * to be able to say what it was called.
+	 * @throws NotAMemberException if the caller no longer belongs to that organisation
+	 */
+	@Transactional(readOnly = true)
+	public Map<UUID, Resource> poolsOf(UUID callerId, UUID tenantId) {
+		Map<UUID, Resource> byId = new HashMap<>();
+		for (boolean archived : new boolean[] { false, true }) {
+			for (Resource pool : this.resources.list(callerId, tenantId, archived)) {
+				byId.put(pool.getId(), pool);
+			}
+		}
+		return byId;
+	}
+
+	/** One run's team, named — the shape {@code ForecastResponse} publishes. */
+	static List<ForecastResourceResponse> teamOf(ForecastRun run, Map<UUID, Resource> pools) {
+		List<PlannedPool> declared = teamOf(run);
+		List<ForecastResourceResponse> described = new ArrayList<>(declared.size());
+		for (PlannedPool pool : declared) {
+			described.add(ForecastResourceResponse.of(pool.resourceId(), pool.units(), pools.get(pool.resourceId())));
+		}
+		return described;
 	}
 
 	/**

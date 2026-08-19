@@ -36,6 +36,7 @@ export function AppLayout() {
           </NavLink>
           <NavLink to="/app/projects">{t('app.nav.projects')}</NavLink>
           <NavLink to="/app/members">{t('app.nav.members')}</NavLink>
+          <NavLink to="/app/resources">{t('app.nav.resources')}</NavLink>
           <NavLink to="/app/calibration">{t('app.nav.trackRecord')}</NavLink>
           {/*
             Hidden from a member rather than shown and refused, as the members page hides

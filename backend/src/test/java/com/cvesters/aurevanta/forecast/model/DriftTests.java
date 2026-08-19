@@ -343,7 +343,7 @@ class DriftTests {
 
 		ForecastTerms build() {
 			return new ForecastTerms(this.engineVersion, "most_work_waiting", "five_day_week",
-					new BigDecimal(this.workingHoursPerDay), this.capacity, new BigDecimal("30.00"),
+					new BigDecimal(this.workingHoursPerDay), this.capacity, "[]", new BigDecimal("30.00"),
 					new BigDecimal("20.00"), new BigDecimal("60.00"), this.startsOn);
 		}
 

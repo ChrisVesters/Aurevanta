@@ -9,17 +9,19 @@ import type { DependencyValues } from './DependencyForm';
 import { EstimateForm } from './EstimateForm';
 import type { EstimateValues } from './EstimateForm';
 import { ProgressForm } from './ProgressForm';
+import { RequirementForm } from './RequirementForm';
 import type { ProgressValues } from './ProgressForm';
+import type { Requirement, Resource } from '../resource/types';
 import { WorkItemForm } from './WorkItemForm';
 import { formatDay } from './dates';
 import type { Dependency, Estimate, WorkItem } from './types';
 
 type Values = { title: string; description: string | null };
 
-/** Which row is open, and for which of the four things a row can be opened for. */
+/** Which row is open, and for which of the five things a row can be opened for. */
 type OpenRow = {
   itemId: string;
-  mode: 'edit' | 'estimate' | 'progress' | 'blocks';
+  mode: 'edit' | 'estimate' | 'progress' | 'blocks' | 'needs';
 };
 
 const ESTIMATE_FIELDS = ['p10Hours', 'p50Hours', 'p90Hours'];
@@ -45,6 +47,14 @@ export function WorkItems({ projectId }: { projectId: string }) {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [dependencies, setDependencies] = useState<Dependency[]>([]);
   /**
+   * What the plan's work needs, and what the organisation has to give it.
+   *
+   * A plan's worth at a time, which is the rule the estimates already follow: asking per
+   * item would be five hundred requests to draw one page.
+   */
+  const [needs, setNeeds] = useState<Requirement[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
+  /**
    * The loop a refused arrow would have closed, already turned into titles. Kept here
    * rather than taken from `useFormFailure`, which knows about wording and per-field
    * complaints and deliberately nothing about the extra properties one refusal carries.
@@ -60,6 +70,12 @@ export function WorkItems({ projectId }: { projectId: string }) {
   const estimating = useFormFailure(ESTIMATE_FIELDS);
   const reporting = useFormFailure(PROGRESS_FIELDS);
   const blocking = useFormFailure(BLOCK_FIELDS);
+  /**
+   * The one form here with no field of its own to complain about: a requirement is a pool
+   * and a number, and both refusals it can meet — the same pool twice, a pool that is not
+   * there — belong to the set rather than to a box. So it renders a banner and nothing else.
+   */
+  const needing = useFormFailure([]);
 
   const userId = account?.userId;
 
@@ -74,7 +90,7 @@ export function WorkItems({ projectId }: { projectId: string }) {
     // The estimates are only ever the current ones, and only for work still in the plan —
     // which is why nothing is asked about them while the archived listing is on screen.
     async function load() {
-      const [loaded, current, drawn] = await Promise.all([
+      const [loaded, current, drawn, wanted, pools] = await Promise.all([
         request<WorkItem[]>(
           `/projects/${projectId}/items${archived ? '?archived=true' : ''}`
         ),
@@ -83,12 +99,22 @@ export function WorkItems({ projectId }: { projectId: string }) {
           : request<Estimate[]>(`/projects/${projectId}/estimates`),
         archived
           ? Promise.resolve<Dependency[]>([])
-          : request<Dependency[]>(`/projects/${projectId}/dependencies`)
+          : request<Dependency[]>(`/projects/${projectId}/dependencies`),
+        archived
+          ? Promise.resolve<Requirement[]>([])
+          : request<Requirement[]>(`/projects/${projectId}/requirements`),
+        // The organisation's pools rather than the plan's, because that is what they are:
+        // the same three backend engineers constrain every plan at once.
+        archived
+          ? Promise.resolve<Resource[]>([])
+          : request<Resource[]>('/resources')
       ]);
       if (!cancelled) {
         setItems(loaded);
         setEstimates(current);
         setDependencies(drawn);
+        setNeeds(wanted);
+        setResources(pools);
         setFailure(null);
       }
     }
@@ -231,6 +257,32 @@ export function WorkItems({ projectId }: { projectId: string }) {
       setBusy(false);
     },
     [request, reporting, reload]
+  );
+
+  /**
+   * Says what a piece of work needs, in place of whatever it needed before.
+   *
+   * A whole set at a time, which is what the endpoint takes: what a task needs is the list,
+   * and replacing it makes "it needs these two things now" one fact arriving once rather
+   * than a sequence somebody has to reassemble from an add, a change and a delete.
+   */
+  const require = useCallback(
+    async (itemId: string, wanted: { resourceId: string; units: number }[]) => {
+      setBusy(true);
+      needing.clear();
+      try {
+        await request<Requirement[]>(`/items/${itemId}/requirements`, {
+          method: 'PUT',
+          body: { needs: wanted }
+        });
+        setOpen(null);
+        reload();
+      } catch (error) {
+        needing.report(error);
+      }
+      setBusy(false);
+    },
+    [request, needing, reload]
   );
 
   const block = useCallback(
@@ -436,6 +488,19 @@ export function WorkItems({ projectId }: { projectId: string }) {
                         type="button"
                         className="secondary"
                         disabled={busy}
+                        aria-label={t('projects.items.needs.openNamed', {
+                          title: item.title
+                        })}
+                        onClick={() =>
+                          openRow({ itemId: item.id, mode: 'needs' })
+                        }
+                      >
+                        {t('projects.items.needs.open')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={busy}
                         aria-label={t('projects.items.blocks.openNamed', {
                           title: item.title
                         })}
@@ -513,6 +578,18 @@ export function WorkItems({ projectId }: { projectId: string }) {
                   fieldErrors={blocking.fieldErrors}
                   onSubmit={(values) => void block(item.id, values)}
                   onRemove={(edge) => void unblock(edge)}
+                  onCancel={() => openRow(null)}
+                />
+              )}
+
+              {open?.itemId === item.id && open.mode === 'needs' && (
+                <RequirementForm
+                  id={`needs-${item.id}`}
+                  resources={resources}
+                  needs={needs.filter((need) => need.workItemId === item.id)}
+                  busy={busy}
+                  banner={needing.message}
+                  onSubmit={(wanted) => void require(item.id, wanted)}
                   onCancel={() => openRow(null)}
                 />
               )}

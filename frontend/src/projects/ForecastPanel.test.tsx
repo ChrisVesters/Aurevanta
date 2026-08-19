@@ -200,6 +200,29 @@ describe('ForecastPanel', () => {
       : jsonResponse(200, []);
   }
 
+  /** The panel over an organisation that has described its team. */
+  async function openWithResources(pools: unknown[]) {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : url === '/api/resources'
+                ? jsonResponse(200, pools)
+                : otherReads(url)
+      )
+    );
+    const rendered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    return rendered;
+  }
+
   /**
    * The session and the plan's forecasts, answered separately. A double that answered both
    * alike would hand the panel an account where it expected a list, and every assertion
@@ -2093,6 +2116,188 @@ describe('ForecastPanel', () => {
 
     await waitFor(() =>
       expect(screen.queryByText('What the spread is made of')).toBeNull()
+    );
+  });
+
+  // The team a forecast was scheduled against -------------------------------
+
+  /**
+   * <strong>Absent rather than disabled</strong>, which is the rule the confidence control
+   * already follows on a run with no dates: a box that visibly does nothing reads as a
+   * broken screen, where a sentence saying what answers the question says what is true.
+   */
+  it('takes the capacity box away once a team has been described', async () => {
+    await openWithResources([
+      {
+        id: 'r1',
+        name: 'Backend engineers',
+        units: 3,
+        personId: null,
+        personName: null,
+        createdAt: '2026-08-01',
+        archivedAt: null
+      }
+    ]);
+
+    expect(
+      screen.queryByLabelText('Things that can be under way at once')
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        'Your one resource says how much can be under way at once, so there is nothing to answer here.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** And it is there for an organisation that has described none, which is most of them. */
+  it('asks for a capacity when no team has been described', async () => {
+    await openWithResources([]);
+
+    expect(
+      screen.getByLabelText('Things that can be under way at once')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>What it was scheduled against travels with the number</strong>, which is the
+   * rule the other assumptions keep. The units are the run's own — a pool that has grown
+   * since did not grow this forecast.
+   */
+  it('says which team the forecast was scheduled against', async () => {
+    await openWithHistory(DELIVERING, {
+      ...FORECAST,
+      resources: [
+        {
+          resourceId: 'r1',
+          name: 'Backend engineers',
+          archived: false,
+          units: 3
+        },
+        {
+          resourceId: 'r2',
+          name: 'Staging environment',
+          archived: false,
+          units: 1
+        }
+      ]
+    });
+
+    expect(
+      await screen.findByText(
+        'Scheduled against Backend engineers (3), Staging environment (1).'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * A pool put away since is marked rather than shown as ordinary, and one this
+   * organisation no longer holds at all says so rather than rendering as a blank — the same
+   * three-way rule a contribution ranking keeps for the work it names.
+   */
+  it('marks a resource put away since, and one that is gone altogether', async () => {
+    await openWithHistory(DELIVERING, {
+      ...FORECAST,
+      resources: [
+        { resourceId: 'r1', name: 'Contractors', archived: true, units: 2 },
+        { resourceId: 'r2', name: null, archived: false, units: 1 }
+      ]
+    });
+
+    expect(
+      await screen.findByText(
+        'Scheduled against Contractors (2, since put away), a resource that is no longer here (1).'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** A run against no declared team says nothing, rather than saying it had none. */
+  it('says nothing about a team where there was none', async () => {
+    await openWithHistory(DELIVERING);
+
+    await screen.findByText(/An 80% chance/);
+    expect(screen.queryByText(/Scheduled against/)).toBeNull();
+  });
+
+  /**
+   * The plan's own history is the same, and it is the read this panel is built around: a
+   * listing arriving after somebody has navigated away must not put a forecast on a screen
+   * that has gone.
+   */
+  it('drops a history that arrives after the panel has gone', async () => {
+    storeAccessToken();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith('/forecasts')
+        ? new Promise<Response>((resolve, reject) => {
+            settle = resolve;
+            fail = reject;
+          })
+        : url.startsWith(THROUGHPUT_URL)
+          ? Promise.resolve(jsonResponse(200, NO_HISTORY))
+          : url === CALIBRATION_URL
+            ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
+            : url === '/api/auth/me'
+              ? Promise.resolve(jsonResponse(200, ACCOUNT))
+              : Promise.resolve(jsonResponse(200, []))
+    );
+
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    answered.unmount();
+    settle(jsonResponse(200, listing([FORECAST])));
+
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    refused.unmount();
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() => expect(screen.queryByText(/An 80% chance/)).toBeNull());
+  });
+
+  /**
+   * The team is its own read, and one that must not touch a panel that has gone — the guard
+   * every request here keeps.
+   */
+  it('drops a team that arrives after the panel has gone', async () => {
+    storeAccessToken();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url === '/api/resources'
+        ? new Promise<Response>((resolve, reject) => {
+            settle = resolve;
+            fail = reject;
+          })
+        : url.startsWith(THROUGHPUT_URL)
+          ? Promise.resolve(jsonResponse(200, NO_HISTORY))
+          : url === CALIBRATION_URL
+            ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
+            : url === '/api/auth/me'
+              ? Promise.resolve(jsonResponse(200, ACCOUNT))
+              : Promise.resolve(otherReads(url))
+    );
+
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    answered.unmount();
+    settle(jsonResponse(200, []));
+
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    refused.unmount();
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'Forecast' })).toBeNull()
     );
   });
 

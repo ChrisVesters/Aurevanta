@@ -45,6 +45,12 @@ import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
  * @param startsOn and {@code workingHoursPerDay} and {@code calendarRule} are the same
  * thing for the dates: three runs of one plan under three working days are three readings
  * rather than a date moving. Absent together, for a run made before a calendar existed.
+ * @param resources the team this run was scheduled against, in the order it was declared
+ * — empty for a run made by an organisation that had described none, which is what
+ * {@code capacity} still answers for. <strong>It is the run's own team and not
+ * today's</strong>, for the reason the calendar is the run's own: reading an old number
+ * beside a team it never had is how a tool reports a plan moving when what moved was the
+ * question.
  * @param p10Date and the four beside it are {@link #p10Hours} and its neighbours resolved
  * through {@link WorkingCalendar} — derived here rather than stored, because a date costs
  * a division and a walk over some weekends where a percentile costs ten thousand
@@ -57,9 +63,10 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 		@JsonFormat(shape = JsonFormat.Shape.STRING) long seed, int engineVersion, String priorityRule, int itemCount,
 		int estimatedItemCount, BigDecimal meanHours, BigDecimal p10Hours, BigDecimal p50Hours, BigDecimal p80Hours,
 		BigDecimal p90Hours, BigDecimal p95Hours, LocalDate p10Date, LocalDate p50Date, LocalDate p80Date,
-		LocalDate p90Date, LocalDate p95Date, List<ForecastLimitation> limitations, Histogram histogram) {
+		LocalDate p90Date, LocalDate p95Date, List<ForecastResourceResponse> resources,
+		List<ForecastLimitation> limitations, Histogram histogram) {
 
-	static ForecastResponse of(ForecastRun run, ForecastOutputs outputs) {
+	static ForecastResponse of(ForecastRun run, ForecastOutputs outputs, List<ForecastResourceResponse> resources) {
 		return new ForecastResponse(run.getId(), run.getProject().getId(), run.getCreatedAt(),
 				run.getRequestedBy().getId(), run.getRequestedBy().getDisplayName(), run.getCapacity(),
 				run.getSampleCount(), run.getTeamFactorWorseByPercent(), run.getScopeGrowthP10Percent(),
@@ -68,7 +75,7 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 				run.getEstimatedItemCount(), run.getMeanHours(), run.getP10Hours(), run.getP50Hours(),
 				run.getP80Hours(), run.getP90Hours(), run.getP95Hours(), dateOf(run, run.getP10Hours()),
 				dateOf(run, run.getP50Hours()), dateOf(run, run.getP80Hours()), dateOf(run, run.getP90Hours()),
-				dateOf(run, run.getP95Hours()), outputs.limitations(), outputs.histogram());
+				dateOf(run, run.getP95Hours()), resources, outputs.limitations(), outputs.histogram());
 	}
 
 	/**

@@ -36,7 +36,7 @@
 | 1 | What a resource is, and what needs one ✅ *done* | M2's schema conventions |
 | 2 | The scheduler stops counting slots ✅ *done* | 1, M3a's `Schedule` |
 | 3 | A run that knows who was available ✅ *done* | 2, M3a's snapshot |
-| 4 | Saying it: declaring resources, and what the forecast reports | 3 |
+| 4 | Saying it: declaring resources, and what the forecast reports ✅ *done* | 3 |
 | 5 | What if we hire someone? | 3, M7's counterfactuals |
 | 6 | Close out | 1–5 |
 
@@ -606,7 +606,7 @@ limitations — and 461 frontend tests still pass at 100%.
 
 ---
 
-## Step 4 — Saying it: declaring resources, and what the forecast reports
+## Step 4 — Saying it: declaring resources, and what the forecast reports ✅ *done*
 
 **Goal.** A screen for the team, a control on the item, and a forecast that says what it assumed.
 
@@ -630,6 +630,51 @@ list. The earlier-forecasts list explains an incomparable run rather than droppi
 a broken comparison.
 
 **Done when** somebody can read the number and tell which team it was about.
+
+### As built — where it differs from the above
+
+**A third migration, and the first bullet could not be honest without it.** *The forecast panel
+says what it scheduled against* means the run's own team, not today's — reading an old number
+beside a team it never had is exactly the mistake `V14` refuses for calendars. The declaration
+was already in the snapshot, and that was not enough: two readers want it per run, and the
+snapshot beside it holds five hundred items and every range anybody typed. `V19` copies the
+pools and their units onto the row, null on every run made before there was a team to describe
+and `[]` on one made by an organisation that has described none — two different facts, and the
+second is the one a capacity still answers.
+
+**It closed step 3's gap on the way past, which is why it is here rather than in step 6.**
+`Comparison` could see the *size* of a team and not its shape: three backend and three frontend
+becoming two and four holds the capacity still, moves the date, and would have been read as a
+plan sliding. With the column in place that is a `Difference.RESOURCES` and thirty lines, so
+leaving a known-wrong comparability rule standing for one more step would have been the worse
+trade.
+
+**The capacity box is absent rather than disabled**, which the bullets ask for — and the
+sentence in its place says what answers the question instead. Nothing else was needed to make
+the request valid: an absent box already sends `null`, because `numberField` was written for
+exactly that.
+
+**Names come off the organisation's list and units off the run**, which is M6's split for the
+work it ranks, arriving here whole: a pool renamed since is not a thing that moved, one put away
+since is marked, and one this organisation no longer holds at all says so rather than rendering
+as a blank. Asserted on all three.
+
+**A requirement is a number against every pool rather than a list somebody adds to**, because
+the endpoint replaces a set and a form that added lines would make one fact into a sequence. The
+form says what an empty set means where somebody is deciding — *leave them all empty and anybody
+can pick this up* — rather than leaving it to be discovered as a limitation beside a date.
+
+**Two flaky tests were written and fixed, and both were mine.** A fixture declaring two pools in
+the same instant ordered them by identifier, which is stable for one set of rows and arbitrary
+between two fixtures — so a case asserting *which* pool came first passed and failed on
+alternate runs. And a page helper that waited for the heading rather than for the listing raced
+its own request. Neither would have been found by a single run, and declaration order is part of
+the model rather than of a listing, so the first was worth finding.
+
+**Counts.** 6 new cases in `ForecastApiTests`, 14 in `ResourcesPage.test.tsx`, 7 in
+`WorkItems.test.tsx` and 6 in `ForecastPanel.test.tsx`; 1,078 backend tests and 491 frontend
+tests pass, both at zero missed branches — the frontend at 100% of statements, branches,
+functions and lines, and every backend class this step touched at zero missed instructions.
 
 ---
 
@@ -686,6 +731,11 @@ being able to demonstrate.
 - `V18__requirements.sql` — what each item needs, unique on the pair. **Named for the concept
   rather than for the two ends it joins**, which step 1's record argues: `dependencies` is a join
   with a payload too, and it is not called `work_item_work_items`.
+- `V19__forecast_resourcing.sql` — **a third, which this plan did not expect**. Step 4's own
+  record argues it: the declaration is in the snapshot and that is not enough, because two
+  readers want it per run and the document beside it holds five hundred items. It is also what
+  lets `Comparison` see the *shape* of a team rather than only its size, which is the gap step 3
+  wrote down.
 
 **Neither backfills anything**, and that is a claim rather than an omission: a plan forecast
 before this milestone was forecast against a capacity number, and inventing a pool for it would

@@ -69,6 +69,17 @@ public record Comparison(Set<Difference> differences) {
 		/** How many pieces of work could be under way at once. */
 		CAPACITY,
 
+		/**
+		 * Which pools there were, and how many units each held.
+		 *
+		 * <p>
+		 * <strong>Its own difference rather than part of the capacity</strong>, because a
+		 * team can be reshaped without changing size: three backend and three frontend
+		 * becoming two and four holds the capacity still and moves the date, and a
+		 * comparison that saw only the total would report that as a plan sliding.
+		 */
+		RESOURCES,
+
 		/** How much longer everything was assumed to take in a bad stretch. */
 		TEAM_FACTOR,
 
@@ -84,8 +95,8 @@ public record Comparison(Set<Difference> differences) {
 
 	private static final Set<Difference> CALENDAR = EnumSet.of(Difference.CALENDAR_RULE, Difference.WORKING_DAY);
 
-	private static final Set<Difference> ASSUMPTIONS = EnumSet.of(Difference.CAPACITY, Difference.TEAM_FACTOR,
-			Difference.SCOPE_GROWTH);
+	private static final Set<Difference> ASSUMPTIONS = EnumSet.of(Difference.CAPACITY, Difference.RESOURCES,
+			Difference.TEAM_FACTOR, Difference.SCOPE_GROWTH);
 
 	private static final Set<Difference> MODEL = EnumSet.of(Difference.ENGINE_VERSION, Difference.PRIORITY_RULE);
 
@@ -110,6 +121,9 @@ public record Comparison(Set<Difference> differences) {
 		}
 		if (older.capacity() != newer.capacity()) {
 			found.add(Difference.CAPACITY);
+		}
+		if (!Objects.equals(older.resourcing(), newer.resourcing())) {
+			found.add(Difference.RESOURCES);
 		}
 		if (differs(older.teamFactorWorseByPercent(), newer.teamFactorWorseByPercent())) {
 			found.add(Difference.TEAM_FACTOR);
