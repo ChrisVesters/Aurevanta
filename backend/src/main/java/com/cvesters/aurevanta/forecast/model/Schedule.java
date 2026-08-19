@@ -41,12 +41,21 @@ import java.util.List;
  * available lever if step 4's wall-clock budget is ever missed.
  *
  * <p>
- * <strong>Two modelling assumptions are named here rather than buried.</strong> Work is
+ * <strong>Three modelling assumptions are named here rather than buried.</strong> Work is
  * <em>non-preemptive</em> — once something starts it runs to completion, nobody is pulled
- * off a task halfway — and when more work is ready than there are slots, the one with the
- * most work waiting behind it goes first. Two defensible priority rules produce two
- * different forecasts from identical data, so the rule is stable, explicable in a
- * sentence, and stored alongside every run it produced.
+ * off a task halfway. When more work is ready than there is room for, the one with the
+ * most work waiting behind it goes first. And when the next piece of work in that order
+ * cannot have what it needs, <em>the one behind it starts instead</em> rather than the
+ * room being held: a team that will not do available work because one person is busy is
+ * not a team anybody has, and a model that assumed it would report dates later than the
+ * plan for a reason nobody could act on.
+ *
+ * <p>
+ * Two defensible priority rules produce two different forecasts from identical data —
+ * worth 0 to 4% where every slot is interchangeable and up to 9% once the resources are
+ * typed, measured in {@code m11-plan.md} — so the rule is stable, explicable in a
+ * sentence, and stored alongside every run it produced. It is also the smaller of the two
+ * effects there by some way, which is worth knowing before spending a milestone on it.
  */
 public final class Schedule {
 
@@ -68,7 +77,7 @@ public final class Schedule {
 
 	private final int itemCount;
 
-	private final int capacity;
+	private final Resourcing resourcing;
 
 	/** For each item, the successors it unblocks and the wait before each of them. */
 	private final int[][] successors;
@@ -85,10 +94,10 @@ public final class Schedule {
 
 	private final boolean[] underWay;
 
-	private Schedule(int itemCount, int capacity, int[][] successors, double[][] lags, int[] predecessorCount,
+	private Schedule(int itemCount, Resourcing resourcing, int[][] successors, double[][] lags, int[] predecessorCount,
 			int[] order, int[] positionOf, boolean[] underWay) {
 		this.itemCount = itemCount;
-		this.capacity = capacity;
+		this.resourcing = resourcing;
 		this.successors = successors;
 		this.lags = lags;
 		this.predecessorCount = predecessorCount;
@@ -116,6 +125,35 @@ public final class Schedule {
 		if (capacity < 1) {
 			throw new IllegalArgumentException(
 					"At least one thing must be able to be under way, but capacity was " + capacity);
+		}
+		return of(edges, typicalEffortHours, underWay, Resourcing.pooled(capacity, typicalEffortHours.length));
+	}
+
+	/**
+	 * The same, against a team that has been described rather than counted.
+	 *
+	 * <p>
+	 * <strong>This is the method, and the one above is it with one pool.</strong> Not a
+	 * shorthand for it and not an approximation of it: with every item taking one unit, a
+	 * pool with a free unit is a slot below the capacity, so the two take the same
+	 * decisions in the same order at the same moments. That equivalence is what lets a
+	 * version bump contain the version before it, and it is asserted on rather than
+	 * argued.
+	 *
+	 * <p>
+	 * Nothing about the graph, the topological order or the priority key depends on any
+	 * of this — resources decide what may start, never what is worth starting — so
+	 * everything prepared here is prepared exactly as it was.
+	 * @param resourcing the pools and what each item needs of them, which must have been
+	 * declared for this many items
+	 * @throws IllegalArgumentException as above, and if the declaration is for a
+	 * different plan than this one
+	 */
+	public static Schedule of(List<Precedence> edges, double[] typicalEffortHours, boolean[] underWay,
+			Resourcing resourcing) {
+		if (resourcing.items() != typicalEffortHours.length) {
+			throw new IllegalArgumentException("The plan has " + typicalEffortHours.length
+					+ " items and the resources were declared for " + resourcing.items());
 		}
 		if (typicalEffortHours.length != underWay.length) {
 			throw new IllegalArgumentException("The plan has " + typicalEffortHours.length + " efforts and "
@@ -149,7 +187,7 @@ public final class Schedule {
 		for (int position = 0; position < items; position++) {
 			positionOf[order[position]] = position;
 		}
-		return new Schedule(items, capacity, successors, lags, predecessorCount, order, positionOf, underWay.clone());
+		return new Schedule(items, resourcing, successors, lags, predecessorCount, order, positionOf, underWay.clone());
 	}
 
 	/**
@@ -248,16 +286,29 @@ public final class Schedule {
 		BitSet startable = new BitSet(total);
 		Timeline running = new Timeline(total);
 		Timeline lagging = new Timeline(total);
-		int inFlight = 0;
+		int[] free = this.resourcing.freeUnits();
+		// Which pool each piece of work that named nothing took its one unit from, so
+		// that
+		// it gives that unit back rather than one of somebody else's.
+		int[] tookFrom = new int[total];
+		Arrays.fill(tookFrom, NOTHING);
 		int finished = 0;
 		double now = 0.0;
 		double completion = 0.0;
 
 		for (int item = 0; item < this.itemCount; item++) {
 			if (this.underWay[item]) {
-				// Started already, so it is running now — over capacity if need be.
+				// Started already, so it is running now — holding what it needs whether
+				// or
+				// not the pools have it. A team that is oversubscribed is a fact about
+				// the
+				// world, and a plan that said otherwise would be wrong about it rather
+				// than
+				// the other way round: the units go negative, and nothing new starts
+				// until
+				// enough of them come back.
+				take(item, free, tookFrom, item);
 				running.add(durations[item], item);
-				inFlight++;
 			}
 			else if (awaiting[item] == 0) {
 				startable.set(this.positionOf[item]);
@@ -267,16 +318,18 @@ public final class Schedule {
 		while (finished < total) {
 			// Whatever fits, highest priority first — which is the lowest set bit,
 			// because the items were sorted into priority order once, when the plan was
-			// prepared.
-			while (inFlight < this.capacity) {
-				int position = startable.nextSetBit(0);
-				if (position < 0) {
-					break;
-				}
-				startable.clear(position);
+			// prepared. Anything that does not fit is stepped over rather than waited
+			// for,
+			// and the class note says why: holding a slot for one piece of work while
+			// another could have it models a team nobody has.
+			for (int position = startable.nextSetBit(0); position >= 0
+					&& anyFree(free); position = startable.nextSetBit(position + 1)) {
 				int item = order[position];
-				running.add(now + durations[item], item);
-				inFlight++;
+				if (fits(rowOf(item, parentOf), free)) {
+					take(rowOf(item, parentOf), free, tookFrom, item);
+					startable.clear(position);
+					running.add(now + durations[item], item);
+				}
 			}
 			now = (!running.isEmpty() && (lagging.isEmpty() || running.next() <= lagging.next())) ? running.next()
 					: lagging.next();
@@ -285,7 +338,7 @@ public final class Schedule {
 			}
 			while (!running.isEmpty() && running.next() <= now) {
 				int item = running.take();
-				inFlight--;
+				giveBack(rowOf(item, parentOf), free, tookFrom, item);
 				finished++;
 				completion = now;
 				if (item < this.itemCount) {
@@ -304,6 +357,114 @@ public final class Schedule {
 			}
 		}
 		return completion;
+	}
+
+	/**
+	 * Whether there is anything left to start anything with.
+	 *
+	 * <p>
+	 * <strong>The scan above is bounded by this and needs to be.</strong> Stepping over
+	 * work that does not fit means the loop cannot stop at the first thing it cannot
+	 * start — but with no reason to stop at all it walks every ready item on every event,
+	 * which on a five-hundred-item plan is the difference between three hundred
+	 * milliseconds and two seconds. That is measured rather than reasoned: the budget
+	 * case in {@code EngineTests} failed on the first version of this, which had no such
+	 * guard.
+	 *
+	 * <p>
+	 * With one pool it restores exactly what counting slots did — no unit free is the
+	 * whole capacity in flight — so the containment holds in cost as well as in answers.
+	 */
+	private static boolean anyFree(int[] free) {
+		for (int unit : free) {
+			if (unit > 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Which item's requirement one piece of work is scheduled by.
+	 *
+	 * <p>
+	 * Its own for anything the plan holds, and its parent's for anything a run
+	 * discovered: work found behind a backend task is backend work. The alternative would
+	 * need a rule about what an unlisted item is made of, and nothing measured says what.
+	 */
+	private int rowOf(int item, int[] parentOf) {
+		return (item < this.itemCount) ? item : parentOf[item - this.itemCount];
+	}
+
+	/**
+	 * Whether the pools can spare what this piece of work needs.
+	 *
+	 * <p>
+	 * Asked before anything is taken rather than taken and given back, because a piece of
+	 * work needing two pools needs both at once — reserving one and then finding the
+	 * other short would leave a unit held by nobody.
+	 *
+	 * <p>
+	 * Asked only while {@link #anyFree} holds, which is what makes the answer for work
+	 * that names nothing a constant rather than a search.
+	 */
+	private boolean fits(int row, int[] free) {
+		if (this.resourcing.namesNothing(row)) {
+			// One unit of anything, and this is only asked while there is one — so work
+			// that names nothing is never what stops a scan.
+			return true;
+		}
+		for (int pool = 0; pool < free.length; pool++) {
+			if (free[pool] < this.resourcing.needed(row, pool)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Takes what it needs, and remembers where a piece of work that named nothing took it
+	 * from.
+	 *
+	 * <p>
+	 * <strong>Declaration order is the whole of the rule for work that names
+	 * nothing</strong>, and it is why a listing of pools is ordered by when they were
+	 * declared rather than by name: renaming a pool would otherwise change what a
+	 * forecast scheduled.
+	 *
+	 * <p>
+	 * Called without asking {@link #fits} for work that is already under way, which is
+	 * the one caller that may push a pool below nothing — see the note where it starts.
+	 */
+	private void take(int row, int[] free, int[] tookFrom, int item) {
+		if (this.resourcing.namesNothing(row)) {
+			for (int pool = 0; pool < free.length; pool++) {
+				if (free[pool] > 0) {
+					free[pool]--;
+					tookFrom[item] = pool;
+					return;
+				}
+			}
+			// Nothing free anywhere, which only the already-under-way caller reaches: it
+			// holds a unit of the first pool and the count goes negative.
+			free[0]--;
+			tookFrom[item] = 0;
+			return;
+		}
+		for (int pool = 0; pool < free.length; pool++) {
+			free[pool] -= this.resourcing.needed(row, pool);
+		}
+	}
+
+	/** And gives back exactly what that piece of work took. */
+	private void giveBack(int row, int[] free, int[] tookFrom, int item) {
+		if (this.resourcing.namesNothing(row)) {
+			free[tookFrom[item]]++;
+			return;
+		}
+		for (int pool = 0; pool < free.length; pool++) {
+			free[pool] += this.resourcing.needed(row, pool);
+		}
 	}
 
 	/**

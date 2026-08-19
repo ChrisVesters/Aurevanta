@@ -34,7 +34,7 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | What a resource is, and what needs one ✅ *done* | M2's schema conventions |
-| 2 | The scheduler stops counting slots | 1, M3a's `Schedule` |
+| 2 | The scheduler stops counting slots ✅ *done* | 1, M3a's `Schedule` |
 | 3 | A run that knows who was available | 2, M3a's snapshot |
 | 4 | Saying it: declaring resources, and what the forecast reports | 3 |
 | 5 | What if we hire someone? | 3, M7's counterfactuals |
@@ -453,7 +453,7 @@ contract — 461 frontend tests still pass at 100%.
 
 ---
 
-## Step 2 — The scheduler stops counting slots
+## Step 2 — The scheduler stops counting slots ✅ *done*
 
 **Goal.** `Schedule` takes pools and requirements, and answers exactly what it answers today when
 given neither.
@@ -480,6 +480,50 @@ termination argument has never had to consider an item that cannot fit. A blocke
 stop the item behind it starting.
 
 **Done when** the same plan, scheduled two ways, differs only where a pool is the reason.
+
+### As built — where it differs from the above
+
+**The containment is proved against numbers captured before the change, not against the new
+code.** The bullets ask for byte identity between one pool of *n* and capacity *n*, and the
+honest way to get it was to read six exact finishes out of `Schedule` **before** it knew what a
+resource was — a twelve-item plan with lags, work under way, two pieces of discovered work and
+five drawn duration sets — and assert them afterwards. `answersExactlyWhatItAnsweredBeforeThereWereResources`
+holds them to the last bit. The capacity method now delegates to the pool one, so a test
+comparing the two would have compared two spellings of one call; this compares the scheduler
+against its own past.
+
+**`Resourcing` is the declaration, and it holds the refusal that the loop's termination depends
+on.** Work asking for more of a pool than that pool holds can never start, and `Schedule.finish`
+has no guard against that — its termination argument is that with nothing running every unit is
+free, so anything that can ever start can start then. The refusal is at declaration time for
+that reason rather than as input hygiene.
+
+**A performance guard caught a real regression, which is exactly what it is for.** Stepping over
+work that does not fit means the start loop can no longer stop at the first thing it cannot
+start — and the first version had no reason to stop at all, so it walked every ready item on
+every event. `EngineTests.aPlanAtTheCeilingForecastsInsideARequest` failed at **2.08 seconds**
+against its two-second ceiling, on a plan that had been taking about three hundred milliseconds.
+`anyFree` is the fix: it restores the old bound exactly in the one-pool case, and the same plan
+now runs in **347 ms** — against 344 ms measured before this milestone, so the resource check
+costs nothing measurable where nothing is typed.
+
+**One branch of `fits` was dead and the coverage gate found it.** With `anyFree` guarding the
+loop, work that names nothing always fits, so searching the pools for a free unit was a search
+whose answer was already known. It is a `return true` with the invariant written above it.
+
+**Work already under way takes its units and may push a pool below nothing.** The bullets say it
+runs "whatever the pools say" and this is what that means arithmetically: the counts go negative
+and nothing new starts until enough come back. It is the same thing capacity did — `inFlight`
+could exceed it — and the single-pool equivalence depends on it.
+
+**Under-way work is also the only caller that may take a unit nobody has.** That is why `take`
+has a fallback that decrements the first pool regardless: it is unreachable from the scheduling
+loop, which asks `fits` first, and reachable only from work that has visibly begun.
+
+**Counts.** 11 new cases in `ScheduleTests` and 9 in `ResourcingTests`; 1,070 backend tests
+pass, with `Schedule` and `Resourcing` at zero missed branches and zero missed instructions. No
+API, no schema and no engine change — `Engine` still calls the capacity method, which is step
+3's to move, and `Engine.VERSION` is still 2 until it does.
 
 ---
 

@@ -375,6 +375,217 @@ class ScheduleTests {
 		assertThatIllegalArgumentException().isThrownBy(() -> new Precedence(0, 1, -1.0));
 	}
 
+	// Resources: when the slots stop being interchangeable ----------------------
+
+	/**
+	 * <strong>The oracle for the whole version bump, and it is exact numbers rather than
+	 * an argument.</strong> These six finishes were read off this class <em>before</em>
+	 * it knew what a resource was — a twelve-item plan with lags, work already under way,
+	 * two pieces of discovered work and five drawn sets of durations. A scheduler that
+	 * reached the same answers by a different route would not be the same scheduler; one
+	 * that reaches these, to the last bit, is.
+	 *
+	 * <p>
+	 * It is what says {@code Engine.VERSION} 3 contains version 2, and so what says every
+	 * forecast this product has already stored can still be explained, weighed and
+	 * compared.
+	 */
+	@Test
+	void answersExactlyWhatItAnsweredBeforeThereWereResources() {
+		int items = 12;
+		List<Precedence> links = new ArrayList<>();
+		for (int at = 3; at < items; at++) {
+			links.add(edge(at - 3, at, (at % 2 == 0) ? 0.0 : 4.0));
+		}
+		double[] typical = new double[items];
+		boolean[] underWay = new boolean[items];
+		for (int at = 0; at < items; at++) {
+			typical[at] = 3 + at;
+		}
+		underWay[1] = true;
+		Schedule schedule = Schedule.of(links, typical, underWay, 3);
+		Random random = new Random(20260819L);
+		double[] expected = { 60.07938562992277, 62.81544289970311, 40.037653116245984, 78.87836910477925,
+				80.82830260869801 };
+
+		for (int run = 0; run < expected.length; run++) {
+			double[] durations = new double[items + 2];
+			for (int at = 0; at < items; at++) {
+				durations[at] = 2 + 20 * random.nextDouble();
+			}
+			durations[items] = 7.5;
+			durations[items + 1] = 3.25;
+
+			assertThat(schedule.finish(durations, new int[] { 4, 0 }, 2)).as("run %d", run).isEqualTo(expected[run]);
+		}
+		assertThat(schedule.finish(new double[] { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5 })).isEqualTo(28.0);
+	}
+
+	/**
+	 * And the same said the other way: one pool of <em>n</em> units with nothing named is
+	 * capacity <em>n</em>, not approximately and not usually.
+	 */
+	@Test
+	void onePoolOfManyUnitsIsTheCapacityItReplaces() {
+		double[] durations = { 4, 6, 3, 9, 2, 7, 5, 1 };
+		List<Precedence> links = List.of(edge(0, 4), edge(1, 5), edge(2, 6));
+
+		for (int capacity = 1; capacity <= 4; capacity++) {
+			Schedule counted = Schedule.of(links, new double[8], new boolean[8], capacity);
+			Schedule pooled = Schedule.of(links, new double[8], new boolean[8],
+					Resourcing.of(new int[] { capacity }, new int[8][1]));
+
+			assertThat(pooled.finish(durations)).as("capacity %d", capacity).isEqualTo(counted.finish(durations));
+		}
+	}
+
+	/**
+	 * <strong>The measurement this milestone exists for, as a case anybody can check by
+	 * hand.</strong> Four items of ten hours and four units of capacity: interchangeable,
+	 * they all run at once and the plan takes ten. Split into two pools of two with three
+	 * items needing the first, and the third of them waits — because a unit of the other
+	 * pool is not a unit anybody can use.
+	 */
+	@Test
+	void workThatCannotCrossPoolsFinishesLater() {
+		double[] durations = { 10, 10, 10, 10 };
+		int[][] threeOnTheFirst = { { 1, 0 }, { 1, 0 }, { 1, 0 }, { 0, 1 } };
+
+		Schedule interchangeable = Schedule.of(List.of(), new double[4], new boolean[4], 4);
+		Schedule typed = Schedule.of(List.of(), new double[4], new boolean[4],
+				Resourcing.of(new int[] { 2, 2 }, threeOnTheFirst));
+
+		assertThat(interchangeable.finish(durations)).isCloseTo(10.0, within(EXACT));
+		assertThat(typed.finish(durations)).isCloseTo(20.0, within(EXACT));
+	}
+
+	/** Work that ties up a whole pool runs alone, however much else is ready. */
+	@Test
+	void workNeedingEveryUnitOfAPoolRunsAlone() {
+		double[] durations = { 10, 10, 10 };
+		int[][] oneWantsBoth = { { 2 }, { 1 }, { 1 } };
+
+		Schedule schedule = Schedule.of(List.of(), new double[3], new boolean[3],
+				Resourcing.of(new int[] { 2 }, oneWantsBoth));
+
+		// Ten hours alone, then the other two together.
+		assertThat(schedule.finish(durations)).isCloseTo(20.0, within(EXACT));
+	}
+
+	/**
+	 * <strong>Decision 7, and it is the assumption a reader is most likely to disagree
+	 * with.</strong> The first item cannot have what it needs, and the plan does not sit
+	 * idle waiting for it — the work behind it starts instead. A team that will not do
+	 * available work because one person is busy is not a team anybody has.
+	 */
+	@Test
+	void workThatCannotStartDoesNotHoldUpTheWorkBehindIt() {
+		// The first item is the highest priority and needs both units of a pool that has
+		// one of them tied up by something already under way.
+		double[] durations = { 10, 4, 4 };
+		int[][] needs = { { 2 }, { 1 }, { 1 } };
+		boolean[] underWay = { false, false, true };
+
+		// Nothing waits behind anything here, so the priority order is write order —
+		// which
+		// is a property of the ranking worth knowing: it only bites on a graph.
+		Schedule schedule = Schedule.of(List.of(), new double[3], underWay, Resourcing.of(new int[] { 2 }, needs));
+
+		// The third is running from the start; the second takes the free unit rather than
+		// holding it for the first, which begins at four and ends at fourteen.
+		assertThat(schedule.finish(durations)).isCloseTo(14.0, within(EXACT));
+	}
+
+	/**
+	 * Work already under way holds what it needs whether or not the pools have it — it
+	 * has visibly begun, and a plan that said otherwise would be wrong about the world.
+	 * The units go below nothing and nothing new starts until enough come back.
+	 */
+	@Test
+	void workAlreadyUnderWayHoldsUnitsThePoolsDoNotHave() {
+		double[] durations = { 6, 6, 6, 1 };
+		boolean[] underWay = { true, true, true, false };
+
+		Schedule schedule = Schedule.of(List.of(), new double[4], underWay,
+				Resourcing.of(new int[] { 1 }, new int[4][1]));
+
+		// Three are running over a pool of one, so the fourth waits for all three.
+		assertThat(schedule.finish(durations)).isCloseTo(7.0, within(EXACT));
+	}
+
+	/**
+	 * <strong>Work that names nothing takes one unit of whatever is free, in declaration
+	 * order</strong> — and gives that same unit back rather than one of somebody else's.
+	 * Two generic items against two pools of one run together; a third waits.
+	 */
+	@Test
+	void workThatNamesNothingTakesOneUnitOfWhateverIsFree() {
+		double[] durations = { 5, 5, 5 };
+
+		Schedule schedule = Schedule.of(List.of(), new double[3], new boolean[3],
+				Resourcing.of(new int[] { 1, 1 }, new int[3][2]));
+
+		assertThat(schedule.finish(durations)).isCloseTo(10.0, within(EXACT));
+	}
+
+	/**
+	 * And it is genuinely returned to the pool it came from: a named item afterwards can
+	 * only run if the right unit is free again.
+	 */
+	@Test
+	void aGenericPieceOfWorkGivesBackTheUnitItTook() {
+		double[] durations = { 5, 5 };
+		// The first names nothing and takes the first pool; the second needs the first
+		// pool
+		// and can only start once that same unit is back.
+		int[][] needs = { { 0, 0 }, { 1, 0 } };
+
+		Schedule schedule = Schedule.of(List.of(), new double[2], new boolean[2],
+				Resourcing.of(new int[] { 1, 1 }, needs));
+
+		assertThat(schedule.finish(durations)).isCloseTo(10.0, within(EXACT));
+	}
+
+	/**
+	 * Work nobody had thought of is scheduled by the requirement of the item it was found
+	 * behind: work discovered behind a backend task is backend work.
+	 */
+	@Test
+	void discoveredWorkNeedsWhatItsParentNeeded() {
+		double[] durations = { 4, 4, 6, 6 };
+		int[][] needs = { { 1, 0 }, { 0, 1 } };
+
+		Schedule schedule = Schedule.of(List.of(), new double[2], new boolean[2],
+				Resourcing.of(new int[] { 1, 1 }, needs));
+
+		// One piece found behind each item, each needing the pool its parent needed — so
+		// each pool runs its two in sequence and the plan takes four and then six.
+		assertThat(schedule.finish(durations, new int[] { 0, 1 }, 2)).isCloseTo(10.0, within(EXACT));
+	}
+
+	/**
+	 * <strong>Refused when the schedule is prepared rather than never starting.</strong>
+	 * The loop has no guard against work that cannot fit and its termination argument
+	 * depends on there being none — with nothing running every unit is free, so anything
+	 * that can ever start can start then. Work asking for more of a pool than exists
+	 * would break that quietly, by waiting for ever.
+	 */
+	@Test
+	void workNeedingMoreOfAPoolThanExistsIsRefused() {
+		assertThatIllegalArgumentException().isThrownBy(() -> Resourcing.of(new int[] { 2 }, new int[][] { { 3 } }))
+			.withMessageContaining("holds 2");
+	}
+
+	/**
+	 * A declaration made for a different plan is refused rather than read against this
+	 * one.
+	 */
+	@Test
+	void aDeclarationForADifferentPlanIsRefused() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> Schedule.of(List.of(), new double[3], new boolean[3], Resourcing.pooled(2, 4)));
+	}
+
 	/**
 	 * Everything level on priority, so the ranking falls back to write order throughout.
 	 */
