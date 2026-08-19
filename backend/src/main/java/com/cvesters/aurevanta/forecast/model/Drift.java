@@ -42,11 +42,19 @@ import java.util.List;
  * run has no calendar to read its hours through.
  * @param bandDays the distance between the current band's two ends, which is the
  * yardstick and not a reading of the plan. The <em>current</em> one deliberately: an old
- * run's band is not what anybody is being asked to believe today.
+ * run's band is not what anybody is being asked to believe today. <strong>Zero is not a
+ * confident plan, it is a short one</strong> — both ends are rounded up to a whole day on
+ * their own, so a plan of a few days puts them on the same one.
  * @param movingOut whether the drift is far enough past what this plan already says is
  * possible to be worth saying out loud. Never true for a plan that came in, however far:
  * this answers one question and answering the opposite one in the same field would make
- * the flag unreadable.
+ * the flag unreadable. <strong>Never true without a band to measure against
+ * either</strong> — with a yardstick of zero the rule degenerates into "any drift at
+ * all", and the plans it degenerates on are precisely the small ones, where `m10-plan.md`
+ * step 3 measured re-running alone moving the date by <em>days</em>. The measurement that
+ * says this detector needs no noise floor was taken on a twelve-item chain and does not
+ * hold there, so a plan with no band to speak of gets no verdict rather than the
+ * strictest one in the product.
  */
 public record Drift(int runs, LocalDate fromDate, LocalDate toDate, Integer days, Integer bandDays, boolean movingOut) {
 
@@ -93,19 +101,38 @@ public record Drift(int runs, LocalDate fromDate, LocalDate toDate, Integer days
 	 * about a plan this has never seen
 	 */
 	public static Drift since(List<Reading> newestFirst) {
-		if (newestFirst.isEmpty()) {
-			throw new IllegalArgumentException("a plan with no forecasts has no date to have drifted");
-		}
+		// Asked first, because it is what refuses an empty history — and a caller who
+		// gets
+		// an index out of bounds instead has been told nothing about what they did wrong.
+		int runs = window(newestFirst);
 		Reading now = newestFirst.get(0);
-		int runs = 1;
-		while (runs < newestFirst.size() && sameQuestion(newestFirst.get(runs).terms(), now.terms())) {
-			runs++;
-		}
 		Reading then = newestFirst.get(runs - 1);
 		Integer days = between(then.date(), now.date());
 		Integer bandDays = between(now.bandFrom(), now.bandTo());
-		boolean movingOut = days != null && bandDays != null && days > WORTH_SAYING * bandDays;
+		boolean movingOut = days != null && bandDays != null && bandDays > 0 && days > WORTH_SAYING * bandDays;
 		return new Drift(runs, then.date(), now.date(), days, bandDays, movingOut);
+	}
+
+	/**
+	 * How many of these answered the same question as the newest, counting it.
+	 *
+	 * <p>
+	 * Published because a window is a fact about the <em>runs</em> and not about any one
+	 * percentile: whatever reads three confidences out of one history then has one answer
+	 * to ask for rather than three it has to hope agree. It reads {@link Reading#terms}
+	 * and nothing else, which is what makes that true.
+	 * @throws IllegalArgumentException if there are none
+	 */
+	public static int window(List<Reading> newestFirst) {
+		if (newestFirst.isEmpty()) {
+			throw new IllegalArgumentException("a plan with no forecasts has no window");
+		}
+		ForecastTerms now = newestFirst.get(0).terms();
+		int runs = 1;
+		while (runs < newestFirst.size() && sameQuestion(newestFirst.get(runs).terms(), now)) {
+			runs++;
+		}
+		return runs;
 	}
 
 	/**

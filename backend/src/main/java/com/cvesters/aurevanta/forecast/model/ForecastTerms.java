@@ -24,12 +24,18 @@ import java.time.LocalDate;
  * @param calendarRule and {@code workingHoursPerDay} are null together on a run made
  * before M4, which had no calendar rather than a default one — so two such runs agree
  * with each other and neither agrees with a run that has one.
+ * @param priorityRule which order the scheduler ran ready work in. Stored on every run
+ * for {@code calendarRule}'s reason — {@code Schedule.PRIORITY_RULE} is a <em>name</em>
+ * because a second rule is expected — and it belongs here for a sharper one: the calendar
+ * is laid over the engine's answer afterwards, where this is inside it, so two runs made
+ * under different priority rules did not merely read one answer two ways. They are two
+ * answers.
  * @param startsOn is in here and is the odd one of the five assumptions: a run started a
  * month later finishes a month later with nothing about the plan having changed. That is
  * *time simply passing*, and it is why a decomposition applies it last.
  */
-public record ForecastTerms(int engineVersion, String calendarRule, BigDecimal workingHoursPerDay, int capacity,
-		BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
-		LocalDate startsOn) {
+public record ForecastTerms(int engineVersion, String priorityRule, String calendarRule, BigDecimal workingHoursPerDay,
+		int capacity, BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent,
+		BigDecimal scopeGrowthP90Percent, LocalDate startsOn) {
 
 }

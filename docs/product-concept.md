@@ -350,6 +350,14 @@ alone, and this compounds at every join. Simulation captures it for free; spread
 get it wrong universally. Worth surfacing as an explicit insight rather than burying it
 inside a number.
 
+> **Captured, not surfaced — and M10 decided that deliberately, 2026-08-19.** The engine has
+> modelled it since M3a: `Schedule` waits for every predecessor, so the effect is inside every
+> band this product has ever published. What M10 cut is the *number* — surfacing it explicitly
+> was one of that milestone's five bullets, and it is a correction to a figure the reader it was
+> written for has not yet understood. It is in the icebox under *Modelling depth* with the
+> probabilistic critical path, which it shares a cost with: both need the scheduler to report
+> which items decided each run, which is modelling work wearing a communication label.
+
 ## Open questions
 
 - ~~**Unit of estimation** — task, story, or epic?~~ *Answered by M2: **task**.* Coarser
@@ -361,8 +369,33 @@ inside a number.
   together — so two people disagreeing is stored rather than refused. What is *done* with
   the disagreement is M3's, and the session UI that makes it a group activity is in the
   icebox. It was a schema decision, as this bullet said, and the schema was built for it.
-- **Communicating to stakeholders** — output must reach people who do not know what P90
-  means. Plain-language sentences ("85% likely to finish between 12 October and
-  20 November") and a burn-up with a confidence cone, showing the band narrowing as work
-  completes. A forecast history also enables a sliding-date detector: an early warning
-  when successive re-forecasts keep moving out rather than converging.
+- ~~**Communicating to stakeholders**~~ *Answered by M10: **all three, and the example
+  sentence above is wrong.*** Output must reach people who do not know what P90 means.
+
+  > **Built, 2026-08-19, and the parenthesis is the part to correct.** "85% likely to finish
+  > between 12 October and 20 November" is a **two-sided** interval, and every date this product
+  > publishes is one-sided: a percentile is the day by which that share of the runs had finished.
+  > The two forms are different claims and the two-sided one is the one that gets misread —
+  > *so it will not be before the 12th?* is a question nobody manages against, about the end of
+  > the distribution the model is worst at, and it quietly halves the confidence a reader thinks
+  > they have at the far end. What ships is **"there is an 85% chance this is finished by
+  > 20 November"**, in the largest type on the panel, with the plan's own name in it because a
+  > confidence and a day describe nothing away from the screen they are already on.
+  >
+  > **The burn-up is a table with a picture over it**, in that order: the text equivalent is
+  > built first and is what the tests assert, and the drawing is `aria-hidden` inline SVG
+  > carrying nothing the table does not. Its cone comes from the throughput bootstrap rather
+  > than from the engine — a burn-up's future is *items over time*, and the engine forecasts
+  > effort — so the picture and the number beside it are one forecast read twice. It narrows
+  > because the backlog is a **ceiling**, not because uncertainty falls away.
+  >
+  > **And the sliding-date detector is not a rule about "keep moving out".** Measured: a plan
+  > that is not slipping still moves out one week and in the next, so three successive increases
+  > fire on 86% of plans re-forecast weekly for half a year with no slide in them. What ships
+  > measures how far the date has drifted since the oldest *comparable* run, against the width
+  > of the band the plan itself admits to — three days on a three-week band is nothing, and
+  > three days on a two-day band is the plan coming apart.
+  >
+  > What M10 also built, which this bullet does not name: **an account of why the date moved**,
+  > whose terms sum to the whole of it because each is measured with every earlier one already
+  > applied.

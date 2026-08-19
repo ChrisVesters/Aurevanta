@@ -371,21 +371,37 @@ export type Forecast = {
  * estimate worth questioning. A plan cannot be sliding on one screen and fine on another,
  * and a threshold repeated here is the second copy that eventually disagrees.
  */
-export type DriftAt = {
-  confidence: number;
-  /** Where the oldest run in the window put this percentile, and where the newest does. */
-  fromDate: string | null;
-  toDate: string | null;
-  /** Positive when the plan has moved out. Null when either run has no calendar. */
-  days: number | null;
-  /**
-   * What the current forecast itself says the distance between the good and the bad case
-   * is — the yardstick rather than a reading. Three days is nothing against a three-week
-   * band and the whole of a plan against a two-day one.
-   */
-  bandDays: number | null;
-  movingOut: boolean;
-};
+export type DriftAt =
+  | {
+      confidence: number;
+      /** Where the oldest run in the window put this percentile, and the newest. */
+      fromDate: string | null;
+      toDate: string | null;
+      /** Positive when the plan has moved out. Null when either run has no calendar. */
+      days: number | null;
+      /**
+       * What the forecast itself says the distance between the good and the bad case is —
+       * the yardstick rather than a reading. Three days is nothing against a three-week
+       * band and the whole of a plan against a two-day one.
+       */
+      bandDays: number | null;
+      movingOut: false;
+    }
+  | {
+      /**
+       * **Two shapes, told apart by the flag**, because a plan cannot be drifting without
+       * having somewhere to have drifted from: the server never says so without the days
+       * and the band that decided it. Written as a union rather than as four checks a
+       * reader would have to repeat, and rather than four nullable fields nobody could
+       * render without them.
+       */
+      confidence: number;
+      fromDate: string;
+      toDate: string;
+      days: number;
+      bandDays: number;
+      movingOut: true;
+    };
 
 /**
  * Whether this plan's date keeps moving out, read off its own history.
@@ -454,6 +470,56 @@ export type ThroughputProjection = {
   /** A string, not a number: sixty-four bits do not survive a JSON number in a browser. */
   seed: string;
   sampleCount: number;
+};
+
+/**
+ * One thing that moved a plan's date between two forecasts of it.
+ *
+ * The order is the server's and is a *rule* with a name, because two defensible orders split
+ * the same eight days differently — so nothing here re-orders them, and they are rendered in
+ * the order they arrive.
+ */
+export type MovementTerm = {
+  step:
+    | 'SAMPLING'
+    | 'PROGRESS'
+    | 'ESTIMATES'
+    | 'SCOPE'
+    | 'ASSUMPTIONS'
+    | 'CALENDAR'
+    | 'STARTS_ON';
+  movedHours: number;
+  /** Null when either run has no calendar to read a date through. */
+  movedDays: number | null;
+};
+
+/** The whole account of a movement at one confidence, which the control chooses between. */
+export type MovementAt = {
+  confidence: number;
+  fromDate: string | null;
+  toDate: string | null;
+  fromHours: number;
+  toHours: number;
+  /** They sum to the distance between the two dates exactly, which is the whole claim. */
+  terms: MovementTerm[];
+};
+
+/**
+ * Why the date moved, between two forecasts of one plan.
+ *
+ * **The terms account for the whole movement rather than most of it**, because each is
+ * measured with every earlier one already applied and the last state *is* the newer run. That
+ * is what makes it worth publishing a sentence like "out eight days: five new scope, four
+ * re-estimates, one of progress" at all.
+ */
+export type Movement = {
+  fromRunId: string;
+  toRunId: string;
+  /** Which order the terms were attributed in — a name, because two orders give two splits. */
+  rule: string;
+  /** What it cost, said rather than hidden: this is six whole simulations. */
+  simulations: number;
+  at: MovementAt[];
 };
 
 /** One week of what a plan has actually delivered, as a running total. */

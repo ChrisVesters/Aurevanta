@@ -451,6 +451,10 @@ class ThroughputTests {
 
 		assertThat(forecast.unfinishedRuns()).isEqualTo(200);
 		assertThat(forecast.p50Weeks()).isEqualTo(Throughput.MOST_WEEKS);
+		// And no route, for the same reason the percentiles above are not to be read as
+		// dates: a cone that climbs for ten years and never arrives is a censored answer
+		// drawn. It is also the one case where building one costs most and reads nothing.
+		assertThat(forecast.trajectory()).isEmpty();
 	}
 
 	/**

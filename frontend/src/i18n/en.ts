@@ -393,12 +393,19 @@ export const en = {
           title: 'What has been delivered',
           // The sentence somebody reads out. The two halves are separate because the second
           // needs a projection and the first never does.
+          // **One sentence and no second date**, which the review pass corrected: the date
+          // this section is about is already on screen one-sided, three lines above, and the
+          // two-sided form decision 2 exists to keep out had crept back into the plan's own
+          // example for this step.
           delivered: 'Delivered {{delivered}} of {{total}}.',
-          finish:
-            'On this history the last of it is done between {{from}} and {{to}}.',
-          // What the table shows, said before it rather than left to be counted.
-          caption:
-            '{{past}} weeks delivered, then {{ahead}} weeks this history projects.',
+          // What the table shows, said before it rather than left to be counted. Two counts
+          // again, and both reach one: a plan with a week of history, and one the history
+          // says finishes inside a week.
+          caption: '{{past}}, then {{ahead}} this history projects.',
+          captionPast_one: '1 week delivered',
+          captionPast_other: '{{count}} weeks delivered',
+          captionAhead_one: '1 week',
+          captionAhead_other: '{{count}} weeks',
           week: 'Week',
           count: 'Delivered',
           // The band, and it is the column that says a row is a projection rather than a
@@ -571,6 +578,62 @@ export const en = {
           lede: 'These do not add up. Two of them often shorten the same path, so dropping both buys far less than the two figures suggest — and the list above is the one that was actually measured.',
           entry: '{{what}} — {{confidence}}%, {{buys}} points better.'
         }
+      },
+      // **Whether the date keeps moving out.** Never the direction of the last few runs — a
+      // plan that is not slipping still moves out one week and in the next, and a rule about
+      // direction fires on 86% of plans re-forecast weekly for six months. What is said here
+      // is the distance since the oldest run that answered the same question, against the
+      // width of the band this plan itself admits to. The threshold is the server's, as
+      // `EstimateQuality`'s are; this end renders a flag it was sent.
+      drift:
+        'This plan has been drifting. At {{confidence}}% it said {{from}} and now says {{to}} — {{out}}, against a band {{band}}.',
+      // **Two counts in one sentence, so the two halves that carry a number are their own
+      // entries.** A single `_one`/`_other` pair selects on one `count` and there are two
+      // here — and both reach 1, which is what "1 days out, against a band 1 days wide"
+      // would have read as. Composing a sentence from fragments is a localisation smell and
+      // is bounded here by English being the only catalogue.
+      driftOut_one: '1 day out',
+      driftOut_other: '{{count}} days out',
+      driftBand_one: '1 day wide',
+      driftBand_other: '{{count}} days wide',
+      // Why the date moved, between this forecast and an earlier one. Loaded only when
+      // somebody asks, because it costs six whole simulations.
+      movement: {
+        open: 'Why did the date move?',
+        loading: 'Working out why the date moved…',
+        // No heading over the account: the first sentence of it *is* the title, and a
+        // heading repeating "why the date moved" above "this plan moved out 8 days" would
+        // be the same words twice inside one bullet.
+        movedOut:
+          'At {{confidence}}% this plan moved out {{days}} days: it said {{from}} and now says {{to}}.',
+        movedIn:
+          'At {{confidence}}% this plan came in {{days}} days: it said {{from}} and now says {{to}}.',
+        movedNot:
+          'At {{confidence}}% the date has not moved: {{date}} then and now.',
+        // Named as things somebody did rather than as fields, and in the order the server
+        // attributed them — which is a rule with a name, because two defensible orders split
+        // the same eight days differently.
+        steps: {
+          SAMPLING: 'Running the simulation again',
+          PROGRESS: 'Work reported since',
+          ESTIMATES: 'Estimates revised',
+          SCOPE: 'Work added or put away',
+          ASSUMPTIONS: 'Assumptions changed',
+          CALENDAR: 'The working day changed',
+          STARTS_ON: 'Time passing'
+        },
+        termLater_one: '{{count}} day later',
+        termLater_other: '{{count}} days later',
+        termEarlier_one: '{{count}} day earlier',
+        termEarlier_other: '{{count}} days earlier',
+        termNone: 'nothing',
+        // A run this browser cannot resolve a date for. Not reachable from this screen, which
+        // only offers the question where both runs have dates — but the server versions ahead,
+        // and a term rendered as a blank would read as a term of nothing.
+        termNoDays: 'not in days',
+        // Decision 6 and its price, in one line: the terms add up *because* each was measured
+        // with the ones above it already applied, and that is what the simulations bought.
+        cost: 'Each of these was measured with the ones above it already applied, which is why they add up to the whole move. It cost {{simulations}} simulations.'
       },
       earlier: {
         title: 'Earlier forecasts',
@@ -1082,6 +1145,11 @@ export const en = {
       // A run the engine no longer reproduces exactly. Breaking it down would mean ranking
       // a plan under a model that never forecast it — which would look entirely reasonable,
       // and is why the server refuses rather than approximates.
+      // Two runs made by different versions of the model. M6's argument rather than a fussy
+      // check: an account of a movement between two models is an exact account of a movement
+      // that never happened, and it would look entirely reasonable.
+      forecast_not_comparable:
+        'These two forecasts cannot be compared: they were made by different versions of the model, so the distance between them is not a plan that moved.',
       forecast_replay_mismatch:
         'This forecast cannot be broken down: it was made by an earlier version of the model, which no longer reproduces it exactly.',
       // A run made before a working day was something anybody stated. It reports hours and

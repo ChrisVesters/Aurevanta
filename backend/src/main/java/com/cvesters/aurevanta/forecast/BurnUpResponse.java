@@ -29,7 +29,14 @@ import com.cvesters.aurevanta.forecast.model.ThroughputForecast;
  * @param delivered what is finished today and {@code total} what there is to finish,
  * which are the two numbers the sentence over the picture says out loud. Both are
  * derivable from figures elsewhere in this answer, and a reader deriving them is a reader
- * who might not.
+ * who might not. <strong>This is the first place the two counts are added together, and
+ * they count archived work by opposite rules on purpose</strong> —
+ * {@code WorkItemRepository.completionsInProject} keeps work that was delivered and later
+ * put away, because dropping it would make tidying up look like a slowdown, and
+ * {@code countRemainingInProject} drops work put away before it was finished, because
+ * that is not going to be delivered at all. So a team that archives finished work reads
+ * "delivered 300 of 340" over a plan screen showing forty rows, and both halves are
+ * right: the total is what this plan will have delivered when it is done.
  * @param past every week from the first completion to the day being asked about, empty
  * ones included — a flat stretch is a fortnight nothing was delivered in, and it is as
  * much of the shape as the climbs are.

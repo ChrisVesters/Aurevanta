@@ -297,6 +297,22 @@ class ThroughputApiTests {
 	}
 
 	/**
+	 * <strong>And a plan whose rate does not clear its backlog draws no cone
+	 * either.</strong> Its percentiles are censored at the horizon and withheld for that
+	 * reason; a route that climbs for ten years and never arrives is that same censored
+	 * answer drawn, and building one is where it would cost most.
+	 */
+	@Test
+	void aRateTooSlowToFinishDrawsNoCone() throws Exception {
+		finished(WEEK_ONE);
+		remaining(100);
+
+		read(this.ada, WEEK_ONE.plusWeeks(Throughput.MOST_WEEKS - 1L)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.burnUp.cone").value(nullValue()))
+			.andExpect(jsonPath("$.limitations", hasItem("throughput_beyond_horizon")));
+	}
+
+	/**
 	 * A plan nobody has finished anything in has no picture at all, for the reason it has
 	 * no window: an empty axis is a chart of nothing, and the limitation already says
 	 * why.

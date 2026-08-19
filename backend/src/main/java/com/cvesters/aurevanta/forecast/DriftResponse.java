@@ -38,14 +38,15 @@ public record DriftResponse(UUID sinceRunId, int runs, List<DriftAtResponse> at)
 			return null;
 		}
 		List<ForecastTerms> terms = newestFirst.stream().map(ForecastService::termsOf).toList();
+		// Asked once rather than taken off whichever reading the loop below ended on. The
+		// window is a fact about what each run was asked and no confidence can change it
+		// —
+		// but reading it out of the last iteration would make that a thing to hope for
+		// rather than a thing this method does.
+		int runs = Drift.window(readings(newestFirst, terms, ForecastService.CONFIDENCES[0]));
 		List<DriftAtResponse> at = new ArrayList<>(ForecastService.CONFIDENCES.length);
-		// The window is decided by what each run was asked, which no confidence changes,
-		// so all three agree about how far back it reaches and any one of them may say
-		// so.
-		int runs = 0;
 		for (int confidence : ForecastService.CONFIDENCES) {
 			Drift drift = Drift.since(readings(newestFirst, terms, confidence));
-			runs = drift.runs();
 			at.add(new DriftAtResponse(confidence, drift.fromDate(), drift.toDate(), drift.days(), drift.bandDays(),
 					drift.movingOut()));
 		}

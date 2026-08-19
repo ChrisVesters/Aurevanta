@@ -27,7 +27,6 @@ class ComparisonTests {
 	void twoRunsOnTheSameTermsDisagreeAboutNothing() {
 		Comparison comparison = Comparison.between(terms(), terms());
 
-		assertThat(comparison.identical()).isTrue();
 		assertThat(comparison.comparable()).isTrue();
 		assertThat(comparison.sameCalendar()).isTrue();
 		assertThat(comparison.sameAssumptions()).isTrue();
@@ -50,6 +49,25 @@ class ComparisonTests {
 		assertThat(comparison.comparable()).isFalse();
 		assertThat(comparison.differences()).containsExactly(Difference.ENGINE_VERSION);
 		// And it says nothing about the rest, which are all still the same.
+		assertThat(comparison.sameCalendar()).isTrue();
+		assertThat(comparison.sameAssumptions()).isTrue();
+	}
+
+	/**
+	 * <strong>The second of the two that refuse, and the one nothing can produce
+	 * yet.</strong> A priority rule is a stored name like a calendar rule and belongs
+	 * with the engine version rather than with it: a calendar is laid over an answer the
+	 * engine has already given, so two calendars are one answer read twice — a priority
+	 * rule is inside the scheduler, so two rules are two answers. There is one rule
+	 * today, which is exactly why this is asserted now: the day a second ships, every
+	 * plan re-forecast across the change would otherwise report the jump as drift.
+	 */
+	@Test
+	void aDifferentPriorityRuleIsAlsoNothingToCompareWith() {
+		Comparison comparison = Comparison.between(terms(), with(newer -> newer.priorityRule("shortest_first")));
+
+		assertThat(comparison.comparable()).isFalse();
+		assertThat(comparison.differences()).containsExactly(Difference.PRIORITY_RULE);
 		assertThat(comparison.sameCalendar()).isTrue();
 		assertThat(comparison.sameAssumptions()).isTrue();
 	}
@@ -122,12 +140,12 @@ class ComparisonTests {
 	 */
 	@Test
 	void theSameNumberWrittenTwoWaysIsTheSameAssumption() {
-		ForecastTerms scaled = new ForecastTerms(2, "five_day_week", new BigDecimal("6.00"), 2, new BigDecimal("30.00"),
-				new BigDecimal("20.00"), new BigDecimal("60.00"), MONDAY);
-		ForecastTerms plain = new ForecastTerms(2, "five_day_week", new BigDecimal("6"), 2, new BigDecimal("30"),
-				new BigDecimal("20"), new BigDecimal("60"), MONDAY);
+		ForecastTerms scaled = new ForecastTerms(2, "most_work_waiting", "five_day_week", new BigDecimal("6.00"), 2,
+				new BigDecimal("30.00"), new BigDecimal("20.00"), new BigDecimal("60.00"), MONDAY);
+		ForecastTerms plain = new ForecastTerms(2, "most_work_waiting", "five_day_week", new BigDecimal("6"), 2,
+				new BigDecimal("30"), new BigDecimal("20"), new BigDecimal("60"), MONDAY);
 
-		assertThat(Comparison.between(scaled, plain).identical()).isTrue();
+		assertThat(Comparison.between(scaled, plain).differences()).isEmpty();
 	}
 
 	/**
@@ -136,10 +154,10 @@ class ComparisonTests {
 	 */
 	@Test
 	void twoRunsMadeBeforeThereWasACalendarAgreeWithEachOther() {
-		ForecastTerms before = new ForecastTerms(2, null, null, 2, new BigDecimal("30.00"), new BigDecimal("20.00"),
-				new BigDecimal("60.00"), null);
+		ForecastTerms before = new ForecastTerms(2, "most_work_waiting", null, null, 2, new BigDecimal("30.00"),
+				new BigDecimal("20.00"), new BigDecimal("60.00"), null);
 
-		assertThat(Comparison.between(before, before).identical()).isTrue();
+		assertThat(Comparison.between(before, before).differences()).isEmpty();
 		assertThat(Comparison.between(before, terms()).differences())
 			.containsExactlyInAnyOrder(Difference.CALENDAR_RULE, Difference.WORKING_DAY, Difference.STARTS_ON);
 	}
@@ -151,8 +169,8 @@ class ComparisonTests {
 	 */
 	@Test
 	void whichOfThemIsOlderDoesNotChangeWhatTheyDisagreeAbout() {
-		ForecastTerms before = new ForecastTerms(2, null, null, 2, new BigDecimal("30.00"), new BigDecimal("20.00"),
-				new BigDecimal("60.00"), null);
+		ForecastTerms before = new ForecastTerms(2, "most_work_waiting", null, null, 2, new BigDecimal("30.00"),
+				new BigDecimal("20.00"), new BigDecimal("60.00"), null);
 		ForecastTerms roomier = with((newer) -> newer.capacity(4));
 
 		assertThat(Comparison.between(terms(), before)).isEqualTo(Comparison.between(before, terms()));
@@ -188,6 +206,8 @@ class ComparisonTests {
 
 		private int engineVersion = 2;
 
+		private String priorityRule = "most_work_waiting";
+
 		private String calendarRule = "five_day_week";
 
 		private String workingHoursPerDay = "6.00";
@@ -204,6 +224,11 @@ class ComparisonTests {
 
 		Builder engineVersion(int version) {
 			this.engineVersion = version;
+			return this;
+		}
+
+		Builder priorityRule(String rule) {
+			this.priorityRule = rule;
 			return this;
 		}
 
@@ -239,9 +264,9 @@ class ComparisonTests {
 		}
 
 		ForecastTerms build() {
-			return new ForecastTerms(this.engineVersion, this.calendarRule, new BigDecimal(this.workingHoursPerDay),
-					this.capacity, new BigDecimal(this.teamFactor), new BigDecimal(this.growthLow),
-					new BigDecimal(this.growthHigh), this.startsOn);
+			return new ForecastTerms(this.engineVersion, this.priorityRule, this.calendarRule,
+					new BigDecimal(this.workingHoursPerDay), this.capacity, new BigDecimal(this.teamFactor),
+					new BigDecimal(this.growthLow), new BigDecimal(this.growthHigh), this.startsOn);
 		}
 
 	}

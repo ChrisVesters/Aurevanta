@@ -1,8 +1,13 @@
 # M10 — Communicating to people who do not know what P90 means: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 5 are built.** Six steps, **no migration expected**, and no change to anything the
-> engine samples — `Engine.VERSION` does not move. Each step gains its
+> **Proposal, 2026-08-18. Built, 2026-08-19.** Six steps, **no migration, and no change to anything
+> the engine samples** — `Engine.VERSION` is still 2, as expected. Each step gained its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
+>
+> **Read step 6's record first if you are here for one thing.** The close-out review found this
+> plan reintroducing, in step 5's own example sentence, the exact two-sided form decision 2 was
+> written to remove from `roadmap.md` — which is what a review pass is for and what the rest of
+> this document could not have caught.
 >
 > **Scope, and it is smaller than `roadmap.md`'s bullets.** That section lists five things and
 > **two of them are cut here** — the probabilistic critical path and merge-bias-as-a-number
@@ -42,7 +47,7 @@
 | 3 | Why the date moved ✅ *done* | 2, M6's replay |
 | 4 | Whether it keeps moving out ✅ *done* | 2 |
 | 5 | The burn-up, and the first chart in this product ✅ *done* | M9 |
-| 6 | Close out | 1–5 |
+| 6 | Close out ✅ *done* | 1–5 |
 
 **No migration is expected.** Everything here is derived: `forecast_runs` already stores each run's
 inputs, its seed, its calendar and its engine version, and `work_items.completed_on` already
@@ -380,7 +385,7 @@ has a subject. Anybody expecting decision 2 to have overturned something will fi
 **the two-sided form `roadmap.md` proposes was never what this product shipped**, and the decision's
 work is to stop it being introduced rather than to remove it.
 
-**Two properties were asserted rather than built.** `saysOneDateAndNeverAWindow` pins the absence —
+**Two properties were asserted rather than built.** The case named *says one date and never a window* pins the absence —
 no "between", exactly one year in the sentence at every confidence — because that is the thing
 decision 2 exists to prevent and nothing else would fail if it crept in. And the plan's name is
 tested through a *different* plan from the fixture, since a hard-coded name would have passed
@@ -776,7 +781,7 @@ tests pass at 100% of statements, branches, functions and lines.
 
 ---
 
-## Step 6 — Close out
+## Step 6 — Close out ✅ *done*
 
 **Goal.** The record matches what was built.
 
@@ -794,6 +799,121 @@ tests pass at 100% of statements, branches, functions and lines.
   contradicting one of its own decisions.
 
 **Done when** the next reader can tell what M10 decided without reading its code.
+
+### As built — where it differs from the above
+
+**The review pass found three things and the first is the one this milestone exists to
+prevent.**
+
+**Step 5's own example sentence was two-sided, which is what decision 2 exists to stop.** The
+plan proposes *"delivered 104 of 144; on this history the last is done between 12 October and
+30 November"*, and it shipped that way. It is the same shape as `roadmap.md`'s example — the one
+decision 2 was written to correct — reintroduced eleven steps later by the plan that corrected
+it, in the step furthest from where the decision is stated. Worse, its second half restated a
+date the same panel already carries **one-sided** three lines above. What is left is *"Delivered
+104 of 144."*, which is the half nothing else says. **That this happened at all is the argument
+for the review pass**: nothing failed, nothing looked wrong, and both halves of the sentence were
+individually defensible.
+
+**The decomposition and the detector had no reader, and step 3's record left that here
+deliberately.** Both now have one:
+
+- **Drift is a caveat beside the date**, not a line beside the history it was measured from. A
+  plan whose date keeps moving out is one whose latest date is worth less than it looks, so it
+  belongs where that date is. It says the two dates, the distance and the band it is measured
+  against, and says **nothing at all** when the plan is merely churning — a warning that fires
+  on a plan that is fine is the 86% this milestone measured, arriving through the screen.
+- **The account of why the date moved sits under the earlier forecast it is measured against**,
+  behind a question somebody has to ask, because it costs six simulations. The terms render in
+  the order the server attributed them and are never re-sorted: the order *is* the rule, so a
+  list sorted by size would be an account read under an order nobody stated. It is offered only
+  where both runs have a date — a run made before there was a calendar has hours and no day, and
+  "why did the date move" is not a question about it.
+- **Both are read at whichever confidence the control is set to and neither sends a request when
+  it moves.** M4 built that property for the date; the drift arrives with the listing and the
+  account arrives with all three readings, so it costs nothing to keep.
+
+**The third finding is smaller and is about this plan rather than the product.** Step 2's
+bullets put `ForecastService.comparable(...)` in step 2; step 4 built `DriftResponse.over`
+instead and no service method exists. That is the same correction step 2's own record made in
+advance — a service method whose only caller is its own test is what the M8 and M9 cleanups
+deleted twice — so the plan is consistent with itself and with the code, and the bullet is
+simply spent.
+
+**What the close-out changed outside the code.**
+
+- `roadmap.md`: M10 marked done with its own *As built*; **the two-sided example sentence
+  corrected in place**, because the wrong version is the quotable one — M9's close-out learnt
+  that and this is the second time it has mattered. The two cut bullets moved to the icebox
+  under *Modelling depth* with their reasoning intact, and *forecast movement decomposition*
+  left the icebox as built, carrying the two things it turned out to need that the entry never
+  named. *What is next* moves to M11. The **interface rework** entry gains what it cost to build
+  a chart before it, and the **accessibility** bullet gains the inversion that made it cheap.
+- `product-concept.md`: the *Communicating to stakeholders* open question answered, with the
+  same correction to the same sentence — it carried the two-sided form too. Its **merge bias**
+  section says what happened to it: captured by the engine since M3a, and *surfacing* it cut
+  from this milestone rather than forgotten.
+- `CLAUDE.md`: a section on the one-sided sentence, the comparability rule, the ordered
+  decomposition, the drift threshold, and the chart's text-first contract.
+
+### The code review, and what it changed
+
+**A review of the whole milestone found eight things; five were acted on, one was already
+answered at its source, and two were left with the reason written down.**
+
+**The detector fired on plans with no yardstick, and that is the one that would have been
+seen.** `bandDays` is the distance between the current band's two *dates*, and both ends are
+rounded up to a whole day on their own — so a plan of a few days puts them on the same day and
+the band is zero. The threshold then degenerates into "any drift at all", and the sentence read
+*"1 days out, against a band 0 days wide"*. The plan's own note called a zero band "a plan
+claiming to know the day"; it is not, it is a **short** plan — and step 3 already measured that
+on a small plan re-running alone moves the date by *days*. The measurement that says this
+detector needs no noise floor was taken on a twelve-item chain and does not hold there. A plan
+with no band now gets **no verdict** rather than the strictest one in the product, and the case
+that asserted the opposite says so.
+
+**`ForecastTerms` did not carry the priority rule, so `Comparison` could not see a scheduler
+change.** `forecast_runs.priority_rule` is stored and `Schedule.PRIORITY_RULE` is a *name* for
+exactly `WorkingCalendar.RULE`'s reason — a second one is expected — and nothing in the
+comparability rule looked at it. The day one ships, every plan re-forecast across the change
+would have reported the jump as drift, which is `roadmap.md`'s slide that never happened. It is
+now a **refusal** rather than a term, beside the engine version: a calendar is laid over an
+answer the engine has already given, so two calendars are one answer read twice, where a
+priority rule is *inside* the scheduler and two rules are two answers. **Decision 3 lists four
+things and this is a fifth**, in the direction that decision's own argument points.
+
+**The trajectory was built even when the whole forecast was about to be discarded.** A plan
+whose rate does not clear its backlog has censored percentiles and gets no projection — and it
+was still cloning a histogram per week to the ten-year horizon and reading every one of them,
+for a route nothing would show. It now returns no route at all, which is also the honest
+answer: a cone that climbs for ten years and never arrives is that censored number drawn.
+
+**Two smaller ones.** `DriftResponse` took the window off whichever confidence its loop ended
+on, correct only because the window rule reads no confidence — `Drift.window` is now asked once,
+so that is something the code does rather than something it hopes. And the burn-up's row-group
+heading was `scope="colgroup"`, which points at a `<colgroup>` element: the heading carrying
+*this half has not happened yet* was associated with nothing.
+
+**One was already answered where it lives.** The review flagged that `delivered` counts archived
+finished work while `remaining` excludes archived work, so *"delivered 300 of 340"* can sit over
+a plan screen showing forty rows. Both are right and `WorkItemRepository` argues it in full —
+work delivered and later put away was still delivered, and work put away before it was finished
+is not going to be delivered at all. M10 is the first place the two are added, so
+`BurnUpResponse` now says so where somebody would otherwise "fix" it.
+
+**And two were left.** A failed request for an account of a movement leaves no way to re-ask
+without reloading — which is exactly what the contributions panel has done since M6, so fixing
+one of two identical dead ends would create the drift this codebase warns about, and fixing both
+is a change to a panel M10 did not build. It is recorded here so that whoever fixes one fixes
+the other. The second is that `Comparison.sameStart()` has no caller but its own test: it is
+kept, because the four groupings together cover all seven differences exactly once and
+`Drift.sameQuestion` deliberately uses three of them — an omission nobody could notice if the
+fourth did not exist. `Comparison.identical()` had no such argument and was deleted.
+
+**Counts.** 14 new cases in `ForecastPanel.test.tsx` and one reworded; 461 frontend tests pass
+at 100% of statements, branches, functions and lines. 3 new backend cases and one rewritten;
+1,010 backend tests pass, with every type this milestone added at zero missed branches and zero
+missed instructions.
 
 ---
 

@@ -43,6 +43,22 @@ public record Comparison(Set<Difference> differences) {
 		ENGINE_VERSION,
 
 		/**
+		 * Which order the scheduler ran ready work in, and the second of the two that
+		 * refuse rather than report.
+		 *
+		 * <p>
+		 * <strong>It sits with the engine version and not with the calendar, though it is
+		 * a stored rule name like one.</strong> A calendar is laid over an answer the
+		 * engine has already given, so two runs read under two calendars are one answer
+		 * read twice; a priority rule is <em>inside</em> the scheduler, so two runs under
+		 * two rules are two answers. There is one rule today, which is exactly why this
+		 * is here — the day a second ships, every plan re-forecast across the change
+		 * would otherwise report the jump as drift, which is `roadmap.md`'s slide that
+		 * never happened.
+		 */
+		PRIORITY_RULE,
+
+		/**
 		 * Which calendar the hours were read through. Two defensible ones give two dates.
 		 */
 		CALENDAR_RULE,
@@ -71,6 +87,8 @@ public record Comparison(Set<Difference> differences) {
 	private static final Set<Difference> ASSUMPTIONS = EnumSet.of(Difference.CAPACITY, Difference.TEAM_FACTOR,
 			Difference.SCOPE_GROWTH);
 
+	private static final Set<Difference> MODEL = EnumSet.of(Difference.ENGINE_VERSION, Difference.PRIORITY_RULE);
+
 	public Comparison {
 		differences = Set.copyOf(differences);
 	}
@@ -80,6 +98,9 @@ public record Comparison(Set<Difference> differences) {
 		Set<Difference> found = EnumSet.noneOf(Difference.class);
 		if (older.engineVersion() != newer.engineVersion()) {
 			found.add(Difference.ENGINE_VERSION);
+		}
+		if (!Objects.equals(older.priorityRule(), newer.priorityRule())) {
+			found.add(Difference.PRIORITY_RULE);
 		}
 		if (!Objects.equals(older.calendarRule(), newer.calendarRule())) {
 			found.add(Difference.CALENDAR_RULE);
@@ -107,11 +128,12 @@ public record Comparison(Set<Difference> differences) {
 	 * Whether these two can be set beside each other at all.
 	 *
 	 * <p>
-	 * False only for an engine version bump. Everything else the two disagree about is
-	 * something to say rather than a reason to say nothing.
+	 * False only where the <em>model</em> differed — the engine version or the priority
+	 * rule. Everything else the two disagree about is something to say rather than a
+	 * reason to say nothing.
 	 */
 	public boolean comparable() {
-		return !this.differences.contains(Difference.ENGINE_VERSION);
+		return noneOf(MODEL);
 	}
 
 	/**
@@ -142,13 +164,6 @@ public record Comparison(Set<Difference> differences) {
 	 */
 	public boolean sameStart() {
 		return !this.differences.contains(Difference.STARTS_ON);
-	}
-
-	/**
-	 * Whether the two answered the identical question, which most successive pairs do.
-	 */
-	public boolean identical() {
-		return this.differences.isEmpty();
 	}
 
 	private boolean noneOf(Set<Difference> group) {

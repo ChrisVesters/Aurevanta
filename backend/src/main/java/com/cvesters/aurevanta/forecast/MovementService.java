@@ -164,9 +164,9 @@ public class MovementService {
 	 * in.
 	 */
 	private static ForecastTerms calendarOf(ForecastTerms calendar, ForecastTerms rest) {
-		return new ForecastTerms(rest.engineVersion(), calendar.calendarRule(), calendar.workingHoursPerDay(),
-				rest.capacity(), rest.teamFactorWorseByPercent(), rest.scopeGrowthP10Percent(),
-				rest.scopeGrowthP90Percent(), rest.startsOn());
+		return new ForecastTerms(rest.engineVersion(), rest.priorityRule(), calendar.calendarRule(),
+				calendar.workingHoursPerDay(), rest.capacity(), rest.teamFactorWorseByPercent(),
+				rest.scopeGrowthP10Percent(), rest.scopeGrowthP90Percent(), rest.startsOn());
 	}
 
 	private static Integer daysBetween(ForecastTerms was, BigDecimal wasHours, ForecastTerms now, BigDecimal nowHours) {

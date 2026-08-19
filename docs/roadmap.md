@@ -852,8 +852,10 @@ the spread and can be the best thing to cut.
 **What M10 inherits.** Two things, and the second is the larger. **Criticality is a different
 question**: "how often is this item on the path that decides the finish" can be high for an item
 that contributes nothing, because an item that never varies decides the finish in every run and
-widens nothing. Conflating the two produces a ranking that means neither, so M10 measures its own
-thing inside the scheduler. And the **replay guard** is what lets any cross-run comparison be
+widens nothing. Conflating the two produces a ranking that means neither — so criticality would
+have had to measure its own thing inside the scheduler, which is most of why **M10 cut it** and
+moved it to the icebox rather than building a second ranking beside this one. And the **replay
+guard** is what lets any cross-run comparison be
 trusted at all: M10 compares runs, and a comparison across an engine change is how a tool reports
 a date sliding when nothing moved. M6 made "does this still come out the same?" a question the
 server asks rather than one a test asks once.
@@ -1089,9 +1091,20 @@ entirely, because nothing anywhere refuses a day that has not happened.
 
 ---
 
-## M10 — Communicating to people who do not know what P90 means — *planned in `m10-plan.md`*
+## M10 — Communicating to people who do not know what P90 means ✅ *done* — *planned in `m10-plan.md`*
 
-- **Plain-language output** — "85% likely to finish between 12 October and 20 November."
+- **Plain-language output** — "there is an 85% chance this is finished by 20 November."
+
+  > **That sentence used to be two-sided — "85% likely to finish between 12 October and 20
+  > November" — and that was wrong**; corrected here rather than only in the plan, because the
+  > wrong version is the quotable one. Every date this product publishes is one-sided: `p80Date`
+  > is the day by which four runs in five had finished, and the confidence control reads exactly
+  > that. A two-sided interval invites *so it will not be before the 12th?* — a question nobody
+  > manages against, about the end of the distribution the model is worst at — and it quietly
+  > halves the confidence a reader thinks they have at the far end. What somebody commits to is
+  > a date they will not be past. `m10-plan.md` decision 2, and the review pass at the end of
+  > that milestone caught the same shape creeping back into its own step 5.
+
 - **Burn-up with a confidence cone**, narrowing as work completes.
 - **Forecast history**, and from it a **sliding-date detector**: warn when successive
   re-forecasts keep moving out rather than converging. **M4 made this answerable in dates
@@ -1099,18 +1112,68 @@ entirely, because nothing anywhere refuses a day that has not happened.
   was read under, so a detector can tell a plan that moved from a working day that changed. A
   comparison across runs made under different calendars — or across an `Engine.VERSION` bump —
   is the way this feature reports a slide that never happened.
-- **Merge bias, surfaced explicitly** — the graph makes this a number rather than a
-  talking point. Where parallel branches must both finish, expected completion is later
-  than either alone, and it compounds at every join. Simulation gets it free; spreadsheets
-  get it wrong universally. Worth naming in the output rather than burying inside a total.
-- **The critical path is probabilistic** — with uncertainty, no single path is *the*
-  critical one. Report how often each path drives completion (criticality index); a path
-  that is critical in 40% of runs is a different management problem from one that is
-  critical in 99%. **Not the same thing as M6's ranking, and the difference matters**: an item
-  that never varies can decide the finish in every single run and widen the band by nothing at
-  all. Criticality is measured inside the scheduler and answers "what is holding this up";
-  contribution is measured against the outcome and answers "what is making this uncertain".
-  Conflating them gives a number that means neither.
+
+  > **"Keep moving out" turned out to be the wrong rule and the milestone measured it.** A plan
+  > that is not slipping still moves out one week and in the next, so a rule about the direction
+  > of the last few runs fires on 37% of plans re-forecast weekly for two months, 86% over six
+  > and 98% over a year — with no slide in any of them, and no run length that rescues it. What
+  > shipped measures *magnitude* against the plan's own band instead. `m10-plan.md` decision 5.
+
+- **Merge bias, surfaced explicitly** and **the probabilistic critical path** — **both cut from
+  this milestone and moved to the icebox**, under *Modelling depth*, with their reasoning
+  intact. The milestone's own title is the argument: it is for the reader who does not know
+  what P90 means, and a criticality index is strictly more statistics than the band it sits
+  beside while merge bias as a figure corrects a number that reader has not yet understood.
+  They are also not communication work at all — every other bullet here presents something
+  already computed, and these two need the scheduler to start reporting which items decided
+  each run. `m10-plan.md` decision 1.
+
+### As built
+
+`m10-plan.md` carries the six steps. **No migration, no column, and `Engine.VERSION` is still
+2** — the fourth milestone in a row without one, and the one where deriving rather than storing
+pays best: a decomposition computed at read time explains every pair of runs this product has
+ever held, where a stored one would explain only the pairs made after it existed.
+
+**Five things are worth having here.**
+
+**The sentence is one-sided, and that is the whole of decision 2.** It leads the panel, names
+the plan, and moves with the confidence control: *"There is an 80% chance that Q3 platform work
+will be finished by 25 August."* Most of that shipped in M4 and did not know it — what M10 added
+was a subject, because a confidence and a day describe nothing away from the screen they are
+already on, and that is what the step's own *done when* found.
+
+**Two runs are comparable only if the model and the question both match** — the engine version
+and the priority rule, then the calendar rule, the working day and the five assumptions. A
+difference in the first two is a **refusal**, which is M6's argument: an account of a movement
+between two models is an exact account of a movement that never happened. Everything else
+differing is a **term**, because refusing a pair because somebody adjusted the capacity would
+leave them staring at two dates a fortnight apart with no account of either. (The priority rule
+is the milestone's own review pass correcting it: this list had four things in it, and a
+scheduler change would have been reported as a plan that slipped.)
+
+**The decomposition's terms add up, and only because they are computed cumulatively.** Each is
+measured with every earlier one already applied and the last state *is* the newer run, seed
+included — which is what makes "out 8 days: +5 new scope, +4 re-estimates, −1 progress" worth
+publishing at all. The order is a named rule for `Schedule.PRIORITY_RULE`'s reason, and it cost
+two terms the plan did not name: **sampling**, because two runs never share a seed, and
+**calendar**, because a working day that changed moves the date without touching an hour.
+
+**The detector measures cumulative drift against the plan's own band**, never direction — see
+the correction above. A run that answered a different question ends the window rather than being
+skipped, and **a start date that moved does not**: every weekly re-forecast starts from today, so
+counting that as a new question would have shipped a detector that can never fire.
+
+**And the first chart in this product is a table with a picture over it.** The text equivalent
+was built first and is what the tests assert; the drawing is inline SVG with no library,
+`aria-hidden`, carrying nothing the table does not. The cone comes from M9's bootstrap rather
+than the engine — a burn-up's future is items over time and the engine has no notion of one — and
+it narrows because the backlog is a *ceiling*, not because uncertainty falls away.
+
+**What it cost elsewhere.** `GET /api/projects/{id}/forecasts` answers an object rather than an
+array now, because the drift verdict belongs to the sequence rather than to any run in it. And
+M9's `Throughput` had to publish its weeks: they were deliberately unpublished until something
+needed to draw them.
 
 ---
 
@@ -1228,8 +1291,9 @@ Unordered and uncommitted. Four of these are arguably mis-filed; see the note at
   would answer per milestone, which is the scale somebody argues at. M7 most of all: *what do I
   drop to hit the beta* is a question people ask, and *what do I drop to hit the whole project*
   mostly is not. It is also where merge bias stops being a talking point — a milestone is a join
-  by construction, so the effect M10 wants to name shows up per group instead of buried in one
-  total.
+  by construction, so the effect shows up per group instead of buried in one total. **That is now
+  the cheapest route to it**: M10 cut surfacing it as a number, and the entry under *Modelling
+  depth* is what this would make worth building.
 
   **Not a section and not a sprint.** Grouping a plan so it can be *read* is the separate entry
   under *Getting work in*, and it is the cheaper thing — tags without a rollup, so nothing
@@ -1258,13 +1322,34 @@ Unordered and uncommitted. Four of these are arguably mis-filed; see the note at
   which is why this stays here rather than moving up.
 - **Learning curves and ramp-up** — a new joiner does not deliver at full rate on day one,
   and adding people to a late project has a known cost. Only meaningful once M11 exists.
+- **The probabilistic critical path** — with uncertainty, no single path is *the* critical one.
+  Report how often each path drives completion (criticality index); a path that is critical in
+  40% of runs is a different management problem from one that is critical in 99%. **Not the same
+  thing as M6's ranking, and the difference matters**: an item that never varies can decide the
+  finish in every single run and widen the band by nothing at all. Criticality is measured inside
+  the scheduler and answers "what is holding this up"; contribution is measured against the
+  outcome and answers "what is making this uncertain". Conflating them gives a number that means
+  neither. **Cut from M10** — it is strictly more statistics than the band it would sit beside,
+  and it needs `Schedule` to report which items decided each run, which is modelling depth
+  wearing a communication label. It sits here rather than under *Presentation* for that reason;
+  the heatmap that draws it is the presentation half.
+- **Merge bias, surfaced explicitly** — where parallel branches must both finish, expected
+  completion is later than either alone, and it compounds at every join. Simulation gets it free;
+  spreadsheets get it wrong universally, so it is worth naming rather than burying inside a
+  total. **Cut from M10 with the bullet above**: as a figure it is a correction to a number the
+  reader that milestone is for has not yet understood. **The icebox's own *milestones* entry is
+  where it becomes cheap** — a milestone is a join by construction, so the effect shows up per
+  group instead of inside one total.
 
 ### Trust and feedback
 
-- **Forecast movement decomposition** — *why* the date moved, split into scope added,
-  estimates revised, work completed, and time simply passing. "Out 8 days: +5 new scope,
-  +4 re-estimates, −1 progress." This is the feature I would most want as a user, and I
-  have not seen it done well anywhere.
+- ~~**Forecast movement decomposition**~~ — *built in M10*, which promoted it out of here
+  because it is the same machinery as the sliding-date detector. Two things it turned out to
+  need that this entry did not name: the terms only add up if they are computed **cumulatively**,
+  one change at a time with every earlier one already applied — the obvious independent version
+  gives five numbers that do not account for the movement they claim to explain — and the
+  **order** they are applied in therefore decides the attribution, so it is a named rule rather
+  than an implementation detail.
 - **Backtesting** — replay a team's historical data and show what Aurevanta would have said
   six months ago versus what happened. The fastest way to earn trust from a sceptic, and it
   needs no new modelling.
@@ -1328,7 +1413,9 @@ Unordered and uncommitted. Four of these are arguably mis-filed; see the note at
 - **Gantt with uncertainty bands** — every bar spanning P10–P90 rather than a false hard
   edge. The familiar view, without the false precision that makes Gantt charts lie.
 - **Criticality heatmap** — colour items by how often they land on the critical path,
-  pairing with M10's probabilistic critical path.
+  pairing with *the probabilistic critical path* under *Modelling depth* — which is where that
+  entry went when M10 cut it, and which has to exist first: this is the drawing, and the
+  criticality index is the measurement.
 - **Confidence dial** — drag from 50% to 95% and watch the date move. Makes the
   confidence-versus-date trade tangible instead of abstract.
 - **Distribution curves — one per estimate, and one for the whole simulation.** The
@@ -1602,6 +1689,15 @@ accessibility bar the auth forms set is the same argument from the other side: i
 cross-cutting above, it is much harder to hold in a chart than in a form, and a rework is
 when it is either kept or quietly lost.
 
+> **M10 did not wait, and it is worth saying exactly what that cost.** One chart exists now: a
+> burn-up with a cone, inline SVG, no library, coloured from the same dozen variables as
+> everything else — so a rework restyles it rather than fighting a dependency's own opinions.
+> What it will cost twice is the drawing, and that is accepted: what it deliberately did *not*
+> cost twice is the half a rework does not touch, because the table came first and the picture
+> was added over it. **The deadline in this paragraph has therefore passed rather than been
+> met**, and the argument it makes is unchanged for the two charts still to come — the heatmap
+> and the Gantt are both in the icebox, and both are much larger drawings than a cone.
+
 **It still ranks below the engine, and this is the section where that has to be said.** The
 ordering principle's warning is precise about this failure: a beautiful plan editor that
 forecasts nothing is the tool this product exists to replace. So the honest position is that
@@ -1620,7 +1716,14 @@ Threaded through the above rather than scheduled as a block.
 - **Localisation** — infrastructure exists, English only. Adding a locale is a catalogue
   file *once* the backend sends codes instead of prose (M1).
 - **Accessibility** — the auth forms set this bar; keep it as charts arrive, where it is
-  much harder. A confidence cone needs a non-visual equivalent.
+  much harder. A confidence cone needs a non-visual equivalent. **M10 is the first test of that
+  and it inverted the sentence**: the equivalent is not a fallback bolted to a picture, it is
+  built first, it is what the tests assert, and the drawing is added over it `aria-hidden`
+  carrying nothing the table does not. Two reasons beyond accessibility, and both are why the
+  order is worth keeping for the next chart: a cone described in words has to be *understood*
+  before it can be described, which is a better filter on whether it is worth drawing than
+  drawing it is — and a text equivalent is not what a restyle touches, so the half that survives
+  the rework below is the half built first.
 - **Operations** — CI, container build, migration strategy, health and metrics. **Plus a
   per-tenant limit on concurrent forecasts**, which `m3a-plan.md` names as the thing that
   actually bounds what one member can make this server do: `Engine.MAX_SAMPLE_COUNT` is a
@@ -1783,11 +1886,33 @@ to. The tick list is over the plan's own work and nothing on that panel changes 
 a ranking and a coin flip that looks exactly like a ranking, and which no test downstream of it
 would have announced. `Engine.VERSION` is still 2.
 
-**What is next is M10**, and both of the forecasts it has to communicate now exist. M8 built the
-instrument that says whether the estimates are any good and is still waiting for data; M9 answers
-the same question from the other side and needs none, which is why it went second and why it is the
-one that can speak today. What is left is the half this document has always said is hardest: saying
-any of it to somebody who does not know what P90 means.
+**M10 is spent, and it is the first milestone whose output could be wrong in a way no test
+catches.** Every one before it had an oracle — a closed form, a byte-identical replay, an exact
+decile set, a history anybody can add up — and a sentence that is accurate and read as something
+else fails nothing at all. That is why its first substantive decision was about wording rather
+than about modelling, and why **this document's own example sentence was the first thing it
+corrected**: "85% likely to finish between 12 October and 20 November" is two-sided, and
+everything this product publishes is one-sided. The milestone's closing review then found the same
+shape had crept back into its own plan, in the step about the chart.
+
+**It also measured its way out of the feature it was asked for.** *Warn when successive
+re-forecasts keep moving out* is the bullet, and a rule about direction fires on 86% of plans
+re-forecast weekly for six months that are not sliding at all. Magnitude against the plan's own
+band is what shipped, and the measurement is in the plan rather than in a paragraph of judgement.
+
+**What is next is M11**, and it is the largest single complexity jump in this document: allocating
+finite resources across a precedence graph, inside every Monte Carlo run. Everything analytical now
+exists over one engine and one schema — a band, a date, an elicitation that produces honest ranges,
+a ranking of what widens it, a list of what to cut, a calibration record, a second forecast that
+needs no estimates, and a way to say all of it to somebody who does not know what P90 means. What
+has never existed is any notion of *who* is doing the work, which is also the assumption every one
+of those features quietly makes.
+
+**Two things worth deciding before it starts.** M4's working day is the placeholder M11 replaces,
+and it must arrive as a **new calendar rule name** rather than as a better `five_day_week`, or
+every date this product has already published moves. And the scheduling heuristic is a modelling
+assumption with two defensible answers, which is `Schedule.PRIORITY_RULE`'s situation a level up —
+it has to be visible and stable rather than an implementation detail.
 
 **What changed with M8** is that it is spent. Everything built before it was a
 claim about the future that nothing had checked against what happened; M8 is the machinery that

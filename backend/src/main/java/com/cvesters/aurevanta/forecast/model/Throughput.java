@@ -347,8 +347,15 @@ public final class Throughput {
 		// is how far ahead the trajectory below is worth drawing.
 		int[] sorted = finishes.clone();
 		Arrays.sort(sorted);
-		return summarise(finishes, sorted, unfinished,
-				trajectory(delivered, finishedInWeek, runs, remaining, at(sorted, 0.95)));
+		// **A run that never covered the backlog has no route worth drawing**, and its
+		// percentiles are censored at the horizon for the same reason — so a plan in that
+		// state reports no trajectory rather than one that climbs for ten years and never
+		// arrives. It is also where building one would cost most: every week to the
+		// horizon,
+		// each of them read, for a picture that says a plan does not finish.
+		List<Delivered> route = (unfinished > 0) ? List.of()
+				: trajectory(delivered, finishedInWeek, runs, remaining, at(sorted, 0.95));
+		return summarise(finishes, sorted, unfinished, route);
 	}
 
 	/**
@@ -363,10 +370,12 @@ public final class Throughput {
 	 * <p>
 	 * <strong>Counted into a histogram per week rather than kept per run.</strong> The
 	 * obvious shape is a run-by-week matrix sorted a column at a time, and at ten
-	 * thousand runs against the ten-year horizon that is five million integers —
-	 * allocated, in the one case where the answer is thrown away unread, by a plan whose
-	 * rate does not clear its backlog. A count of how many runs stood at each delivered
-	 * figure is bounded by the backlog instead, and answers the same order statistic.
+	 * thousand runs against the ten-year horizon that is five million integers. A count
+	 * of how many runs stood at each delivered figure is bounded by the backlog instead,
+	 * and answers the same order statistic. Those counts are accumulated by the loop
+	 * above whether or not anybody reads them; what this method does on top of them is
+	 * skipped entirely for a plan whose runs did not finish, which is the one case where
+	 * the answer is thrown away unread.
 	 *
 	 * <p>
 	 * It is drawn as far as {@code p95Weeks}, which is the last week any figure this

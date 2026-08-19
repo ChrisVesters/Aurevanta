@@ -113,6 +113,48 @@ function weekAfter(from: string, weeks: number) {
   return day.toISOString().slice(0, 10);
 }
 
+/** An earlier forecast of the same plan, which is what a movement is measured against. */
+const OLDER: Forecast = {
+  ...FORECAST,
+  id: '60606060-6060-6060-6060-606060606060',
+  p50Hours: 44.0,
+  p90Hours: 71.5,
+  p80Date: '2026-08-17',
+  requestedByName: 'Bob'
+};
+
+/**
+ * Why the date moved, as the server accounts for it.
+ *
+ * **The terms sum to the distance between the two dates**, which is the whole claim the
+ * feature makes — so the fixture honours it too: out eight days at 80%, made of five of new
+ * scope, four of revised estimates and one of progress the other way.
+ */
+const MOVEMENT = {
+  fromRunId: OLDER.id,
+  toRunId: FORECAST.id,
+  rule: 'progress_first',
+  simulations: 6,
+  at: [50, 80, 95].map((confidence) => ({
+    confidence,
+    fromDate: '2026-08-17',
+    toDate: confidence === 80 ? '2026-08-25' : '2026-08-21',
+    fromHours: 44.0,
+    toHours: 52.6,
+    terms: [
+      { step: 'SAMPLING', movedHours: 0, movedDays: 0 },
+      { step: 'PROGRESS', movedHours: -6, movedDays: -1 },
+      { step: 'ESTIMATES', movedHours: 24, movedDays: 4 },
+      { step: 'SCOPE', movedHours: 30, movedDays: confidence === 80 ? 5 : 1 },
+      { step: 'ASSUMPTIONS', movedHours: 0, movedDays: 0 },
+      { step: 'CALENDAR', movedHours: 0, movedDays: 0 },
+      { step: 'STARTS_ON', movedHours: 0, movedDays: 0 }
+    ]
+  }))
+};
+
+const MOVEMENT_URL = `/api/forecasts/${FORECAST.id}/movement`;
+
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 const CUTS_URL = `/api/forecasts/${FORECAST.id}/cuts`;
 
@@ -208,6 +250,54 @@ describe('ForecastPanel', () => {
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     return rendered;
+  }
+
+  /**
+   * The panel over a history the server has already made up its mind about — the drift
+   * verdict rides on the listing, so a case about it is a case about that payload.
+   */
+  async function openHistory(history: unknown, account: unknown = MOVEMENT) {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : url === FORECASTS_URL
+                ? jsonResponse(200, history)
+                : url.startsWith(MOVEMENT_URL)
+                  ? jsonResponse(200, account)
+                  : jsonResponse(200, [])
+      )
+    );
+    const rendered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    return rendered;
+  }
+
+  /** A history of two runs, with whatever the server has concluded about the drift. */
+  function drifting(at: Record<string, unknown>) {
+    return {
+      runs: [FORECAST, OLDER],
+      drift: {
+        sinceRunId: OLDER.id,
+        runs: 2,
+        at: [50, 80, 95].map((confidence) => ({
+          confidence,
+          fromDate: '2026-08-17',
+          toDate: '2026-08-25',
+          days: 8,
+          bandDays: 10,
+          movingOut: false,
+          ...(confidence === 80 ? at : {})
+        }))
+      }
+    };
   }
 
   /**
@@ -804,16 +894,24 @@ describe('ForecastPanel', () => {
    * projection the second opinion above already published — read here as when the last of
    * the work lands rather than as a confidence.
    */
-  it('says what has been delivered and when the last of it lands', async () => {
+  it('says what has been delivered and names no second date', async () => {
     await openWithHistory(DELIVERING);
 
     expect(
-      await screen.findByText(/Delivered 104 of 144\./)
+      await screen.findByText('Delivered 104 of 144.')
     ).toBeInTheDocument();
+    // **The half the review pass removed.** This step's own example in `m10-plan.md` said
+    // "the last is done between 12 October and 30 November", which is the two-sided form
+    // decision 2 exists to keep out — and the date it restated is already on screen
+    // one-sided, three lines above. `Oct 5` is that sentence's early end, and it is the
+    // whole of what was wrong with it: nobody manages against the good end.
+    //
+    // The band in hours above is not the same claim and stays: it is what the engine
+    // produced, where this would have been a window over two dates.
+    expect(screen.queryByText(/done between/)).toBeNull();
+    expect(screen.queryByText(/Oct 5, 2026/)).toBeNull();
     expect(
-      screen.getByText(
-        /On this history the last of it is done between Oct 5, 2026 and Nov 9, 2026\./
-      )
+      screen.getByText('Its own history says 80% likely by Nov 2, 2026.')
     ).toBeInTheDocument();
   });
 
@@ -859,8 +957,15 @@ describe('ForecastPanel', () => {
     );
     expect(within(rows[26]).getAllByRole('cell')[0]).toHaveTextContent('104');
     expect(within(rows[26]).getAllByRole('cell')[1]).toBeEmptyDOMElement();
-    // The heading over the projected half, and then the first week of it.
+    // The heading over the projected half, and then the first week of it. `rowgroup` and
+    // not `colgroup`: it labels the rows below it, and a `colgroup` scope points at a
+    // `<colgroup>` element — so it would be a heading associated with nothing, which is
+    // exactly the association carrying "this half has not happened yet".
     expect(rows[27]).toHaveTextContent('What the history projects');
+    expect(within(rows[27]).getByRole('rowheader')).toHaveAttribute(
+      'scope',
+      'rowgroup'
+    );
     expect(within(rows[28]).getAllByRole('cell')[1]).toHaveTextContent(
       '107 to 110'
     );
@@ -900,6 +1005,49 @@ describe('ForecastPanel', () => {
     expect(line[line.length - 1]).toEqual(band[0]);
     // And nothing anywhere is a NaN, which is what a divide by no weeks would leave.
     expect([...line, ...band].join(' ')).not.toContain('NaN');
+  });
+
+  /**
+   * <strong>One week is a week and not "1 weeks".</strong> Both counts in that caption reach
+   * one — a plan with a single week of history, and one the history says finishes inside a
+   * week — so both halves of the sentence carry their own plural rather than interpolating a
+   * bare number next to a hard-coded "weeks".
+   */
+  it('counts a single week in the singular', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      projection: null,
+      burnUp: {
+        delivered: 4,
+        total: 44,
+        past: [{ week: '2026-08-10', delivered: 4 }],
+        cone: null
+      },
+      limitations: [
+        'throughput_excludes_unlisted_work',
+        'throughput_history_too_short'
+      ]
+    });
+
+    expect(
+      await screen.findByText(
+        '1 week delivered, then 0 weeks this history projects.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /** And the other half of it: a plan the history says is finished inside one more week. */
+  it('counts a single week ahead in the singular', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      burnUp: { ...burnUp(), cone: burnUp().cone.slice(0, 2) }
+    });
+
+    expect(
+      await screen.findByText(
+        '26 weeks delivered, then 1 week this history projects.'
+      )
+    ).toBeInTheDocument();
   });
 
   /**
@@ -1946,6 +2094,308 @@ describe('ForecastPanel', () => {
     await waitFor(() =>
       expect(screen.queryByText('What the spread is made of')).toBeNull()
     );
+  });
+
+  // Whether it keeps moving out, and why it moved ----------------------------
+
+  /**
+   * <strong>A plan that is sliding says so, beside the date it is about.</strong> Not down
+   * beside the history it was measured from: a date that keeps moving out is worth less than
+   * it looks, and that is a caveat about *this* number.
+   */
+  it('warns when the date keeps moving out', async () => {
+    await openHistory(drifting({ movingOut: true }));
+
+    expect(
+      await screen.findByText(
+        'This plan has been drifting. At 80% it said Aug 17, 2026 and now says Aug 25, 2026 — 8 days out, against a band 10 days wide.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * One day out against a band one day wide, which is the smallest thing this can say and
+   * the one that reads as "1 days out" if the two counts share a plural rule.
+   */
+  it('says a single day in the singular', async () => {
+    await openHistory(
+      drifting({ movingOut: true, days: 1, bandDays: 1, toDate: '2026-08-18' })
+    );
+
+    expect(
+      await screen.findByText(
+        'This plan has been drifting. At 80% it said Aug 17, 2026 and now says Aug 18, 2026 — 1 day out, against a band 1 day wide.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>And a plan that is merely churning hears nothing.</strong> The measurement this
+   * milestone is built on is that a rule about direction fires on 86% of plans that are not
+   * sliding at all — so the same eight days, on a band wide enough to have admitted to them,
+   * are not worth interrupting anybody about. Whether they are is the server's to decide.
+   */
+  it('says nothing about a plan that is merely churning', async () => {
+    await openHistory(drifting({ movingOut: false }));
+
+    await screen.findByText(/An 80% chance/);
+    expect(screen.queryByText(/has been drifting/)).toBeNull();
+  });
+
+  /**
+   * <strong>The account of why, which is the feature the icebox calls the one it would most
+   * want.</strong> Out eight days, made of five of new scope, four of revised estimates and
+   * one of progress the other way — and they add up, which is the only reason it is worth
+   * publishing at all.
+   */
+  it('explains why the date moved when somebody asks', async () => {
+    await openHistory(drifting({ movingOut: false }));
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+
+    expect(
+      await screen.findByText(
+        'At 80% this plan moved out 8 days: it said Aug 17, 2026 and now says Aug 25, 2026.'
+      )
+    ).toBeInTheDocument();
+    const account = within(
+      screen.getByText('Work added or put away').parentElement
+        ?.parentElement as HTMLElement
+    );
+    expect(account.getByText('5 days later')).toBeInTheDocument();
+    expect(account.getByText('4 days later')).toBeInTheDocument();
+    expect(account.getByText('1 day earlier')).toBeInTheDocument();
+    // What it cost, said rather than hidden — and why the terms add up at all.
+    expect(screen.getByText(/It cost 6 simulations\./)).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Six simulations is not a price to charge somebody who did not ask.</strong> The
+   * question is on screen and the answer is not until it is clicked, which is the rule the
+   * breakdown of the spread already keeps.
+   */
+  it('asks nothing until somebody wants to know', async () => {
+    await openHistory(drifting({ movingOut: false }));
+
+    await screen.findByRole('button', { name: 'Why did the date move?' });
+    expect(
+      fetchMock.mock.calls.filter((call) =>
+        String(call[0]).includes('/movement')
+      )
+    ).toHaveLength(0);
+  });
+
+  /**
+   * <strong>One control, three accounts, no request.</strong> All three confidences come
+   * back together, so moving the control re-reads the account somebody already paid six
+   * simulations for rather than buying another six.
+   */
+  it('moves the account with the confidence and sends no request', async () => {
+    await openHistory(drifting({ movingOut: false }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+    await screen.findByText(/moved out 8 days/);
+    const before = fetchMock.mock.calls.length;
+
+    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
+
+    expect(await screen.findByText(/moved out 4 days/)).toBeInTheDocument();
+    expect(fetchMock.mock.calls).toHaveLength(before);
+  });
+
+  /**
+   * <strong>M6's argument, arriving one level up.</strong> An account of a movement between
+   * two versions of the model is an exact account of a movement that never happened — so the
+   * server refuses, and the refusal is what is shown rather than a blank.
+   */
+  it('passes on a refusal to compare two forecasts', async () => {
+    await openHistory(drifting({ movingOut: false }), null);
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.startsWith(MOVEMENT_URL)
+          ? jsonResponse(400, {
+              code: 'forecast_not_comparable',
+              detail: 'no'
+            })
+          : url.startsWith(THROUGHPUT_URL)
+            ? jsonResponse(200, NO_HISTORY)
+            : url === CALIBRATION_URL
+              ? jsonResponse(200, NOTHING_SCORED)
+              : url === '/api/auth/me'
+                ? jsonResponse(200, ACCOUNT)
+                : url === FORECASTS_URL
+                  ? jsonResponse(200, drifting({ movingOut: false }))
+                  : jsonResponse(200, [])
+      )
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+
+    expect(
+      await screen.findByText(
+        /they were made by different versions of the model/
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>A run with no date is not asked why its date moved.</strong> One made before
+   * there was a calendar reports hours and no day, and the question is not a question about
+   * it — the same reason the confidence control is absent rather than disabled on one.
+   */
+  it('offers no account against a forecast that never had a date', async () => {
+    await openHistory({
+      runs: [
+        FORECAST,
+        {
+          ...OLDER,
+          startsOn: null,
+          workingHoursPerDay: null,
+          calendarRule: null,
+          p10Date: null,
+          p50Date: null,
+          p80Date: null,
+          p90Date: null,
+          p95Date: null
+        }
+      ],
+      drift: null
+    });
+
+    await screen.findByRole('heading', { name: 'Earlier forecasts' });
+    expect(
+      screen.queryByRole('button', { name: 'Why did the date move?' })
+    ).toBeNull();
+  });
+
+  /** A plan that came in says so, rather than being reported as a move of minus eight. */
+  it('says when the date came in rather than moved out', async () => {
+    await openHistory(drifting({ movingOut: false }), {
+      ...MOVEMENT,
+      at: MOVEMENT.at.map((account) => ({
+        ...account,
+        fromDate: '2026-08-25',
+        toDate: '2026-08-17'
+      }))
+    });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+
+    expect(
+      await screen.findByText(
+        'At 80% this plan came in 8 days: it said Aug 25, 2026 and now says Aug 17, 2026.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * And one whose date has not moved at all says *that*, which is the ordinary answer for
+   * two runs a day apart: the terms below are still worth reading, because a plan that
+   * gained a week of scope and delivered a week of work has not stood still.
+   */
+  it('says when the date has not moved at all', async () => {
+    await openHistory(drifting({ movingOut: false }), {
+      ...MOVEMENT,
+      at: MOVEMENT.at.map((account) => ({
+        ...account,
+        fromDate: '2026-08-25',
+        toDate: '2026-08-25'
+      }))
+    });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+
+    expect(
+      await screen.findByText(
+        'At 80% the date has not moved: Aug 25, 2026 then and now.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Six simulations is long enough to outlive the panel that asked.</strong> The
+   * same guard the breakdown keeps, and it needs its own case because it is its own request:
+   * nothing arriving after somebody has navigated away may touch a panel that has gone.
+   */
+  it('ignores an account that arrives after the panel has gone', async () => {
+    storeAccessToken();
+    let settle: (value: Response) => void = () => {};
+    let fail: (reason: unknown) => void = () => {};
+    fetchMock.mockImplementation((url: string) =>
+      url.startsWith(MOVEMENT_URL)
+        ? new Promise<Response>((resolve, reject) => {
+            settle = resolve;
+            fail = reject;
+          })
+        : url.startsWith(THROUGHPUT_URL)
+          ? Promise.resolve(jsonResponse(200, NO_HISTORY))
+          : url === CALIBRATION_URL
+            ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
+            : url === '/api/auth/me'
+              ? Promise.resolve(jsonResponse(200, ACCOUNT))
+              : url === FORECASTS_URL
+                ? Promise.resolve(
+                    jsonResponse(200, drifting({ movingOut: false }))
+                  )
+                : Promise.resolve(jsonResponse(200, []))
+    );
+
+    const answered = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+    answered.unmount();
+    settle(jsonResponse(200, MOVEMENT));
+
+    const refused = renderRouted(
+      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+    );
+    await screen.findByRole('heading', { name: 'Forecast' });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+    refused.unmount();
+    fail(new TypeError('Failed to fetch'));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/this plan moved out/)).toBeNull()
+    );
+  });
+
+  /**
+   * A guard rather than a scenario, and it is here for the reason the panel renders a
+   * limitation it has never heard of: the server versions ahead. A term with no days to
+   * report says so, where a blank would read as a term of nothing.
+   */
+  it('says when a term cannot be put in days', async () => {
+    await openHistory(drifting({ movingOut: false }), {
+      ...MOVEMENT,
+      at: MOVEMENT.at.map((account) => ({
+        ...account,
+        fromDate: null,
+        toDate: null,
+        terms: account.terms.map((term) => ({ ...term, movedDays: null }))
+      }))
+    });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why did the date move?' })
+    );
+
+    expect(await screen.findAllByText('not in days')).toHaveLength(7);
+    expect(screen.queryByText(/this plan moved out/)).toBeNull();
   });
 
   it('says nothing about earlier forecasts when this is the only one', async () => {

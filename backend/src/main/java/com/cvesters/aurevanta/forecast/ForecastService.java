@@ -574,9 +574,9 @@ public class ForecastService {
 
 	/** What a run was asked on, as {@code Comparison} and a decomposition take it. */
 	static ForecastTerms termsOf(ForecastRun run) {
-		return new ForecastTerms(run.getEngineVersion(), run.getCalendarRule(), run.getWorkingHoursPerDay(),
-				run.getCapacity(), run.getTeamFactorWorseByPercent(), run.getScopeGrowthP10Percent(),
-				run.getScopeGrowthP90Percent(), run.getStartsOn());
+		return new ForecastTerms(run.getEngineVersion(), run.getPriorityRule(), run.getCalendarRule(),
+				run.getWorkingHoursPerDay(), run.getCapacity(), run.getTeamFactorWorseByPercent(),
+				run.getScopeGrowthP10Percent(), run.getScopeGrowthP90Percent(), run.getStartsOn());
 	}
 
 	/** Whether a replay of this run still produces the run — M6's guard, shared. */

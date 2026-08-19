@@ -14,11 +14,14 @@ import { TargetDate } from './TargetDate';
 import type {
   BurnUp,
   Contribution,
+  Drift,
   Forecast,
   ForecastHistory,
   ForecastLimitation,
-  Throughput,
-  ThroughputProjection
+  Movement,
+  MovementAt,
+  MovementTerm,
+  Throughput
 } from './types';
 
 /**
@@ -159,6 +162,9 @@ export function ForecastPanel({
   const { t, i18n } = useTranslation();
   const { request } = useAuth();
   const [runs, setRuns] = useState<Forecast[] | null>(null);
+  // The newest run's identifier, which is the one an account of a movement is asked *of* —
+  // named here rather than below because the effect that asks needs it.
+  const latestId = runs?.[0]?.id;
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
@@ -198,6 +204,25 @@ export function ForecastPanel({
   const [throughputFailure, setThroughputFailure] = useState<string | null>(
     null
   );
+  /**
+   * Whether this plan's date keeps moving out, which arrives with the history above.
+   *
+   * Rendered only when the server says it is worth saying: a plan that is merely churning
+   * must hear nothing, or the warning becomes one nobody reads. Which of those it is is the
+   * server's to decide — the browser holds no threshold, as it holds none of
+   * `EstimateQuality`'s.
+   */
+  const [drift, setDrift] = useState<Drift | null>(null);
+  /**
+   * Which earlier forecast somebody is asking about, and the account that came back.
+   *
+   * Its own request, like the breakdown above and for the same reason: an account of a
+   * movement costs six whole simulations, which is cheap for somebody who asked and rude to
+   * charge everybody who opened the page.
+   */
+  const [explainingMove, setExplainingMove] = useState<string | null>(null);
+  const [movement, setMovement] = useState<Movement | null>(null);
+  const [movementFailure, setMovementFailure] = useState<string | null>(null);
   const asking = useFormFailure(ASKED_FOR);
 
   useEffect(() => {
@@ -210,6 +235,7 @@ export function ForecastPanel({
       .then((loaded) => {
         if (!cancelled) {
           setRuns(loaded.runs);
+          setDrift(loaded.drift);
           setFailure(null);
         }
       })
@@ -238,10 +264,14 @@ export function ForecastPanel({
         });
         setReloads((count) => count + 1);
         // A new run is a different plan's spread, so whatever was on screen about the
-        // last one stops being true the moment this lands.
+        // last one stops being true the moment this lands. An account of a movement is
+        // the same: it was measured against a run that is no longer the newest.
         setSpread(null);
         setSpreadFailure(null);
         setExplaining(null);
+        setMovement(null);
+        setMovementFailure(null);
+        setExplainingMove(null);
       } catch (error) {
         asking.report(error);
       }
@@ -292,6 +322,35 @@ export function ForecastPanel({
       cancelled = true;
     };
   }, [request, projectId, t]);
+
+  // The same shape as the breakdown below, and for the same reason: six simulations is long
+  // enough that somebody can navigate away while it is in flight, and nothing arriving
+  // afterwards may touch a panel that has gone.
+  useEffect(() => {
+    if (explainingMove === null || latestId === undefined) {
+      return undefined;
+    }
+    let cancelled = false;
+    request<Movement>(`/forecasts/${latestId}/movement?since=${explainingMove}`)
+      .then((account) => {
+        if (!cancelled) {
+          setMovement(account);
+          setMovementFailure(null);
+        }
+      })
+      .catch((error: unknown) => {
+        // Including this endpoint's own refusal: two runs made by different versions of
+        // the model are not a rougher comparison, they are an exact account of a movement
+        // that never happened.
+        if (!cancelled) {
+          setMovement(null);
+          setMovementFailure(describeFailure(t, error));
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [explainingMove, latestId, request, t]);
 
   // An effect rather than a handler, and the reason is the half second it takes: this is by
   // far the slowest request this panel makes, so it is by far the likeliest to be still in
@@ -345,6 +404,11 @@ export function ForecastPanel({
   // all" — which is what decides whether there is anything for the control to choose
   // between, and is a different question from whether a calendar was stated.
   const chosenDate = latest ? latest[DATE_AT[confidence]] : null;
+  // The drift at whichever confidence is being read, and only when it has dates to name.
+  // Both are the server's answers rather than this end's: the window it was measured over,
+  // and whether the distance is worth saying at all.
+  const drifting = readingOf(drift, confidence);
+  const movedBy = readingOf(movement, confidence);
 
   return (
     <section className="forecast">
@@ -628,6 +692,30 @@ export function ForecastPanel({
           </p>
 
           {/*
+            Beside the date rather than down beside the history it was measured from, because
+            it is a caveat about *this* number: a plan whose date keeps moving out is one
+            whose latest date is worth less than it looks. Absent unless the server says it is
+            worth saying — a plan that is merely churning hears nothing, which is the whole of
+            decision 5 and the reason it is not a line that reads "no drift" the rest of the
+            time.
+          */}
+          {drifting !== null && drifting.movingOut && (
+            <p className="caveat">
+              {t('projects.forecast.drift', {
+                confidence,
+                from: formatDay(drifting.fromDate, i18n.language),
+                to: formatDay(drifting.toDate, i18n.language),
+                out: t('projects.forecast.driftOut', {
+                  count: drifting.days
+                }),
+                band: t('projects.forecast.driftBand', {
+                  count: drifting.bandDays
+                })
+              })}
+            </p>
+          )}
+
+          {/*
             The gap, which is the whole of what M9 is for — and deliberately not a number
             called "the gap". Two of the four differences named underneath make the engine
             look slow and two make it look fast, so a subtraction of the two dates is not
@@ -818,6 +906,33 @@ export function ForecastPanel({
                           {t('projects.forecast.earlier.calendar', readUnder)}
                         </>
                       )}
+                      {/*
+                        **Asked of a pair rather than of a run**, which is why it is here
+                        and not beside the date: the question is what happened between this
+                        forecast and the newest one.
+
+                        Offered only where both ends have a date to have moved. A run made
+                        before there was a calendar has hours and no date, and "why did the
+                        date move" is not a question about it — the same reason the
+                        confidence control is absent rather than disabled on such a run.
+                      */}
+                      {chosenDate !== null &&
+                        run[DATE_AT[confidence]] !== null && (
+                          <MovementAsked
+                            asking={explainingMove === run.id}
+                            account={movedBy}
+                            simulations={movement?.simulations ?? 0}
+                            failure={movementFailure}
+                            onAsk={() => {
+                              // Cleared here rather than left to arrive: the account on
+                              // screen is about a different pair the moment somebody asks
+                              // about another one.
+                              setMovement(null);
+                              setMovementFailure(null);
+                              setExplainingMove(run.id);
+                            }}
+                          />
+                        )}
                     </li>
                   );
                 })}
@@ -924,9 +1039,7 @@ function ThroughputComparison({
         above came from — nothing here is a third forecast — and the table is built first
         because a cone that has to be seen to be understood is one this product cannot ship.
       */}
-      {history.burnUp !== null && (
-        <BurnUpFigure burnUp={history.burnUp} projection={history.projection} />
-      )}
+      {history.burnUp !== null && <BurnUpFigure burnUp={history.burnUp} />}
 
       {/*
         Named rather than subtracted into a figure. Two of these make the forecast look slow
@@ -956,13 +1069,7 @@ function ThroughputComparison({
  * **The drawing is `aria-hidden` and carries nothing the table does not.** A picture and its
  * equivalent saying the same thing twice to a screen reader is worse than either alone.
  */
-function BurnUpFigure({
-  burnUp,
-  projection
-}: {
-  burnUp: BurnUp;
-  projection: ThroughputProjection | null;
-}) {
+function BurnUpFigure({ burnUp }: { burnUp: BurnUp }) {
   const { t, i18n } = useTranslation();
   const cone = burnUp.cone;
   // The first point of the cone is today with nothing yet delivered, which is the last row
@@ -973,23 +1080,28 @@ function BurnUpFigure({
   return (
     <div className="burnup">
       <h4>{t('projects.forecast.throughput.burnUp.title')}</h4>
+      {/*
+        **One sentence, and it does not name a second date.** The plan for this step proposed
+        "the last is done between 12 October and 30 November", which is the two-sided form
+        decision 2 exists to keep out — and the date it would have restated is already on
+        screen one-sided three lines above. What is left is the half nothing else says.
+      */}
       <p className="hint">
         {t('projects.forecast.throughput.burnUp.delivered', {
           delivered: burnUp.delivered,
           total: burnUp.total
-        })}{' '}
-        {projection !== null &&
-          t('projects.forecast.throughput.burnUp.finish', {
-            from: formatDay(projection.p10Date, i18n.language),
-            to: formatDay(projection.p90Date, i18n.language)
-          })}
+        })}
       </p>
 
       <table className="weeks">
         <caption>
           {t('projects.forecast.throughput.burnUp.caption', {
-            past: burnUp.past.length,
-            ahead: ahead.length
+            past: t('projects.forecast.throughput.burnUp.captionPast', {
+              count: burnUp.past.length
+            }),
+            ahead: t('projects.forecast.throughput.burnUp.captionAhead', {
+              count: ahead.length
+            })
           })}
         </caption>
         <thead>
@@ -1020,7 +1132,7 @@ function BurnUpFigure({
         {ahead.length > 0 && (
           <tbody>
             <tr>
-              <th scope="colgroup" colSpan={3}>
+              <th scope="rowgroup" colSpan={3}>
                 {t('projects.forecast.throughput.burnUp.projected')}
               </th>
             </tr>
@@ -1119,6 +1231,144 @@ function BurnUpDrawing({ burnUp }: { burnUp: BurnUp }) {
       />
     </svg>
   );
+}
+
+/**
+ * The reading at one confidence, out of an answer that carries all three.
+ *
+ * **Shared by the drift and the decomposition because it is the same property**: both were
+ * computed at every confidence M4's control offers, so moving the control changes what is on
+ * screen and sends no request. That is the trade M4 built the control to make immediate,
+ * inherited here rather than restated.
+ */
+function readingOf<T extends { confidence: number }>(
+  answer: { at: T[] } | null,
+  confidence: Confidence
+): T | null {
+  return (
+    answer?.at.find((reading) => reading.confidence === confidence) ?? null
+  );
+}
+
+/**
+ * The question "why did the date move?", and its answer once somebody has asked it.
+ *
+ * **It costs six simulations and says so.** M7's rule: a number that is expensive to produce
+ * should say what it cost rather than surprise somebody, and this is the second place in the
+ * product where a read runs the engine.
+ */
+function MovementAsked({
+  asking,
+  account,
+  simulations,
+  failure,
+  onAsk
+}: {
+  asking: boolean;
+  account: MovementAt | null;
+  simulations: number;
+  failure: string | null;
+  onAsk: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+
+  if (!asking) {
+    return (
+      <p className="actions">
+        <button type="button" className="secondary" onClick={onAsk}>
+          {t('projects.forecast.movement.open')}
+        </button>
+      </p>
+    );
+  }
+  if (failure !== null) {
+    return <p className="empty">{failure}</p>;
+  }
+  if (account === null) {
+    return <p className="hint">{t('projects.forecast.movement.loading')}</p>;
+  }
+  return (
+    <div className="movement">
+      <p className="date">{describeMoved(t, account, i18n.language)}</p>
+      {/*
+        In the order the server attributed them and never re-sorted. The order *is* the rule:
+        two defensible ones split the same eight days differently, so a list sorted by size
+        here would be an account read under an order nobody stated.
+      */}
+      <ul className="terms">
+        {account.terms.map((term) => (
+          <li key={term.step}>
+            <span className="what">
+              {t(`projects.forecast.movement.steps.${term.step}`)}
+            </span>
+            <span className="days">{describeTerm(t, term)}</span>
+          </li>
+        ))}
+      </ul>
+      {/*
+        Why they add up, and what that cost — beside the numbers rather than behind a link,
+        which is the rule the assumptions and the limitations already follow.
+      */}
+      <p className="caveat">
+        {t('projects.forecast.movement.cost', { simulations })}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The whole move in one sentence, or nothing when there is no date to have moved.
+ *
+ * The absence is a guard rather than a case: this question is only offered where both runs
+ * resolve a date. The server versions ahead, though, and a headline missing its own dates
+ * would otherwise render as a sentence with two blanks in it.
+ */
+function describeMoved(
+  t: TFunction,
+  account: MovementAt,
+  locale: string
+): string | null {
+  if (account.fromDate === null || account.toDate === null) {
+    return null;
+  }
+  const from = formatDay(account.fromDate, locale);
+  const to = formatDay(account.toDate, locale);
+  const days = Math.round(
+    (Date.parse(account.toDate) - Date.parse(account.fromDate)) /
+      (24 * 60 * 60 * 1000)
+  );
+  if (days === 0) {
+    return t('projects.forecast.movement.movedNot', {
+      confidence: account.confidence,
+      date: to
+    });
+  }
+  return days > 0
+    ? t('projects.forecast.movement.movedOut', {
+        confidence: account.confidence,
+        days,
+        from,
+        to
+      })
+    : t('projects.forecast.movement.movedIn', {
+        confidence: account.confidence,
+        days: -days,
+        from,
+        to
+      });
+}
+
+/** One term, in the direction it moved the date — and never as a bare signed number. */
+function describeTerm(t: TFunction, term: MovementTerm): string {
+  if (term.movedDays === null) {
+    return t('projects.forecast.movement.termNoDays');
+  }
+  if (term.movedDays === 0) {
+    return t('projects.forecast.movement.termNone');
+  }
+  return term.movedDays > 0
+    ? t('projects.forecast.movement.termLater', { count: term.movedDays })
+    : t('projects.forecast.movement.termEarlier', { count: -term.movedDays });
 }
 
 /** Which of the three reasons there is no second date, or that this version cannot say. */

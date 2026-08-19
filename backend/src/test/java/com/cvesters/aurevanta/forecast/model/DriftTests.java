@@ -78,14 +78,20 @@ class DriftTests {
 	}
 
 	/**
-	 * A band of nothing at all is a plan claiming to know the day, so any drift is past
-	 * what it admitted to. There is no division here for that reason as much as for the
-	 * arithmetic's.
+	 * <strong>A band of no days is a short plan and not a confident one, so it gets no
+	 * verdict.</strong> Both ends of a band are rounded up to a whole day on their own,
+	 * so a plan of a few days puts them on the same one — and that is exactly the plan
+	 * where `m10-plan.md` step 3 measured re-running alone moving the date by
+	 * <em>days</em>. The measurement that says this detector needs no noise floor was
+	 * taken on a twelve-item chain and does not hold here, so the yardstick being missing
+	 * means no answer rather than the strictest answer in the product.
 	 */
 	@Test
-	void aPlanThatClaimedToKnowTheDayHasNoRoomToDriftAtAll() {
-		assertThat(Drift.since(steadily(0, 1)).movingOut()).isTrue();
-		assertThat(Drift.since(steadily(0, 0)).movingOut()).isFalse();
+	void aPlanWhoseBandIsUnderADayHasNoYardstickAndSaysNothing() {
+		assertThat(Drift.since(steadily(0, 1)).movingOut()).isFalse();
+		assertThat(Drift.since(steadily(0, 40)).movingOut()).isFalse();
+		// The distance is still reported; it is the verdict that is withheld.
+		assertThat(Drift.since(steadily(0, 40)).days()).isEqualTo(40);
 	}
 
 	/**
@@ -228,6 +234,22 @@ class DriftTests {
 		List<Reading> nothing = List.of();
 
 		assertThatThrownBy(() -> Drift.since(nothing)).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> Drift.window(nothing)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	/**
+	 * <strong>The window is a fact about the runs and not about any percentile</strong>,
+	 * which is what lets one answer serve three confidences. Read on its own here,
+	 * because a caller taking it off whichever reading it happened to compute last would
+	 * be depending on that being true rather than asking for it.
+	 */
+	@Test
+	void theWindowIsTheSameWhicheverPercentileIsRead() {
+		List<Reading> history = new ArrayList<>(weekly(THREE_WEEKS));
+		history.set(2, asked(history.get(2), with(terms -> terms.capacity(1))));
+
+		assertThat(Drift.window(history)).isEqualTo(2);
+		assertThat(Drift.window(history)).isEqualTo(Drift.since(history).runs());
 	}
 
 	// Fixtures ------------------------------------------------------------------
@@ -320,9 +342,9 @@ class DriftTests {
 		}
 
 		ForecastTerms build() {
-			return new ForecastTerms(this.engineVersion, "five_day_week", new BigDecimal(this.workingHoursPerDay),
-					this.capacity, new BigDecimal("30.00"), new BigDecimal("20.00"), new BigDecimal("60.00"),
-					this.startsOn);
+			return new ForecastTerms(this.engineVersion, "most_work_waiting", "five_day_week",
+					new BigDecimal(this.workingHoursPerDay), this.capacity, new BigDecimal("30.00"),
+					new BigDecimal("20.00"), new BigDecimal("60.00"), this.startsOn);
 		}
 
 	}

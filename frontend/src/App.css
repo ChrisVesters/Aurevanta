@@ -1173,6 +1173,56 @@ button.danger {
 }
 
 /*
+  Why the date moved, under the forecast it moved from. **The terms are never re-sorted and
+  are never a chart**: the order is the rule they were attributed in, and a bar per term
+  would invite the reading M6's caveat spends a paragraph preventing — these ones do add up,
+  which is exactly why they are shown as an account rather than as shares.
+*/
+.forecast .earlier .movement {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 10px;
+
+  .date {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-h);
+  }
+
+  /* Its own list rather than the bulleted one it sits inside. */
+  .terms {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 13px;
+  }
+
+  .terms li {
+    display: flex;
+    gap: 12px;
+    margin: 0;
+  }
+
+  .what {
+    flex: 0 0 55%;
+  }
+
+  .caveat {
+    margin: 0;
+    font-size: 13px;
+  }
+}
+
+.forecast .earlier .actions {
+  display: flex;
+  margin: 4px 0 0;
+}
+
+/*
   One question with two boxes. The legend carries the question and the two labels carry
   only the ends of the range, so the pair reads as one thing to answer rather than as two
   unrelated numbers that happen to sit together.

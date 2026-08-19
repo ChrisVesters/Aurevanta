@@ -12,13 +12,15 @@ designing schema or domain logic. It is design intent, not a description of exis
 depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
 are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
 commit to), M5 (elicitation), M6 (variance contribution), M7 (inverse queries), M8 (actuals and
-calibration) and M9 (throughput) are built. M4
+calibration), M9 (throughput) and M10 (communicating it) are built. M4
 completed **Tier 1** — the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup
 and a ship date at a confidence level — M5 then replaced the question the ranges feeding it are
 collected by, M6 made the band say what it is made of, and M7 ran the question backwards.
 **Tier 2 is complete**, and M8 is the first milestone that checks any of it against what happened —
 M9 then answers the same question from the other side and needs no estimate at all, which is why it
-is the one that can speak today. M10 (communicating it) is next.
+is the one that can speak today. M10 is the one whose output is prose and pictures rather than
+numbers, and so the first that can be wrong in a way no test catches. M11 (resources and people) is
+next, and is the largest complexity jump in the plan.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.
@@ -42,6 +44,14 @@ one to read for how a plan should be argued with**: its decision 6 predicted whi
 effects would be the heavier, the build measured it, and the measurement pointed the other way
 — so the `### As built` section says so and the decision came out stronger, because two effects
 that load different bottlenecks are even less substitutable than two of different sizes.
+
+`docs/m10-plan.md` is communicating any of it, and is **built**: a sentence anybody can read,
+a burn-up, and the two questions somebody asks second — *has this been getting worse?* and *why
+did the date move?* It added **no migration and no column**, and `Engine.VERSION` is still 2.
+**Read its decision 2 before writing any sentence this product publishes**, and decision 5 before
+touching the detector: the milestone measured both of the obvious designs and both are wrong. Its
+close-out review is worth reading for what a review pass is for — it found the plan's own step 5
+reintroducing the two-sided sentence decision 2 exists to keep out.
 
 `docs/m9-plan.md` is the throughput cross-check, and is **built**: a second forecast from what a
 plan has actually delivered, with no estimation in it. It added **no migration, no column and no
@@ -1352,3 +1362,78 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   band alone; it does not leave the reader guessing. A task marked finished next week — which the
   progress form accepts, see *Dates the schema accepts and reality does not* in `roadmap.md` —
   takes the throughput answer away, and the screen says which task to go and fix.
+
+### Saying it to somebody who does not know what P90 means
+
+- **Every date this product publishes is one-sided, and no sentence may pair two of them.**
+  "There is an 80% chance that Q3 platform work will be finished by 25 August" is the shape;
+  "between 12 October and 20 November" is not, and it is the version `roadmap.md` and
+  `product-concept.md` both used to carry. A two-sided interval invites *so not before the
+  12th?* — a question nobody manages against, about the end of the distribution the model is
+  worst at — and it quietly halves the confidence a reader thinks they have at the far end.
+  M10's own plan reintroduced the wrong shape in a later step and its review pass caught it;
+  The case named *says one date and never a window* is what fails if it comes back. **The band in hours stays**, for
+  M4's reason: remove it and nothing on screen came out of the engine.
+- **`Comparison` decides whether two runs may be set beside each other at all** — the engine
+  version, the priority rule, the calendar rule, the working day, the five assumptions. It is `Comparable` in no
+  file, deliberately: `java.lang.Comparable` is auto-imported into every one, so a class of that
+  name in `forecast.model` shadows it for the whole package. The assumptions are `BigDecimal`s
+  and are compared with `compareTo`, because `30` and `30.00` are the same assumption.
+- **A difference in the *model* refuses; everything else is a term.** The engine version and
+  the priority rule are the two, and the second is worth knowing about because there is only one
+  rule today: a calendar is laid over an answer the engine has already given, so two calendars
+  are one answer read twice, where a priority rule is *inside* the scheduler and two rules are
+  two answers. The refusal and the reporting look contradictory and are not. M6 refuses when the *model* cannot reproduce a run — there is nothing to compare
+  with. This reports when the *question* changed, which is the single most useful thing the
+  feature says: *six of those eight days were you halving the capacity*.
+- **The decomposition's terms add up because they are computed cumulatively**, one change at a
+  time in a stated order, each measured with every earlier one already applied and the last
+  state being the newer run itself. The obvious version — re-run once per change and report each
+  difference — gives five numbers that do not account for the movement they claim to explain,
+  because a simulation is not linear in its inputs. M6 and M7 both met this and both answered
+  *do not add them*; here the sentence **is** the feature, so that answer was not available.
+- **`Movement.RULE` names the order for `Schedule.PRIORITY_RULE`'s reason.** Reordering `ORDER`
+  is not a refactor: a reader told scope cost them five days and estimates four will act on it,
+  and swapping those two steps moves days between the lines. Two of the seven steps are not in
+  the milestone's own plan and both are load-bearing — **`SAMPLING`**, because two runs never
+  share a seed and without it the terms sum to the distance between two things nobody was
+  shown, and **`CALENDAR`**, because a working day that changed moves the date without touching
+  an hour and would otherwise land in a residual.
+- **The detector measures cumulative drift against the band's own width, never direction.**
+  Measured: a plan that is not slipping still moves out one week and in the next, so "out three
+  times running" fires on 86% of plans re-forecast weekly for six months, and no run length
+  fixes it. `Drift.WORTH_SAYING` is stated once beside the arithmetic the way
+  `EstimateQuality.TIGHT_BAND` is, and the browser is told the flag rather than the number.
+  **A band of no days is a short plan and not a confident one** — both ends are rounded up to a
+  whole day on their own — so it gets no verdict rather than the strictest one in the product:
+  the noise measurement this detector rests on was taken on a twelve-item chain, and on a plan
+  that small re-running alone moves the date by days.
+- **A run that answered a different question ends the window; a start date that moved does
+  not.** That exception is the one thing here most likely to be "corrected" by somebody reading
+  the comparability rule on its own. Every weekly re-forecast starts from today, so counting a
+  moved start as a new question would end every window at one run and the detector could never
+  fire — and a finish date that held still while the start moved a week is a plan that delivered
+  a week's work, which is the opposite of a slide.
+- **The text equivalent is the feature and the drawing is the enhancement**, which is the
+  order the burn-up was built in and the order the next chart gets built in. The table is what
+  the tests assert; the SVG is inline, has no library, is `aria-hidden`, and carries nothing the
+  table does not — a picture and its equivalent saying the same thing twice to a screen reader
+  is worse than either. It is coloured from the same variables as everything else, so the
+  interface rework restyles it rather than fighting it.
+- **The cone is M9's bootstrap and never the engine's band.** A burn-up's future is how many
+  *items* are done by each week; the engine forecasts effort and has no notion of one, so
+  inventing a trajectory from its finish distribution would assume a shape nothing measured.
+  `Throughput.project` records the running total per week as it goes — no extra draw, so every
+  seeded answer given before it existed is unchanged — and the cone narrows because the backlog
+  is a **ceiling**, not because uncertainty falls away.
+- **The cone's percentiles read the other way round from the dates beside them.** Every figure
+  is the percentile of the quantity it names, so `p90Date` is the *late* end of a finish and
+  `p90` of a delivery count is the *good* end. The edge to plan against is `p10`.
+- **`GET /api/projects/{id}/forecasts` answers an object, not an array** — `{runs, drift}` —
+  because whether the date keeps moving out is a property of the sequence and there is nowhere
+  on a run to hang it. The account of *why* it moved is a separate request, because it costs six
+  whole simulations and most readers never ask.
+- **Nothing here is stored.** No migration, no column, no cached decomposition: `forecast_runs`
+  already holds every run's inputs, seed, calendar and version, and `work_item_progress` holds
+  the rest. M6's decision 1 a fourth time, and the strongest instance of it — a decomposition
+  computed at read time explains every pair of runs this product has ever held.
