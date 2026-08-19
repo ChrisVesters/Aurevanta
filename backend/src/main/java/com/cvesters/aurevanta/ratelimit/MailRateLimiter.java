@@ -1,7 +1,6 @@
 package com.cvesters.aurevanta.ratelimit;
 
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Optional;
 
 import com.cvesters.aurevanta.problem.TooManyRequestsException;
@@ -40,8 +39,8 @@ public class MailRateLimiter {
 	 * it is not
 	 */
 	public void claim(String sourceAddress, String emailAddress) {
-		refuseIfSpent(this.bySource.claim(sourceAddress));
-		refuseIfSpent(this.byAddress.claim(normalise(emailAddress)));
+		RateLimiter.refuse(this.bySource.claim(sourceAddress));
+		RateLimiter.refuse(this.byAddress.claim(RateLimiter.addressKey(emailAddress)));
 	}
 
 	/**
@@ -66,13 +65,7 @@ public class MailRateLimiter {
 	 * Nothing decided by looking the address up may be refunded.
 	 */
 	public void refundRecipient(String emailAddress) {
-		this.byAddress.refund(normalise(emailAddress));
-	}
-
-	private static void refuseIfSpent(Optional<Duration> refusal) {
-		refusal.ifPresent((retryAfter) -> {
-			throw new TooManyRequestsException(retryAfter);
-		});
+		this.byAddress.refund(RateLimiter.addressKey(emailAddress));
 	}
 
 	/**
@@ -80,9 +73,6 @@ public class MailRateLimiter {
 	 * spelling-sensitive when the mailbox it protects is not — three messages to
 	 * {@code ada@acme.test} and three more to {@code ADA@acme.test} land in one inbox.
 	 */
-	private static String normalise(String emailAddress) {
-		return emailAddress.strip().toLowerCase(Locale.ROOT);
-	}
 
 	/** Forgets every count, for tests that share an application context. */
 	public void clear() {

@@ -5,9 +5,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+
+import com.cvesters.aurevanta.problem.TooManyRequestsException;
 
 /**
  * How often one key may do something, over a sliding window.
@@ -165,6 +168,36 @@ public class RateLimiter {
 	}
 
 	/** When the oldest attempt still counted leaves the window, and a slot frees up. */
+	/**
+	 * Refuses if a claim came back spent, which is what both limiters do with one.
+	 *
+	 * <p>
+	 * Here rather than in each of them because it is the shape of the answer rather than
+	 * a policy either owns: {@link #claim} and {@link #refusalFor} report a refusal by
+	 * returning how long is left, so that two of these can be composed before either
+	 * throws — a request refused by the per-source budget must not also spend the
+	 * per-recipient one.
+	 */
+	static void refuse(Optional<Duration> refusal) {
+		refusal.ifPresent((retryAfter) -> {
+			throw new TooManyRequestsException(retryAfter);
+		});
+	}
+
+	/**
+	 * One spelling of an address, and the reason it is stated once.
+	 *
+	 * <p>
+	 * <strong>This is the key a budget is stored under.</strong> Two copies of it is two
+	 * chances for one to start folding case differently from the other — and the failure
+	 * would be silent and one-sided: a limiter keying on the raw address counts
+	 * {@code Ada@acme.test} and {@code ada@acme.test} as two people, so the budget the
+	 * other one is enforcing quietly stops being the budget anybody is subject to.
+	 */
+	static String addressKey(String emailAddress) {
+		return emailAddress.strip().toLowerCase(Locale.ROOT);
+	}
+
 	private Duration retryAfter(Instant oldest, Instant now) {
 		Duration remaining = Duration.between(now, oldest.plus(this.window));
 		return remaining.compareTo(MINIMUM_RETRY_AFTER) < 0 ? MINIMUM_RETRY_AFTER : remaining;

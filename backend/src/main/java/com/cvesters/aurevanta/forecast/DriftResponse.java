@@ -37,7 +37,7 @@ public record DriftResponse(UUID sinceRunId, int runs, List<DriftAtResponse> at)
 		if (newestFirst.isEmpty()) {
 			return null;
 		}
-		List<ForecastTerms> terms = newestFirst.stream().map(ForecastService::termsOf).toList();
+		List<ForecastTerms> terms = newestFirst.stream().map(ForecastRun::getTerms).toList();
 		// Asked once rather than taken off whichever reading the loop below ended on. The
 		// window is a fact about what each run was asked and no confidence can change it
 		// —

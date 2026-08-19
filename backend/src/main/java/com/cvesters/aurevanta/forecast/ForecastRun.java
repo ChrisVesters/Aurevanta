@@ -10,6 +10,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import com.cvesters.aurevanta.forecast.model.Forecast;
+import com.cvesters.aurevanta.forecast.model.ForecastTerms;
 import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.tenant.Tenant;
@@ -179,29 +180,35 @@ public class ForecastRun {
 		// for JPA
 	}
 
-	public ForecastRun(Project project, User requestedBy, int capacity, int sampleCount,
-			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
-			LocalDate startsOn, BigDecimal workingHoursPerDay, String calendarRule, long seed, int engineVersion,
-			String priorityRule, String resourcing, int itemCount, int estimatedItemCount, Forecast forecast,
-			String inputs, String outputs, Instant createdAt) {
+	/**
+	 * @param terms everything about the run except the plan it forecast, which is one
+	 * argument because it is one idea. Ten of them were listed here separately and the
+	 * order was the only thing keeping {@code capacity} out of {@code sampleCount} — both
+	 * {@code int}, adjacent, and silently swappable. The record that reads them back on
+	 * the way out is the record that writes them on the way in, so the two can no longer
+	 * disagree about what a run was asked on.
+	 */
+	public ForecastRun(Project project, User requestedBy, ForecastTerms terms, int sampleCount, long seed,
+			int itemCount, int estimatedItemCount, Forecast forecast, String inputs, String outputs,
+			Instant createdAt) {
 		// Taken from the project rather than from a caller, so a run cannot be filed
 		// under
 		// one organisation and against another's plan.
 		this.tenant = project.getTenant();
 		this.project = project;
 		this.requestedBy = requestedBy;
-		this.capacity = capacity;
+		this.capacity = terms.capacity();
 		this.sampleCount = sampleCount;
-		this.teamFactorWorseByPercent = teamFactorWorseByPercent;
-		this.scopeGrowthP10Percent = scopeGrowthP10Percent;
-		this.scopeGrowthP90Percent = scopeGrowthP90Percent;
-		this.startsOn = startsOn;
-		this.workingHoursPerDay = workingHoursPerDay;
-		this.calendarRule = calendarRule;
+		this.teamFactorWorseByPercent = terms.teamFactorWorseByPercent();
+		this.scopeGrowthP10Percent = terms.scopeGrowthP10Percent();
+		this.scopeGrowthP90Percent = terms.scopeGrowthP90Percent();
+		this.startsOn = terms.startsOn();
+		this.workingHoursPerDay = terms.workingHoursPerDay();
+		this.calendarRule = terms.calendarRule();
 		this.seed = seed;
-		this.engineVersion = engineVersion;
-		this.priorityRule = priorityRule;
-		this.resourcing = resourcing;
+		this.engineVersion = terms.engineVersion();
+		this.priorityRule = terms.priorityRule();
+		this.resourcing = terms.resourcing();
 		this.itemCount = itemCount;
 		this.estimatedItemCount = estimatedItemCount;
 		this.meanHours = hours(forecast.meanHours());
@@ -213,6 +220,21 @@ public class ForecastRun {
 		this.inputs = inputs;
 		this.outputs = outputs;
 		this.createdAt = createdAt;
+	}
+
+	/**
+	 * What this run was asked on, as {@code Comparison} and a decomposition take it.
+	 *
+	 * <p>
+	 * Here rather than in a service, because it is the exact inverse of the constructor
+	 * above and the two belong within sight of each other: a column added to the terms
+	 * has one class to change rather than two, and no way to be written without being
+	 * read.
+	 */
+	public ForecastTerms getTerms() {
+		return new ForecastTerms(this.engineVersion, this.priorityRule, this.calendarRule, this.workingHoursPerDay,
+				this.capacity, this.resourcing, this.teamFactorWorseByPercent, this.scopeGrowthP10Percent,
+				this.scopeGrowthP90Percent, this.startsOn);
 	}
 
 	/**

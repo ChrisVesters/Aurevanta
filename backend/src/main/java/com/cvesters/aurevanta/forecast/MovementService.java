@@ -16,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedItem;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedNeed;
-import com.cvesters.aurevanta.forecast.Movement.Step;
 import com.cvesters.aurevanta.forecast.model.Comparison;
 import com.cvesters.aurevanta.forecast.model.Forecast;
 import com.cvesters.aurevanta.forecast.model.ForecastTerms;
@@ -73,7 +72,7 @@ public class MovementService {
 		// nobody could act on without looking it up.
 		ForecastRun older = a.getCreatedAt().isAfter(b.getCreatedAt()) ? b : a;
 		ForecastRun newer = (older == a) ? b : a;
-		if (!Comparison.between(ForecastService.termsOf(older), ForecastService.termsOf(newer)).comparable()) {
+		if (!Comparison.between(older.getTerms(), newer.getTerms()).comparable()) {
 			throw new ForecastNotComparableException();
 		}
 		return account(older, newer);
@@ -91,14 +90,14 @@ public class MovementService {
 	private MovementResponse account(ForecastRun older, ForecastRun newer) {
 		ForecastInputs olderInputs = this.forecasts.inputsOf(older);
 		ForecastInputs newerInputs = this.forecasts.inputsOf(newer);
-		ForecastTerms olderTerms = ForecastService.termsOf(older);
-		ForecastTerms newerTerms = ForecastService.termsOf(newer);
+		ForecastTerms olderTerms = older.getTerms();
+		ForecastTerms newerTerms = newer.getTerms();
 
 		// The older run under its own seed, so a baseline that has drifted is refused
 		// rather
 		// than absorbed into the sampling term where it would look like an ordinary
 		// reading.
-		ForecastService.requireReproduces(older, run(olderInputs, olderTerms, older.getSampleCount(), older.getSeed()));
+		ForecastReplays.requireReproduces(older, run(olderInputs, olderTerms, older.getSampleCount(), older.getSeed()));
 
 		int samples = newer.getSampleCount();
 		long seed = newer.getSeed();
@@ -111,7 +110,7 @@ public class MovementService {
 		Forecast reasked = run(newerInputs, newerTerms, samples, seed);
 		// Identical inputs, identical assumptions, identical seed: this *is* the newer
 		// run.
-		ForecastService.requireReproduces(newer, reasked);
+		ForecastReplays.requireReproduces(newer, reasked);
 
 		List<Forecast> states = List.of(sampled, progressed, reEstimated, rescoped, reteamed, reasked);
 		List<MovementAtResponse> at = new ArrayList<>(ForecastService.CONFIDENCES.length);
@@ -193,7 +192,7 @@ public class MovementService {
 	}
 
 	private Forecast run(ForecastInputs inputs, ForecastTerms terms, int samples, long seed) {
-		return ForecastService.replayWith(inputs.toModels(), inputs, terms, samples, seed, RunObserver.NONE);
+		return ForecastReplays.replayWith(inputs.toModels(), inputs, terms, samples, seed, RunObserver.NONE);
 	}
 
 	/** What each item's status and spent hours became, for the work both runs hold. */

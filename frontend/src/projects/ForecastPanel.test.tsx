@@ -17,7 +17,7 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
-import type { Forecast } from './types';
+import type { Forecast } from './forecastTypes';
 
 const PROJECT_ID = PROJECTS[0].id;
 const PROJECT_NAME = PROJECTS[0].name;

@@ -13,14 +13,16 @@ import type {
 } from '../auth/types';
 import type { Invitation, InvitationPreview, Member } from '../members/types';
 import type {
-  Contribution,
-  CutOptions,
   Dependency,
   Estimate,
-  Forecast,
   Project,
   WorkItem
 } from '../projects/types';
+import type {
+  Contribution,
+  CutOptions,
+  Forecast
+} from '../projects/forecastTypes';
 
 export const ACCOUNT: Account = {
   userId: '11111111-1111-1111-1111-111111111111',

@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import { TrackRecord } from '../calibration/TrackRecord';
 import type { Calibration } from '../calibration/types';
-import { describeFailure } from '../i18n/problems';
 
 /**
  * How often the ranges written here contained what the work actually took.
@@ -17,34 +16,14 @@ import { describeFailure } from '../i18n/problems';
  */
 export function CalibrationPage() {
   const { t } = useTranslation();
-  const { account, request } = useAuth();
-  const [record, setRecord] = useState<Calibration | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-
+  const { account } = useAuth();
   const organisationId = account?.organisation.id;
-
-  useEffect(() => {
-    if (!organisationId) {
-      return undefined;
-    }
-    let cancelled = false;
-    request<Calibration>('/calibration')
-      .then((loaded) => {
-        if (!cancelled) {
-          setRecord(loaded);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setFailure(describeFailure(t, error));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Keyed on the organisation, so switching to another one asks again rather than
-    // leaving the previous organisation's record on screen.
-  }, [request, organisationId, t]);
+  // Keyed on the organisation, so switching to another one asks again rather than leaving
+  // the previous organisation's record on screen.
+  const { data: record, failure } = useLoaded<Calibration>(
+    organisationId ? '/calibration' : null,
+    [organisationId]
+  );
 
   return (
     <main className="calibration">

@@ -6,7 +6,7 @@ import { describeFailure } from '../i18n/problems';
 import { formatDay } from './dates';
 import { textField } from '../auth/formValues';
 import { numberField } from './fields';
-import type { Forecast, HireOptions } from './types';
+import type { Forecast, HireOptions } from './forecastTypes';
 
 /** Every confidence M4's control offers, which one answer covers. */
 type Confidence = 50 | 80 | 95;

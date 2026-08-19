@@ -175,6 +175,15 @@ public record Comparison(Set<Difference> differences) {
 	 * Its own question rather than one of the assumptions above, because it is the one
 	 * that is nobody's doing: a plan started a month later finishes a month later. A
 	 * decomposition applies it last for that reason.
+	 *
+	 * <p>
+	 * <strong>Nothing calls this, and that is what it is for.</strong> {@code
+	 * Drift.sameQuestion} is {@code comparable() && sameCalendar() && sameAssumptions()}
+	 * — this list exactly, minus this one — and a reader checking that expression against
+	 * the type has to be able to see what was left out. Delete it and the omission stops
+	 * being visible: the expression reads as complete, and the next person to "finish" it
+	 * ends every drift window at one run, because a plan re-forecast weekly is started
+	 * from today every time. The rule it guards is argued where it is broken, not here.
 	 */
 	public boolean sameStart() {
 		return !this.differences.contains(Difference.STARTS_ON);

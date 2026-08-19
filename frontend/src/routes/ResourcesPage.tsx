@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
@@ -28,9 +29,9 @@ const FIELDS = ['name', 'units'];
 export function ResourcesPage() {
   const { t } = useTranslation();
   const { account, request } = useAuth();
-  const [resources, setResources] = useState<Resource[] | null>(null);
-  const [people, setPeople] = useState<Member[]>([]);
   const [archived, setArchived] = useState(false);
+  // The archive action's own failure. The listing's is the hook's, and the two are shown
+  // in one place: a reader does not care which read went wrong, only that one did.
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
@@ -40,51 +41,17 @@ export function ResourcesPage() {
 
   const organisationId = account?.organisation.id;
 
-  useEffect(() => {
-    if (!organisationId) {
-      return;
-    }
-    let cancelled = false;
-    // Cleared here rather than when the answer lands, so switching listings does not leave
-    // the empty state of the previous one on screen while this one loads.
-    setResources(null);
-
-    request<Resource[]>(`/resources${archived ? '?archived=true' : ''}`)
-      .then((loaded) => {
-        if (!cancelled) {
-          setResources(loaded);
-          setFailure(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setFailure(describeFailure(t, error));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [request, organisationId, archived, reloads, t]);
-
+  // Keyed on the organisation as well, so switching to another one re-scopes the list.
+  const { data: resources, failure: unreadable } = useLoaded<Resource[]>(
+    organisationId ? `/resources${archived ? '?archived=true' : ''}` : null,
+    [organisationId, archived, reloads]
+  );
   // Its own read, and one this page survives losing: a team is still a team if the list of
   // colleagues could not be loaded, so what goes missing is the ability to name one of them.
-  useEffect(() => {
-    let cancelled = false;
-    request<Member[]>('/members')
-      .then((loaded) => {
-        if (!cancelled) {
-          setPeople(loaded);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPeople([]);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [request, organisationId]);
+  const { data: colleagues } = useLoaded<Member[]>('/members', [
+    organisationId
+  ]);
+  const people = colleagues ?? [];
 
   const declare = useCallback(
     async (values: {
@@ -154,9 +121,9 @@ export function ResourcesPage() {
       <h1>{t('resources.title')}</h1>
       <p className="lede">{t('resources.lede')}</p>
 
-      {failure && (
+      {(failure ?? unreadable) && (
         <p className="form-error" role="alert">
-          {failure}
+          {failure ?? unreadable}
         </p>
       )}
 

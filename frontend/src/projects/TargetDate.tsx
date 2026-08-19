@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
+import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
-import { describeFailure } from '../i18n/problems';
 import { numberField } from './fields';
 import { describeWork } from './work';
-import type { CutOptions, Forecast, WorkItem } from './types';
+import type { WorkItem } from './types';
+import type { CutOptions, Forecast } from './forecastTypes';
 
 /**
  * The two boxes this form asks for, which is what `useFormFailure` needs. The candidates
@@ -56,8 +57,6 @@ export function TargetDate({ run }: { run: Forecast }) {
   const { t } = useTranslation();
   const { request } = useAuth();
   /** The plan's own work, which is where a candidate comes from. Null until it lands. */
-  const [work, setWork] = useState<WorkItem[] | null>(null);
-  const [workFailure, setWorkFailure] = useState<string | null>(null);
   // Held here rather than read out of the form on submission, because it is half of what
   // decides whether there is a question to ask at all.
   const [by, setBy] = useState('');
@@ -66,27 +65,13 @@ export function TargetDate({ run }: { run: Forecast }) {
   const [busy, setBusy] = useState(false);
   const asking = useFormFailure(ASKED_FOR);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    request<WorkItem[]>(`/projects/${run.projectId}/items`)
-      .then((loaded) => {
-        if (!cancelled) {
-          setWork(loaded);
-        }
-      })
-      .catch((error: unknown) => {
-        // Said rather than swallowed. An empty tick list and a tick list that failed to
-        // load look identical, and the first of them reads as "there is nothing you could
-        // drop" — which is an answer, and the wrong one.
-        if (!cancelled) {
-          setWorkFailure(describeFailure(t, error));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [request, run.projectId, t]);
+  // Said rather than swallowed. An empty tick list and a tick list that failed to load look
+  // identical, and the first of them reads as "there is nothing you could drop" — which is an
+  // answer, and the wrong one.
+  const { data: work, failure: workFailure } = useLoaded<WorkItem[]>(
+    `/projects/${run.projectId}/items`,
+    [run.projectId]
+  );
 
   // A run made before there was a calendar, or under one this version cannot read, has no
   // date to be asked about at all — so it says which of the two it is instead of showing a

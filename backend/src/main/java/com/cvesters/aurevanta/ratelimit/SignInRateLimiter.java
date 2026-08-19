@@ -1,7 +1,6 @@
 package com.cvesters.aurevanta.ratelimit;
 
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Optional;
 
 import com.cvesters.aurevanta.problem.TooManyRequestsException;
@@ -43,14 +42,14 @@ public class SignInRateLimiter {
 	 * @throws TooManyRequestsException if either budget is spent
 	 */
 	public void refuseIfExhausted(String sourceAddress, String emailAddress) {
-		refuse(this.bySource.refusalFor(sourceAddress));
-		refuse(this.byAccount.refusalFor(normalise(emailAddress)));
+		RateLimiter.refuse(this.bySource.refusalFor(sourceAddress));
+		RateLimiter.refuse(this.byAccount.refusalFor(RateLimiter.addressKey(emailAddress)));
 	}
 
 	/** Counts one wrong guess. */
 	public void recordFailure(String sourceAddress, String emailAddress) {
 		this.bySource.record(sourceAddress);
-		this.byAccount.record(normalise(emailAddress));
+		this.byAccount.record(RateLimiter.addressKey(emailAddress));
 	}
 
 	/**
@@ -62,17 +61,7 @@ public class SignInRateLimiter {
 	 * password among their attempts is no reason to hand them a fresh allowance.
 	 */
 	public void succeeded(String emailAddress) {
-		this.byAccount.forget(normalise(emailAddress));
-	}
-
-	private static void refuse(Optional<Duration> refusal) {
-		refusal.ifPresent((retryAfter) -> {
-			throw new TooManyRequestsException(retryAfter);
-		});
-	}
-
-	private static String normalise(String emailAddress) {
-		return emailAddress.strip().toLowerCase(Locale.ROOT);
+		this.byAccount.forget(RateLimiter.addressKey(emailAddress));
 	}
 
 	/** Forgets every count, for tests that share an application context. */

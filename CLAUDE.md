@@ -116,6 +116,15 @@ other than what it was written to do, and a departure is only honestly recalled 
 still the thing you just decided. Leaving it to the close-out step turns a record into a
 reconstruction.
 
+`docs/code-review.md` is the structural review taken after M11, and is the first pass over
+this codebase that is not about a feature: what M0–M11 left behind in class sizes, drifted
+responsibilities and packages that outgrew their reasons. **It changed no behaviour** — no
+migration, no column, no `Engine.VERSION` move, no endpoint and no wording — and the evidence
+is that both suites went through it unedited. Read its *examined and deliberately left alone*
+section before proposing a split it already declined: `problem`'s 51 classes, `WorkItems.tsx`'s
+736 lines and the five `forecast` services that return response types are each there with the
+reason, and two of the three look like defects from the outside.
+
 `docs/security.md` is the security review taken after M1a — four open findings with the moment
 each is cheapest to fix, what was deliberately accepted, and, at least as usefully, what was
 checked and found sound. None of them is scheduled into a milestone, deliberately: they are
@@ -207,6 +216,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   Change the config and reformat rather than editing files by hand.
 - The frontend talks to the backend through the `/api` prefix and the Vite dev proxy,
   which keeps the browser same-origin so there is no CORS configuration in dev.
+- **A screen reads from the server through `useLoaded`**, never by writing the effect by hand.
+  It takes a path — or null for "not yet" — and the deps a fresh read is keyed on, and answers
+  `{ data, failure }`. **The rule it exists to state once is the cleanup**: an answer arriving
+  after the component has gone is a write into a screen nobody is looking at, and twenty
+  hand-written copies of `cancelled = true` is a rule that holds until it holds in nineteen.
+  The failure comes back rather than being shown, because whether a screen explains a failed
+  read or survives it silently is the screen's judgement. **It is read-only, and that is the
+  boundary** — a page that holds what the server answered after a rename is not doing a read,
+  and seven sites stay hand-written for reasons of that kind: a POST with a body, two
+  sequential reads, an unauthenticated one, and the session restore itself.
 - **A form reports a failed submission through `useFormFailure`**, never by calling
   `describeFailure` on its own. It holds the rule that decides what the visitor sees — a
   complaint belonging to a field is shown against that field, and only a failure belonging
@@ -615,9 +634,13 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 ## Multi-tenancy and authentication
 
 - **Every tenant-owned table carries a `tenant_id`**, and isolation is enforced in the
-  application: take the tenant from `CurrentUser.requiredTenantId()`, never from a request
-  parameter or path variable. A query that filters only by an id the caller supplied is a
-  cross-tenant leak.
+  application: take the tenant from the verified token — `@AuthenticationPrincipal
+  AuthenticatedUser caller`, then `caller.tenantId()` — never from a request parameter or path
+  variable. A query that filters only by an id the caller supplied is a cross-tenant leak.
+  There was a second mechanism for this, a `CurrentUser` component reading the
+  `SecurityContextHolder`, and **this document named it as the rule while no endpoint used
+  it**; it is gone. A principal handed to a method is testable and explicit where a
+  thread-local is neither, which is presumably why every controller reached for one.
 - **Identity is global; membership is per organisation.** `users` holds the person —
   email, password, display name — and carries no tenant and no role. A `memberships` row
   (`user_id` + `tenant_id` + `role`, unique together) is what grants standing in one
@@ -979,6 +1002,19 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 ## Forecasting: the engine, and the decisions inside it
 
+- **One service makes forecasts and reads them; five more explain one and write nothing.**
+  `ForecastService` runs the engine and hands back stored runs. `ContributionService` ranks what
+  widened the band, `CutService` weighs what to drop, `HireService` weighs another unit,
+  `MovementService` accounts for why the date moved and `ThroughputService` answers from the
+  plan's own history. **All five replay through `ForecastReplays`**, which is the whole point of
+  it: two ways of re-running one stored forecast would eventually be one right way and one that
+  had stopped being told about a parameter, and the wrong one would explain a plan nobody
+  forecast while looking entirely reasonable. `PlanTitles` is the other shared piece — what a
+  run's work is called *now*, in three cases and one place.
+- **A run is written from `ForecastTerms` and read back into it.** The entity's constructor takes
+  the record rather than ten loose columns; `run.getTerms()` is its exact inverse. Before, the
+  ten were positional arguments in a list of twenty, with `capacity` and `sampleCount` adjacent
+  `int`s kept apart by nothing but order.
 - **`forecast.model` is separated by *purity*, not by feature, and it is the only package in
   this application that is.** `Normal`, `LogNormalFit`, `ItemModel`, `TeamFactor`,
   `ScopeGrowth`, `Precedence`, `Schedule`, `Engine`, `Forecast`, `Histogram` and

@@ -42,9 +42,19 @@ class ForecastController {
 
 	private final MovementService movements;
 
-	ForecastController(ForecastService forecasts, MovementService movements) {
+	private final ContributionService contributions;
+
+	private final CutService cuts;
+
+	private final HireService hires;
+
+	ForecastController(ForecastService forecasts, MovementService movements, ContributionService contributions,
+			CutService cuts, HireService hires) {
 		this.forecasts = forecasts;
 		this.movements = movements;
+		this.contributions = contributions;
+		this.cuts = cuts;
+		this.hires = hires;
 	}
 
 	@PostMapping("/api/projects/{projectId}/forecasts")
@@ -101,7 +111,7 @@ class ForecastController {
 	@GetMapping("/api/forecasts/{runId}/contributions")
 	List<ContributionResponse> contributions(@AuthenticationPrincipal AuthenticatedUser caller,
 			@PathVariable UUID runId) {
-		return this.forecasts.contributionsTo(caller.userId(), caller.tenantId(), runId);
+		return this.contributions.forRun(caller.userId(), caller.tenantId(), runId);
 	}
 
 	/**
@@ -139,7 +149,7 @@ class ForecastController {
 	@PostMapping("/api/forecasts/{runId}/cuts")
 	CutOptionsResponse cuts(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID runId,
 			@Valid @RequestBody CutsRequest request) {
-		return this.forecasts.cutsFor(caller.userId(), caller.tenantId(), runId, request.by(), request.confidence(),
+		return this.cuts.cutsFor(caller.userId(), caller.tenantId(), runId, request.by(), request.confidence(),
 				request.candidates());
 	}
 
@@ -155,8 +165,7 @@ class ForecastController {
 	@PostMapping("/api/forecasts/{runId}/hires")
 	HireOptionsResponse hires(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID runId,
 			@Valid @RequestBody HiresRequest request) {
-		return this.forecasts.hiresFor(caller.userId(), caller.tenantId(), runId, request.resourceId(),
-				request.units());
+		return this.hires.hiresFor(caller.userId(), caller.tenantId(), runId, request.resourceId(), request.units());
 	}
 
 	/**
@@ -168,7 +177,7 @@ class ForecastController {
 	 * that comes from anywhere but the run itself.
 	 */
 	private ForecastResponse described(ForecastRun run, Map<UUID, Resource> pools) {
-		return ForecastResponse.of(run, this.forecasts.outputsOf(run), ForecastService.teamOf(run, pools));
+		return ForecastResponse.of(run, this.forecasts.outputsOf(run), pools);
 	}
 
 }

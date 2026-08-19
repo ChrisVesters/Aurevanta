@@ -1,5 +1,11 @@
 package com.cvesters.aurevanta.forecast;
 
+import java.util.ArrayList;
+import java.util.Map;
+
+import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedPool;
+import com.cvesters.aurevanta.resource.Resource;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -66,7 +72,13 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 		LocalDate p90Date, LocalDate p95Date, List<ForecastResourceResponse> resources,
 		List<ForecastLimitation> limitations, Histogram histogram) {
 
-	static ForecastResponse of(ForecastRun run, ForecastOutputs outputs, List<ForecastResourceResponse> resources) {
+	/**
+	 * @param pools the organisation's resources by identifier, live and put away alike —
+	 * one lookup serving however many runs are being described, which is what makes a
+	 * listing of a plan's whole history one query rather than one per row
+	 */
+	static ForecastResponse of(ForecastRun run, ForecastOutputs outputs, Map<UUID, Resource> pools) {
+		List<ForecastResourceResponse> resources = team(run, pools);
 		return new ForecastResponse(run.getId(), run.getProject().getId(), run.getCreatedAt(),
 				run.getRequestedBy().getId(), run.getRequestedBy().getDisplayName(), run.getCapacity(),
 				run.getSampleCount(), run.getTeamFactorWorseByPercent(), run.getScopeGrowthP10Percent(),
@@ -76,6 +88,28 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 				run.getP80Hours(), run.getP90Hours(), run.getP95Hours(), dateOf(run, run.getP10Hours()),
 				dateOf(run, run.getP50Hours()), dateOf(run, run.getP80Hours()), dateOf(run, run.getP90Hours()),
 				dateOf(run, run.getP95Hours()), resources, outputs.limitations(), outputs.histogram());
+	}
+
+	/**
+	 * The team a run was scheduled against, with today's names on it.
+	 *
+	 * <p>
+	 * <strong>The units come off the run and the names off the organisation</strong>,
+	 * which is the split a contribution ranking already makes for the work it names: what
+	 * a pool was called is not a thing that moved, and what it held then is. A pool put
+	 * away since is marked; one this organisation no longer holds at all says so rather
+	 * than rendering as a blank.
+	 */
+	private static List<ForecastResourceResponse> team(ForecastRun run, Map<UUID, Resource> pools) {
+		if (run.getResourcing() == null) {
+			return List.of();
+		}
+		PlannedPool[] declared = ForecastSnapshots.read(run.getResourcing(), PlannedPool[].class);
+		List<ForecastResourceResponse> described = new ArrayList<>(declared.length);
+		for (PlannedPool pool : declared) {
+			described.add(ForecastResourceResponse.of(pool.resourceId(), pool.units(), pools.get(pool.resourceId())));
+		}
+		return described;
 	}
 
 	/**

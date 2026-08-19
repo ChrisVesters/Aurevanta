@@ -12,7 +12,8 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
-import type { CutOptions, Forecast, WorkItem } from './types';
+import type { WorkItem } from './types';
+import type { CutOptions, Forecast } from './forecastTypes';
 
 const ITEMS_URL = `/api/projects/${FORECAST.projectId}/items`;
 const CUTS_URL = `/api/forecasts/${FORECAST.id}/cuts`;

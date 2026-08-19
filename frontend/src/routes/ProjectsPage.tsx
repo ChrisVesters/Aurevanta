@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
-import { describeFailure } from '../i18n/problems';
 import { ProjectForm } from '../projects/ProjectForm';
 import type { Project } from '../projects/types';
 
@@ -21,9 +21,7 @@ import type { Project } from '../projects/types';
 export function ProjectsPage() {
   const { t } = useTranslation();
   const { account, request } = useAuth();
-  const [projects, setProjects] = useState<Project[] | null>(null);
   const [archived, setArchived] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [reloads, setReloads] = useState(0);
   const { message, fieldErrors, report, clear } = useFormFailure([
@@ -33,33 +31,12 @@ export function ProjectsPage() {
 
   const organisationId = account?.organisation.id;
 
-  useEffect(() => {
-    if (!organisationId) {
-      return;
-    }
-    let cancelled = false;
-    // Cleared here rather than after the answer arrives, so switching listings does not
-    // leave the empty state of the previous one on screen while this one loads.
-    setProjects(null);
-
-    request<Project[]>(`/projects${archived ? '?archived=true' : ''}`)
-      .then((loaded) => {
-        if (!cancelled) {
-          setProjects(loaded);
-          setFailure(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setFailure(describeFailure(t, error));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Keyed on the organisation as well, so switching to another one re-scopes the list
-    // rather than leaving the previous organisation's plans on screen.
-  }, [request, organisationId, archived, reloads, t]);
+  // Keyed on the organisation as well, so switching to another one re-scopes the list
+  // rather than leaving the previous organisation's plans on screen.
+  const { data: projects, failure } = useLoaded<Project[]>(
+    organisationId ? `/projects${archived ? '?archived=true' : ''}` : null,
+    [organisationId, archived, reloads]
+  );
 
   const create = useCallback(
     async (values: { name: string; description: string | null }) => {

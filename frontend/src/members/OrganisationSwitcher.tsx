@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import type { Membership, Organisation } from '../auth/types';
 import { describeFailure } from '../i18n/problems';
@@ -23,31 +24,23 @@ export function OrganisationSwitcher({
   organisation: Organisation;
 }) {
   const { t } = useTranslation();
-  const { request, selectOrganisation } = useAuth();
-  const [held, setHeld] = useState<Membership[]>([]);
+  const { selectOrganisation } = useAuth();
   const [switching, setSwitching] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    request<Membership[]>('/memberships')
-      .then((memberships) => {
-        if (!cancelled) {
-          setHeld(memberships);
-        }
-      })
-      .catch(() => {
-        // A switcher that cannot load its options is a switcher that is not offered.
-        // Failing here must not take the page it sits on down with it.
-      });
-    return () => {
-      cancelled = true;
-    };
-    // Reloaded on every switch, so a membership gained or lost since is reflected — and
-    // on a rename, which changes neither the id nor the membership but does change what
-    // this list has to say. Since M1a a name is not unique, so a stale list can offer two
-    // options that read alike: the rename may have been the thing telling them apart.
-  }, [request, organisation.id, organisation.name, organisation.slug]);
+  // Reloaded on every switch, so a membership gained or lost since is reflected — and on a
+  // rename, which changes neither the id nor the membership but does change what this list
+  // has to say. Since M1a a name is not unique, so a stale list can offer two options that
+  // read alike: the rename may have been the thing telling them apart.
+  //
+  // The failure is dropped on purpose. A switcher that cannot load its options is a switcher
+  // that is not offered, and failing here must not take the page it sits on down with it.
+  const { data: loaded } = useLoaded<Membership[]>('/memberships', [
+    organisation.id,
+    organisation.name,
+    organisation.slug
+  ]);
+  const held = loaded ?? [];
 
   async function switchTo(organisationId: string) {
     setSwitching(true);
