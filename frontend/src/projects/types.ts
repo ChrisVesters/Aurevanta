@@ -275,7 +275,9 @@ export type ForecastLimitation =
   | 'no_scope_uncertainty'
   | 'unestimated_items'
   | 'inconsistent_estimates'
-  | 'dependencies_on_archived_work';
+  | 'dependencies_on_archived_work'
+  | 'unassigned_work'
+  | 'requirements_on_archived_resources';
 
 /** The shape of one forecast, coarse enough to draw and small enough to keep. */
 export type Histogram = {

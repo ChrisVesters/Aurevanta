@@ -105,7 +105,9 @@ const LIMITATIONS: ForecastLimitation[] = [
   'no_scope_uncertainty',
   'unestimated_items',
   'inconsistent_estimates',
-  'dependencies_on_archived_work'
+  'dependencies_on_archived_work',
+  'unassigned_work',
+  'requirements_on_archived_resources'
 ];
 
 /**

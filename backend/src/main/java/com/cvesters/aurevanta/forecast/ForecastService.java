@@ -25,6 +25,8 @@ import com.cvesters.aurevanta.estimate.EstimateService;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEdge;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedEstimate;
 import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedItem;
+import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedNeed;
+import com.cvesters.aurevanta.forecast.ForecastInputs.PlannedPool;
 import com.cvesters.aurevanta.forecast.model.ConfidenceBy;
 import com.cvesters.aurevanta.forecast.model.Contributions;
 import com.cvesters.aurevanta.forecast.model.Engine;
@@ -41,6 +43,8 @@ import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemService;
 import com.cvesters.aurevanta.membership.MembershipService;
 import com.cvesters.aurevanta.problem.CandidateNotInForecastException;
+import com.cvesters.aurevanta.problem.CapacityNotApplicableException;
+import com.cvesters.aurevanta.problem.CapacityRequiredException;
 import com.cvesters.aurevanta.problem.ForecastHasNoCalendarException;
 import com.cvesters.aurevanta.problem.ForecastNotFoundException;
 import com.cvesters.aurevanta.problem.ForecastReplayMismatchException;
@@ -50,6 +54,10 @@ import com.cvesters.aurevanta.problem.ProjectNotFoundException;
 import com.cvesters.aurevanta.problem.ScopeGrowthOutOfOrderException;
 import com.cvesters.aurevanta.problem.TooManyCandidatesException;
 import com.cvesters.aurevanta.project.Project;
+import com.cvesters.aurevanta.requirement.Requirement;
+import com.cvesters.aurevanta.requirement.RequirementService;
+import com.cvesters.aurevanta.resource.Resource;
+import com.cvesters.aurevanta.resource.ResourceService;
 import com.cvesters.aurevanta.project.ProjectService;
 import com.cvesters.aurevanta.user.User;
 
@@ -96,17 +104,24 @@ public class ForecastService {
 
 	private final DependencyService dependencies;
 
+	private final ResourceService resources;
+
+	private final RequirementService requirements;
+
 	private final MembershipService memberships;
 
 	private final Clock clock;
 
 	ForecastService(ForecastRunRepository runs, ProjectService projects, WorkItemService items,
-			EstimateService estimates, DependencyService dependencies, MembershipService memberships, Clock clock) {
+			EstimateService estimates, DependencyService dependencies, ResourceService resources,
+			RequirementService requirements, MembershipService memberships, Clock clock) {
 		this.runs = runs;
 		this.projects = projects;
 		this.items = items;
 		this.estimates = estimates;
 		this.dependencies = dependencies;
+		this.resources = resources;
+		this.requirements = requirements;
 		this.memberships = memberships;
 		this.clock = clock;
 	}
@@ -114,9 +129,10 @@ public class ForecastService {
 	/**
 	 * Forecasts a plan and writes down what was asked, what was assumed and what came
 	 * back.
-	 * @param capacity how many items may be under way at once. Required, and no default
-	 * exists anywhere: it moves the answer by more than half, and a server that picked
-	 * would be making a claim about a team it has never met.
+	 * @param capacity how many items may be under way at once, or null when the
+	 * organisation has described its team and the pools say. Exactly one of the two, and
+	 * no default exists anywhere: it moves the answer by more than half, and a server
+	 * that picked would be making a claim about a team it has never met.
 	 * @param sampleCount how many runs to simulate, or null for the ordinary ten thousand
 	 * @param teamFactorWorseByPercent how much longer everything takes in a bad stretch.
 	 * Required, and zero is a claim rather than an absence of one.
@@ -134,7 +150,7 @@ public class ForecastService {
 	 * @throws NothingToForecastException if no work in the plan carries an estimate
 	 */
 	@Transactional
-	public ForecastRun run(UUID callerId, UUID tenantId, UUID projectId, int capacity, Integer sampleCount,
+	public ForecastRun run(UUID callerId, UUID tenantId, UUID projectId, Integer capacity, Integer sampleCount,
 			BigDecimal teamFactorWorseByPercent, BigDecimal scopeGrowthP10Percent, BigDecimal scopeGrowthP90Percent,
 			LocalDate startsOn, BigDecimal workingHoursPerDay) {
 		// A fact about the request and nothing else, so it is answered before anything is
@@ -152,6 +168,13 @@ public class ForecastService {
 		List<WorkItem> work = this.items.list(callerId, tenantId, projectId, false);
 		List<Estimate> current = this.estimates.currentInProject(callerId, tenantId, projectId);
 		List<Dependency> arrows = this.dependencies.listInProject(callerId, tenantId, projectId);
+		// The team as it stands, in the order it was declared — which is the order work
+		// that names nothing takes a unit in, so it is part of the model rather than of a
+		// listing. Put-away pools are left out for the reason put-away work is: a
+		// resource
+		// the organisation no longer has cannot be scheduled against.
+		List<Resource> pools = this.resources.list(callerId, tenantId, false);
+		List<Requirement> needed = this.requirements.listInProject(callerId, tenantId, projectId);
 
 		Set<UUID> forecast = new HashSet<>();
 		for (WorkItem item : work) {
@@ -183,7 +206,48 @@ public class ForecastService {
 			}
 		}
 
-		ForecastInputs inputs = new ForecastInputs(planned, kept);
+		Set<UUID> declared = new HashSet<>();
+		List<PlannedPool> team = new ArrayList<>(pools.size());
+		int units = 0;
+		for (Resource pool : pools) {
+			declared.add(pool.getId());
+			team.add(new PlannedPool(pool.getId(), pool.getUnits()));
+			units += pool.getUnits();
+		}
+		List<PlannedNeed> needs = new ArrayList<>(needed.size());
+		boolean droppedNeeds = false;
+		for (Requirement requirement : needed) {
+			UUID item = requirement.getWorkItem().getId();
+			if (!forecast.contains(item)) {
+				continue;
+			}
+			// A pool that has been put away is left out and said out loud, exactly as an
+			// arrow into archived work is.
+			if (declared.contains(requirement.getResource().getId())) {
+				needs.add(new PlannedNeed(item, requirement.getResource().getId(), requirement.getUnits()));
+			}
+			else {
+				droppedNeeds = true;
+			}
+		}
+		// **One of the two, never both and never neither.** Once a team is described the
+		// concurrency is what it holds, and a second number beside it would leave a
+		// reader
+		// unable to say which one bound the answer; with no team described there is
+		// nothing
+		// else that could bound it. Refused rather than ignored, which is the rule
+		// `progress_not_applicable` states: silently dropping input is worse than
+		// refusing
+		// it, because the person is not told they have been overruled.
+		if (team.isEmpty() && capacity == null) {
+			throw new CapacityRequiredException();
+		}
+		if (!team.isEmpty() && capacity != null) {
+			throw new CapacityNotApplicableException();
+		}
+		int concurrency = team.isEmpty() ? capacity : units;
+
+		ForecastInputs inputs = new ForecastInputs(planned, kept, team, needs);
 		int runCount = (sampleCount != null) ? sampleCount : Engine.DEFAULT_SAMPLE_COUNT;
 		long seed = ThreadLocalRandom.current().nextLong();
 		// Percentages a person typed, turned into the two distributions the engine
@@ -193,17 +257,17 @@ public class ForecastService {
 		TeamFactor teamFactor = TeamFactor.from(teamFactorWorseByPercent.doubleValue());
 		ScopeGrowth scopeGrowth = ScopeGrowth.from(scopeGrowthP10Percent.doubleValue(),
 				scopeGrowthP90Percent.doubleValue());
-		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), capacity, teamFactor, scopeGrowth,
-				runCount, seed);
+		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), inputs.toResourcing(concurrency),
+				teamFactor, scopeGrowth, runCount, seed);
 		ForecastOutputs outputs = new ForecastOutputs(answer.histogram(),
-				limitations(planned, kept.size() < arrows.size()));
+				limitations(planned, kept.size() < arrows.size(), inputs, droppedNeeds));
 		// The calendar is written down and not used: nothing about a working day reaches
 		// the engine, which is what keeps a calendar change from being a model change.
 		// The
 		// rule's name goes with it so the run resolves under the calendar it was made
 		// with
 		// rather than the one this code has by the time somebody reads it.
-		return this.runs.save(new ForecastRun(project, caller, capacity, runCount, teamFactorWorseByPercent,
+		return this.runs.save(new ForecastRun(project, caller, concurrency, runCount, teamFactorWorseByPercent,
 				scopeGrowthP10Percent, scopeGrowthP90Percent, startsOn, workingHoursPerDay, WorkingCalendar.RULE, seed,
 				Engine.VERSION, Schedule.PRIORITY_RULE, work.size(), byItem.size(), answer,
 				ForecastSnapshots.write(inputs), ForecastSnapshots.write(outputs), Instant.now(this.clock)));
@@ -566,7 +630,7 @@ public class ForecastService {
 	 */
 	static Forecast replayWith(List<ItemModel> plan, ForecastInputs inputs, ForecastTerms terms, int sampleCount,
 			long seed, RunObserver watching) {
-		return Engine.run(plan, inputs.toPrecedences(), terms.capacity(),
+		return Engine.run(plan, inputs.toPrecedences(), inputs.toResourcing(terms.capacity()),
 				TeamFactor.from(terms.teamFactorWorseByPercent().doubleValue()), ScopeGrowth
 					.from(terms.scopeGrowthP10Percent().doubleValue(), terms.scopeGrowthP90Percent().doubleValue()),
 				sampleCount, seed, watching);
@@ -703,10 +767,20 @@ public class ForecastService {
 	 * limitations are stored rather than worked out at read time. They are gone from what
 	 * this writes and not from what it can read.
 	 */
-	private static List<ForecastLimitation> limitations(List<PlannedItem> planned, boolean droppedArrows) {
+	private static List<ForecastLimitation> limitations(List<PlannedItem> planned, boolean droppedArrows,
+			ForecastInputs inputs, boolean droppedNeeds) {
 		Set<ForecastLimitation> found = EnumSet.noneOf(ForecastLimitation.class);
 		if (droppedArrows) {
 			found.add(ForecastLimitation.DEPENDENCIES_ON_ARCHIVED_WORK);
+		}
+		if (droppedNeeds) {
+			found.add(ForecastLimitation.REQUIREMENTS_ON_ARCHIVED_RESOURCES);
+		}
+		// Only where it can change the answer. With one pool — and with none, which is a
+		// capacity — naming nothing and naming that pool are the same claim, so a warning
+		// would fire on every forecast anybody ran and mean nothing on any of them.
+		if (inputs.pools().size() > 1 && namesNothing(inputs)) {
+			found.add(ForecastLimitation.UNASSIGNED_WORK);
 		}
 		for (PlannedItem item : planned) {
 			if (item.estimates().isEmpty()) {
@@ -719,6 +793,15 @@ public class ForecastService {
 			}
 		}
 		return List.copyOf(found);
+	}
+
+	/** Whether any of the work in this plan named no resource at all. */
+	private static boolean namesNothing(ForecastInputs inputs) {
+		Set<UUID> named = new HashSet<>();
+		for (PlannedNeed need : inputs.needs()) {
+			named.add(need.workItemId());
+		}
+		return named.size() < inputs.items().size();
 	}
 
 	/**

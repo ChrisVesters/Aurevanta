@@ -15,14 +15,25 @@ import jakarta.validation.constraints.PositiveOrZero;
  * What to assume while forecasting a plan.
  *
  * <p>
- * <strong>The capacity is required and has no default anywhere.</strong> A dependency
- * graph without one assumes unlimited parallelism and is optimistic by the same margin
- * that summing durations is pessimistic — the same ten items came out at 51 or 86 days at
- * the P90 in {@code roadmap.md}'s measurement, depending on nothing else. A number that
- * moves the answer by that much is not an implementation detail, and a server that filled
- * it in would leave the caller holding a claim about their team that they never made.
- * This is M1a's argument about the organisation handle reaching a second place: an
- * assumption is only honest when somebody made it.
+ * <strong>The capacity has no default anywhere, and since M11 it is one of two ways of
+ * saying the same thing.</strong> A dependency graph with no bound on concurrency assumes
+ * unlimited parallelism and is optimistic by the same margin that summing durations is
+ * pessimistic — the same ten items came out at 51 or 86 days at the P90 in
+ * {@code roadmap.md}'s measurement, depending on nothing else. A number that moves the
+ * answer by that much is not an implementation detail, and a server that filled it in
+ * would leave the caller holding a claim about their team that they never made. This is
+ * M1a's argument about the organisation handle reaching a second place: an assumption is
+ * only honest when somebody made it.
+ *
+ * <p>
+ * <strong>So it is optional here and required by the service</strong>, which is the one
+ * place that knows whether the organisation has described its team. An organisation with
+ * pools says how much can be under way by declaring them, and naming a capacity as well
+ * is refused rather than ignored — {@code capacity_not_applicable} — because two numbers
+ * would leave a reader unable to tell which one bound the answer. An organisation with
+ * none must still say: {@code capacity_required}. Bean Validation cannot ask that
+ * question, and a {@code @NotNull} here would make the first forecast after describing a
+ * team a refusal about a field that should no longer be on the screen at all.
  *
  * <p>
  * <strong>The three percentages are required for a sharper version of the same
@@ -64,7 +75,7 @@ import jakarta.validation.constraints.PositiveOrZero;
  * arrives against the box somebody typed in — the check is worth having twice, the number
  * is not.
  */
-public record CreateForecastRequest(@NotNull @Positive Integer capacity,
+public record CreateForecastRequest(@Positive Integer capacity,
 
 		@Positive @Max(100_000) Integer sampleCount,
 

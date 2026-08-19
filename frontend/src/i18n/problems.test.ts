@@ -34,6 +34,8 @@ const BACKEND_CODES = [
   'forecast_not_found',
   'throughput_out_of_order',
   'forecast_not_comparable',
+  'capacity_required',
+  'capacity_not_applicable',
   'resource_not_found',
   'person_not_a_member',
   'duplicate_requirement',

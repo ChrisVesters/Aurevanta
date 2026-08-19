@@ -55,15 +55,32 @@ public final class Engine {
 	 * to be kept in step with this one.
 	 *
 	 * <p>
+	 * <strong>Version 3 contains version 2 in exactly the same way, and it is a
+	 * scheduler.</strong> The note above says a different scheduler "does not get to
+	 * pretend otherwise" — and this one does not pretend: a plan scheduled against one
+	 * undifferentiated pool of <em>n</em> units, with no piece of work naming anything,
+	 * takes the same decisions in the same order as counting <em>n</em> slots did. Not
+	 * approximately: {@code ScheduleTests} holds six finishes read out of that class
+	 * before it knew what a resource was, and they are unchanged to the last bit.
+	 *
+	 * <p>
+	 * So M11 bumps this and every run made before it still replays — which is what M6's
+	 * ranking, M7's cuts and M10's decomposition all need, since each of them is a replay
+	 * of a stored run. What M10's <em>comparison</em> does across the bump is refuse, and
+	 * that is right rather than unfortunate: a plan re-forecast against a team that has
+	 * been described for the first time has answered a different question.
+	 *
+	 * <p>
 	 * <strong>The rule that buys, for whoever bumps this next.</strong> Either the new
 	 * engine contains the old one as a setting of its parameters, or every run made
 	 * before the bump becomes a record that can be read and never replayed. A change that
-	 * cannot be reduced to a parameter — a different fit, a different scheduler — does
-	 * not get to pretend otherwise: it bumps this, old runs become read-only history, and
-	 * M10 has to be told, because comparing runs across an incomparable bump is how a
-	 * tool reports a date sliding when nothing moved.
+	 * cannot be reduced to a parameter — a different fit, a scheduler that is genuinely
+	 * different rather than more general — does not get to pretend otherwise: it bumps
+	 * this, old runs become read-only history, and M10 has to be told, because comparing
+	 * runs across an incomparable bump is how a tool reports a date sliding when nothing
+	 * moved.
 	 */
-	public static final int VERSION = 2;
+	public static final int VERSION = 3;
 
 	/**
 	 * Sampling error at ten thousand runs is about ±0.77%, against 2% to 5% for the
@@ -114,9 +131,31 @@ public final class Engine {
 	 * engine will do, if the plan cannot be scheduled, or if a plan expected to grow
 	 * holds no estimate for the new work to look like
 	 */
+	public static Forecast run(List<ItemModel> items, List<Precedence> edges, Resourcing resourcing,
+			TeamFactor teamFactor, ScopeGrowth scopeGrowth, int sampleCount, long seed) {
+		return run(items, edges, resourcing, teamFactor, scopeGrowth, sampleCount, seed, RunObserver.NONE);
+	}
+
+	/**
+	 * The same forecast against a number rather than a team, which is what every run made
+	 * before M11 asked for.
+	 *
+	 * <p>
+	 * <strong>One pool of that many units with nothing named</strong> — see
+	 * {@link #VERSION}. It is here rather than left to each caller because the
+	 * declaration has to be for this many items, and a caller counting them itself is a
+	 * caller that can count them wrong.
+	 */
 	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
 			ScopeGrowth scopeGrowth, int sampleCount, long seed) {
 		return run(items, edges, capacity, teamFactor, scopeGrowth, sampleCount, seed, RunObserver.NONE);
+	}
+
+	/** The same, with something watching each run go past. */
+	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
+			ScopeGrowth scopeGrowth, int sampleCount, long seed, RunObserver observer) {
+		return run(items, edges, Resourcing.pooled(capacity, items.size()), teamFactor, scopeGrowth, sampleCount, seed,
+				observer);
 	}
 
 	/**
@@ -133,10 +172,10 @@ public final class Engine {
 	 * The two-argument shape above delegates here with {@link RunObserver#NONE}, the way
 	 * {@link Schedule#finish(double[])} delegates to the form that takes discovered work.
 	 * @param observer told what each run drew and when the plan finished because of it
-	 * @see #run(List, List, int, TeamFactor, ScopeGrowth, int, long)
+	 * @see #run(List, List, Resourcing, TeamFactor, ScopeGrowth, int, long)
 	 */
-	public static Forecast run(List<ItemModel> items, List<Precedence> edges, int capacity, TeamFactor teamFactor,
-			ScopeGrowth scopeGrowth, int sampleCount, long seed, RunObserver observer) {
+	public static Forecast run(List<ItemModel> items, List<Precedence> edges, Resourcing resourcing,
+			TeamFactor teamFactor, ScopeGrowth scopeGrowth, int sampleCount, long seed, RunObserver observer) {
 		if (sampleCount < 1 || sampleCount > MAX_SAMPLE_COUNT) {
 			throw new IllegalArgumentException(
 					"A forecast runs between 1 and " + MAX_SAMPLE_COUNT + " times, not " + sampleCount);
@@ -161,7 +200,7 @@ public final class Engine {
 		// Everything about the graph is worked out once: it is a property of the plan,
 		// and
 		// re-deriving it ten thousand times would let the ordering drift between runs.
-		Schedule schedule = Schedule.of(edges, typicalEffortHours, underWay, capacity);
+		Schedule schedule = Schedule.of(edges, typicalEffortHours, underWay, resourcing);
 		RandomGenerator random = new Random(seed);
 		double[] finishes = new double[sampleCount];
 		double[] durations = new double[plan.length];

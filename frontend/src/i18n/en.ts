@@ -454,6 +454,12 @@ export const en = {
           'Some work in this plan carries no estimate. It kept its place in the order and counted as no effort, so the answer is short by whatever it holds.',
         inconsistent_estimates:
           "Somebody's middle number sits a long way from their own two ends. The estimate was used exactly as given; it may be worth a second look.",
+        // Only ever reported where it can change the answer — with one pool, naming nothing
+        // and naming that pool are the same claim.
+        unassigned_work:
+          'Some work in this plan names no resource. It was scheduled against one unit of whatever happened to be free, so the answer rests on a choice nobody made.',
+        requirements_on_archived_resources:
+          'Some work asks for a resource that has been put away. It was left out, because a resource the team no longer has cannot be waited for — so the answer is short by however much it was the constraint.',
         dependencies_on_archived_work:
           'An arrow pointed at work that has been put away. It was left out, because work that is not going to happen cannot be waited for.',
         unknown:
@@ -1161,6 +1167,14 @@ export const en = {
       // Two runs made by different versions of the model. M6's argument rather than a fussy
       // check: an account of a movement between two models is an exact account of a movement
       // that never happened, and it would look entirely reasonable.
+      // Bean Validation cannot ask whether a capacity is needed, because that depends on
+      // whether the organisation has described its team. Both of these come from the
+      // service, and both are about a field that should not be on the screen at all in one
+      // of the two states.
+      capacity_required:
+        'Say how much can be under way at once, or describe your team on the resources page.',
+      capacity_not_applicable:
+        'Your resources already say how much can be under way at once, so this forecast cannot name a capacity as well.',
       forecast_not_comparable:
         'These two forecasts cannot be compared: they were made by different versions of the model, so the distance between them is not a plan that moved.',
       forecast_replay_mismatch:

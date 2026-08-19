@@ -70,7 +70,35 @@ public enum ForecastLimitation {
 	 * dropped — which is a thing to be told rather than to discover from a date that came
 	 * out early.
 	 */
-	DEPENDENCIES_ON_ARCHIVED_WORK("dependencies_on_archived_work");
+	DEPENDENCIES_ON_ARCHIVED_WORK("dependencies_on_archived_work"),
+
+	/**
+	 * Some of the work names no resource, so it was scheduled against one unit of
+	 * whatever happened to be free.
+	 *
+	 * <p>
+	 * <strong>Only ever emitted where it can change the answer</strong>, which is where
+	 * there is more than one pool. With one pool — and with none at all, which is the
+	 * same thing scheduled by a capacity — naming nothing and naming that pool are the
+	 * same claim, so a warning would fire on every forecast anybody ran and mean nothing
+	 * on any of them. With two, an unannotated item takes a unit somebody else may have
+	 * needed, and the reader has to know which part of the answer rests on a declaration
+	 * nobody made.
+	 */
+	UNASSIGNED_WORK("unassigned_work"),
+
+	/**
+	 * Some of the work asks for a resource the team has put away.
+	 *
+	 * <p>
+	 * Left out rather than scheduled against, which is exactly what
+	 * {@link #DEPENDENCIES_ON_ARCHIVED_WORK} does with an arrow into work that is not
+	 * going to happen: a pool the organisation no longer has cannot be waited for. The
+	 * item is scheduled by whatever else it names, and by one unit of anything if that
+	 * was all it named — so the answer is optimistic by however much that resource was
+	 * the constraint, and this is what says so.
+	 */
+	REQUIREMENTS_ON_ARCHIVED_RESOURCES("requirements_on_archived_resources");
 
 	private final String code;
 

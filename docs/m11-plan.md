@@ -35,7 +35,7 @@
 |---|---|---|
 | 1 | What a resource is, and what needs one ✅ *done* | M2's schema conventions |
 | 2 | The scheduler stops counting slots ✅ *done* | 1, M3a's `Schedule` |
-| 3 | A run that knows who was available | 2, M3a's snapshot |
+| 3 | A run that knows who was available ✅ *done* | 2, M3a's snapshot |
 | 4 | Saying it: declaring resources, and what the forecast reports | 3 |
 | 5 | What if we hire someone? | 3, M7's counterfactuals |
 | 6 | Close out | 1–5 |
@@ -527,7 +527,7 @@ API, no schema and no engine change — `Engine` still calls the capacity method
 
 ---
 
-## Step 3 — A run that knows who was available
+## Step 3 — A run that knows who was available ✅ *done*
 
 **Goal.** The engine, the snapshot and the stored run, and the version bump that survives them.
 
@@ -552,6 +552,57 @@ pair. M6's ranking, M7's cuts and M10's decomposition all still answer for a ver
 
 **Done when** a forecast made last month can still be explained, and one made today knows the
 team is not interchangeable.
+
+### As built — where it differs from the above
+
+**`Engine.run` kept a capacity form, and that is what proves the containment rather than
+weakening it.** The alternative was to make every caller build a one-pool declaration, and the
+cost would have been editing every test in the engine's suite — including the ones holding exact
+percentiles to seventeen digits. Those tests are the evidence: they are **untouched** and still
+pass, so version 3 gives version 2's answers because it is the same arithmetic, not because
+somebody adjusted an expectation.
+
+**The declaration lives beside the items rather than inside them.** A requirement could have been
+a field on `PlannedItem`; it is a top-level list keyed by item, because M10's decomposition
+rebuilds that list twice — once with the newer progress and once with the newer estimates — and a
+requirement belongs to neither question. Held outside, it is untouched by both and moves with the
+plan when the plan does. **The cost is that a requirement change lands in the `SCOPE` term of a
+decomposition**, which is not quite what that term names; the terms still sum, and naming it here
+is cheaper than a seventh state in the account.
+
+**Capacity became one of two ways to say one thing, and neither is defaulted.** The bullets say
+capacity is derived from the pools; what they do not say is what happens to the *field*. It is
+optional at the request and decided by the service, which is the only place that knows whether
+the organisation has described a team — so `capacity_required` when it has not and
+`capacity_not_applicable` when it has. Refused rather than ignored, which is
+`progress_not_applicable`'s rule: silently dropping input is worse than refusing it, because the
+person is not told they have been overruled. A `@NotNull` on the field would have made the first
+forecast after describing a team a refusal about a box that should no longer be on the screen.
+
+**`unassigned_work` fires only where it can change the answer**, which is where there is more
+than one pool. With one pool — and with none, which is a capacity — naming nothing and naming
+that pool are the same claim, so the warning would have fired on every forecast anybody ran and
+meant nothing on any of them. No threshold, no counts, and no columns to carry them.
+
+**A requirement on a put-away pool is left out and said out loud** — `requirements_on_archived_resources`
+— which is exactly what an arrow into archived work already does, and for the same reason: a
+resource the organisation no longer has cannot be waited for.
+
+**One gap is left open deliberately, and step 6 should settle it.** `Comparison` sees the *size*
+of a team, because capacity is stored and derived from the pools — so hiring somebody is a
+`CAPACITY` difference and M10 reports it as a changed question rather than as drift. What it
+cannot see is a **reshuffle that keeps the total**: three backend and three frontend becoming two
+and four is invisible, and the date it moves would be read as a plan sliding. Closing it means
+putting the team's shape where `ForecastTerms` can reach it cheaply — a column, since the drift
+detector walks a whole history and parsing every snapshot to compare two runs is not what that
+read costs today. It is written here rather than done here because the milestone's own decision 3
+lists four things and this would be a fifth, and because M10's review pass is the shape of thing
+that should decide it.
+
+**Counts.** 9 new cases in `ForecastApiTests`; 1,071 backend tests pass, with `Engine`,
+`Schedule`, `Resourcing`, `ForecastInputs` and `ForecastService` at zero missed branches and zero
+missed instructions. Four new codes reached the frontend catalogue — two refusals and two
+limitations — and 461 frontend tests still pass at 100%.
 
 ---
 

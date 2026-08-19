@@ -44,6 +44,10 @@ import com.cvesters.aurevanta.membership.Membership;
 import com.cvesters.aurevanta.membership.MembershipRepository;
 import com.cvesters.aurevanta.project.Project;
 import com.cvesters.aurevanta.project.ProjectRepository;
+import com.cvesters.aurevanta.requirement.Requirement;
+import com.cvesters.aurevanta.requirement.RequirementRepository;
+import com.cvesters.aurevanta.resource.Resource;
+import com.cvesters.aurevanta.resource.ResourceRepository;
 import com.cvesters.aurevanta.security.AccessTokenService;
 import com.cvesters.aurevanta.tenant.Tenant;
 import com.cvesters.aurevanta.tenant.TenantRepository;
@@ -55,6 +59,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -119,6 +124,12 @@ class ForecastApiTests {
 	private ForecastRunRepository runs;
 
 	@Autowired
+	private ResourceRepository resources;
+
+	@Autowired
+	private RequirementRepository requirements;
+
+	@Autowired
 	private ForecastService forecasts;
 
 	@Autowired
@@ -159,6 +170,8 @@ class ForecastApiTests {
 	@BeforeEach
 	void seedAPlanWithEstimatedWorkInIt() {
 		this.runs.deleteAll();
+		this.requirements.deleteAll();
+		this.resources.deleteAll();
 		this.dependencies.deleteAll();
 		this.estimates.deleteAll();
 		this.items.deleteAll();
@@ -1233,9 +1246,156 @@ class ForecastApiTests {
 		refused(assuming(-1, 0, 0, 0), "capacity", "positive");
 	}
 
+	/**
+	 * <strong>Still required, and now the service is what requires it.</strong> Bean
+	 * Validation cannot ask this question — whether a capacity is needed depends on
+	 * whether the organisation has described its team — so a {@code @NotNull} here would
+	 * make the first forecast after describing one a refusal about a field that should no
+	 * longer be on the screen at all.
+	 */
 	@Test
-	void refusesAForecastThatDoesNotSayHowManyPeopleThereAre() throws Exception {
-		refused("{}", "capacity", "not_null");
+	void refusesAForecastThatSaysNeitherACapacityNorATeam() throws Exception {
+		asking(withoutCapacity()).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("capacity_required"));
+	}
+
+	/**
+	 * <strong>And refuses one that says both.</strong> Refused rather than ignored, which
+	 * is the rule {@code progress_not_applicable} states: silently dropping input is
+	 * worse than refusing it, because the person is not told they have been overruled.
+	 * Two numbers would also leave a reader unable to say which one bound the answer.
+	 */
+	@Test
+	void refusesACapacityFromAnOrganisationThatHasDescribedItsTeam() throws Exception {
+		pool("Backend engineers", 3);
+
+		asking(assuming(2, 0, 0, 0)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("capacity_not_applicable"));
+	}
+
+	// The team the plan is scheduled against ------------------------------------
+
+	/**
+	 * <strong>Capacity is what the pools hold</strong>, derived rather than asked for —
+	 * so every screen that prints a run's capacity keeps working, and the column keeps
+	 * meaning what it has always meant.
+	 */
+	@Test
+	void aDeclaredTeamIsTheCapacity() throws Exception {
+		pool("Backend engineers", 3);
+		pool("Staging environment", 1);
+
+		ForecastRun run = forecast(withoutCapacity());
+
+		assertThat(run.getCapacity()).isEqualTo(4);
+		assertThat(run.getEngineVersion()).isEqualTo(Engine.VERSION);
+	}
+
+	/**
+	 * <strong>Work that names nothing is said out loud, and only where it can change the
+	 * answer.</strong> With one pool, naming nothing and naming that pool are the same
+	 * claim; with two, an unannotated item takes a unit somebody else may have needed.
+	 */
+	@Test
+	void workThatNamesNoResourceIsAReportedLimitation() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		pool("Staging environment", 1);
+		needs(this.migration, backend, 1);
+
+		assertThat(reported(forecast(withoutCapacity())).get("limitations").toString()).contains("unassigned_work");
+	}
+
+	@Test
+	void oneTeamPoolNeedsNothingSaidAboutUnassignedWork() throws Exception {
+		pool("Everyone", 3);
+
+		assertThat(reported(forecast(withoutCapacity())).get("limitations").toString())
+			.doesNotContain("unassigned_work");
+	}
+
+	/**
+	 * A resource the team has put away is left out and said out loud, exactly as an arrow
+	 * into archived work is: a pool the organisation no longer has cannot be scheduled
+	 * against.
+	 */
+	@Test
+	void aRequirementOnAPutAwayResourceIsLeftOutAndReported() throws Exception {
+		Resource retired = pool("Contractors", 2);
+		pool("Backend engineers", 3);
+		needs(this.migration, retired, 1);
+		retired.archive(CREATED_AT);
+		this.resources.save(retired);
+
+		assertThat(reported(forecast(withoutCapacity())).get("limitations").toString())
+			.contains("requirements_on_archived_resources");
+	}
+
+	/**
+	 * <strong>A snapshot written before there was a team to describe reads back as one
+	 * pool.</strong> Jackson hands a missing field back as null and a run stored in July
+	 * is not going to grow one, so this is the shape every forecast this product has
+	 * already made comes back in — and it has to come back as the capacity it was asked
+	 * for rather than as nothing at all.
+	 */
+	@Test
+	void aSnapshotFromBeforeResourcesReadsBackAsOnePool() {
+		String written = """
+				{"items":[{"id":"11111111-1111-1111-1111-111111111111","status":"NOT_STARTED",\
+				"spentHours":null,"estimates":[]}],"edges":[]}""";
+
+		ForecastInputs inputs = ForecastSnapshots.read(written, ForecastInputs.class);
+
+		assertThat(inputs.pools()).isEmpty();
+		assertThat(inputs.needs()).isEmpty();
+		// One pool, holding the capacity the run stored — which `ResourcingTests` pins
+		// the
+		// other half of, since the units a pool holds are that class's own business.
+		assertThat(inputs.toResourcing(3).pools()).isEqualTo(1);
+		assertThat(inputs.toResourcing(3).items()).isEqualTo(1);
+	}
+
+	/**
+	 * Work that has been put away is not forecast, so what it needed is not read either —
+	 * and it is not reported, because the item's absence is the answer rather than a
+	 * limitation of one.
+	 */
+	@Test
+	void whatPutAwayWorkNeedsIsNotScheduledAgainst() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		needs(this.rollout, backend, 3);
+		this.rollout.archive(CREATED_AT);
+		this.items.save(this.rollout);
+
+		JsonNode answer = reported(forecast(withoutCapacity()));
+
+		assertThat(answer.get("limitations").toString()).doesNotContain("requirements_on_archived_resources");
+		assertThat(answer.get("capacity").asInt()).isEqualTo(3);
+	}
+
+	/** And a plan where everything names something says nothing about unassigned work. */
+	@Test
+	void aPlanThatNamesResourcesEverywhereReportsNoUnassignedWork() throws Exception {
+		Resource backend = pool("Backend engineers", 3);
+		Resource staging = pool("Staging environment", 1);
+		needs(this.migration, backend, 1);
+		needs(this.rollout, staging, 1);
+
+		assertThat(reported(forecast(withoutCapacity())).get("limitations").toString())
+			.doesNotContain("unassigned_work");
+	}
+
+	/**
+	 * <strong>The containment, over the wire.</strong> A run this engine made before M11
+	 * is one with no team declared and a version of 2 — and replaying it has to reproduce
+	 * it exactly, or M6's ranking, M7's cuts and M10's decomposition all stop answering
+	 * for every forecast this product made before today.
+	 */
+	@Test
+	void aRunMadeByTheEngineBeforeResourcesStillReplays() throws Exception {
+		ForecastRun run = forecast(2);
+		this.database.update("update forecast_runs set engine_version = 2 where id = ?", run.getId());
+
+		contributions(run).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(greaterThan(0)));
 	}
 
 	@Test
@@ -1479,6 +1639,30 @@ class ForecastApiTests {
 	 * ordinary ten thousand runs by saying nothing, which is a different request from one
 	 * naming a number and has to be sent as one.
 	 */
+	/**
+	 * Everything a forecast needs except the capacity, which a declared team supplies.
+	 */
+	private static String withoutCapacity() {
+		return """
+				{"teamFactorWorseByPercent":0,"scopeGrowthP10Percent":0,"scopeGrowthP90Percent":0,\
+				"startsOn":"%s","workingHoursPerDay":%s}""".formatted(MONDAY, WORKING_DAY);
+	}
+
+	private ResultActions asking(String body) throws Exception {
+		return this.mvc.perform(post("/api/projects/" + this.acmePlan.getId() + "/forecasts")
+			.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))
+			.contentType(MediaType.APPLICATION_JSON)
+			.content(body));
+	}
+
+	private Resource pool(String name, int units) {
+		return this.resources.save(new Resource(this.acmePlan.getTenant(), name, units, null, CREATED_AT));
+	}
+
+	private void needs(WorkItem item, Resource resource, int units) {
+		this.requirements.save(new Requirement(this.acmePlan.getTenant(), item, resource, units, CREATED_AT));
+	}
+
 	private static String assuming(int capacity, Number worseByPercent, Number growthP10, Number growthP90,
 			Integer sampleCount) {
 		String runs = (sampleCount != null) ? ",\"sampleCount\":" + sampleCount : "";
