@@ -20,7 +20,10 @@ collected by, M6 made the band say what it is made of, and M7 ran the question b
 M9 then answers the same question from the other side and needs no estimate at all, which is why it
 is the one that can speak today. M10 is the one whose output is prose and pictures rather than
 numbers, and so the first that can be wrong in a way no test catches. M11 (resources and people) is
-next, and is the largest complexity jump in the plan.
+next — planned in `docs/m11-plan.md`, and the largest complexity jump in the plan. **Read that
+plan's measurements before arguing with its scope**: what `roadmap.md` warns loudest about there,
+the scheduling heuristic, is worth 0–9%, and what it lists as an ordinary bullet — a team being
+typed rather than pooled — is worth 14–59% in the optimistic direction.
 `docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
 done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
 different route than the one it was written to take.

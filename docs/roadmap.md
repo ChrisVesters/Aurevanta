@@ -1177,7 +1177,7 @@ needed to draw them.
 
 ---
 
-## M11 — Resources and people
+## M11 — Resources and people — *planned in `m11-plan.md`*
 
 Turns Aurevanta from a forecaster into a planning tool. This is the largest single
 complexity jump in the plan, so it comes after the analysis features have proved the
