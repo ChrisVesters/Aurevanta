@@ -77,6 +77,45 @@ describe('ForecastPanel', () => {
   const fetchMock = mockFetch();
 
   /**
+   * The listing's own shape: the runs, and what the sequence of them says. Written out
+   * here rather than left to each case, because a double that answered a bare array would
+   * be answering a shape this endpoint stopped having — and the panel would read `runs`
+   * off it as undefined with nothing saying why.
+   */
+  function listing(runs: Forecast[]) {
+    return {
+      runs,
+      drift:
+        runs.length === 0
+          ? null
+          : {
+              sinceRunId: runs[runs.length - 1].id,
+              runs: runs.length,
+              at: [50, 80, 95].map((confidence) => ({
+                confidence,
+                fromDate: runs[runs.length - 1].p80Date,
+                toDate: runs[0].p80Date,
+                days: 0,
+                bandDays: 21,
+                movingOut: false
+              }))
+            }
+    };
+  }
+
+  /**
+   * Everything else one of these panels asks for, answered by URL rather than in bulk.
+   * The plan's forecasts arrive wrapped in an account of the history and its work arrives
+   * as a list, so a double answering both alike hands one of them the other's shape — the
+   * rule this file already keeps for the session and the switcher.
+   */
+  function otherReads(url: string, runs: Forecast[] = [FORECAST]) {
+    return url.endsWith('/forecasts')
+      ? jsonResponse(200, listing(runs))
+      : jsonResponse(200, []);
+  }
+
+  /**
    * The session and the plan's forecasts, answered separately. A double that answered both
    * alike would hand the panel an account where it expected a list, and every assertion
    * about what is on screen would be testing the wrong thing.
@@ -91,7 +130,7 @@ describe('ForecastPanel', () => {
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
               : url === FORECASTS_URL
-                ? jsonResponse(200, runs)
+                ? jsonResponse(200, listing(runs))
                 : url === CONTRIBUTIONS_URL
                   ? jsonResponse(200, spread)
                   : // The work a target date could be asked to drop, which the panel below
@@ -118,7 +157,7 @@ describe('ForecastPanel', () => {
             ? jsonResponse(200, NOTHING_SCORED)
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
-              : jsonResponse(200, [run])
+              : otherReads(url, [run])
       )
     );
     renderRouted(
@@ -148,7 +187,7 @@ describe('ForecastPanel', () => {
               ? jsonResponse(200, ACCOUNT)
               : init?.method === 'POST'
                 ? jsonResponse(400, problem)
-                : jsonResponse(200, [])
+                : jsonResponse(200, listing([]))
       )
     );
   }
@@ -670,7 +709,7 @@ describe('ForecastPanel', () => {
             ? jsonResponse(200, NOTHING_SCORED)
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
-              : jsonResponse(200, [FORECAST])
+              : otherReads(url)
       )
     );
     renderRouted(
@@ -731,7 +770,7 @@ describe('ForecastPanel', () => {
             ? jsonResponse(200, NOTHING_SCORED)
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
-              : jsonResponse(200, [FORECAST])
+              : otherReads(url)
       )
     );
     renderRouted(
@@ -758,7 +797,7 @@ describe('ForecastPanel', () => {
           ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
           : url === '/api/auth/me'
             ? Promise.resolve(jsonResponse(200, ACCOUNT))
-            : Promise.resolve(jsonResponse(200, [FORECAST]))
+            : Promise.resolve(otherReads(url))
     );
 
     const answered = renderRouted(
@@ -806,7 +845,7 @@ describe('ForecastPanel', () => {
               })
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
-              : jsonResponse(200, [FORECAST])
+              : otherReads(url)
       )
     );
     renderRouted(
@@ -840,7 +879,7 @@ describe('ForecastPanel', () => {
             })
           : url === '/api/auth/me'
             ? Promise.resolve(jsonResponse(200, ACCOUNT))
-            : Promise.resolve(jsonResponse(200, [FORECAST]))
+            : Promise.resolve(otherReads(url))
     );
 
     const answered = renderRouted(
@@ -898,7 +937,7 @@ describe('ForecastPanel', () => {
             ? jsonResponse(500, null)
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
-              : jsonResponse(200, [FORECAST])
+              : otherReads(url)
       )
     );
     renderRouted(
@@ -954,7 +993,7 @@ describe('ForecastPanel', () => {
               ? jsonResponse(200, ACCOUNT)
               : init?.method === 'POST'
                 ? jsonResponse(201, FORECAST)
-                : jsonResponse(200, [FORECAST])
+                : otherReads(url)
       )
     );
 
@@ -1078,7 +1117,7 @@ describe('ForecastPanel', () => {
               ? jsonResponse(200, ACCOUNT)
               : init?.method === 'POST'
                 ? jsonResponse(201, FORECAST)
-                : jsonResponse(200, [FORECAST])
+                : otherReads(url)
       )
     );
 
@@ -1152,7 +1191,7 @@ describe('ForecastPanel', () => {
                     code: 'nothing_to_forecast',
                     detail: 'nothing'
                   })
-                : jsonResponse(200, [])
+                : jsonResponse(200, listing([]))
       )
     );
 
@@ -1188,7 +1227,7 @@ describe('ForecastPanel', () => {
                     detail: 'invalid',
                     errors: { capacity: { code: 'not_null' } }
                   })
-                : jsonResponse(200, [])
+                : jsonResponse(200, listing([]))
       )
     );
 
@@ -1308,7 +1347,7 @@ describe('ForecastPanel', () => {
                     detail: 'invalid',
                     errors: { sampleCount: { code: 'max', value: 100000 } }
                   })
-                : jsonResponse(200, [])
+                : jsonResponse(200, listing([]))
       )
     );
 
@@ -1354,7 +1393,7 @@ describe('ForecastPanel', () => {
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
-    settle(jsonResponse(200, [FORECAST]));
+    settle(jsonResponse(200, listing([FORECAST])));
 
     const refused = renderRouted(
       <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
@@ -1628,7 +1667,7 @@ describe('ForecastPanel', () => {
             : url === '/api/auth/me'
               ? jsonResponse(200, ACCOUNT)
               : url === FORECASTS_URL
-                ? jsonResponse(200, [FORECAST])
+                ? jsonResponse(200, listing([FORECAST]))
                 : jsonResponse(200, WORK_ITEMS)
       )
     );
@@ -1668,7 +1707,7 @@ describe('ForecastPanel', () => {
                   settle = resolve;
                   fail = reject;
                 })
-              : Promise.resolve(jsonResponse(200, [FORECAST]))
+              : Promise.resolve(otherReads(url))
     );
 
     const answered = renderRouted(
@@ -1742,7 +1781,7 @@ describe('ForecastPanel', () => {
               ? jsonResponse(200, ACCOUNT)
               : init?.method === 'POST'
                 ? jsonResponse(201, FORECAST)
-                : jsonResponse(200, [FORECAST])
+                : otherReads(url)
       )
     );
 

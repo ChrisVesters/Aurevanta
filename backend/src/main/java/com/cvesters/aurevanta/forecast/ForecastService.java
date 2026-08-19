@@ -75,6 +75,17 @@ import com.cvesters.aurevanta.user.User;
 @Service
 public class ForecastService {
 
+	/**
+	 * The three confidences M4's control offers, and the only three anything publishes a
+	 * second reading at.
+	 *
+	 * <p>
+	 * The other two percentiles have no control and no need. Stated here because two
+	 * things ask — an account of a movement, and a drift over a history — and a screen
+	 * offering a confidence the server has no answer for is the failure this prevents.
+	 */
+	static final int[] CONFIDENCES = { 50, 80, 95 };
+
 	private final ForecastRunRepository runs;
 
 	private final ProjectService projects;

@@ -217,6 +217,25 @@ public class ForecastRun {
 		return BigDecimal.valueOf(value).setScale(HOURS_SCALE, RoundingMode.HALF_UP);
 	}
 
+	/**
+	 * Which of the five columns one of M4's three confidences names.
+	 *
+	 * <p>
+	 * Here rather than in each of the two things that ask — an account of a movement and
+	 * a drift over a history — because two switches over the same three numbers would
+	 * eventually be one switch and one that had drifted, and the reader of either would
+	 * have no way of telling which. The two percentiles the control does not offer have
+	 * no case: nothing asks for a date at 10%, and a default that quietly answered 95 for
+	 * one would be a wrong number rather than a refusal.
+	 */
+	BigDecimal hoursAt(int confidence) {
+		return switch (confidence) {
+			case 50 -> this.p50Hours;
+			case 80 -> this.p80Hours;
+			default -> this.p95Hours;
+		};
+	}
+
 	public UUID getId() {
 		return id;
 	}

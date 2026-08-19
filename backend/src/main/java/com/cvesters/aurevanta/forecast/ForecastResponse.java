@@ -92,8 +92,14 @@ public record ForecastResponse(UUID id, UUID projectId, Instant createdAt, UUID 
 	 * The mean deliberately gets no date. It is not a percentile, so no confidence can be
 	 * put against it, and a date nobody can name a confidence for is the one number on
 	 * this response somebody could act on without knowing what it claims.
+	 *
+	 * <p>
+	 * Reachable from the package rather than private, because a drift over a history
+	 * reads the same days off the same rows and two ways of resolving one would be one
+	 * right way and one that had drifted — which is the whole hazard a stored rule name
+	 * exists to close.
 	 */
-	private static LocalDate dateOf(ForecastRun run, BigDecimal hours) {
+	static LocalDate dateOf(ForecastRun run, BigDecimal hours) {
 		if (!run.hasReadableCalendar()) {
 			return null;
 		}

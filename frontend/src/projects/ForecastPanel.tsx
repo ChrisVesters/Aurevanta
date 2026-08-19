@@ -14,6 +14,7 @@ import { TargetDate } from './TargetDate';
 import type {
   Contribution,
   Forecast,
+  ForecastHistory,
   ForecastLimitation,
   Throughput
 } from './types';
@@ -200,10 +201,13 @@ export function ForecastPanel({
   useEffect(() => {
     let cancelled = false;
 
-    request<Forecast[]>(`/projects/${projectId}/forecasts`)
+    // The history and the verdict on it arrive together: whether the date keeps moving
+    // out is a property of the sequence rather than of any run in it, so there is nowhere
+    // on a run to read it from and no second request to make.
+    request<ForecastHistory>(`/projects/${projectId}/forecasts`)
       .then((loaded) => {
         if (!cancelled) {
-          setRuns(loaded);
+          setRuns(loaded.runs);
           setFailure(null);
         }
       })

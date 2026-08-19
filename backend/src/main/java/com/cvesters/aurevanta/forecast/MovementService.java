@@ -42,11 +42,6 @@ import com.cvesters.aurevanta.problem.NotAMemberException;
 @Service
 public class MovementService {
 
-	/**
-	 * The confidences M4's control offers, and the only three worth publishing terms at.
-	 */
-	private static final int[] CONFIDENCES = { 50, 80, 95 };
-
 	private final ForecastService forecasts;
 
 	MovementService(ForecastService forecasts) {
@@ -115,8 +110,8 @@ public class MovementService {
 		ForecastService.requireReproduces(newer, reasked);
 
 		List<Forecast> states = List.of(sampled, progressed, reEstimated, rescoped, reasked);
-		List<MovementAtResponse> at = new ArrayList<>(CONFIDENCES.length);
-		for (int confidence : CONFIDENCES) {
+		List<MovementAtResponse> at = new ArrayList<>(ForecastService.CONFIDENCES.length);
+		for (int confidence : ForecastService.CONFIDENCES) {
 			at.add(read(older, olderTerms, newerTerms, confidence, states));
 		}
 		return new MovementResponse(older.getId(), newer.getId(), Movement.RULE, 6, at);
@@ -135,7 +130,12 @@ public class MovementService {
 	 */
 	private static MovementAtResponse read(ForecastRun older, ForecastTerms olderTerms, ForecastTerms newerTerms,
 			int confidence, List<Forecast> states) {
-		BigDecimal from = storedHours(older, confidence);
+		// The two ends of one percentile are read from different places on purpose: the
+		// older run's from the row it stored, the states' from what the engine just
+		// produced. A decomposition that took its baseline from a replay would sum to the
+		// distance between two things this method computed rather than between two
+		// answers somebody was given.
+		BigDecimal from = older.hoursAt(confidence);
 		List<BigDecimal> after = new ArrayList<>();
 		for (Forecast state : states) {
 			after.add(ForecastRun.hours(replayedHours(state, confidence)));
@@ -220,21 +220,6 @@ public class MovementService {
 			found.put(item.id(), item);
 		}
 		return found;
-	}
-
-	/**
-	 * The two ends of one percentile, and they are read from different places on purpose:
-	 * the older run's from the row it stored, the states' from what the engine just
-	 * produced. A decomposition that took its baseline from a replay would sum to the
-	 * distance between two things this method computed rather than between two answers
-	 * somebody was given.
-	 */
-	private static BigDecimal storedHours(ForecastRun run, int confidence) {
-		return switch (confidence) {
-			case 50 -> run.getP50Hours();
-			case 80 -> run.getP80Hours();
-			default -> run.getP95Hours();
-		};
 	}
 
 	private static double replayedHours(Forecast forecast, int confidence) {

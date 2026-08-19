@@ -1,6 +1,6 @@
 # M10 — Communicating to people who do not know what P90 means: implementation plan
 
-> **Proposal, 2026-08-18. Steps 1 to 3 are built.** Six steps, **no migration expected**, and no change to anything the
+> **Proposal, 2026-08-18. Steps 1 to 4 are built.** Six steps, **no migration expected**, and no change to anything the
 > engine samples — `Engine.VERSION` does not move. Each step gains its
 > `### As built — where it differs from the above` in the same change as its code, not at the end.
 >
@@ -40,7 +40,7 @@
 | 1 | One sentence anybody can read ✅ *done* | M4 |
 | 2 | When two forecasts may be compared ✅ *done* | M3, M4 |
 | 3 | Why the date moved ✅ *done* | 2, M6's replay |
-| 4 | Whether it keeps moving out | 2 |
+| 4 | Whether it keeps moving out ✅ *done* | 2 |
 | 5 | The burn-up, and the first chart in this product | M9 |
 | 6 | Close out | 1–5 |
 
@@ -551,7 +551,7 @@ the new refusal at zero missed branches and zero missed instructions. No fronten
 
 ---
 
-## Step 4 — Whether it keeps moving out
+## Step 4 — Whether it keeps moving out ✅ *done*
 
 **Goal.** A plan that is sliding says so, and a plan that is merely churning does not.
 
@@ -578,6 +578,82 @@ starts a new window rather than contributing drift. One run, and two runs, each 
 dividing by zero.
 
 **Done when** the 86% false positive rate is a test rather than a paragraph.
+
+### As built — where it differs from the above
+
+**A start date that moved does not end a window, and this is the one decision here that
+contradicts a plain reading of decision 3.** That decision lists the start among the five
+assumptions two runs must share, and step 2 then kept `sameStart()` deliberately apart from
+`sameAssumptions()` — which is what made this choosable at all. It is excluded, because
+including it would have shipped a feature that can never fire: the forecast form pre-fills
+the start with *today*, so every weekly re-forecast has a different one, every window would
+end at a single run, and the detector would report nought days for ever with every test in
+this step still green. It is also the wrong question. What somebody committed to is a
+finish date; a plan whose start moved a week while its finish held still is a plan that
+delivered a week's work, and a finish that moved out with the start is exactly the thing
+this exists to notice rather than a distortion to correct for.
+`aStartThatMovedDoesNotEndTheWindow` is that argument as an assertion, and the javadoc on
+`sameQuestion` carries the reasoning where somebody about to "fix" it will read it.
+
+**The listing is an object now and was an array, which is the one breaking change in the
+milestone.** The bullets say the verdict rides on the endpoint that lists a plan's
+forecasts, and there is nowhere on a *run* to hang a property of the *sequence* — so
+`GET /api/projects/{id}/forecasts` answers `{runs, drift}`. Everything a run said before it
+is byte for byte where it was; the only caller is `ForecastPanel`, and it reads `runs`.
+
+**Days, and no hours beside them.** `MovementResponse` publishes both, so that a run made
+before M4 still accounts for its movement in the unit the engine works in. This does not,
+and the reason is that here the two numbers have to be in *one* unit: a drift is only worth
+anything against the band it is measured against, and the band a reader is looking at is in
+days. A window with no calendar therefore reports its window, no days and no verdict —
+which is the absence `ForecastResponse` already reports for the same rows and for `V14`'s
+reason.
+
+**`WORTH_SAYING` is a judgement and its javadoc says so.** The measurement at the top of
+this plan is what rules a direction rule out at every threshold; it does not choose a
+fraction, and dressing the fraction as a finding would be the same overclaim decision 2
+guards the sentence against. What bounds it is the two cases the question is put in — a
+fifth of a band is nothing worth interrupting anybody about and a whole band needs no
+detector — and a half fires on a plan drifting a day a week inside ten weeks of a
+three-week band. The two cases either side of the bar are asserted, so moving the number
+moves a test.
+
+**A window of one run answers nought rather than nothing.** The bullets ask that one run
+and two runs "each answer rather than dividing by zero", and the shape that does it is
+arithmetic rather than a special case: a plan has not drifted from itself, so `days` is 0
+and the flag is false. There is no division anywhere — the bar is `days > WORTH_SAYING *
+bandDays` — which is also what lets a plan claiming to know its finish to the day be
+measured at all instead of being a zero denominator.
+
+**The window is the whole comparable stretch, with no cap in time or in runs.** A cap would
+be a second constant nothing measured, and the honest reading of a plan that has drifted
+out for a year under one set of assumptions is that it has drifted out for a year.
+
+**Two duplicates were removed rather than made.** Which column one of M4's three
+confidences names was a private `switch` in `MovementService` and is now `ForecastRun.hoursAt`,
+and the three confidences themselves are `ForecastService.CONFIDENCES` rather than an array
+in each response that publishes them. Both would have been the second copy that eventually
+disagrees with the first, and the reader of either would have had no way of telling which.
+`ForecastResponse.dateOf` is shared for the same reason: two ways of resolving a stored run's
+day is precisely the hazard a stored rule *name* exists to close.
+
+**No reader, still, and deliberately.** Step 3's own record flagged that steps 4 and 5 leave
+the decomposition and the detector with an endpoint and nobody looking at either, and left
+it to step 6 — so the frontend change here is the handful of lines that unwrap the new shape and
+the types that describe it, and nothing on screen has moved.
+
+**The frontend's own rule caught this twice.** *A test double that answers every URL alike
+is a lying double*: the panel's fallbacks answered the plan's forecasts and the plan's work
+from the same branch, so wrapping one shape handed the other an account of a history to call
+`filter` on. `otherReads` answers by URL, and a helper named `history` had to be renamed
+because the throughput fixtures already had a parameter called that — shadowed, it failed as
+a type error rather than as a wrong answer, which is the good version of that mistake.
+
+**Counts.** 14 cases in `DriftTests` and 6 in `ForecastApiTests`; 994 backend tests pass, with
+`Drift`, `DriftResponse` and `DriftAtResponse` at zero missed branches and zero missed
+instructions. 440 frontend tests pass at 100% of statements, branches, functions and lines,
+with no case added — the change there is a shape, and every case that reads it already
+existed.
 
 ---
 

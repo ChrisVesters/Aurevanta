@@ -1275,9 +1275,103 @@ class ForecastApiTests {
 			.perform(get("/api/projects/" + this.acmePlan.getId() + "/forecasts").header(HttpHeaders.AUTHORIZATION,
 					bearer(this.ada)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.length()").value(2))
-			.andExpect(jsonPath("$[0].id").value(second.getId().toString()))
-			.andExpect(jsonPath("$[1].id").value(first.getId().toString()));
+			.andExpect(jsonPath("$.runs.length()").value(2))
+			.andExpect(jsonPath("$.runs[0].id").value(second.getId().toString()))
+			.andExpect(jsonPath("$.runs[1].id").value(first.getId().toString()));
+	}
+
+	// Whether it keeps moving out ---------------------------------------------
+
+	/**
+	 * <strong>The verdict rides on the listing rather than on a request of its
+	 * own</strong> — it belongs to the sequence and not to any run in it, and a screen
+	 * already drawing that history should not have to ask twice for the one line worth
+	 * reading out loud. It costs no simulation: every date it reads is one the same
+	 * answer already carries.
+	 */
+	@Test
+	void theListingSaysHowFarTheDateHasDriftedAtEachConfidence() throws Exception {
+		ForecastRun first = forecast(2);
+		ForecastRun second = forecast(2);
+
+		listed().andExpect(jsonPath("$.drift.runs").value(2))
+			.andExpect(jsonPath("$.drift.sinceRunId").value(first.getId().toString()))
+			.andExpect(jsonPath("$.drift.at.length()").value(3))
+			.andExpect(jsonPath("$.drift.at[1].confidence").value(80))
+			.andExpect(jsonPath("$.drift.at[1].fromDate").value(dateOf(first, 80)))
+			.andExpect(jsonPath("$.drift.at[1].toDate").value(dateOf(second, 80)))
+			.andExpect(jsonPath("$.drift.at[1].bandDays").isNumber());
+	}
+
+	/**
+	 * A plan forecast once has drifted nought days from itself, which is an answer rather
+	 * than an absence — and one the flag can be read against without a second rule for
+	 * the case where there is nothing behind it.
+	 */
+	@Test
+	void aPlanForecastOnceHasNotDriftedFromAnything() throws Exception {
+		ForecastRun only = forecast(2);
+
+		listed().andExpect(jsonPath("$.drift.runs").value(1))
+			.andExpect(jsonPath("$.drift.sinceRunId").value(only.getId().toString()))
+			.andExpect(jsonPath("$.drift.at[1].days").value(0))
+			.andExpect(jsonPath("$.drift.at[1].movingOut").value(false));
+	}
+
+	/** And a plan nobody has forecast has no date to have moved. */
+	@Test
+	void aPlanWithNoForecastsHasNoDrift() throws Exception {
+		listed().andExpect(jsonPath("$.runs.length()").value(0)).andExpect(jsonPath("$.drift").doesNotExist());
+	}
+
+	/**
+	 * <strong>Somebody halved the capacity, and the window starts again.</strong> The
+	 * date moved because the question changed, and drift measured across that boundary is
+	 * `roadmap.md`'s own warning — a slide that never happened, reported as one.
+	 */
+	@Test
+	void aChangedAssumptionStartsANewWindow() throws Exception {
+		forecast(1);
+		forecast(1);
+		ForecastRun roomier = forecast(4);
+
+		listed().andExpect(jsonPath("$.drift.runs").value(1))
+			.andExpect(jsonPath("$.drift.sinceRunId").value(roomier.getId().toString()))
+			.andExpect(jsonPath("$.drift.at[1].days").value(0));
+	}
+
+	/**
+	 * A plan that has added a fortnight of work to a two-day band since its first
+	 * forecast is a plan that is sliding, and this is the whole feature in one case: the
+	 * same arithmetic reports nothing at all above, on a history that only re-ran itself.
+	 */
+	@Test
+	void aPlanThatKeepsGrowingIsFlagged() throws Exception {
+		forecast(1);
+		WorkItem discovered = this.items.save(new WorkItem(this.acmePlan, "Nobody had listed this", null, CREATED_AT));
+		estimate(discovered, "300.00", "320.00", "360.00");
+		forecast(1);
+
+		listed().andExpect(jsonPath("$.drift.runs").value(2))
+			.andExpect(jsonPath("$.drift.at[1].movingOut").value(true));
+	}
+
+	/**
+	 * A run made before there was a calendar has hours and no date, so there are no days
+	 * to have drifted — the same absence the run's own five dates report, and for `V14`'s
+	 * reason.
+	 */
+	@Test
+	void aHistoryWithNoCalendarHasNoDaysToDrift() throws Exception {
+		ForecastRun first = forecast(2);
+		ForecastRun second = forecast(2);
+		madeBeforeThereWasACalendar(first.getId());
+		madeBeforeThereWasACalendar(second.getId());
+
+		listed().andExpect(jsonPath("$.drift.runs").value(2))
+			.andExpect(jsonPath("$.drift.at[1].days").doesNotExist())
+			.andExpect(jsonPath("$.drift.at[1].bandDays").doesNotExist())
+			.andExpect(jsonPath("$.drift.at[1].movingOut").value(false));
 	}
 
 	@Test
@@ -1446,6 +1540,34 @@ class ForecastApiTests {
 	private ResultActions contributions(ForecastRun run) throws Exception {
 		return this.mvc.perform(get("/api/forecasts/" + run.getId() + "/contributions")
 			.header(HttpHeaders.AUTHORIZATION, bearer(this.ada)));
+	}
+
+	private ResultActions listed() throws Exception {
+		return this.mvc.perform(get("/api/projects/" + this.acmePlan.getId() + "/forecasts")
+			.header(HttpHeaders.AUTHORIZATION, bearer(this.ada))).andExpect(status().isOk());
+	}
+
+	/**
+	 * The day a stored run puts one confidence on, worked out here the way the response
+	 * works it out — so a case asserting where a drift was measured from cannot pass
+	 * because both ends read the same wrong calendar.
+	 */
+	private static String dateOf(ForecastRun run, int confidence) {
+		BigDecimal hours = switch (confidence) {
+			case 50 -> run.getP50Hours();
+			case 80 -> run.getP80Hours();
+			default -> run.getP95Hours();
+		};
+		return WorkingCalendar.finishOn(run.getStartsOn(), hours, run.getWorkingHoursPerDay()).toString();
+	}
+
+	/**
+	 * A calendar is required of every run made today, so the only way to have one without
+	 * is to be older than M4 — which is what {@code V14} left, and what this reproduces.
+	 */
+	private void madeBeforeThereWasACalendar(UUID runId) {
+		this.database.update("update forecast_runs set starts_on = null, working_hours_per_day = null,"
+				+ " calendar_rule = null where id = ?", runId);
 	}
 
 	private JsonNode parsed(String body) {

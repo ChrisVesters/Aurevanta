@@ -39,11 +39,13 @@ describe('ProjectPage', () => {
     if (url === '/api/calibration') {
       return jsonResponse(200, NOTHING_SCORED);
     }
+    if (url.endsWith('/forecasts')) {
+      return jsonResponse(200, { runs: [], drift: null });
+    }
     if (
       url.endsWith('/items') ||
       url.endsWith('/estimates') ||
-      url.endsWith('/dependencies') ||
-      url.endsWith('/forecasts')
+      url.endsWith('/dependencies')
     ) {
       return jsonResponse(200, []);
     }

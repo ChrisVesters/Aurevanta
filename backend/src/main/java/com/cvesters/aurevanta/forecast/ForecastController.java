@@ -58,13 +58,17 @@ class ForecastController {
 	 * Every forecast of one plan, newest first — which is what makes a second one worth
 	 * asking for, since a forecast on its own says less than a forecast beside the one
 	 * before it.
+	 *
+	 * <p>
+	 * <strong>And whether the date keeps moving out</strong>, answered here rather than
+	 * by a request of its own: it is a property of the sequence and not of any run in it,
+	 * and it costs no simulation — every date it reads is one this answer already
+	 * carries.
 	 */
 	@GetMapping("/api/projects/{projectId}/forecasts")
-	List<ForecastResponse> list(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId) {
-		return this.forecasts.listInProject(caller.userId(), caller.tenantId(), projectId)
-			.stream()
-			.map(this::described)
-			.toList();
+	ForecastHistoryResponse list(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId) {
+		List<ForecastRun> found = this.forecasts.listInProject(caller.userId(), caller.tenantId(), projectId);
+		return new ForecastHistoryResponse(found.stream().map(this::described).toList(), DriftResponse.over(found));
 	}
 
 	@GetMapping("/api/forecasts/{runId}")

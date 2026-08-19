@@ -365,6 +365,60 @@ export type Forecast = {
 };
 
 /**
+ * How far one confidence's date has drifted, and whether that is worth saying.
+ *
+ * **The server sends the flag and keeps the number behind it**, the way it does for an
+ * estimate worth questioning. A plan cannot be sliding on one screen and fine on another,
+ * and a threshold repeated here is the second copy that eventually disagrees.
+ */
+export type DriftAt = {
+  confidence: number;
+  /** Where the oldest run in the window put this percentile, and where the newest does. */
+  fromDate: string | null;
+  toDate: string | null;
+  /** Positive when the plan has moved out. Null when either run has no calendar. */
+  days: number | null;
+  /**
+   * What the current forecast itself says the distance between the good and the bad case
+   * is — the yardstick rather than a reading. Three days is nothing against a three-week
+   * band and the whole of a plan against a two-day one.
+   */
+  bandDays: number | null;
+  movingOut: boolean;
+};
+
+/**
+ * Whether this plan's date keeps moving out, read off its own history.
+ *
+ * **Never the direction of the last few runs.** A plan that is not slipping still moves out
+ * one week and in the next, so a rule reading three increases in a row fires on 86% of plans
+ * re-forecast weekly for six months with no slide in them at all. What is measured instead is
+ * how far the date has moved since the oldest run that answered the *same question* — a
+ * changed capacity or working day starts a new window rather than being compared across.
+ */
+export type Drift = {
+  /** The oldest run this is measured from, which is in the same payload to be checked. */
+  sinceRunId: string;
+  /** How many forecasts the window holds. One means there is nothing behind it. */
+  runs: number;
+  at: DriftAt[];
+};
+
+/**
+ * Every forecast of one plan, and what the sequence of them says.
+ *
+ * The verdict belongs to the history rather than to any run in it, so it arrives with the
+ * list rather than from a second request — a screen drawing the history would otherwise have
+ * to ask again for the one line about it worth reading out loud.
+ */
+export type ForecastHistory = {
+  /** Newest first. */
+  runs: Forecast[];
+  /** Null only for a plan nobody has forecast yet. */
+  drift: Drift | null;
+};
+
+/**
  * The weeks a throughput forecast was drawn from.
  *
  * **`worst` is the most useful number here.** A bootstrap cannot draw a week worse than the
