@@ -8,7 +8,7 @@ import { textField } from '../auth/formValues';
 import { numberField } from './fields';
 import type { Forecast, HireOptions } from './forecastTypes';
 
-/** Every confidence M4's control offers, which one answer covers. */
+/** Every confidence the calendar's control offers, which one answer covers. */
 type Confidence = 50 | 80 | 95;
 
 /**

@@ -17,8 +17,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * an unreachable SMTP server must not turn a successful registration into a failed one.
  * The cost is that a lost message is invisible to the caller and visible only in the log
  * — closing that needs delivery state in the database and a provider webhook, which
- * {@code docs/m1-plan.md} places after M1. Recipients appear in that log masked, because
- * a log of who uses this service is not something a delivery failure needs to create.
+ * {@code docs/docs/design/teams-and-invitations.md} places after the team model.
+ * Recipients appear in that log masked, because a log of who uses this service is not
+ * something a delivery failure needs to create.
  */
 class AsyncEmailSender implements EmailSender {
 

@@ -71,7 +71,7 @@ describe('sign-up form', () => {
   });
 
   /**
-   * The refusal M0 got wrong, aimed at the right thing — and arriving holding the way
+   * The refusal the original tenancy design got wrong, aimed at the right thing — and arriving holding the way
    * past itself, which is what the API offers instead of an endpoint for asking what is
    * free.
    */

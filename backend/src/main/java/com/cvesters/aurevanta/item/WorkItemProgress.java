@@ -32,17 +32,17 @@ import jakarta.persistence.Table;
  * <p>
  * <strong>This sits beside the four columns on {@link WorkItem} rather than instead of
  * them.</strong> The item keeps its latest state, because that is what a screen draws and
- * what a forecast reads; this holds the history, because that is what M8 measures against
- * and what nothing could reconstruct later. Both are written in one transaction, so they
- * cannot come to disagree about what was last said.
+ * what a forecast reads; this holds the history, because that is what calibration
+ * measures against and what nothing could reconstruct later. Both are written in one
+ * transaction, so they cannot come to disagree about what was last said.
  *
  * <p>
- * <strong>What it exists for is one rule.</strong> M8 refuses to score an estimate
- * written after the work began, comparing an estimate's immutable {@code created_at}
- * against the day work started — and until this table existed that day could be moved
- * afterwards by anybody, with no trace. The hit rate is the one number in this product
- * whose whole value is that it is unflattering, and it must not be improvable by editing
- * the date it is measured against.
+ * <strong>What it exists for is one rule.</strong> Calibration refuses to score an
+ * estimate written after the work began, comparing an estimate's immutable
+ * {@code created_at} against the day work started — and until this table existed that day
+ * could be moved afterwards by anybody, with no trace. The hit rate is the one number in
+ * this product whose whole value is that it is unflattering, and it must not be
+ * improvable by editing the date it is measured against.
  */
 @Entity
 @Table(name = "work_item_progress")

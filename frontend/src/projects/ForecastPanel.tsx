@@ -260,7 +260,7 @@ export function ForecastPanel({
           )}
 
           {/*
-            The gap, which is the whole of what M9 is for — and deliberately not a number
+            The gap, which is the whole of what the throughput forecast is for — and deliberately not a number
             called "the gap". Two of the four differences named underneath make the engine
             look slow and two make it look fast, so a subtraction of the two dates is not
             interpretable on its own. Nothing here averages them or picks one: two forecasts
@@ -343,7 +343,7 @@ export function ForecastPanel({
           {/*
             Beside the number, never behind a link. Every one of these is a property of the
             plan rather than of the engine — the two that described the engine were retired
-            by M3b, which removed their cause rather than their wording — and a band
+            by the common-cause model, which removed their cause rather than their wording — and a band
             reported without them is narrower than the truth by an amount nobody on this
             screen could guess.
           */}
@@ -392,7 +392,7 @@ export function ForecastPanel({
           <TargetDate key={latest.id} run={latest} />
 
           {/*
-            The other question a team asks about a date, and the one M11 makes answerable:
+            The other question a team asks about a date, and the one the resource model makes answerable:
             not *what do we drop* but *what if there were more of us*. Keyed on the run for
             `TargetDate`'s reason — an answer measured against a forecast that is no longer
             on screen is an answer about a plan nobody is looking at.

@@ -14,8 +14,8 @@ import type { Project } from '../projects/types';
  *
  * The work, then the forecast it makes possible, then what the plan is called. That order
  * is the argument of the whole product in one page: ranges go on the work, the engine reads
- * them, and the name is a setting. Deliberately plain — M2's position was that its output is
- * a schema and a way to fill it, and M3a's is that its output is an honest number rather
+ * them, and the name is a setting. Deliberately plain — the plan schema's position was that its output is
+ * a schema and a way to fill it, and the simulation engine's that its output is an honest number rather
  * than a good-looking one.
  *
  * An identifier belonging to another organisation is a 404 from the server and reads here

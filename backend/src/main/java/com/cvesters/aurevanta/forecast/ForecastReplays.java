@@ -17,12 +17,13 @@ import com.cvesters.aurevanta.problem.ForecastReplayMismatchException;
  *
  * <p>
  * <strong>The one place a stored run is re-run</strong>, which is what makes every answer
- * derived from one comparable with the answer somebody was originally given. M6 ranks
- * what widened a band, M7 weighs what to cut, M10 accounts for why a date moved and M11
- * weighs a hire — four features, none of which stores anything, all of which exist
- * because a run kept its seed. Two ways of re-running one forecast would eventually be
- * one right way and one that had stopped being told about a parameter, and the wrong one
- * would explain a plan nobody forecast while looking entirely reasonable.
+ * derived from one comparable with the answer somebody was originally given. The
+ * contribution ranking ranks what widened a band, the inverse query weighs what to cut,
+ * the reporting layer accounts for why a date moved and the resource model weighs a hire
+ * — four features, none of which stores anything, all of which exist because a run kept
+ * its seed. Two ways of re-running one forecast would eventually be one right way and one
+ * that had stopped being told about a parameter, and the wrong one would explain a plan
+ * nobody forecast while looking entirely reasonable.
  *
  * <p>
  * Static because there is nothing to hold: a run carries its own terms, its own seed and
@@ -62,7 +63,7 @@ final class ForecastReplays {
 	}
 
 	/**
-	 * The two M3b assumptions a run stored, as the engine takes them.
+	 * The two the common-cause model assumptions a run stored, as the engine takes them.
 	 *
 	 * <p>
 	 * Read off the row in one place because two readings would eventually be one reading

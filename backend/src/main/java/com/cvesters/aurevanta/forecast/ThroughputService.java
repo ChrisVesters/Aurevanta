@@ -20,13 +20,13 @@ import com.cvesters.aurevanta.problem.ThroughputOutOfOrderException;
  * What a plan's own history says about when it will be finished.
  *
  * <p>
- * <strong>It reads and stores nothing</strong>, and unlike M6's replays that is not even
- * a decision so much as an observation: the history is already in the database, already
- * dated, and already required on every finished item, so an answer as of any day is
- * reproducible from it. A row here would be a cached answer to a question that costs four
- * queries and a ten-thousand-run loop over a few hundred integers. It also keeps
- * {@code forecast_runs} meaning one thing — somebody asked the engine — which is what
- * M10's detector walks.
+ * <strong>It reads and stores nothing</strong>, and unlike the contribution ranking's
+ * replays that is not even a decision so much as an observation: the history is already
+ * in the database, already dated, and already required on every finished item, so an
+ * answer as of any day is reproducible from it. A row here would be a cached answer to a
+ * question that costs four queries and a ten-thousand-run loop over a few hundred
+ * integers. It also keeps {@code forecast_runs} meaning one thing — somebody asked the
+ * engine — which is what the drift detector walks.
  *
  * <p>
  * <strong>This plan's history and not the organisation's.</strong> An organisation's rate
@@ -34,9 +34,10 @@ import com.cvesters.aurevanta.problem.ThroughputOutOfOrderException;
  * the team spends all of that rate here, so a team running three plans would get three
  * forecasts each assuming it has the whole team. Correcting that needs to know how
  * attention is split and nothing in this schema records it — there are no assignments and
- * no allocations until M11. The cost is that a young plan gets a window and no forecast,
- * which is the answer M8 gives an organisation that has finished nothing, and is better
- * than a confident number resting on a split nobody stated.
+ * no allocations until the resource model. The cost is that a young plan gets a window
+ * and no forecast, which is the answer calibration gives an organisation that has
+ * finished nothing, and is better than a confident number resting on a split nobody
+ * stated.
  */
 @Service
 public class ThroughputService {

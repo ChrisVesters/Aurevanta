@@ -2,7 +2,7 @@ package com.cvesters.aurevanta.calibration;
 
 /**
  * What could not be scored, and why — which for most organisations is the whole of what
- * this milestone has to say for its first year.
+ * this work has to say for its first year.
  *
  * <p>
  * <strong>Designed as the main answer rather than as a fallback.</strong> A calibration

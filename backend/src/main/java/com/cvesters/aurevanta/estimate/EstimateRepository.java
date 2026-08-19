@@ -17,10 +17,10 @@ public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 	 * <p>
 	 * Several may be current on one item at the same time, and that is decision 2 working
 	 * rather than a fault to resolve here — two people who disagree about a task are
-	 * telling M3 something, and it is M3 that decides what to do about it. This query's
-	 * job is only to hand back what each of them last said, cheaply: the correlated
-	 * {@code max} rides the {@code (work_item_id, estimator_user_id, created_at desc)}
-	 * index.
+	 * telling the simulation engine something, and it is the simulation engine that
+	 * decides what to do about it. This query's job is only to hand back what each of
+	 * them last said, cheaply: the correlated {@code max} rides the
+	 * {@code (work_item_id, estimator_user_id, created_at desc)} index.
 	 *
 	 * <p>
 	 * Archived items are left out, so coverage and the screen agree about what a plan

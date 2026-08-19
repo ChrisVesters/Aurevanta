@@ -1,6 +1,6 @@
-# M1 — Make it a team product: implementation plan
+# Making it a team product — the design record
 
-> **Scope.** `roadmap.md` M1: invitations, member management, password reset, email
+> **Scope.** The team model: invitations, member management, password reset, email
 > verification, per-field error codes — plus the identity/membership reshape that decision 3
 > pulled forward. Explicitly excluded: SSO, granular permissions, organisation settings
 > beyond a name.
@@ -90,7 +90,7 @@ optional:
 **Registration stops signing you in.** `POST /api/auth/register` currently returns an access
 token — incoherent under a hard gate, since it would hand a session to an account that
 cannot sign in. It returns `201` with the account and **no token**, and the frontend shows a
-"check your email" screen. This edits M0 code rather than extending it: `AuthController`,
+"check your email" screen. This edits the original tenancy design code rather than extending it: `AuthController`,
 the response type shared with login, `AuthProvider.register`, and the registration
 assertions in `AuthApiTests`.
 
@@ -112,7 +112,7 @@ same, which makes "forgot password" the recovery route for a lost verification e
 
 ### Decision 3 — Identity is global, membership is per tenant
 
-M0 put `tenant_id` and `role` on `users`, so an account *was* a membership. That leaves one
+The original tenancy design put `tenant_id` and `role` on `users`, so an account *was* a membership. That leaves one
 address unable to join a second organisation — a wall for anyone consulting for two clients.
 Step 1 separates the two concepts:
 
@@ -154,7 +154,7 @@ untouched. That is the part worth protecting: **tenant isolation logic does not 
 #### Rights, later
 
 Roles differing per organisation is the schema change; *rights* differing per organisation
-is a policy question M1 leaves alone. The membership row is the natural home for
+is a policy question the team model leaves alone. The membership row is the natural home for
 finer-grained permissions, so granting them later is a new column or a side table — not
 another reshape.
 
@@ -165,7 +165,7 @@ Invite a colleague at a mistyped address and the inviter sees a pending invitati
 
 Closing that needs a provider webhook endpoint and somewhere to record delivery state, which
 argues for an **outbox table** rather than fire-and-forget sending, since a webhook needs a
-row to attach its verdict to. Out of scope for M1, the natural step after it, and worth
+row to attach its verdict to. Out of scope for the team model, the natural step after it, and worth
 knowing before the sending code is written.
 
 ---
@@ -177,7 +177,7 @@ knowing before the sending code is written.
 **Goal.** One address can hold memberships in several organisations, with a different role
 in each, and a single password.
 
-The largest step, the only one that rewrites M0 rather than extending it, and first because
+The largest step, the only one that rewrites the original tenancy design rather than extending it, and first because
 every later step touches `users`.
 
 ### Schema — `V3__identity_and_membership.sql`
@@ -255,9 +255,9 @@ Every bullet and every named test landed. Four things a later step should know:
   stands in for the route inside `RequireAuth` rather than sitting in the dashboard header.
 
 One point of wording: the "Done when" clause says `CurrentUser`, and neither caller uses it —
-`AuthController` takes the principal via `@AuthenticationPrincipal`, as M0 already did.
+`AuthController` takes the principal via `@AuthenticationPrincipal`, as the original tenancy design already did.
 Same verified source, different accessor; `CurrentUser` is for code below the web layer and
-gets its first production caller in M2.
+gets its first production caller in the plan schema.
 
 ---
 
@@ -348,7 +348,7 @@ can be replayed.
 
 ## Step 4 — Per-field error codes ✅ *done*
 
-**Goal.** Retire the field-name guessing in M0's debt table, before more forms exist.
+**Goal.** Retire the field-name guessing in the original tenancy design's debt table, before more forms exist.
 
 - `AuthExceptionHandler.handleInvalidRequest` currently emits Bean Validation's English:
   `errors: { password: "size must be between 12 and 72" }`. Emit the constraint instead:
@@ -383,7 +383,7 @@ code renders, and an unknown code falls back rather than showing nothing.
   Hibernate Validator returns violations in a set whose iteration order varies *within a
   single run* — so the original "keep the first one" rule made the message flicker between
   "this cannot be empty" and "use between 12 and 72 characters". Presence now outranks
-  shape. This was a latent M0 bug that survived into step 4; register's `password` is the
+  shape. This was a latent the original tenancy design bug that survived into step 4; register's `password` is the
   only field affected, since every other constraint pair cannot fail on the same input.
 - **A constraint that only bounds length above reports `max_size`, not `size`.**
   `@Size(max = 320)` reports `min: 0`, and "use between 0 and 320 characters" is not a
@@ -410,7 +410,7 @@ shipping any of them without 7 leaves an unauthenticated sending endpoint unthro
 
 ## Step 5 — Email verification, and the sign-in gate ✅ *done*
 
-**Goal.** Verified addresses only. Where decision 2 lands, so it changes M0 behaviour.
+**Goal.** Verified addresses only. Where decision 2 lands, so it changes the original tenancy design behaviour.
 
 - Migration `V5__users_email_verified.sql`: `users.email_verified_at timestamptz null`.
 - Registration issues a verification token and sends the mail, and does **not** fail if
@@ -494,7 +494,7 @@ later step should know:
 - **Nothing ends a session that is already running.** A JWT is stateless and signed, so a
   password change cannot withdraw one before it expires: somebody who resets because they
   fear their account is compromised has not evicted whoever was in it. Closing that needs a
-  token version on `users` or a deny list, which is a decision for M2, not a bug in this
+  token version on `users` or a deny list, which is a decision for the plan schema, not a bug in this
   step.
 - **`EmailTemplates` gained a pluraliser**, because a reset link lasts a single hour and
   "stops working after 1 hours" reads like a phishing message — which is exactly the wrong
@@ -580,7 +580,7 @@ that ratio is what keeps it from becoming one.
 check-your-email and does not authenticate; sign-in surfaces `email_not_verified` with a
 working resend. Coverage stays at 100%.
 
-**Done when** the whole verification and recovery journey can be completed in the browser.
+**Done when** The whole verification and recovery journey can be completed in the browser.
 
 ### As built — spread across three steps
 
@@ -838,7 +838,7 @@ Every bullet and every named test landed. Six things a later step should know:
 **Tests.** Accept flow end to end against a mocked API; each failure case renders its own
 message; a member sees no owner controls; switching organisations re-scopes the dashboard.
 
-**Done when** the whole invitation journey works in the browser, for a new and an existing
+**Done when** The whole invitation journey works in the browser, for a new and an existing
 account.
 
 ### As built — where it differs from the above
@@ -918,7 +918,7 @@ Three things the review found and deliberately left:
   constraint starts racing.
 - **Somebody else changing your role does not reach your session** until it next restores.
   Inherent to a stateless token, the same limitation password reset already records, and not
-  worth a deny list in M1.
+  worth a deny list in the team model.
 - **`already_a_member` and `invalid_credentials` on accept are still unreachable** through
   the product. Step 11 did not open a path to either, as Step 10 guessed it might.
 
@@ -931,9 +931,9 @@ Three things the review found and deliberately left:
 - `CLAUDE.md`: mail configuration, the two token types and what each permits, single-use
   token conventions, the identity-versus-membership model, and the per-instance
   rate-limiting caveat.
-- `roadmap.md`: strike the three retired M0 debt rows — one-user tenants, English-prose
+- `../roadmap.md`: strike the three retired the original tenancy design debt rows — one-user tenants, English-prose
   field errors, missing reset and verification. Leave the landing-page row.
-- `roadmap.md`: replace the "one account, one organisation" constraint with the model that
+- `../roadmap.md`: replace the "one account, one organisation" constraint with the model that
   replaced it, since decision 3 reversed it.
 
 ### As built
@@ -952,20 +952,20 @@ places it had gone quietly out of date.
   rate-limiting section now points at it rather than contradicting it.
 - **One forward reference to "Step 7"** outlived the step it pointed at.
 
-`roadmap.md` needed more than striking rows. Two of the three named rows went (one-user
+`../roadmap.md` needed more than striking rows. Two of the three named rows went (one-user
 tenants, no reset or verification); the third had already gone in Step 4. Beyond that:
 
-- **M1 is marked done with what actually shipped**, which is four things the milestone's own
+- **The team model is marked done with what actually shipped**, which is four things the work's own
   bullets did not ask for: the identity/membership split, verification as a hard gate rather
   than a flag, the rate limiting that gate made compulsory, and an endpoint for starting an
   organisation.
-- **M1a is no longer written in the future tense about M1.** It said duplicate organisation
+- **Chosen handles is no longer written in the future tense about the team model.** It said duplicate organisation
   names "block steps 10 and 12 being right"; those screens exist now, so it is a change to
   working screens rather than a constraint on unwritten ones. It also named
   `RegistrationService` as the place to drop the name pre-check, which moved to
   `OrganisationService` in Step 11 — the one place registration and starting a second
   organisation now share.
-- The header still said **"Only M0 exists in code."**
+- The header still said **"Only the original tenancy design exists in code."**
 
 ---
 
@@ -988,7 +988,7 @@ the compiler checks, or no selector at all.
 
 ## Sequencing and risk
 
-**Do Step 1 first.** It rewrites M0's core model, so every day it waits is another day of
+**Do Step 1 first.** It rewrites the original tenancy design's core model, so every day it waits is another day of
 code written against the shape it replaces — and once invitations exist, the migration has
 live invitation state to carry too.
 
@@ -1006,4 +1006,4 @@ members who cannot be managed, are not worth shipping separately.
 authentication, the one place a mistake is a security bug rather than a broken feature. The
 specific hazard is the tenant-exchange endpoint, which must refuse a tenant the caller does
 not belong to or it becomes cross-tenant escalation. That case has a dedicated two-tenant
-test, and it is the test to review hardest in the whole milestone.
+test, and it is the test to review hardest in the whole work.

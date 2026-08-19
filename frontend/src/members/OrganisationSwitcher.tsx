@@ -30,7 +30,7 @@ export function OrganisationSwitcher({
 
   // Reloaded on every switch, so a membership gained or lost since is reflected — and on a
   // rename, which changes neither the id nor the membership but does change what this list
-  // has to say. Since M1a a name is not unique, so a stale list can offer two options that
+  // has to say. Since chosen handles a name is not unique, so a stale list can offer two options that
   // read alike: the rename may have been the thing telling them apart.
   //
   // The failure is dropped on purpose. A switcher that cannot load its options is a switcher
@@ -57,7 +57,7 @@ export function OrganisationSwitcher({
     return <span className="organisation">{organisation.name}</span>;
   }
 
-  // Since M1a a name is not unique. An <option> has nowhere to put a second line, so the
+  // Since chosen handles a name is not unique. An <option> has nowhere to put a second line, so the
   // handle goes inline — and only for the names that actually repeat.
   const sharesName = sharedNames(held);
 

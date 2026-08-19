@@ -1,22 +1,22 @@
-# M6 — Variance contribution: implementation plan
+# Variance contribution — the design record
 
-> **Scope.** `roadmap.md` M6: rank what a plan holds by how much it widens the forecast, rather
+> **Scope.** The contribution ranking: rank what a plan holds by how much it widens the forecast, rather
 > than by how long it is, so that *"what should I spike next?"* has an answer. Excluded: the
-> probabilistic critical path and criticality indices (M10 — a different question, see decision
-> 10), inverse queries that read this ranking to propose cuts (M7), correlation *groups* beyond
-> M3b's single shared factor (icebox), and anything that changes what the engine samples —
+> probabilistic critical path and criticality indices (the reporting work — a different question, see decision
+> 10), inverse queries that read this ranking to propose cuts (the inverse query), correlation *groups* beyond
+> the common-cause model's single shared factor (icebox), and anything that changes what the engine samples —
 > **nothing here does, and `Engine.VERSION` does not move.**
 >
-> **How to read this.** Decisions first. The two that decide whether this milestone is right are
+> **How to read this.** Decisions first. The two that decide whether this work is right are
 > decision 2 — *a replay has to prove it is the same engine before it is allowed to explain
 > anything* — and decision 3, what the number actually means, because the obvious presentation of
 > it is a set of percentages that add up to three hundred.
 >
 > **Why this is worth doing, and why it is cheap.** This is the most defensible thing in the
 > product: a point-estimate tool cannot produce it at all, because it has no spread to attribute.
-> It also needs **no new schema, no new sampling and no new modelling** — M3a stored a run's
+> It also needs **no new schema, no new sampling and no new modelling** — the simulation engine stored a run's
 > inputs, its seed and its engine version precisely so that a run could be reproduced exactly,
-> and this is the first feature to spend that. The whole milestone is one pure accumulator, one
+> and this is the first feature to spend that. The whole work is one pure accumulator, one
 > observer hook, one endpoint and one panel.
 >
 > **Where it will go wrong.** Not in the arithmetic, which has a closed-form oracle in the
@@ -30,13 +30,13 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | What a contribution is, as a pure function ✅ *done* | M3 |
+| 1 | What a contribution is, as a pure function ✅ *done* | the simulation engine |
 | 2 | The engine says what each run did ✅ *done* | 1 |
 | 3 | Replaying a run, and refusing to when it is not the same one ✅ *done* | 2 |
 | 4 | What to spike next, on screen ✅ *done* | 3 |
 | 5 | Close out ✅ *done* | 1–4 |
 
-**M6 adds no columns and no migration.** That is worth noticing before somebody adds one: the
+**The contribution ranking adds no columns and no migration.** That is worth noticing before somebody adds one: the
 alternative to replaying is storing a duration per item per run, which at 500 items and 10,000
 runs is five million numbers written for every button press — and it would still only work for
 runs made after the column existed. See decision 1.
@@ -86,12 +86,12 @@ range the two differ by everything" — arriving in a second place. Decision 6 s
 | 7 | What the engine changes | **One observer and no draw**, so `Engine.VERSION` stays at 2. |
 | 8 | Where the report lives | **Its own endpoint on the run**, computed on demand, and not folded into the forecast response. |
 | 9 | What is on screen | **A ranking, with the reason the numbers overlap**, and the sentence it answers. |
-| 10 | What M6 must not become | **Not criticality, not a Sobol decomposition, not M7.** |
+| 10 | What the contribution ranking must not become | **Not criticality, not a Sobol decomposition, not the inverse query.** |
 
 ### Decision 1 — Replay, and store nothing
 
 `forecast_runs` keeps a seed, the resolved inputs and an engine version. Feeding those back
-through the engine reproduces the run exactly, so the per-item durations M6 needs can be
+through the engine reproduces the run exactly, so the per-item durations the contribution ranking needs can be
 *recomputed* rather than kept.
 
 The alternative is a duration per item per run. At the 500 items a plan may hold and the 10,000
@@ -100,24 +100,24 @@ most runs will never be asked for.
 
 **The decisive argument is not the size, it is the history.** A stored contribution only exists
 for runs made after the column did. A derived one exists for **every forecast this product has
-ever produced**, including the M3a runs made before scope growth was modelled. A feature that
+ever produced**, including the the simulation engine runs made before scope growth was modelled. A feature that
 answers questions about the past is worth more than one that starts answering them today, and
-this is the same trade M4's decision 5 made from the other side: *store what is expensive or
+this is the same trade the calendar's decision 5 made from the other side: *store what is expensive or
 lossy to reproduce; derive what is cheap and deterministic.* A replay is neither expensive nor
 lossy — it is about a second, and it is exact.
 
 | Rejected | Why |
 |---|---|
-| A duration vector per item per run | Five million numbers per forecast, and it answers nothing about any run already made. `roadmap.md` rejected it in advance and the reasoning holds. |
+| A duration vector per item per run | Five million numbers per forecast, and it answers nothing about any run already made. `../roadmap.md` rejected it in advance and the reasoning holds. |
 | Computing contributions during the original forecast and storing the result | Cheaper than the vectors and still only forwards-looking, and it would put a feature's cost inside the request that asks for a forecast — where the two-second budget lives. |
 | Recomputing from the fitted distributions analytically | There is no closed form: the aggregator is a scheduler, which is the whole reason the roadmap says this has to be measured against project completion rather than derived from variances. |
 
 ### Decision 2 — A replay must prove itself before it explains anything
 
-**This is the decision that keeps the milestone honest**, and it costs six comparisons.
+**This is the decision that keeps the work honest**, and it costs six comparisons.
 
 The report is only meaningful if the engine replaying the run is the engine that made it. Today
-that holds: `Engine.VERSION` is 2, and version 1 *is* version 2 with both M3b parameters at zero,
+that holds: `Engine.VERSION` is 2, and version 1 *is* version 2 with both the common-cause model parameters at zero,
 draw for draw. It stops holding the moment somebody bumps the version for a change that cannot be
 reduced to a parameter — and at that moment a contributions endpoint that simply re-ran the
 inputs would produce a confident ranking of a plan under a model that never forecast it.
@@ -125,7 +125,7 @@ inputs would produce a confident ranking of a plan under a model that never fore
 So: **replay, then compare the six figures the replay produces against the six stored on the
 row. If they differ, refuse.** `forecast_replay_mismatch`, and no numbers.
 
-This is `ForecastApiTests`'s own assertion — the one `m3a-plan.md` calls "the test that fails the
+This is `ForecastApiTests`'s own assertion — the one `simulation-engine.md` calls "the test that fails the
 day somebody changes the model without bumping the version" — promoted from a test into a runtime
 guard. It needs no compatibility table to maintain and no version arithmetic to get wrong; it
 catches a version bump, a JDK generator change, a snapshot format drift and an accidental edit to
@@ -140,7 +140,7 @@ exactly or something has moved.
 |---|---|
 | A list of engine versions this one can replay | A second thing to keep in step with the first, and the failure of forgetting is silent. The run already carries the answer. |
 | Replaying anyway and labelling the result "approximate" | There is no such thing. A ranking from a different model is not a less precise ranking, it is a different plan's. |
-| Refusing on `engine_version != Engine.VERSION` | Would refuse every M3a run today, which decision 1's whole payoff is about being able to read. |
+| Refusing on `engine_version != Engine.VERSION` | Would refuse every the simulation engine run today, which decision 1's whole payoff is about being able to read. |
 
 ### Decision 3 — Contribution is the square of a correlation, and it is not a share of anything
 
@@ -153,14 +153,14 @@ tight item on the critical path and a wild one off it are comparable.
 **What it is not is a partition, and this is the trap.** In the degenerate case — one worker, a
 chain, no shared factor — the completion is a sum of independent draws and the r² values sum to
 exactly 1, which is the "share of total variance" the roadmap describes and step 1 uses as its
-oracle. **In every real forecast they sum to more than 1**, because M3b's team factor multiplies
+oracle. **In every real forecast they sum to more than 1**, because the common-cause model's team factor multiplies
 every item in a run by the same draw, so everything moves with everything. A screen presenting
 these as percentages would show a plan whose parts account for three hundred percent of its own
 uncertainty.
 
 So they are shown as a **ranking with a relative bar**, the number is called *how much the finish
 moves with this* rather than a share of it, and the panel says in one line that they overlap and
-why. `product-concept.md`'s whole complaint about other tools is numbers that look precise and
+why. `../product-concept.md`'s whole complaint about other tools is numbers that look precise and
 land wrong; a percentage that cannot be added is one.
 
 ### Decision 4 — Three kinds of row, and the two extra ones are what make the first honest
@@ -175,7 +175,7 @@ of them is worth doing. Two things in a forecast are not items and both can domi
 - **The work nobody has listed.** Discovered items exist only within a run and have no identity
   across runs, so they cannot be ranked individually — but their *total* sampled effort is one
   series per run like any other, and on a plan expected to grow it is frequently the largest
-  contributor. `product-concept.md` is explicit that scope growth is usually the bigger of the two
+  contributor. `../product-concept.md` is explicit that scope growth is usually the bigger of the two
   uncertainty sources; a report that omitted it would rank the smaller one and say nothing.
 
 Both are rows in the same table, named rather than numbered, and both are absent from a run whose
@@ -197,10 +197,10 @@ serialised as JSON at all**.
 
 Three ordinary things produce it, which is why this is a decision rather than a guard:
 
-- **An unestimated item.** M3a keeps it in the graph as a zero-effort node, and every partly
+- **An unestimated item.** the simulation engine keeps it in the graph as a zero-effort node, and every partly
   estimated plan has some.
 - **Finished work.** Nothing remains, so nothing varies.
-- **An estimate of three identical numbers.** M2 accepts them on purpose — it is somebody saying
+- **An estimate of three identical numbers.** the plan schema accepts them on purpose — it is somebody saying
   they are certain — and `LogNormalFit` fits them as a point mass rather than refusing.
 
 All three report a contribution of exactly zero, which is true: a number that never moves cannot
@@ -224,15 +224,15 @@ because the accumulator runs inside the engine's inner loop, 500 items times 10,
 were and when the plan finished. The existing signature stays and delegates with a no-op, exactly
 as `Schedule.finish(durations)` delegates to the three-argument form with `NOTHING_FOUND`.
 
-**The rule this must not break is M3b's.** A parameter set to none must consume no randomness —
+**The rule this must not break is the common-cause model's.** A parameter set to none must consume no randomness —
 and an observer consumes none by construction, since it is not random. But the same discipline
 applies to the loop: the observer is called *after* everything that draws, it may not draw, and
-`Engine.VERSION` therefore does not move. **The test that proves it is the one M3b already
+`Engine.VERSION` therefore does not move. **The test that proves it is the one the common-cause model already
 established**: the same seed and inputs produce byte-identical percentiles with an observer
 attached and without.
 
 Nothing about `Schedule`, `ItemModel`, `TeamFactor` or `ScopeGrowth` changes. If any of them has
-to, this milestone has gone wrong.
+to, this work has gone wrong.
 
 ### Decision 8 — Its own endpoint, computed on demand
 
@@ -240,7 +240,7 @@ to, this milestone has gone wrong.
 member like everything else in the domain.
 
 **Not folded into the forecast response**, for two reasons. It would double the cost of every
-forecast for a report most callers never open — and `m3a-plan.md` sized the two-second budget that
+forecast for a report most callers never open — and `simulation-engine.md` sized the two-second budget that
 keeps a forecast inside its own request. And it would exist only for new runs, throwing away
 decision 1's whole payoff.
 
@@ -269,15 +269,15 @@ the way an arrow into archived work already is.
 
 - **Not the probabilistic critical path.** "How often is this item on the path that decides the
   finish" is a different question with a different answer: an item can be on the critical path in
-  every run and contribute nothing to the spread, because it never varies. Criticality is M10's,
+  every run and contribute nothing to the spread, because it never varies. Criticality is the reporting work's,
   it wants a different measurement inside the scheduler, and conflating them produces a ranking
   that means neither.
 - **Not a Sobol or ANOVA decomposition.** Those partition variance properly, including
   interactions, and would answer decision 3's complaint about numbers that do not add up. They
   also cost a re-run per source at minimum. A correlation ranking is the cheap, honest 90%; the
   decomposition is worth revisiting only if somebody asks a question the ranking cannot answer.
-- **Not M7.** Ranking what widens the plan is not proposing what to cut. M7 reads this and adds a
-  search; keeping them apart is what stops M6 growing a scope-selection UI.
+- **Not the inverse query.** Ranking what widens the plan is not proposing what to cut. The inverse query reads this and adds a
+  search; keeping them apart is what stops the contribution ranking growing a scope-selection UI.
 
 ---
 
@@ -301,7 +301,7 @@ gets the right answer to ten decimal places, and the naive formula's answer is i
 that nobody "simplifies" it back. Order is preserved under a change of units — multiplying every
 duration by 60 changes no ranking.
 
-**Done when** the number can be checked by hand on a case that has a closed form.
+**Done when** The number can be checked by hand on a case that has a closed form.
 
 ### As built — where it differs from the above
 
@@ -379,7 +379,7 @@ are now in the test rather than assumed by it:
 | 6 | 0.014 | ~0.14 |
 
 The item with **forty-five times the variance of any other** accounts for 1.2% of the spread while
-each of the five narrow links accounts for about 18%. That is `roadmap.md`'s sentence made
+each of the five narrow links accounts for about 18%. That is `../roadmap.md`'s sentence made
 executable, and it would have been asserted as a guess if the shape had not been probed first.
 
 **The two non-item sources are named accessors on `Contributions` rather than a third type.**
@@ -403,7 +403,7 @@ for it.** What step 2 can say is that a source nobody modelled *never varied*, s
 exactly nothing — `TeamFactor.NONE` holds the stretch at 1 in every run and `ScopeGrowth.NONE`
 holds the discovered total at 0. Whether the report then shows a row reading zero or **no row at
 all** is a question about what the run assumed, not about what it drew, and the run stores the
-answer in `team_factor_worse_by_percent` and the two growth columns. That is the M4 calendar
+answer in `team_factor_worse_by_percent` and the two growth columns. That is the the calendar calendar
 pattern exactly — a run without a calendar has no dates, decided from the stored columns in the
 response layer — and it is where decision 4's "absent, not zero" belongs.
 
@@ -424,7 +424,7 @@ response layer — and it is where decision 4's "absent, not zero" belongs.
 **Tests.** A stored run explains itself, and the contributions name the items the plan holds. A
 run whose stored percentiles have been altered directly is refused with `forecast_replay_mismatch`
 and no numbers — the guard asserted against the only thing that can produce it today. A run made
-with both M3b parameters at zero reports neither non-item source. A run in another organisation is
+with both the common-cause model parameters at zero reports neither non-item source. A run in another organisation is
 `forecast_not_found`, and an identity token is refused. The endpoint writes nothing: the run's
 columns are unchanged afterwards, and no row is added anywhere.
 
@@ -436,7 +436,7 @@ run.
 **Decision 9 assumed a title the snapshot has never held, and step 4 inherits the correction.**
 That decision says an item's stored title is shown, marked, where the item is gone —
 `ForecastInputs.PlannedItem` carries an id, a status, hours spent and the ranges, and no title at
-all, on purpose: M10's movement decomposition diffs these, and a title is not a thing that moves.
+all, on purpose: the reporting work's movement decomposition diffs these, and a title is not a thing that moves.
 So the response names items by **identifier only**, and step 4 has to resolve titles from the
 live plan and name an item that is no longer in it, the way an arrow into archived work already
 is. Better to find that here than while writing the screen.
@@ -473,7 +473,7 @@ recorded here rather than quietly skipped.
 
 ## Step 4 — What to spike next, on screen ✅ *done*
 
-**Goal.** The question the milestone is named for, answered where the forecast already is.
+**Goal.** The question the work is named for, answered where the forecast already is.
 
 - The forecast panel gains a ranking, loaded on demand rather than with the forecast — decision 8
   — so that opening a plan costs what it costs today.
@@ -540,21 +540,21 @@ arrived would fail, and one that showed a total would be visibly wrong.
 ## Step 5 — Close out ✅ *done*
 
 > **This section did not exist when the plan was written**, and the *At a glance* table promised
-> it for four steps. Written now, from what the milestone turned out to be — which is the honest
+> it for four steps. Written now, from what the work turned out to be — which is the honest
 > version, and is also why the plan is updated as its steps land rather than at the end.
 
-- `roadmap.md`: mark M6 done. Discharge its own last sentence — *what M6 must not do is change the
+- `../roadmap.md`: mark the contribution ranking done. Discharge its own last sentence — *what the contribution ranking must not do is change the
   model without bumping `Engine.VERSION`* — which is now enforced at runtime rather than trusted.
-- `roadmap.md`: record what M7 inherits. It is the one milestone that reads this ranking, and the
+- `../roadmap.md`: record what the inverse query inherits. It is the one work that reads this ranking, and the
   two are deliberately not the same thing: ranking what widens a plan is not proposing what to
-  cut, and M7's own note about evaluating cuts by re-running the schedule is what keeps them
+  cut, and the inverse query's own note about evaluating cuts by re-running the schedule is what keeps them
   apart.
-- `roadmap.md`: record what M10 inherits — criticality is a *different question* with a different
-  answer, and the replay guard is the thing that lets any of M10's cross-run comparisons be
+- `../roadmap.md`: record what the reporting work inherits — criticality is a *different question* with a different
+  answer, and the replay guard is the thing that lets any of the reporting work's cross-run comparisons be
   trusted.
-- `roadmap.md`: put the variance decomposition in the icebox with decision 10's reason, so that
+- `../roadmap.md`: put the variance decomposition in the icebox with decision 10's reason, so that
   "the shares do not add up" has a recorded answer rather than being rediscovered as a defect.
-- `product-concept.md`: *Variance contribution* stops being design intent, with the two things
+- `../product-concept.md`: *Variance contribution* stops being design intent, with the two things
   the section did not know it was claiming — that the shares are not a partition, and that two of
   the rows are not tasks.
 - `CLAUDE.md`: a contribution is a ranking and never a share; three kinds of row and why the two
@@ -567,9 +567,9 @@ arrived would fail, and one that showed a total would be visibly wrong.
 **The bullets above were written now, and that is the departure worth naming first.** The plan
 shipped with an *At a glance* table promising five steps and a body holding four — the close-out
 section simply was not written, and nothing noticed until it was time to do it. Every other
-milestone's step 5 existed before its step 1 did. What that cost is small (the work was obvious
-from what M6 turned out to be) and what it risks is not: a close-out written after the fact is a
-close-out that can only record what was done, never check it against what was promised. The M5
+work's step 5 existed before its step 1 did. What that cost is small (the work was obvious
+from what the contribution ranking turned out to be) and what it risks is not: a close-out written after the fact is a
+close-out that can only record what was done, never check it against what was promised. The elicitation
 plan is the counter-example — its step 5 listed four documents in advance, and doing it turned up
 three more places that had quietly stopped being true.
 
@@ -580,8 +580,8 @@ never held one; and the measurement itself — 489 ms against 491 ms — since "
 free" is the fact that makes "on demand" a courtesy rather than a workaround.
 
 **Two things had quietly stopped being true and were not on the list.** `CLAUDE.md`'s note on
-`forecast_runs` said a replay is *what M6 gets its contribution from*, written when M6 was a
-future tense; it now also says M6 turned the same comparison into a runtime guard. And both
+`forecast_runs` said a replay is *what the contribution ranking gets its contribution from*, written when the contribution ranking was a
+future tense; it now also says the contribution ranking turned the same comparison into a runtime guard. And both
 status headers claimed Tier 2 as design intent — it is half built, and saying so is the whole
 point of a status line.
 
@@ -591,13 +591,13 @@ whoever first wants a pie chart — so the icebox entry names the shape of the q
 justify it: *how much of the spread is the team factor on its own, with the items held still.*
 Recorded as a deferred alternative rather than left to be rediscovered as a defect.
 
-**M10's criticality bullet gained the distinction rather than a cross-reference.** It would have
-been enough to write "not the same as M6"; what it says instead is why — an item that never varies
+**The reporting work's criticality bullet gained the distinction rather than a cross-reference.** It would have
+been enough to write "not the same as the contribution ranking"; what it says instead is why — an item that never varies
 can decide the finish in every single run and widen the band by nothing at all. That sentence is
 the whole reason the two features cannot share a measurement, and it belongs where somebody will
 be tempted to merge them.
 
-### The review pass — what a read of the whole milestone changed
+### The review pass — what a read of the whole work changed
 
 **One real bug, and it was in the slowest thing on the panel.** Loading a breakdown had no
 unmount guard: it was written as a handler where every other request in the file is an effect
@@ -618,7 +618,7 @@ way the unknown limitation already is.
 **One finding recorded rather than fixed, and the reason is that half a fix is worse.**
 `contributionsTo` is `@Transactional(readOnly = true)` and runs a five-hundred-millisecond
 simulation inside it, holding a pooled connection for CPU work. That is exactly what the
-roadmap's *Operations* bullet already describes for forecasts — and M6 widened it, because unlike
+roadmap's *Operations* bullet already describes for forecasts — and the contribution ranking widened it, because unlike
 asking for a forecast this is a `GET` any reader can repeat as fast as they can click. Making
 this one endpoint non-transactional would leave two shapes of the same code and fix half the
 problem; the concurrency limit that bullet already names is the actual fix. The bullet now says
@@ -631,14 +631,14 @@ The run-shaped `observed` cannot overrun the engine's durations array, since the
 own plan length. And the suite was run three times end to end after the fixes: 371 passing each
 time, with one transient failure in an unrelated file that passed in isolation and did not recur —
 the second time that has happened during a review pass on this machine, which is worth watching
-even though nothing in either milestone touches those files.
+even though nothing in either work touches those files.
 
 ---
 
 ## Migrations
 
-**None, and that is the point of decision 1.** Every other milestone since M2 has added a column;
-this one reads what M3a already stored and adds nothing. Anybody about to write
+**None, and that is the point of decision 1.** Every other work since the plan schema has added a column;
+this one reads what the simulation engine already stored and adds nothing. Anybody about to write
 `V16__forecast_contributions.sql` should read decision 1 first — the column buys nothing that a
 replay does not, and it costs every run made before it the ability to be explained.
 
@@ -646,9 +646,9 @@ replay does not, and it costs every run made before it the ability to be explain
 
 ## Sequencing and risk
 
-**The risk in M6 is not the arithmetic.** Contribution has a closed form in the degenerate case,
+**The risk in the contribution ranking is not the arithmetic.** Contribution has a closed form in the degenerate case,
 which makes step 1 checkable against numbers that exist outside this codebase — the same footing
-M3a stood on. What has no oracle is the *interpretation*, and the two ways that goes wrong are
+the simulation engine stood on. What has no oracle is the *interpretation*, and the two ways that goes wrong are
 both decisions above.
 
 **The one that will actually go wrong** is decision 3 turning into percentages. A ranked list of
@@ -671,7 +671,7 @@ future version bump and a confident ranking of a plan under a model that never f
   work dominates, the honest answer to "what should I spike" is "nothing on this list" — and
   saying so is worth more than ranking the tasks anyway.
 
-**What this milestone must not absorb.** Criticality is M10's and measures something else;
-proposing what to cut is M7's and needs a search this does not have; correlation groups are the
-icebox's and need a grouping somebody has to define. The line to hold is that M6 attributes the
+**What this work must not absorb.** Criticality is the reporting work's and measures something else;
+proposing what to cut is the inverse query's and needs a search this does not have; correlation groups are the
+icebox's and need a grouping somebody has to define. The line to hold is that the contribution ranking attributes the
 spread of one stored run and stops.

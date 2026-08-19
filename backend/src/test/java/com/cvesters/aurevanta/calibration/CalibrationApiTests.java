@@ -51,9 +51,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * adds. Three of those are worth reading. <strong>Nulls rather than zeros</strong>,
  * because "0% of your estimates landed inside their range" is the single worst thing this
  * API could send to an organisation that has not finished anything. <strong>The split by
- * method</strong>, which is the only answer M5's question will ever get. And <strong>name
- * order and not rank order</strong>, because a hit-rate leaderboard is won by writing
- * one-to-a-thousand.
+ * method</strong>, which is the only answer elicitation's question will ever get. And
+ * <strong>name order and not rank order</strong>, because a hit-rate leaderboard is won
+ * by writing one-to-a-thousand.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -255,9 +255,9 @@ class CalibrationApiTests {
 	// The two breakdowns -------------------------------------------------------
 
 	/**
-	 * <strong>The split {@code V15} exists for</strong>, and the only evidence M5's claim
-	 * will ever have: did changing how the question is put change how often the answer
-	 * contained the truth?
+	 * <strong>The split {@code V15} exists for</strong>, and the only evidence
+	 * elicitation's claim will ever have: did changing how the question is put change how
+	 * often the answer contained the truth?
 	 */
 	@Test
 	void splitsTheForecastsByHowTheRangeWasAskedFor() throws Exception {

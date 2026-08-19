@@ -30,16 +30,17 @@ import jakarta.persistence.Table;
  *
  * <p>
  * <strong>Nothing here can be changed</strong>, as with an estimate and for a related
- * reason: M10 asks whether a date has been sliding, which is a question about what was
- * said *then*. A run that could be edited afterwards would answer it with whatever
- * somebody most recently believed, and the movement it exists to detect would disappear.
+ * reason: the reporting layer asks whether a date has been sliding, which is a question
+ * about what was said *then*. A run that could be edited afterwards would answer it with
+ * whatever somebody most recently believed, and the movement it exists to detect would
+ * disappear.
  *
  * <p>
  * <strong>It stores its own seed, its own inputs and its own engine version</strong>,
  * which together mean it can be run again and produce the numbers below. That is worth
- * more than it looks: anything this milestone did not think to store — the per-item
- * durations M6 will want, for instance — can be recovered exactly rather than being gone,
- * so the seed is the compression.
+ * more than it looks: anything this work did not think to store — the per-item durations
+ * the contribution ranking will want, for instance — can be recovered exactly rather than
+ * being gone, so the seed is the compression.
  */
 @Entity
 @Table(name = "forecast_runs")
@@ -115,11 +116,11 @@ public class ForecastRun {
 	 * — the two halves of turning this run's hours into a date.
 	 *
 	 * <p>
-	 * <strong>Nullable, and nothing backfilled them.</strong> A run made before M4
-	 * assumed no calendar, because it produced no date; writing a six-hour day onto it
-	 * would invent a claim on behalf of somebody who never made one, in the one table
-	 * that exists to say what was assumed. V13 could backfill zeros and call them true,
-	 * and this is the mirror of it.
+	 * <strong>Nullable, and nothing backfilled them.</strong> A run made before the
+	 * calendar assumed no calendar, because it produced no date; writing a six-hour day
+	 * onto it would invent a claim on behalf of somebody who never made one, in the one
+	 * table that exists to say what was assumed. V13 could backfill zeros and call them
+	 * true, and this is the mirror of it.
 	 */
 	@Column(name = "starts_on")
 	private LocalDate startsOn;
@@ -250,7 +251,7 @@ public class ForecastRun {
 	}
 
 	/**
-	 * Which of the five columns one of M4's three confidences names.
+	 * Which of the five columns one of the calendar's three confidences names.
 	 *
 	 * <p>
 	 * Here rather than in each of the two things that ask — an account of a movement and

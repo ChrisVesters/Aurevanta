@@ -146,7 +146,7 @@ const MOVEMENT = {
       { step: 'PROGRESS', movedHours: -6, movedDays: -1 },
       { step: 'ESTIMATES', movedHours: 24, movedDays: 4 },
       { step: 'SCOPE', movedHours: 30, movedDays: confidence === 80 ? 5 : 1 },
-      // Its own term rather than part of the one above: M11's review found that hiring
+      // Its own term rather than part of the one above: the resource model's review found that hiring
       // was landing in "work added or put away", which is a sentence a reader believes.
       { step: 'RESOURCES', movedHours: -12, movedDays: -2 },
       { step: 'ASSUMPTIONS', movedHours: 0, movedDays: 0 },
@@ -490,7 +490,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * <strong>The whole milestone, in one test.</strong> Three confidences, three dates, one
+   * <strong>The whole work, in one test.</strong> Three confidences, three dates, one
    * forecast and **no second request** — which is not an optimisation but the feature: "can
    * we go faster?" is answered by a control moving from 95 to 80 and a date moving with it
    * while everybody watches, rather than by a capitulation.
@@ -595,7 +595,7 @@ describe('ForecastPanel', () => {
    * <strong>Beside the date and never behind a disclosure.</strong> A date is the first
    * thing this product emits that looks like a fact — an hours band advertises that it came
    * out of a model and "Aug 25" does not — so the working day it rests on is printed in the
-   * same breath as the five assumptions M3b already prints.
+   * same breath as the five assumptions the common-cause model already prints.
    */
   it('states the calendar the dates were read under', async () => {
     await open([FORECAST]);
@@ -608,7 +608,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * <strong>Decision 6, on screen.</strong> A run made before M4 assumed no calendar,
+   * <strong>Decision 6, on screen.</strong> A run made before the calendar assumed no calendar,
    * because it produced no date — so nothing was backfilled onto it, and this says so in a
    * line rather than showing a blank or a date nobody's assumptions produced.
    */
@@ -690,7 +690,7 @@ describe('ForecastPanel', () => {
   /**
    * <strong>All five, beside the band and not behind anything.</strong> A forecast whose
    * assumptions are one click away is a forecast that gets screenshotted without them —
-   * and the two M3b added are the ones a reader is least able to guess. The coverage is
+   * and the two the common-cause model added are the ones a reader is least able to guess. The coverage is
    * here too, which is the disclosure this whole product turns on.
    */
   it('states what it assumed and how much of the plan it covered', async () => {
@@ -740,9 +740,9 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * <strong>The two codes M3b retired are still describable, and this is why they were
+   * <strong>The two codes the common-cause model retired are still describable, and this is why they were
    * retired rather than deleted.</strong> Nothing writes them now, and every forecast a
-   * plan made before this milestone still carries them — so a screen that had forgotten
+   * plan made before this work still carries them — so a screen that had forgotten
    * their wording would tell somebody their own history was something it could not
    * understand.
    */
@@ -804,7 +804,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * One control, two dates, no request — which is the property M4 built the control for,
+   * One control, two dates, no request — which is the property the calendar built the control for,
    * kept by holding both sets of percentiles on this side.
    */
   it('moves both dates when the confidence changes', async () => {
@@ -996,7 +996,7 @@ describe('ForecastPanel', () => {
     expect(
       await screen.findByText('Delivered 104 of 144.')
     ).toBeInTheDocument();
-    // **The half the review pass removed.** This step's own example in `m10-plan.md` said
+    // **The half the review pass removed.** This step's own example in `docs/design/communicating-a-forecast.md` said
     // "the last is done between 12 October and 30 November", which is the two-sided form
     // decision 2 exists to keep out — and the date it restated is already on screen
     // one-sided, three lines above. `Oct 5` is that sentence's early end, and it is the
@@ -1147,7 +1147,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * <strong>Its past and no cone, saying which</strong> — M9's three states arriving here
+   * <strong>Its past and no cone, saying which</strong> — the throughput forecast's three states arriving here
    * unchanged. A plan too young to project from has still delivered something, and what it
    * has delivered is worth drawing.
    */
@@ -1406,7 +1406,7 @@ describe('ForecastPanel', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('still explains the limitations of a forecast made before M3b', async () => {
+  it('still explains the limitations of a forecast made before the common-cause model', async () => {
     await open([
       { ...FORECAST, limitations: ['no_team_factor', 'no_scope_uncertainty'] }
     ]);
@@ -1516,7 +1516,7 @@ describe('ForecastPanel', () => {
 
   /**
    * Against its own box, and the hint above it is most of what stops the mistake this
-   * milestone is really about: answering with the team's daily total makes every date too
+   * work is really about: answering with the team's daily total makes every date too
    * early by exactly the number of people on the plan.
    */
   it('shows a refused working day against the working day box', async () => {
@@ -1614,7 +1614,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * The two questions this milestone exists to ask, on screen and not behind the
+   * The two questions this work exists to ask, on screen and not behind the
    * disclosure the sample count sits in — a required box inside a collapsed section is a
    * refusal about a field the visitor cannot see.
    */
@@ -1865,7 +1865,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * <strong>Each entry carries its own assumptions, and that is M10's problem arriving
+   * <strong>Each entry carries its own assumptions, and that is the problem of saying a forecast plainly arriving
    * early enough to design around.</strong> Bob asked the same plan a different question —
    * fewer people, no common cause, no unlisted work — so his shorter answer is not this
    * plan having got better. A history that showed only the numbers would read exactly as
@@ -2538,7 +2538,7 @@ describe('ForecastPanel', () => {
 
   /**
    * <strong>And a plan that is merely churning hears nothing.</strong> The measurement this
-   * milestone is built on is that a rule about direction fires on 86% of plans that are not
+   * work is built on is that a rule about direction fires on 86% of plans that are not
    * sliding at all — so the same eight days, on a band wide enough to have admitted to them,
    * are not worth interrupting anybody about. Whether they are is the server's to decide.
    */
@@ -2614,7 +2614,7 @@ describe('ForecastPanel', () => {
   });
 
   /**
-   * <strong>M6's argument, arriving one level up.</strong> An account of a movement between
+   * <strong>the contribution ranking's reasoning, arriving one level up.</strong> An account of a movement between
    * two versions of the model is an exact account of a movement that never happened — so the
    * server refuses, and the refusal is what is shown rather than a blank.
    */

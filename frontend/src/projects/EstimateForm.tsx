@@ -85,8 +85,8 @@ type EstimateFormProps = {
  * One question at a time, and never the middle one first.
  *
  * **This form used to be three boxes labelled P10, P50 and P90, and replacing it is the
- * milestone.** `product-concept.md` is blunt that those produce 3/5/8 without anybody
- * thinking, and the measurement in `m5-plan.md` says why no check can catch it: every
+ * work.** `product-concept.md` is blunt that those produce 3/5/8 without anybody
+ * thinking, and the measurement in `docs/design/elicitation.md` says why no check can catch it: every
  * Fibonacci triple agrees with itself to within a few percent and clears the overconfidence
  * rule. The garbage is *coherent*. The fault is not in the numbers, it is that they were
  * never separately thought about — which is a property of how they were asked for, and

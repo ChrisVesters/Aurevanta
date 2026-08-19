@@ -53,9 +53,10 @@ import java.util.List;
  * <p>
  * Two defensible priority rules produce two different forecasts from identical data —
  * worth 0 to 4% where every slot is interchangeable and up to 9% once the resources are
- * typed, measured in {@code m11-plan.md} — so the rule is stable, explicable in a
- * sentence, and stored alongside every run it produced. It is also the smaller of the two
- * effects there by some way, which is worth knowing before spending a milestone on it.
+ * typed, measured in {@code docs/design/resources-and-people.md} — so the rule is stable,
+ * explicable in a sentence, and stored alongside every run it produced. It is also the
+ * smaller of the two effects there by some way, which is worth knowing before spending a
+ * release on it.
  */
 public final class Schedule {
 
@@ -382,10 +383,10 @@ public final class Schedule {
 	 *
 	 * <p>
 	 * <strong>"Is anything free" is the wrong question, and it is wrong in exactly the
-	 * shape this milestone exists to model.</strong> A team of ten backend and one
-	 * designer running work that is nearly all backend leaves the designer's unit free
-	 * for most of the plan — so a guard asking only whether some pool has a unit is true
-	 * throughout, and every event walks every ready item again. Measured on the same
+	 * shape this work exists to model.</strong> A team of ten backend and one designer
+	 * running work that is nearly all backend leaves the designer's unit free for most of
+	 * the plan — so a guard asking only whether some pool has a unit is true throughout,
+	 * and every event walks every ready item again. Measured on the same
 	 * five-hundred-item plan: 449 ms with one pool, 2,276 ms with those two, against a
 	 * budget of two seconds. The unit being free is not the point; a unit being free
 	 * <em>that something waiting could take</em> is.
@@ -590,11 +591,11 @@ public final class Schedule {
 	 * exactly when the plan does not wait for itself.
 	 *
 	 * <p>
-	 * The refusal is unreachable through the API — M2 checks every new edge against the
-	 * whole graph under a lock on the plan, which is the sharpest thing in that milestone
-	 * — but this method takes primitives, so a test hands it a cycle directly. That is
-	 * the distinction {@code ProjectService.lockForGraphChange} draws from the other
-	 * side, where a refusal was removed for being reachable by nothing at all.
+	 * The refusal is unreachable through the API — the plan schema checks every new edge
+	 * against the whole graph under a lock on the plan, which is the sharpest thing in
+	 * that work — but this method takes primitives, so a test hands it a cycle directly.
+	 * That is the distinction {@code ProjectService.lockForGraphChange} draws from the
+	 * other side, where a refusal was removed for being reachable by nothing at all.
 	 */
 	private static int[] topological(int items, int[][] successors, int[] predecessorCount) {
 		int[] awaiting = predecessorCount.clone();

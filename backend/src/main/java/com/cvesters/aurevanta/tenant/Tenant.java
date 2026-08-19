@@ -54,10 +54,10 @@ public class Tenant {
 	 *
 	 * <p>
 	 * <strong>Every link anyone holds to the old handle stops working.</strong> There is
-	 * no table of retired handles and nothing redirects; the decision was taken in M1a on
-	 * the grounds that nothing routes by handle yet, which is true until M2 puts one in a
-	 * URL and stops being true the moment it does. The screen that calls this says so
-	 * before it saves.
+	 * no table of retired handles and nothing redirects; the decision was taken in chosen
+	 * handles on the grounds that nothing routes by handle yet, which is true until the
+	 * plan schema puts one in a URL and stops being true the moment it does. The screen
+	 * that calls this says so before it saves.
 	 */
 	public void changeSlug(String slug) {
 		this.slug = slug;

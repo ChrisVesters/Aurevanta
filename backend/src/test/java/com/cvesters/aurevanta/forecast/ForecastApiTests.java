@@ -75,7 +75,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * sitting in its own columns. If anything a forecast depended on were left out of the
  * snapshot, that test is the only thing in the suite that would notice — everything else
  * would go on passing while the history quietly became unreplayable, which is a thing
- * nobody discovers until M10 needs it.
+ * nobody discovers until the reporting layer needs it.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -139,10 +139,10 @@ class ForecastApiTests {
 	private AccessTokenService accessTokens;
 
 	/**
-	 * The only place in this suite that writes SQL, and it earns it: the rows this
-	 * milestone has to keep readable are the ones nothing can create any more, so they
-	 * are made the way {@code V14} left them rather than through a second entity
-	 * constructor that would invite somebody to write one on purpose.
+	 * The only place in this suite that writes SQL, and it earns it: the rows this work
+	 * has to keep readable are the ones nothing can create any more, so they are made the
+	 * way {@code V14} left them rather than through a second entity constructor that
+	 * would invite somebody to write one on purpose.
 	 */
 	@Autowired
 	private JdbcTemplate database;
@@ -242,8 +242,7 @@ class ForecastApiTests {
 	 * backfill them with zeros and call it true.</strong> A run that assumed nothing
 	 * reads back as two parameters that take no draw at all, so replaying it under
 	 * version 2 is running version 1 — which is the whole of the promise
-	 * {@code Engine.VERSION} makes. Every forecast made before this milestone is one of
-	 * these.
+	 * {@code Engine.VERSION} makes. Every forecast made before this work is one of these.
 	 */
 	@Test
 	void aRunThatAssumedNothingReplaysTheWayVersionOneDid() throws Exception {
@@ -324,12 +323,12 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * <strong>The concrete definition of M3b being finished.</strong> Every M3a forecast
-	 * carried {@code no_team_factor} and {@code no_scope_uncertainty}, because they
-	 * described an engine that sampled every item independently and forecast only the
-	 * work somebody had written down. Both are now modelled, so a plan with nothing else
-	 * wrong with it has nothing to report — the notices went away by having their cause
-	 * removed rather than their wording.
+	 * <strong>The concrete definition of the common-cause model being finished.</strong>
+	 * Every the simulation engine forecast carried {@code no_team_factor} and
+	 * {@code no_scope_uncertainty}, because they described an engine that sampled every
+	 * item independently and forecast only the work somebody had written down. Both are
+	 * now modelled, so a plan with nothing else wrong with it has nothing to report — the
+	 * notices went away by having their cause removed rather than their wording.
 	 */
 	@Test
 	void aForecastOfAWellDescribedPlanHasNothingToConfessTo() throws Exception {
@@ -340,9 +339,9 @@ class ForecastApiTests {
 
 	/**
 	 * And the two retired codes are gone whatever was assumed. A run made with both
-	 * parameters at zero models the same thing M3a did, and still does not say so this
-	 * way: what it assumed is on the run itself now, where a reader can see the number
-	 * rather than a note about its absence.
+	 * parameters at zero models the same thing the simulation engine did, and still does
+	 * not say so this way: what it assumed is on the run itself now, where a reader can
+	 * see the number rather than a note about its absence.
 	 */
 	@Test
 	void noForecastStillReportsTheTwoLimitationsM3bRemoved() throws Exception {
@@ -403,8 +402,8 @@ class ForecastApiTests {
 	 * <strong>An arrow into work put away since is dropped, and said out loud.</strong>
 	 * Archived work is never going to finish, so waiting for it would be waiting forever
 	 * — but silently ignoring a constraint is how a plan comes out early for a reason
-	 * nobody can see, which is the mistake M2's own progress endpoint had to be corrected
-	 * for.
+	 * nobody can see, which is the mistake the plan schema's own progress endpoint had to
+	 * be corrected for.
 	 */
 	@Test
 	void anArrowIntoWorkPutAwaySinceIsDroppedAndReported() throws Exception {
@@ -463,7 +462,8 @@ class ForecastApiTests {
 	 * <strong>Every forecast this product has ever made can be explained, because nothing
 	 * was stored to explain it.</strong> The ranking comes from replaying the run out of
 	 * its own seed — five million per-item durations that never had to be written down —
-	 * which is what M3a kept a seed for and the first feature to spend it.
+	 * which is what the simulation engine kept a seed for and the first feature to spend
+	 * it.
 	 */
 	@Test
 	void aStoredRunSaysWhatItsSpreadWasMadeOf() throws Exception {
@@ -488,9 +488,10 @@ class ForecastApiTests {
 
 	/**
 	 * <strong>Titles come off the plan as it stands, because the snapshot never held
-	 * one.</strong> That is deliberate — M10 diffs those snapshots and a rename is not a
-	 * thing that moved — and it is the right answer anyway: somebody reading a ranking is
-	 * being told what to go and do, so the name the work has now is the useful one.
+	 * one.</strong> That is deliberate — the reporting layer diffs those snapshots and a
+	 * rename is not a thing that moved — and it is the right answer anyway: somebody
+	 * reading a ranking is being told what to go and do, so the name the work has now is
+	 * the useful one.
 	 */
 	@Test
 	void aRankingNamesTheWorkAsThePlanNamesItNow() throws Exception {
@@ -604,7 +605,7 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * <strong>The guard this milestone turns on.</strong> A run keeps the six figures it
+	 * <strong>The guard this work turns on.</strong> A run keeps the six figures it
 	 * produced, so replaying it and comparing them answers the only question that matters
 	 * — does this still come out the same? A ranking from a different model is not a
 	 * rougher ranking of this plan, it is an exact ranking of a plan nobody forecast, and
@@ -704,10 +705,10 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * <strong>Decision 6, made executable, and it is the correction this milestone made
-	 * to `roadmap.md`.</strong> An estimate of three identical numbers never varies, so
-	 * M6 reports it as contributing exactly nothing to the spread — and cutting it
-	 * removes the same hours from every single run. A shortlist drawn from the
+	 * <strong>Decision 6, made executable, and it is the correction this work made to
+	 * `roadmap.md`.</strong> An estimate of three identical numbers never varies, so the
+	 * contribution ranking reports it as contributing exactly nothing to the spread — and
+	 * cutting it removes the same hours from every single run. A shortlist drawn from the
 	 * contribution ranking would have hidden the best thing on this plan to drop.
 	 */
 	@Test
@@ -732,8 +733,8 @@ class ForecastApiTests {
 
 	/**
 	 * The date became a number of hours through the run's own calendar, and the answer
-	 * says which — M4's rule about a stated assumption arriving beside the number it
-	 * produced, in the one place where the number is a recommendation.
+	 * says which — the calendar's rule about a stated assumption arriving beside the
+	 * number it produced, in the one place where the number is a recommendation.
 	 */
 	@Test
 	void theAnswerSaysWhatTheDateCameTo() throws Exception {
@@ -1097,8 +1098,8 @@ class ForecastApiTests {
 	 *
 	 * <p>
 	 * Only one rule exists, so this row cannot be made through the API. It is the shape
-	 * M11 arrives in, and the day it does is the day the alternative starts lying
-	 * quietly.
+	 * the resource model arrives in, and the day it does is the day the alternative
+	 * starts lying quietly.
 	 */
 	@Test
 	void aRunResolvesUnderTheCalendarItWasMadeWithAndNotTodays() throws Exception {
@@ -1438,9 +1439,9 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * A run made before this milestone stored a declaration at all reports no team, which
-	 * is the absence {@code V19} deliberately did not backfill: such a run did not assume
-	 * an empty team, it assumed no such concept.
+	 * A run made before this work stored a declaration at all reports no team, which is
+	 * the absence {@code V19} deliberately did not backfill: such a run did not assume an
+	 * empty team, it assumed no such concept.
 	 */
 	@Test
 	void aRunFromBeforeTheColumnExistedReportsNoTeam() throws Exception {
@@ -1609,7 +1610,7 @@ class ForecastApiTests {
 	/**
 	 * <strong>Nothing is written.</strong> Forty simulations can go past for one question
 	 * without {@code forecast_runs} gaining a row, which is what keeps that table meaning
-	 * one thing — somebody asked the engine — and is what M10's detector walks.
+	 * one thing — somebody asked the engine — and is what the drift detector walks.
 	 */
 	@Test
 	void weighingAHireWritesNothing() throws Exception {
@@ -1677,10 +1678,11 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * <strong>The containment, over the wire.</strong> A run this engine made before M11
-	 * is one with no team declared and a version of 2 — and replaying it has to reproduce
-	 * it exactly, or M6's ranking, M7's cuts and M10's decomposition all stop answering
-	 * for every forecast this product made before today.
+	 * <strong>The containment, over the wire.</strong> A run this engine made before the
+	 * resource model is one with no team declared and a version of 2 — and replaying it
+	 * has to reproduce it exactly, or the contribution ranking, the inverse query's cuts
+	 * and the movement decomposition all stop answering for every forecast this product
+	 * made before today.
 	 */
 	@Test
 	void aRunMadeByTheEngineBeforeResourcesStillReplays() throws Exception {
@@ -1875,9 +1877,9 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * The assertion the M2 review found missing from {@code EstimateApiTests}, written
-	 * here rather than inherited: an identity token names a person and no organisation,
-	 * and a forecast is tenant-owned data.
+	 * The assertion the the plan schema review found missing from
+	 * {@code EstimateApiTests}, written here rather than inherited: an identity token
+	 * names a person and no organisation, and a forecast is tenant-owned data.
 	 */
 	@Test
 	void requiresATokenScopedToAnOrganisation() throws Exception {
@@ -1911,8 +1913,8 @@ class ForecastApiTests {
 
 	/**
 	 * A forecast that assumes nothing beyond its capacity — no common cause and no
-	 * growth, which is what the engine did before M3b and is now something somebody has
-	 * to say.
+	 * growth, which is what the engine did before the common-cause model and is now
+	 * something somebody has to say.
 	 */
 	private ForecastRun forecast(int capacity) throws Exception {
 		return forecast(assuming(capacity, 0, 0, 0));
@@ -1920,7 +1922,8 @@ class ForecastApiTests {
 
 	/**
 	 * The body of a request for a forecast. Three of a run's five assumptions became
-	 * required in M3b, so there is no shorter honest way to ask for one.
+	 * required in the common-cause model, so there is no shorter honest way to ask for
+	 * one.
 	 */
 	private static String assuming(int capacity, Number worseByPercent, Number growthP10, Number growthP90) {
 		return assuming(capacity, worseByPercent, growthP10, growthP90, null);
@@ -2074,7 +2077,8 @@ class ForecastApiTests {
 
 	/**
 	 * A calendar is required of every run made today, so the only way to have one without
-	 * is to be older than M4 — which is what {@code V14} left, and what this reproduces.
+	 * is to be older than the calendar — which is what {@code V14} left, and what this
+	 * reproduces.
 	 */
 	private void madeBeforeThereWasACalendar(UUID runId) {
 		this.database.update("update forecast_runs set starts_on = null, working_hours_per_day = null,"

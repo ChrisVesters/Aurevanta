@@ -128,7 +128,9 @@ class OrganisationApiTests {
 					Tuple.tuple("nowhere-consulting", UserRole.OWNER));
 	}
 
-	/** The whole point of M1a: the name is not the thing that has to be unique. */
+	/**
+	 * The whole point of chosen handles: the name is not the thing that has to be unique.
+	 */
 	@Test
 	void acceptsANameSomebodyElseAlreadyUses() throws Exception {
 		this.tenants.save(new Tenant("Nowhere Consulting", "nowhere-consulting", CREATED_AT));
@@ -139,9 +141,9 @@ class OrganisationApiTests {
 	}
 
 	/**
-	 * The refusal M0 got wrong, aimed at the right thing — and carrying a way past
-	 * itself, which is what this API offers instead of an endpoint for asking what is
-	 * free.
+	 * The refusal the original tenancy design got wrong, aimed at the right thing — and
+	 * carrying a way past itself, which is what this API offers instead of an endpoint
+	 * for asking what is free.
 	 */
 	@Test
 	void refusesAHandleSomebodyElseHasAndOffersOneTheyDoNot() throws Exception {
@@ -365,7 +367,7 @@ class OrganisationApiTests {
 
 	/**
 	 * Name and handle are passed separately because they are no longer derived from one
-	 * another — which is the whole of what this milestone changed.
+	 * another — which is the whole of what this work changed.
 	 */
 	private ResultActions create(String bearer, String name, String slug) throws Exception {
 		return this.mvc.perform(post("/api/organisations").header(HttpHeaders.AUTHORIZATION, "Bearer " + bearer)

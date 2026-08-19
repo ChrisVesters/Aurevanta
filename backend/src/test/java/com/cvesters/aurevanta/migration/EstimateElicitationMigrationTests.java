@@ -24,10 +24,10 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 /**
  * <strong>V15 backfills a claim about every estimate ever written, and this is what says
  * the claim is true.</strong> That column is the only instrument that can ever answer
- * M5's own question — whether changing how a range is asked for changes how often it
- * contains the truth — so a backfill that quietly missed rows, or a default left in place
- * letting later rows inherit a method nobody stated, would corrupt the evidence rather
- * than lose it. The distinction matters: corrupted evidence still looks like data.
+ * elicitation's own question — whether changing how a range is asked for changes how
+ * often it contains the truth — so a backfill that quietly missed rows, or a default left
+ * in place letting later rows inherit a method nobody stated, would corrupt the evidence
+ * rather than lose it. The distinction matters: corrupted evidence still looks like data.
  *
  * <p>
  * Run the way {@code IdentityAndMembershipMigrationTests} runs: bring the database to the
@@ -80,9 +80,9 @@ class EstimateElicitationMigrationTests {
 
 	/**
 	 * The backfill, and the reason it is honest rather than merely convenient: every row
-	 * that existed before M5 really was typed into three boxes, because that is the only
-	 * form this product has ever had. Compare {@code V14}, which wrote nothing because
-	 * there was nothing true to write.
+	 * that existed before elicitation really was typed into three boxes, because that is
+	 * the only form this product has ever had. Compare {@code V14}, which wrote nothing
+	 * because there was nothing true to write.
 	 */
 	@Test
 	void everyEstimateWrittenBeforeM5SaysItWasThreeBoxes() throws SQLException {

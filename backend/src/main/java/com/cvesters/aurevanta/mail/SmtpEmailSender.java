@@ -12,8 +12,8 @@ import org.springframework.mail.javamail.JavaMailSender;
  * an SMTP endpoint too, which makes the choice of provider a matter of
  * {@code spring.mail.*} and nothing else. Reasons to swap this for an API client —
  * blocked outbound ports, per-message metadata, or volume — are recorded in
- * {@code docs/m1-plan.md}; when one arrives, the replacement implements
- * {@link EmailSender} and no caller changes.
+ * {@code docs/docs/design/teams-and-invitations.md}; when one arrives, the replacement
+ * implements {@link EmailSender} and no caller changes.
  */
 class SmtpEmailSender implements EmailSender {
 

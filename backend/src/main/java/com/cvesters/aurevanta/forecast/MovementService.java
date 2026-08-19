@@ -128,8 +128,8 @@ public class MovementService {
 	 * <strong>Days are the difference between two dates and never the hours
 	 * converted.</strong> Each end is rounded up to a whole day on its own, so a day
 	 * count derived from an hours difference disagrees with the dates on screen about
-	 * half the time — which is M4's warning about a step function, met from a new
-	 * direction.
+	 * half the time — which is the calendar's warning about a step function, met from a
+	 * new direction.
 	 */
 	private static MovementAtResponse read(ForecastRun older, ForecastTerms olderTerms, ForecastTerms newerTerms,
 			int confidence, List<Forecast> states) {
@@ -180,8 +180,8 @@ public class MovementService {
 
 	/**
 	 * The day a state's hours land on, or null when that state has no calendar to read
-	 * them through — a run made before M4 has none, and inventing one would be the claim
-	 * `V14` deliberately did not backfill.
+	 * them through — a run made before the calendar has none, and inventing one would be
+	 * the claim `V14` deliberately did not backfill.
 	 */
 	private static LocalDate dateUnder(ForecastTerms terms, BigDecimal hours) {
 		if (terms.startsOn() == null || terms.workingHoursPerDay() == null

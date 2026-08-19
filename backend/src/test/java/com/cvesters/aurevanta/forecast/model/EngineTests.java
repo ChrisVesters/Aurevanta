@@ -20,10 +20,10 @@ import static org.assertj.core.api.Assertions.withinPercentage;
  *
  * <p>
  * <strong>{@code aSumOfIndependentWorkConvergesOnItsExactMoments} is the test this whole
- * milestone was arranged around.</strong> A schedule at capacity one is a sum of
- * independent draws, and a sum has an exactly known mean and variance whatever shapes
- * went into it — so the sampler can be measured rather than trusted. `m3a-plan.md`
- * decision 1 splits the milestone precisely at the point where that check stops being
+ * work was arranged around.</strong> A schedule at capacity one is a sum of independent
+ * draws, and a sum has an exactly known mean and variance whatever shapes went into it —
+ * so the sampler can be measured rather than trusted. `docs/design/simulation-engine.md`
+ * decision 1 splits the work precisely at the point where that check stops being
  * available.
  *
  * <p>
@@ -177,11 +177,11 @@ class EngineTests {
 	/**
 	 * <strong>What {@link Engine#VERSION} being 2 rather than 3 actually
 	 * promises.</strong> These are the numbers this engine produced when it was version
-	 * 1, recorded from the M3a build before a line of M3b was written. Version 2 with
-	 * both of its parameters at none must reproduce every one of them — not
-	 * approximately, exactly — because that is the whole of what "the new engine contains
-	 * the old one" means, and every version 1 run in the database is replayable only
-	 * while it holds.
+	 * 1, recorded from the the simulation engine build before a line of the common-cause
+	 * model was written. Version 2 with both of its parameters at none must reproduce
+	 * every one of them — not approximately, exactly — because that is the whole of what
+	 * "the new engine contains the old one" means, and every version 1 run in the
+	 * database is replayable only while it holds.
 	 *
 	 * <p>
 	 * It costs one assertion and turns the whole of {@code m3a}'s suite into a regression
@@ -294,9 +294,10 @@ class EngineTests {
 
 	/**
 	 * <strong>Two effects, and the band is wider for both of them than for
-	 * either.</strong> Nothing here has a closed form — that is what makes M3b a
-	 * milestone of its own — but the direction is not in any doubt, and a composition
-	 * that let one effect swallow the other would show up here and nowhere else.
+	 * either.</strong> Nothing here has a closed form — that is what makes the
+	 * common-cause model a work of its own — but the direction is not in any doubt, and a
+	 * composition that let one effect swallow the other would show up here and nowhere
+	 * else.
 	 */
 	@Test
 	void bothAssumptionsTogetherWidenTheBandFurtherThanEitherAlone() {
@@ -317,20 +318,21 @@ class EngineTests {
 	}
 
 	/**
-	 * How far apart the ends of a forecast are, which is the thing M3b exists to widen.
+	 * How far apart the ends of a forecast are, which is the thing the common-cause model
+	 * exists to widen.
 	 */
 	private static double band(Forecast forecast) {
 		return forecast.p90Hours() - forecast.p10Hours();
 	}
 
 	/**
-	 * <strong>The exactness oracle M3b has in place of M3a's.</strong> A whole plan under
-	 * a shared factor has no closed form — that is why these two features are in a
-	 * milestone of their own — but <em>one item</em> does, exactly: if {@code X} is
-	 * log-normal({@code mu}, {@code sigma}) and {@code F} is log-normal(0, {@code s}) and
-	 * they are independent, then {@code F·X} is log-normal({@code mu},
-	 * {@code √(sigma² + s²)}). So the factor's implementation is pinned against
-	 * arithmetic rather than against a direction of travel.
+	 * <strong>The exactness oracle the common-cause model has in place of the simulation
+	 * engine's.</strong> A whole plan under a shared factor has no closed form — that is
+	 * why these two features are in a work of their own — but <em>one item</em> does,
+	 * exactly: if {@code X} is log-normal({@code mu}, {@code sigma}) and {@code F} is
+	 * log-normal(0, {@code s}) and they are independent, then {@code F·X} is
+	 * log-normal({@code mu}, {@code √(sigma² + s²)}). So the factor's implementation is
+	 * pinned against arithmetic rather than against a direction of travel.
 	 */
 	@Test
 	void oneItemUnderAFactorIsExactlyTheDistributionTheTwoImply() {
@@ -346,8 +348,8 @@ class EngineTests {
 	}
 
 	/**
-	 * <strong>The measurement this milestone exists to reproduce.</strong> `roadmap.md`
-	 * put ten wide tasks at a true P90 of 209.4 sampled independently and 222.2 under a
+	 * <strong>The measurement this work exists to reproduce.</strong> `roadmap.md` put
+	 * ten wide tasks at a true P90 of 209.4 sampled independently and 222.2 under a
 	 * shared team factor, and noted that the closed form answers 214.0 to both — a common
 	 * cause moved the real answer by thirteen days and the formula could not see it at
 	 * all.
@@ -424,8 +426,8 @@ class EngineTests {
 	 * <strong>The oracle for decision 4, and it is exact.</strong> One item, and a plan
 	 * certain to double in size: the run finishes at two draws from one distribution, so
 	 * its mean is twice that fit's mean and its variance twice that fit's variance — the
-	 * same closed form the whole of M3a was checked against, now checking that work
-	 * nobody had thought of costs what this plan's work costs.
+	 * same closed form the whole of the simulation engine was checked against, now
+	 * checking that work nobody had thought of costs what this plan's work costs.
 	 *
 	 * <p>
 	 * <strong>Measured at 39.918 against 39.922 exactly</strong>, and a standard
@@ -510,12 +512,12 @@ class EngineTests {
 	}
 
 	/**
-	 * <strong>M3a's {@code nothing_to_forecast} doing load-bearing work two milestones
-	 * later.</strong> New work costs what this plan's work costs, so a plan holding no
-	 * estimate has nothing to answer with — and the refusal that already stops such a
-	 * plan reaching the engine is the reason this can never happen through the API. It is
-	 * stated here because it is exactly the kind of guarantee somebody relaxes without
-	 * knowing what else was resting on it.
+	 * <strong>the simulation engine's {@code nothing_to_forecast} doing load-bearing work
+	 * two features later.</strong> New work costs what this plan's work costs, so a plan
+	 * holding no estimate has nothing to answer with — and the refusal that already stops
+	 * such a plan reaching the engine is the reason this can never happen through the
+	 * API. It is stated here because it is exactly the kind of guarantee somebody relaxes
+	 * without knowing what else was resting on it.
 	 */
 	@Test
 	void refusesToGrowAPlanWithNothingEstimatedInIt() {
@@ -661,10 +663,11 @@ class EngineTests {
 
 	/**
 	 * <strong>Decision 8's synchronous answer is only true while this holds.</strong>
-	 * Five hundred items is the ceiling M2 fixed so that a forecast need not be queued,
-	 * and ten thousand runs is what decision 8 chose; if the two together stop fitting in
-	 * a request, the lever is parallelising runs across cores — {@link Schedule} is
-	 * immutable for exactly that reason — and queuing only if that is not enough.
+	 * Five hundred items is the ceiling the plan schema fixed so that a forecast need not
+	 * be queued, and ten thousand runs is what decision 8 chose; if the two together stop
+	 * fitting in a request, the lever is parallelising runs across cores —
+	 * {@link Schedule} is immutable for exactly that reason — and queuing only if that is
+	 * not enough.
 	 *
 	 * <p>
 	 * <strong>Measured at about 300ms</strong>, so the ceiling below is roughly six times

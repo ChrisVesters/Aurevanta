@@ -1,12 +1,12 @@
 # Aurevanta — Concepts and Planned Features
 
 > **Status: design intent, and Tiers 1 and 2 are now built.** As of 2026-08-17 the schema this
-> document implies exists and something reads it: M0–M1a built tenancy, identity and teams,
-> **M2 built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
+> document implies exists and something reads it: the original tenancy design–chosen handles built tenancy, identity and teams,
+> **The plan schema built the estimation schema** — projects, work items, immutable P10/P50/P90 estimates
 > with an estimator, progress and actuals, and a precedence graph, with the plainest possible
-> UI to fill them — **M3 built the engine, both halves of it**, **M4 turned its hours into a
-> date at a chosen confidence**, **M5 replaced the question those estimates are collected by**,
-> **M6 made the band say what it is made of**, and **M7 turned it into "what would it take to hit
+> UI to fill them — **The simulation engine built the engine, both halves of it**, **The calendar turned its hours into a
+> date at a chosen confidence**, **Elicitation replaced the question those estimates are collected by**,
+> **The contribution ranking made the band say what it is made of**, and **The inverse query turned it into "what would it take to hit
 > this date?"**. `roadmap.md` sequences the rest and is newer than this document wherever the two
 > disagree.
 >
@@ -21,7 +21,7 @@
 > contribution says what the band is made of, and inverse queries run the question backwards, so
 > the usage pattern this document describes — something opened *during* planning rather than a
 > reporting surface — is the one the product now has. Tier 3 and everything after it is still
-> design intent. Two of the *Open questions* at the end were answered by M2 and are marked as
+> design intent. Two of the *Open questions* at the end were answered by the plan schema and are marked as
 > such; the rest stand.
 
 ## Purpose
@@ -60,10 +60,10 @@ it was given.
 ratio of the stated middle to the implied one: 1.0 is agreement, and the further either way, the
 harder the three points are arguing with each other. That is a fact about the *estimate*, and it
 is surfaced — a forecast whose items disagree with themselves reports `inconsistent_estimates`
-beside the band. Pointing at *which* estimate is M5's, because it is elicitation feedback and
+beside the band. Pointing at *which* estimate is elicitation's, because it is elicitation feedback and
 belongs where the question is asked.
 
-> **Discharged by M5.** The ratio is published on every estimate and the review that precedes
+> **Discharged by elicitation.** The ratio is published on every estimate and the review that precedes
 > saving one says so in words, where the question was asked. The threshold that decides "a long
 > way" is stated **once**, beside the arithmetic it bounds, and read by both the forecast and the
 > form — two rules about one estimate would eventually disagree, and the one on the plan screen
@@ -74,10 +74,10 @@ belongs where the question is asked.
 
 ### Tier 1 — the minimum that beats a spreadsheet ✅ *built*
 
-**Monte Carlo rollup. ✅ *built by M3*** Fit → sample → aggregate. Produces a full project
+**Monte Carlo rollup. ✅ *built by the simulation engine*** Fit → sample → aggregate. Produces a full project
 distribution rather than a single number.
 
-**Ship date at a confidence level. ✅ *built by M4*** Nobody asks for a distribution; they
+**Ship date at a confidence level. ✅ *built by the calendar*** Nobody asks for a distribution; they
 ask what date they can commit to. A single confidence control (50% / 80% / 95%) resolving to
 a calendar date. This also reframes stakeholder negotiation: "can we go faster" is answered by
 "we can commit at lower confidence," which is the honest trade.
@@ -88,7 +88,7 @@ a calendar date. This also reframes stakeholder negotiation: "can we go faster" 
 > the only way the trade reads as a trade.
 >
 > **What this section did not say is where the calendar comes from**, and that turned out to
-> be the whole of the milestone. Hours become days by dividing by a working day, and that day
+> be the whole of the work. Hours become days by dividing by a working day, and that day
 > is **one worker's** — never the team's daily total. The engine's output is a completion time
 > with capacity already inside it, so dividing by a team's total counts capacity twice and
 > produces a date wrong by exactly the factor a team is proudest of, with the band unchanged
@@ -103,7 +103,7 @@ a calendar date. This also reframes stakeholder negotiation: "can we go faster" 
 
 ### Tier 2 — analysis over the same engine, no new schema ✅ *built*
 
-**Variance contribution. ✅ *built by M6*** Rank tasks by their contribution to the *spread* of
+**Variance contribution. ✅ *built by the contribution ranking*** Rank tasks by their contribution to the *spread* of
 the project outcome, not by duration. A 20-day task estimated 18–22 is nearly risk-free; a
 5-day task estimated 2–30 is what wrecks the forecast. Directly answers "what should I
 spike next to tighten the plan," and is the most defensible feature in the product —
@@ -111,7 +111,7 @@ point-estimate tools cannot produce it.
 
 > **Built, 2026-08-17, and it cost no schema.** Each item's sampled duration is correlated with
 > the plan's completion across every run — by replaying the stored forecast out of its own seed,
-> which is what M3a kept a seed for. So it answers for every forecast this product has ever made
+> which is what the simulation engine kept a seed for. So it answers for every forecast this product has ever made
 > rather than only for the ones since.
 >
 > **Two things this paragraph did not know it was claiming.** The first is that "contribution to
@@ -133,12 +133,12 @@ point-estimate tools cannot produce it.
 > narrow links on that chain accounted for about 18%. A summing model would have sent somebody to
 > spike the one thing least worth touching.
 
-**Inverse queries. ✅ *built by M7*** Run the question backwards: not "when will this finish" but
+**Inverse queries. ✅ *built by the inverse query*** Run the question backwards: not "when will this finish" but
 "what do I cut to hit 1 November at 85% confidence?", ranking candidate scope removals by the
 confidence each one buys. This changes the usage pattern from reporting surface to
 something opened during planning.
 
-> **Built, 2026-08-17, and like M6 it cost no schema.** The target date becomes hours through the
+> **Built, 2026-08-17, and like the contribution ranking it cost no schema.** The target date becomes hours through the
 > run's own calendar, and every candidate is measured by replaying that stored run with the work
 > imagined away — nothing is written, so this answers about forecasts made long before it existed.
 >
@@ -154,7 +154,7 @@ something opened during planning.
 > may never be added up: two cuts on one chain shorten the same path and buy barely more than one,
 > and two on separate branches leave the later of them deciding. So the set that reaches the date
 > is **searched for and measured at every step**, and the screen never puts the two in one column.
-> This is the same trap as M6's shares, in a form far more tempting to fall into, because every
+> This is the same trap as the contribution ranking's shares, in a form far more tempting to fall into, because every
 > figure is a percentage with a plus sign in front of it.
 >
 > **What it deliberately is not** is a scope editor. It weighs what somebody names and says what
@@ -206,7 +206,7 @@ than any single forecast, because both numbers came from the team.
 >
 > **What it needs is what nothing else here needs: nothing.** No estimate, no assumption, no
 > actual — only that work has been finished and dated, which this product already requires. That
-> is why it can answer on the day it ships where M8's calibration cannot, and it is the strongest
+> is why it can answer on the day it ships where calibration's calibration cannot, and it is the strongest
 > argument for the pair of them existing side by side.
 
 ### Deferred
@@ -220,27 +220,27 @@ core value.
 > showed that summing a flat list is not a neutral simplification — it silently assumes one
 > worker doing everything in sequence, and the same ten items forecast at 51 or 86 days
 > depending only on structure. Precedence dependencies therefore moved into the schema and
-> the engine; capacity modelling remains later, as M11.
+> the engine; capacity modelling remains later, as the resource model.
 
 > **Half-answered, 2026-08-17, and the halves came apart in a way this note did not expect.**
 > The parenthesis above bundles *people, allocation, holidays, working days — mapping an
-> effort distribution onto calendar dates* as one deferral. M4 took the last clause on its own:
+> effort distribution onto calendar dates* as one deferral. The calendar took the last clause on its own:
 > hours become dates through one stated working day and a named calendar rule, and that needed
 > no schema for people, no allocation and no holiday list. **What made it separable is that the
 > assumption is stated per forecast rather than modelled** — it is copied onto the run like
 > capacity, so nothing has to know who is working when.
 >
-> The rest stays M11's, and arrives as a **new rule name** rather than as a better version of
+> The rest stays the resource model's, and arrives as a **new rule name** rather than as a better version of
 > this one. Every run made under `five_day_week` keeps resolving under it, so real availability
 > landing later cannot move a date this product has already published — which is the one thing
 > a holiday list would otherwise do to every historical forecast at once.
 
-> **Three-quarters answered, 2026-08-19, and the deferral splits once more.** M11 built *people*
+> **Three-quarters answered, 2026-08-19, and the deferral splits once more.** the resource model built *people*
 > and *allocation* and deliberately did not build *holidays*: a resource is a named pool with a
 > number of units, an item says how many units of which pools it ties up, and the scheduler
 > starts only what can have what it needs. All of that is still in **effort**, which is what
 > made it separable — units decide what may start, and the calendar over the answer is still
-> M4's.
+> the calendar's.
 >
 > **The part of this paragraph that turned out to matter is the part it does not mention.** The
 > deferral treats capacity modelling as schema complexity to be avoided; measured, treating a
@@ -250,12 +250,12 @@ core value.
 > the core value with an acceptable error; it demonstrates it optimistically, in the one
 > direction this product exists to correct.
 >
-> **What is left is holidays and part-time**, which is M12 and is the only half that needs the
+> **What is left is holidays and part-time**, which is availability and is the only half that needs the
 > engine to know what day it is.
 
 ## Modelling concerns to design around
 
-### The input problem is harder than the maths ✅ *mostly built by M5*
+### The input problem is harder than the maths ✅ *mostly built by elicitation*
 
 The simulation is straightforward to build; eliciting honest ranges from humans is the
 actual product. Presented with three boxes labelled P10/P50/P90, people will enter 3/5/8
@@ -279,13 +279,13 @@ has not thought about what could go wrong.
 
 > **Built, 2026-08-17, and two of the three framings shipped.** Surprise framing is how the
 > two ends are now collected and betting framing is how the high one is confirmed; **comparative
-> framing moved to M8**, because the only comparison available today is against other
+> framing moved to calibration**, because the only comparison available today is against other
 > *estimates*, and comparing a guess with a guess would spread anchoring across a whole plan
 > rather than within one item. It is reference-class forecasting only once March's actual is
 > known.
 >
 > **What this section did not say is that the order matters more than any of the framings**, and
-> that turned out to be the whole milestone. Three numbers asked together anchor on whichever is
+> that turned out to be the whole work. Three numbers asked together anchor on whichever is
 > answered first, and three boxes invite the middle to go first — so 3/5/8 is the middle plus a
 > bit and minus a bit, around an anchor nobody examined. They are now asked one at a time, bad
 > case first because it is the only one of the three with nothing above it, the middle last
@@ -301,18 +301,18 @@ has not thought about what could go wrong.
 >
 > **And the honest caveat.** Every claim in this section is a hypothesis about human judgement
 > that nothing in the codebase can settle: a better form is a better form, and whether it
-> produces honester ranges is M8's to answer. That is why each estimate now records *how it was
+> produces honester ranges is calibration's to answer. That is why each estimate now records *how it was
 > asked for* — split the calibration record by that column and the question answers itself.
 >
-> **M8 built the split and did not answer the question, which is the honest state of it.**
+> **Calibration built the split and did not answer the question, which is the honest state of it.**
 > `GET /api/calibration` returns a `byMethod` breakdown, so the two forms are already scored
 > apart; what it needs is completed work carrying both an estimate and a measured actual, and
-> that will take months to accumulate. **Comparative framing moved past M8 as well**, and for a
-> reason worth keeping: it needs the reference class M8 *creates*, so it could not be built in
-> the milestone that first makes one exist — and it would be a third method splitting a thin
+> that will take months to accumulate. **Comparative framing moved past calibration as well**, and for a
+> reason worth keeping: it needs the reference class calibration *creates*, so it could not be built in
+> the work that first makes one exist — and it would be a third method splitting a thin
 > record three ways rather than two.
 
-### Unknown unknowns dominate the error ✅ *built by M3b*
+### Unknown unknowns dominate the error ✅ *built by the common-cause model*
 
 Projects rarely overrun because known tasks exceeded their P90. They overrun because of
 work nobody listed. Every ticket can be estimated well and the project can still be 100%
@@ -328,22 +328,22 @@ Ignoring it is why other tools produce forecasts that look precise and land wron
 > exactly right for a sum and not available in a schedule: unknown work needs a *position*.
 > Each discovered item attaches as a successor to a uniformly chosen existing one, so it
 > becomes ready when that item finishes and competes for capacity like everything else —
-> `m3b-plan.md` decision 3 records the three positions rejected and why. The range is asked for
+> `design/common-cause-and-scope-growth.md` decision 3 records the three positions rejected and why. The range is asked for
 > as two percentages on the forecast screen, the count is sampled per run, and the fractional
 > part is rounded stochastically so that a plan of ten items growing 4% grows four times in
-> ten rather than never. Estimating it from history is still ahead: M8 is where a team's own
+> ten rather than never. Estimating it from history is still ahead: calibration is where a team's own
 > plans start answering this question, and the rule then is **propose from history, never
 > default**.
 >
-> **M8 shipped without spending that**, and the reason is that the two are not the same
+> **Calibration shipped without spending that**, and the reason is that the two are not the same
 > quantity. What it measures is how wide *one person's* range should have been around *one*
-> task; a shared factor is one draw applied to everything at once, and the errors M8 records
+> task; a shared factor is one draw applied to everything at once, and the errors calibration records
 > contain both added together — so handing its multiplier to the team factor would count the
 > shared part twice. Separating them means decomposing the residuals by *when* they happened,
-> which needs many completed plans and belongs after M9 says the same thing from the other
+> which needs many completed plans and belongs after the throughput forecast says the same thing from the other
 > direction.
 
-### Independence is a lie ✅ *built by M3b*
+### Independence is a lie ✅ *built by the common-cause model*
 
 Naive Monte Carlo samples each task independently, so good and bad luck cancel out and
 the project band comes out implausibly tight. Reality has common causes: if the team is
@@ -368,26 +368,26 @@ alone, and this compounds at every join. Simulation captures it for free; spread
 get it wrong universally. Worth surfacing as an explicit insight rather than burying it
 inside a number.
 
-> **Captured, not surfaced — and M10 decided that deliberately, 2026-08-19.** The engine has
-> modelled it since M3a: `Schedule` waits for every predecessor, so the effect is inside every
-> band this product has ever published. What M10 cut is the *number* — surfacing it explicitly
-> was one of that milestone's five bullets, and it is a correction to a figure the reader it was
+> **Captured, not surfaced — and the reporting work decided that deliberately, 2026-08-19.** The engine has
+> modelled it since the simulation engine: `Schedule` waits for every predecessor, so the effect is inside every
+> band this product has ever published. What the reporting work cut is the *number* — surfacing it explicitly
+> was one of that work's five bullets, and it is a correction to a figure the reader it was
 > written for has not yet understood. It is in the icebox under *Modelling depth* with the
 > probabilistic critical path, which it shares a cost with: both need the scheduler to report
 > which items decided each run, which is modelling work wearing a communication label.
 
 ## Open questions
 
-- ~~**Unit of estimation** — task, story, or epic?~~ *Answered by M2: **task**.* Coarser
-  units hide scope growth inside the estimate, which M3's scope-uncertainty model would
+- ~~**Unit of estimation** — task, story, or epic?~~ *Answered by the plan schema: **task**.* Coarser
+  units hide scope growth inside the estimate, which the simulation engine's scope-uncertainty model would
   then count a second time. The quantity is **effort in hours**, never duration — duration
-  is effort divided by what is assigned to it, and that division is M11's.
-- ~~**Multi-estimator support**~~ *Answered by M2: **schema now, UI later**.* Several
+  is effort divided by what is assigned to it, and that division is the resource model's.
+- ~~**Multi-estimator support**~~ *Answered by the plan schema: **schema now, UI later**.* Several
   estimates may sit on one item, one current per estimator, and they are read back
   together — so two people disagreeing is stored rather than refused. What is *done* with
-  the disagreement is M3's, and the session UI that makes it a group activity is in the
+  the disagreement is the simulation engine's, and the session UI that makes it a group activity is in the
   icebox. It was a schema decision, as this bullet said, and the schema was built for it.
-- ~~**Communicating to stakeholders**~~ *Answered by M10: **all three, and the example
+- ~~**Communicating to stakeholders**~~ *Answered by the reporting work: **all three, and the example
   sentence above is wrong.*** Output must reach people who do not know what P90 means.
 
   > **Built, 2026-08-19, and the parenthesis is the part to correct.** "85% likely to finish
@@ -414,6 +414,6 @@ inside a number.
   > of the band the plan itself admits to — three days on a three-week band is nothing, and
   > three days on a two-day band is the plan coming apart.
   >
-  > What M10 also built, which this bullet does not name: **an account of why the date moved**,
+  > What the reporting work also built, which this bullet does not name: **an account of why the date moved**,
   > whose terms sum to the whole of it because each is measured with every earlier one already
   > applied.

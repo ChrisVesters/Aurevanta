@@ -10,9 +10,9 @@ import java.time.LocalDate;
  * <strong>Two runs of one plan are only comparable on the same terms</strong>, and this
  * is the list of what that means. `roadmap.md` warns in as many words that "a comparison
  * across runs made under different calendars — or across an {@code Engine.VERSION} bump —
- * is the way this feature reports a slide that never happened", and M4 is what made it
- * checkable: every run since stores the calendar it was read under rather than being read
- * through today's.
+ * is the way this feature reports a slide that never happened", and the calendar is what
+ * made it checkable: every run since stores the calendar it was read under rather than
+ * being read through today's.
  *
  * <p>
  * <strong>Held apart from the plan on purpose.</strong> What changed about the *work* is
@@ -22,8 +22,8 @@ import java.time.LocalDate;
  * not a slide.
  *
  * @param calendarRule and {@code workingHoursPerDay} are null together on a run made
- * before M4, which had no calendar rather than a default one — so two such runs agree
- * with each other and neither agrees with a run that has one.
+ * before the calendar, which had no calendar rather than a default one — so two such runs
+ * agree with each other and neither agrees with a run that has one.
  * @param priorityRule which order the scheduler ran ready work in. Stored on every run
  * for {@code calendarRule}'s reason — {@code Schedule.PRIORITY_RULE} is a <em>name</em>
  * because a second rule is expected — and it belongs here for a sharper one: the calendar

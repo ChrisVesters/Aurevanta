@@ -1,11 +1,11 @@
 -- Dependencies: the plan stops being a list and becomes a shape.
 --
--- This is the table that decides what M3 can ever model. The same ten items forecast at 51
+-- This is the table that decides what the simulation engine can ever model. The same ten items forecast at 51
 -- or 86 days at the P90 depending only on how they depend on each other, so a schema
 -- without this would not be a simpler product — it would be one whose answers are wrong by
 -- a margin nobody can see.
 --
--- Finish-to-start only, with lag (m2-plan.md decision 4). Start-to-start and the other two
+-- Finish-to-start only, with lag (docs/design/plans-and-estimates.md decision 4). Start-to-start and the other two
 -- multiply scheduling complexity for cases most teams never model.
 
 create table dependencies (

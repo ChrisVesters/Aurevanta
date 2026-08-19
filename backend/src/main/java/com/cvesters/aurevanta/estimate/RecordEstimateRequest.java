@@ -11,8 +11,8 @@ import jakarta.validation.constraints.Positive;
  *
  * <p>
  * The unit is in every field name because it is the whole of decision 3: a "day" is a
- * calendar word, and what a day is worth is M11's setting rather than something buried in
- * old rows. A team that thinks in days multiplies by their own.
+ * calendar word, and what a day is worth is the resource model's setting rather than
+ * something buried in old rows. A team that thinks in days multiplies by their own.
  *
  * <p>
  * {@code @Digits} matches the column exactly. Without it, 0.005 hours would pass

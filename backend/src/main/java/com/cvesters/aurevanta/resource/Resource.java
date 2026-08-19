@@ -21,23 +21,23 @@ import jakarta.persistence.Table;
  * <p>
  * <strong>One concept where {@code roadmap.md} describes two.</strong> That section has
  * resources, then types over them, then requirements against either — and the measurement
- * in {@code m11-plan.md} needed none of the hierarchy: what moved a forecast by 14% to
- * 59% was work being unable to cross from one pool to another, and nothing in it depended
- * on which individual did what. So every case it lists is one of these. <em>Backend
- * engineers × 3</em> is the type-level requirement said directly, <em>Staging environment
- * × 1</em> is the licence and equipment case said identically, and <em>Ada × 1</em> is a
- * person, which is a pool of one and needs no second concept.
+ * in {@code docs/design/resources-and-people.md} needed none of the hierarchy: what moved
+ * a forecast by 14% to 59% was work being unable to cross from one pool to another, and
+ * nothing in it depended on which individual did what. So every case it lists is one of
+ * these. <em>Backend engineers × 3</em> is the type-level requirement said directly,
+ * <em>Staging environment × 1</em> is the licence and equipment case said identically,
+ * and <em>Ada × 1</em> is a person, which is a pool of one and needs no second concept.
  *
  * <p>
  * <strong>The person is a convenience and never a permission.</strong> Linking a pool to
  * a user makes it findable; it grants nothing, and nothing in this product reports on how
  * busy anybody is. The moment a screen ranks people by utilisation this has become a tool
- * aimed at individuals rather than at plans, which is M8's <em>people are named and never
- * ranked</em> arriving in a second place.
+ * aimed at individuals rather than at plans, which is calibration's <em>people are named
+ * and never ranked</em> arriving in a second place.
  *
  * <p>
  * The name is not unique and nothing is derived from it, for {@code Project}'s reason and
- * M1a's.
+ * the handle change's.
  */
 @Entity
 @Table(name = "resources")

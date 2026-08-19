@@ -23,9 +23,9 @@ import jakarta.persistence.Table;
  * <p>
  * <strong>Nothing here can be changed.</strong> There is no setter, no {@code updatedAt}
  * and no endpoint that rewrites a row: a revision is a new row, and both stay readable.
- * M8 measures how often somebody's P10–P90 band contained the truth, which is a question
- * about what they said at the time — an update would answer it with what they think now
- * and destroy the evidence for the old answer at the same moment.
+ * calibration measures how often somebody's P10–P90 band contained the truth, which is a
+ * question about what they said at the time — an update would answer it with what they
+ * think now and destroy the evidence for the old answer at the same moment.
  *
  * <p>
  * That immutability is doing authorization work as well, which is worth noticing: every
@@ -54,7 +54,7 @@ public class Estimate {
 
 	/**
 	 * The person, not their membership. Somebody who leaves the organisation still made
-	 * this estimate, and M8 reads everything one person ever estimated.
+	 * this estimate, and calibration reads everything one person ever estimated.
 	 */
 	@ManyToOne(fetch = FetchType.LAZY, optional = false)
 	@JoinColumn(name = "estimator_user_id", nullable = false)
@@ -76,7 +76,8 @@ public class Estimate {
 	 * The only thing about an estimate that is stored rather than derived, and the
 	 * asymmetry is the point: whether a range is worth questioning is arithmetic over the
 	 * three columns above, but how the question was put leaves no trace in them at all.
-	 * Every row written before M5 says {@code three_point}, which is what it was.
+	 * Every row written before elicitation says {@code three_point}, which is what it
+	 * was.
 	 */
 	@Column(name = "elicitation_method", nullable = false, length = 40)
 	private String elicitationMethod;

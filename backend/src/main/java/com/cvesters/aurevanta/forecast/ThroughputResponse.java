@@ -18,8 +18,8 @@ import java.util.UUID;
  * <strong>The window and the projection are separate objects because they are separately
  * absent.</strong> A plan nobody has finished anything in has neither; a plan with a
  * month of history has a window and no projection worth publishing. Grouping each fact
- * into its own nullable object is M8's rule — there is no shape here that holds half of
- * either.
+ * into its own nullable object is calibration's rule — there is no shape here that holds
+ * half of either.
  *
  * @param remaining how much is left to deliver, unestimated items included: what is
  * counted is work left rather than effort left, which is the one place this is better

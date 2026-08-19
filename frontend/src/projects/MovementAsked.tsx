@@ -5,7 +5,7 @@ import type { MovementAt } from './forecastTypes';
 /**
  * The question "why did the date move?", and its answer once somebody has asked it.
  *
- * **It costs seven simulations and says so.** M7's rule: a number that is expensive to produce
+ * **It costs seven simulations and says so.** The inverse query's rule: a number that is expensive to produce
  * should say what it cost rather than surprise somebody, and this is the second place in the
  * product where a read runs the engine.
  */

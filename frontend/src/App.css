@@ -624,7 +624,7 @@ button.link {
 /*
   One question at a time, opened in place under the task it is about. Still plain — how
   everything looks is its own piece of work — but no longer three boxes: what this form
-  asks is the milestone, and the answer to the previous question is deliberately not on
+  asks is the work, and the answer to the previous question is deliberately not on
   screen while the next one is being answered.
 */
 .estimate-form {
@@ -1193,8 +1193,8 @@ button.danger {
 }
 
 /*
-  The forecast, under the work it is a question about. Deliberately plain: M3a's output is
-  an honest number rather than a good-looking one, and styling this before M5 fixes what
+  The forecast, under the work it is a question about. Deliberately plain: the simulation engine's output is
+  an honest number rather than a good-looking one, and styling this before elicitation fixes what
   the estimate form asks would only make the answer look more considered than its inputs.
 */
 .forecast {
@@ -1232,7 +1232,7 @@ button.danger {
 
 /*
   Three readings of one forecast rather than three forecasts, so they sit in a row above
-  the date they move: the trade this milestone exists to show is only visible if the
+  the date they move: the trade this work exists to show is only visible if the
   control and the number it changes can be seen at the same time.
 */
 .forecast .confidence {
@@ -1314,7 +1314,7 @@ button.danger {
 /*
   Why the date moved, under the forecast it moved from. **The terms are never re-sorted and
   are never a chart**: the order is the rule they were attributed in, and a bar per term
-  would invite the reading M6's caveat spends a paragraph preventing — these ones do add up,
+  would invite the reading the contribution ranking's caveat spends a paragraph preventing — these ones do add up,
   which is exactly why they are shown as an account rather than as shares.
 */
 .forecast .earlier .movement {

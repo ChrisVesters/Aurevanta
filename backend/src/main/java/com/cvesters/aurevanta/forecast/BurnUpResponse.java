@@ -18,13 +18,13 @@ import com.cvesters.aurevanta.forecast.model.ThroughputForecast;
  * increments the model produced.
  *
  * <p>
- * <strong>The cone comes from M9's bootstrap and never from the engine.</strong> A
- * burn-up's future is how many <em>items</em> are done by each week, and the engine has
- * no notion of that: it forecasts effort and reports when a plan finishes, so inventing a
- * trajectory from its finish distribution would mean assuming a shape nothing measured.
- * The bootstrap already walks a week at a time, from the same history, the same sampler
- * and the same seed as the date published beside it — so the picture and the number
- * cannot disagree.
+ * <strong>The cone comes from the throughput forecast's bootstrap and never from the
+ * engine.</strong> A burn-up's future is how many <em>items</em> are done by each week,
+ * and the engine has no notion of that: it forecasts effort and reports when a plan
+ * finishes, so inventing a trajectory from its finish distribution would mean assuming a
+ * shape nothing measured. The bootstrap already walks a week at a time, from the same
+ * history, the same sampler and the same seed as the date published beside it — so the
+ * picture and the number cannot disagree.
  *
  * @param delivered what is finished today and {@code total} what there is to finish,
  * which are the two numbers the sentence over the picture says out loud. Both are

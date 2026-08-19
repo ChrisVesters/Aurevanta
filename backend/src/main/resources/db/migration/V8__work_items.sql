@@ -1,7 +1,7 @@
 -- Work items: the unit that carries an estimate.
 --
--- A task rather than a story or an epic (m2-plan.md decision 1). Coarser units hide scope
--- growth inside the estimate, which M3's scope-uncertainty model would then count twice —
+-- A task rather than a story or an epic (docs/design/plans-and-estimates.md decision 1). Coarser units hide scope
+-- growth inside the estimate, which the simulation engine's scope-uncertainty model would then count twice —
 -- once in the range somebody widened to allow for the unknown, and again in the multiplier
 -- that exists to model it.
 --
@@ -20,7 +20,7 @@ create table work_items (
     description varchar(2000),
     created_at  timestamp with time zone not null,
     -- Archive, never delete, exactly as projects do — and here the reason is sharper: an
-    -- estimate is evidence M8 calibrates against, and deleting the item it hangs on would
+    -- estimate is evidence calibration calibrates against, and deleting the item it hangs on would
     -- destroy that evidence years before the feature that reads it exists.
     archived_at timestamp with time zone,
     constraint pk_work_items primary key (id),

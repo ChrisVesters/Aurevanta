@@ -19,9 +19,10 @@ import com.cvesters.aurevanta.item.WorkItemStatus;
  * <p>
  * <strong>A value, not a set of references.</strong> Pointing at the live rows would not
  * do: items get reworded, arrows get rubbed out and progress changes daily, so within a
- * week a run would describe something that no longer exists. M10's movement decomposition
- * — why the date moved, split into scope added, estimates revised and work completed — is
- * a diff of two of these, and there is nothing to diff if both sides moved.
+ * week a run would describe something that no longer exists. The reporting work's
+ * movement decomposition — why the date moved, split into scope added, estimates revised
+ * and work completed — is a diff of two of these, and there is nothing to diff if both
+ * sides moved.
  *
  * <p>
  * <strong>Raw ranges rather than fitted parameters.</strong> What is stored is what
@@ -64,9 +65,10 @@ public record ForecastInputs(List<PlannedItem> items, List<PlannedEdge> edges, L
 	 *
 	 * <p>
 	 * <strong>An identifier and a number, and no name.</strong> The name comes off the
-	 * organisation's own list when somebody reads the run, which is the rule M6 already
-	 * keeps for the titles of the work it ranks: a pool renamed since is not a thing that
-	 * moved, and a snapshot holding the old name would make it look like one.
+	 * organisation's own list when somebody reads the run, which is the rule the
+	 * contribution ranking already keeps for the titles of the work it ranks: a pool
+	 * renamed since is not a thing that moved, and a snapshot holding the old name would
+	 * make it look like one.
 	 *
 	 * <p>
 	 * The order is the model rather than the presentation. Work that names nothing takes
@@ -141,9 +143,9 @@ public record ForecastInputs(List<PlannedItem> items, List<PlannedEdge> edges, L
 	 * <p>
 	 * <strong>Nothing else moves, and that is what makes the comparison exact.</strong>
 	 * The items, the arrows and every range are the same objects, so a replay draws the
-	 * same numbers in the same order from the same seed — unlike M7's cut, which had to
-	 * take a draw and discard it to keep the stream aligned. Adding units changes what
-	 * may start, never what is sampled.
+	 * same numbers in the same order from the same seed — unlike a cut, which had to take
+	 * a draw and discard it to keep the stream aligned. Adding units changes what may
+	 * start, never what is sampled.
 	 * @param resourceId which pool gains, which must be one this run was scheduled
 	 * against
 	 * @param extra how many units it gains
@@ -174,7 +176,7 @@ public record ForecastInputs(List<PlannedItem> items, List<PlannedEdge> edges, L
 	 * <strong>A run with no declaration is one pool of the capacity it stored</strong>,
 	 * which is the whole of what lets {@code Engine.VERSION} 3 contain version 2: the
 	 * same decisions in the same order, not an approximation of them. Every forecast this
-	 * product made before M11 reads back through this line.
+	 * product made before the resource model reads back through this line.
 	 * @param capacity what the run stored, which is the size of the only pool when there
 	 * was no team to describe and the sum of the declared units when there was
 	 */

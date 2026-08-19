@@ -80,7 +80,7 @@ class AuthController {
 	 * not it can be made to email the same one twice.
 	 *
 	 * <p>
-	 * A handle somebody else holds gives the recipient's claim back. M1a made
+	 * A handle somebody else holds gives the recipient's claim back. Chosen handles made
 	 * {@code slug_taken} a refusal this endpoint <em>invites</em> people to retry — the
 	 * form fills in the free alternative it carries — and a retry loop in front of a
 	 * three-per-quarter-hour budget locks somebody out of registering at all. It is

@@ -11,15 +11,16 @@ import java.util.List;
  * its parts account for its whole, and the obvious implementation cannot deliver that:
  * re-running the plan with one change at a time and reporting each difference separately
  * gives terms that do not sum, because a simulation is not linear in its inputs. Two
- * changes loading the same bottleneck overlap exactly as M7's two cuts on one chain do.
+ * changes loading the same bottleneck overlap exactly as the inverse query's two cuts on
+ * one chain do.
  *
  * <p>
- * M6 and M7 both met this and both answered <em>do not add them</em>. Here that answer is
- * not available, because the sentence <em>is</em> the feature: an account of a movement
- * that does not account for the movement is not an account. So each step is applied on
- * top of every earlier one and its term is the difference it made from there — and the
- * final state is the newer run itself, which is what makes the sum exact rather than
- * approximate.
+ * the contribution ranking and the inverse query both met this and both answered <em>do
+ * not add them</em>. Here that answer is not available, because the sentence <em>is</em>
+ * the feature: an account of a movement that does not account for the movement is not an
+ * account. So each step is applied on top of every earlier one and its term is the
+ * difference it made from there — and the final state is the newer run itself, which is
+ * what makes the sum exact rather than approximate.
  *
  * <p>
  * <strong>The order therefore decides the attribution, which is why it has a
@@ -47,10 +48,11 @@ public final class Movement {
 	 * <strong>{@link Step#RESOURCES} was split out of {@link Step#SCOPE} rather than
 	 * added to the order</strong>, which is why {@link #RULE} did not have to change: no
 	 * two existing terms swapped places, exactly as {@link Step#CALENDAR} is a split out
-	 * of the assumptions beside it. It had to be split, because M11 put the team inside
-	 * the stored inputs — so a run made after somebody hired a second designer differed
-	 * from its predecessor in the <em>plan</em> as far as this class could see, and a
-	 * reader who had changed nothing about the work was told their scope had grown.
+	 * of the assumptions beside it. It had to be split, because the resource model put
+	 * the team inside the stored inputs — so a run made after somebody hired a second
+	 * designer differed from its predecessor in the <em>plan</em> as far as this class
+	 * could see, and a reader who had changed nothing about the work was told their scope
+	 * had grown.
 	 */
 	public static final List<Step> ORDER = List.of(Step.SAMPLING, Step.PROGRESS, Step.ESTIMATES, Step.SCOPE,
 			Step.RESOURCES, Step.ASSUMPTIONS, Step.CALENDAR, Step.STARTS_ON);
@@ -63,7 +65,7 @@ public final class Movement {
 
 		/**
 		 * <strong>Two runs never share a seed, so re-running is itself a
-		 * difference.</strong> The plan for this milestone did not name this step and the
+		 * difference.</strong> The plan for this work did not name this step and the
 		 * arithmetic requires it: the last state has to <em>be</em> the newer run, seed
 		 * included, or the terms sum to something that is not the distance between the
 		 * two stored dates. It is measured against the older run's own stored result and

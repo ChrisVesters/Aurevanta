@@ -9,7 +9,7 @@
 --
 -- Copied onto the run rather than read from a setting on the organisation, for the reason
 -- capacity already is: somebody edits the working day, every historical date silently
--- moves, and M10 reports a slide that never happened. This is the one table whose whole
+-- moves, and the reporting layer reports a slide that never happened. This is the one table whose whole
 -- purpose is to say what was actually assumed.
 
 alter table forecast_runs
@@ -39,7 +39,7 @@ alter table forecast_runs
 -- All three nullable, and deliberately NOT backfilled — the exact opposite of V13, which
 -- is the interesting part of this migration.
 --
--- That one wrote zeros and could argue they were true: a run made before M3b really did
+-- That one wrote zeros and could argue they were true: a run made before the common-cause model really did
 -- assume no common cause and no unlisted work, so zero is a record rather than a
 -- placeholder. There is nothing true to write here. A run made last week did not assume a
 -- six-hour day; it assumed no calendar at all, because it produced no date. A default
@@ -48,6 +48,6 @@ alter table forecast_runs
 -- somebody did make.
 --
 -- So a run without these reports its hours, no dates, and says why. That is the same
--- thread as M3b's retired limitation codes: history keeps saying what it actually said.
+-- thread as the common-cause model's retired limitation codes: history keeps saying what it actually said.
 -- The cost is an optional field on the response and a branch in the frontend, and both are
 -- the price of not inventing a record.

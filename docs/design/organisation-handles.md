@@ -1,28 +1,28 @@
-# M1a — Organisation names are not unique: implementation plan
+# Organisation names are not unique — the design record
 
-> **Scope.** `roadmap.md` M1a: stop `tenants.slug` making an organisation's *name* unique
+> **Scope.** Chosen handles: stop `tenants.slug` making an organisation's *name* unique
 > across the installation. Explicitly excluded: reserved handles, and any change to how
 > tenants are addressed in URLs — nothing routes by handle yet, which is the whole reason
 > this is cheap now.
 >
-> **How to read this.** Decisions first; the first one changes what the milestone *is*. Then
+> **How to read this.** Decisions first; the first one changes what the work *is*. Then
 > five steps, each a reviewable commit that leaves the build green: `./mvnw test` (format
 > gate, 100% branch coverage) and, where the frontend is touched,
 > `npm run lint && npm run build && npm run test`.
 
 ---
 
-## What changed about this milestone
+## What changed about this work
 
-The roadmap framed M1a as *"keep the slug unique, disambiguate on collision"* — the
+The roadmap framed chosen handles as *"keep the slug unique, disambiguate on collision"* — the
 application quietly appends a number and nobody is refused. That fixes the symptom.
 
 **The decision taken instead is that the handle becomes a required field the organisation
 owns**, proposed from its name and with a suffixed alternative offered when the proposal is
-taken. This is a better answer to the problem M1a exists for, and it is worth being explicit
+taken. This is a better answer to the problem chosen handles exists for, and it is worth being explicit
 about why:
 
-M0's refusal was unactionable because it was aimed at the wrong thing. *"That organisation
+The original tenancy design's refusal was unactionable because it was aimed at the wrong thing. *"That organisation
 name is already taken"* leaves a person nothing to do — it is their name. **"That handle is
 already taken" leaves them everything to do**, because a handle is not their name; it is an
 address, and picking a different address costs nothing. The refusal survives, and stops
@@ -44,8 +44,8 @@ changing either is a deliberate act rather than a side effect.
 | 4 | Two organisations, one name, on screen ✅ *done* | 1 |
 | 5 | Close out ✅ *done* | 1–4 |
 
-Step 1 is the milestone. Steps 2 and 4 are consequences it leaves behind; step 3 is the one
-addition, and the one to strike if the milestone needs trimming.
+Step 1 is the work. Steps 2 and 4 are consequences it leaves behind; step 3 is the one
+addition, and the one to strike if the work needs trimming.
 
 ---
 
@@ -56,7 +56,7 @@ addition, and the one to strike if the milestone needs trimming.
 | 1 | Derived handle, or a field? | **A field**, defaulted from the name and freely changed. |
 | 2 | What if the caller chooses nothing? | **They cannot.** The handle is required; the form proposes one from the name, and accepting it is a choice. |
 | 3 | How is a collision surfaced? | **On submit**, with the next free handle carried in the refusal. No availability endpoint. |
-| 4 | Reserved handles? | **Not yet** — decided when M2 puts handles in URLs. |
+| 4 | Reserved handles? | **Not yet** — decided when the plan schema puts handles in URLs. |
 | 5 | Can the handle change later? | **Yes, and the old one stops working.** |
 | 6 | Telling two identically named organisations apart | **The handle, shown only where the caller's own list repeats a name.** |
 
@@ -69,7 +69,7 @@ caller to change. Two paths is one more than this needs.
 **The field is required.** The form proposes a handle as the name is typed, and accepting the
 proposal costs a keystroke fewer than changing it — so the common case is free and the person
 has still chosen. Every refusal is then against something somebody typed, which is the whole
-property M1a exists to establish, with no branch where the server picks and the caller is left
+property chosen handles exists to establish, with no branch where the server picks and the caller is left
 holding the consequence.
 
 Three things fall out of it, and they are most of why this is the better answer:
@@ -125,13 +125,13 @@ handles that keep resolving.
 
 Two things make that survivable rather than reckless, and both are temporary:
 
-- **Nothing routes by handle today.** M2 is what puts one in a URL, so until then the cost of
+- **Nothing routes by handle today.** Putting one in a URL is what would end that, so until then the cost of
   changing a handle is genuinely zero — there is no link to break.
 - **It is the reversible direction.** Adding retired-handle redirects later is a table and a
   lookup; taking them away once people rely on them is not.
 
-**This is the decision to revisit at M2**, not because it will have become wrong, but because
-that is the moment its cost stops being hypothetical. It is noted in `roadmap.md` under M2
+**This is the decision to revisit at the plan schema**, not because it will have become wrong, but because
+that is the moment its cost stops being hypothetical. It is noted in `../roadmap.md` under the plan schema
 rather than left in this plan for nobody to find.
 
 ### Decision 6 — Disambiguate where a choice is being made, and nowhere else
@@ -159,7 +159,7 @@ rediscovered:
 
 **Only on a repeat**, because putting `acme-consulting` under "Acme Consulting" for everybody
 is noise for the overwhelming majority with no collision. It is a display rule over data
-already on the wire — `MembershipSummary` has carried `organisation.slug` since M1 step 1 —
+already on the wire — `MembershipSummary` has carried `organisation.slug` since the team model step 1 —
 so it costs no query and no endpoint.
 
 ---
@@ -181,7 +181,7 @@ refused only when they chose something somebody else already has.
   hyphens" in its own words rather than interpolate one.
 - **The name keeps `@NotBlank @Size(max = 200)`** and loses everything else. An empty name is
   still refused, because that *is* something the person filling in the form can fix — which is
-  the distinction the whole milestone turns on.
+  the distinction the whole work turns on.
 
 ### Accepting it, or refusing it
 
@@ -213,7 +213,7 @@ the handle follows it, until the moment the visitor edits the handle themselves,
 it is theirs and stops moving. A refused handle replaces the field's value with the suggestion
 and says why.
 
-**Backend, frontend and catalogue move in one commit** — the rule M1 step 4 set, for the same
+**Backend, frontend and catalogue move in one commit** — the rule the team model step 4 set, for the same
 reason: splitting it leaves a form that can be shown a code nothing has wording for, or a
 required field the server does not know about.
 
@@ -235,7 +235,7 @@ refused is a handle they typed.
 - **The wire word is `slug`, not `handle`.** The API already publishes
   `organisation.slug`, and a request field called `handle` would have named the same value
   twice for anybody writing a client. "Handle" survives where it reads better than it
-  stores: the UI label, this plan, and `roadmap.md`. The refusal is `slug_taken`.
+  stores: the UI label, this plan, and `../roadmap.md`. The refusal is `slug_taken`.
 - **The service never catches the race; the advice reads it.** Catching the constraint
   violation inside `OrganisationService` needed a `saveAndFlush` to make the violation land
   somewhere catchable, and left a branch only two colliding writers could reach — so
@@ -270,7 +270,7 @@ refused is a handle they typed.
 
 `registration_conflict` was written when a registration could trip two unique indexes and the
 handler could not tell which. After step 1 it is down to one — and the handler it lives in
-stopped being registration's during M1 step 9, when the advice went application-wide. It now
+stopped being registration's during the team model step 9, when the advice went application-wide. It now
 answers for an invitation race too, telling an owner that *"that email address or organisation
 name was just taken"* when what happened is that a colleague invited the same person a moment
 earlier. This is the item the Phase D review recorded and deliberately left; step 1 is what
@@ -319,7 +319,7 @@ the coverage, and it is deliberate rather than a gap.
 
 **Goal.** An organisation is not stuck with what it was called on the day it was created.
 
-The one part of this milestone that adds rather than corrects, and the one to strike if it
+The one part of this work that adds rather than corrects, and the one to strike if it
 needs trimming — nothing else here depends on it.
 
 - `PATCH /api/organisations` `{name?, handle?}` — **OWNER only**, and the organisation comes
@@ -409,14 +409,14 @@ names show none. A repeat in one list does not put a handle beside an unrelated 
 
 ## Step 5 — Close out ✅ *done*
 
-- `roadmap.md`: strike the M0 debt row about organisation names being unique across the
-  installation, and mark M1a done with what it actually did — which is not what M1a was
+- `../roadmap.md`: strike the the original tenancy design debt row about organisation names being unique across the
+  installation, and mark chosen handles done with what it actually did — which is not what chosen handles was
   written to do, and should say so.
-- `roadmap.md`: M1a's "decisions required" table has answers now, including the one it called
+- `../roadmap.md`: chosen handles's "decisions required" table has answers now, including the one it called
   unresolved. Record them where the question was asked.
-- `roadmap.md`, **under M2**: reserved handles, and whether a changed handle should leave a
+- `../roadmap.md`, **under the plan schema**: reserved handles, and whether a changed handle should leave a
   redirect behind. Both are deferred here on the grounds that nothing routes by handle yet,
-  and M2 is the step that ends that. They belong where the person doing M2 will read them.
+  and the plan schema is the step that ends that. They belong where the person doing the plan schema will read them.
 - `CLAUDE.md`: the handle is chosen, not derived; a refusal is only ever raised against a
   choice; the allocation lock and why it is keyed the way it is.
 
@@ -427,25 +427,25 @@ names show none. A repeat in one list does not put a handle beside an unrelated 
   judgement. This bullet was written before decision 2 removed the check-then-assign
   sequence the lock existed to serialise; the plan's own sequencing note says as much two
   screens further down, and this is the one place it was not followed through.
-- **Two of the three `roadmap.md` items were already done.** The decisions table and the M2
-  deferrals were written when the plan was, because both were answers this milestone needed
+- **Two of the three `../roadmap.md` items were already done.** The decisions table and the the plan schema
+  deferrals were written when the plan was, because both were answers this work needed
   *before* building rather than notes to leave after it. What was left is the part that can
-  only be written afterwards: the M0 debt row, and an "As built" saying that this milestone
+  only be written afterwards: the the original tenancy design debt row, and an "As built" saying that this work
   did not do what it was written to do.
 - **`CLAUDE.md` gained a section rather than a paragraph.** Steps 1–4 shipped without
   touching it, which was the plan — it is step 5's job — but four steps of decisions is more
   than three bullets can hold: the handle's shape and where it is enforced, the refusal and
   its remedy, the constraint map and the test that pins it, the two frontend rules that are
   easy to get subtly wrong, and where a handle is shown on screen at all.
-- **`roadmap.md`'s "What I would build next" was stale in a way nothing else caught**: it
-  still sequenced M1 and M1a as work to come. It now says what is left, which is M2's two
+- **`../roadmap.md`'s "What I would build next" was stale in a way nothing else caught**: it
+  still sequenced the team model and chosen handles as work to come. It now says what is left, which is the plan schema's two
   open decisions.
 
 ---
 
 ## The review at the end, and what it found
 
-Five things, all fixed before the milestone was called done. Worth recording, because four
+Five things, all fixed before the work was called done. Worth recording, because four
 of the five are the *same* mistake in different places: a rule that was got right where it
 was written down and then not followed through to the one path that reaches it differently.
 
@@ -489,7 +489,7 @@ unfixed code to prove it does.
 
 Every slug already in the database is unique and stays valid — `uq_tenants_slug` is unchanged,
 the column is unchanged, and no existing row needs a different handle than the one it has.
-What changes is only where the *next* handle comes from. A milestone that alters what a column
+What changes is only where the *next* handle comes from. A work that alters what a column
 means without altering the column is exactly the kind that gets a migration written for it out
 of habit; there is nothing here for one to do.
 
@@ -497,7 +497,7 @@ of habit; there is nothing here for one to do.
 
 ## Sequencing and risk
 
-**Step 1 is the whole milestone**, and it got considerably smaller when the handle became
+**Step 1 is the whole work**, and it got considerably smaller when the handle became
 required: no allocator, no allocation loop, no lock. What is left to get wrong is narrower and
 worth naming.
 
@@ -505,20 +505,20 @@ worth naming.
 step 1 and step 2 read an index name out of a `DataIntegrityViolationException` to decide what
 happened, which couples that code to names owned by a migration. Rename an index without
 following it and a specific, actionable refusal silently degrades to a generic one — the same
-shape of failure as the exception-advice scope that broke during M1 step 9, and just as quiet.
+shape of failure as the exception-advice scope that broke during the team model step 9, and just as quiet.
 **Whatever reads a constraint name needs a test that fails if the name changes**, not just one
 that passes today.
 
 The remaining race — two people choosing one handle in the same instant — is deliberately left
 to `uq_tenants_slug`. It is worth being clear that this is a judgement about stakes rather
 than an oversight: it produces a rare, retryable refusal against something the caller typed,
-where M0's bug produced a certain refusal against something they could not change.
+where the original tenancy design's bug produced a certain refusal against something they could not change.
 
-**Do it before M2.** The roadmap's reason stands and gets stronger with decision 5: nothing
-routes by handle today, so a handle that changes costs nothing. The moment M2 puts one in a
+**Do it before the plan schema.** The roadmap's reason stands and gets stronger with decision 5: nothing
+routes by handle today, so a handle that changes costs nothing. The moment the plan schema puts one in a
 URL, both deferred questions — reserved handles, and redirects for retired ones — stop being
 free to defer. Step 5 is what makes sure they are read at that moment rather than discovered.
 
 **Step 3 is the one to disagree with.** It is the only part that adds a feature, and it brings
-a settings screen and an editable name with it. Everything else in this milestone is the
+a settings screen and an editable name with it. Everything else in this work is the
 removal of two refusals and the machinery that made them necessary.

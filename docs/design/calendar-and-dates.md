@@ -1,26 +1,26 @@
-# M4 — A date you can commit to: implementation plan
+# A date you can commit to — the design record
 
-> **Scope.** `roadmap.md` M4: a single confidence control (50 / 80 / 95%) resolving the engine's
+> **Scope.** The calendar: a single confidence control (50 / 80 / 95%) resolving the engine's
 > hours into a **calendar date**, and the working-day assumption that conversion needs — stated
 > by somebody, stored with the run, and printed beside the answer. Excluded: holidays, part-time
-> people and per-person calendars (M11), plain-language sentences and the burn-up (M10), inverse
-> queries — "what do I cut to hit 1 November" (M7), and anything that changes what the engine
+> people and per-person calendars (the resource model), plain-language sentences and the burn-up (the reporting work), inverse
+> queries — "what do I cut to hit 1 November" (the inverse query), and anything that changes what the engine
 > samples (nothing here does).
 >
-> **How to read this.** Decisions first. The one that decides whether this milestone is right or
+> **How to read this.** Decisions first. The one that decides whether this work is right or
 > merely finished is decision 2 — *whose* day the working day is — because getting it wrong
 > produces a date that is too early by exactly the factor a team is proudest of, and nothing on
 > screen would look wrong.
 >
 > **Why this is not optional, and why it is dangerous.** Nobody asks for a distribution; they ask
 > what to promise. Until this exists the product's output is a band in hours, which is precisely
-> the number a stakeholder cannot act on — and the reframing M4 buys is the whole negotiation:
+> the number a stakeholder cannot act on — and the reframing the calendar buys is the whole negotiation:
 > *"can we go faster?"* stops being answered with a capitulation and starts being answered with
 > **"we can commit at lower confidence"**, which is the honest trade and is visible in one
 > control. The danger is the mirror of that value. **A date is the first thing this product will
 > emit that looks like a fact.** An hours band advertises that it came out of a model; "14
 > November" does not, and it will be pasted into a plan with the assumption behind it left in the
-> browser. M3's failure mode was a plausible number. M4's is a plausible *date*, which is worse,
+> browser. The simulation engine's failure mode was a plausible number. The calendar's is a plausible *date*, which is worse,
 > because a date is the thing people act on.
 
 ---
@@ -29,16 +29,16 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | The calendar, as a pure function ✅ *done* | M3 |
+| 1 | The calendar, as a pure function ✅ *done* | the simulation engine |
 | 2 | Stating a calendar, and storing what was stated ✅ *done* | 1 |
 | 3 | A date on screen, and the trade behind it ✅ *done* | 2 |
 | 4 | Close out ✅ *done* | 1–3 |
 
-**M4 adds no sampling.** The engine already stores P10, P50, P80, P90 and P95 — P80 is there
-because `m3a-plan.md`'s step 4 knew this milestone's control was 50/80/95, and that "a percentile
+**The calendar adds no sampling.** The engine already stores P10, P50, P80, P90 and P95 — P80 is there
+because `simulation-engine.md`'s step 4 knew this work's control was 50/80/95, and that "a percentile
 that is not stored is a re-run to answer". So nothing here touches `Engine`,
-`Schedule`, or any run that has already happened. That is the smallest surface any milestone has
-had since M1a, and it is worth noticing before somebody grows it.
+`Schedule`, or any run that has already happened. That is the smallest surface any work has
+had since chosen handles, and it is worth noticing before somebody grows it.
 
 ---
 
@@ -51,7 +51,7 @@ had since M1a, and it is worth noticing before somebody grows it.
 | 3 | What the assumption is | **Hours per working day, plus a named calendar rule.** Monday to Friday, no holidays. |
 | 4 | Where the start date comes from | **The caller states it.** The server's clock does not know what day it is where they are. |
 | 5 | Whether dates are stored | **No — derived, and the *rule* is stored**, exactly as `priority_rule` is. |
-| 6 | What happens to runs made before M4 | **They have no date at all**, and the columns are nullable. There is nothing true to backfill. |
+| 6 | What happens to runs made before the calendar | **They have no date at all**, and the columns are nullable. There is nothing true to backfill. |
 | 7 | How hours divide into days | **Exactly, in `BigDecimal`.** A day boundary is a step function and a double is wrong by a whole day. |
 | 8 | What the confidence control is | **A view over one run**, not a re-run. All five percentiles are already in the response. |
 | 9 | Whether the assumptions are pre-filled | **The working day, no. The start date, yes** — one is a claim about a team, the other is a fact the browser holds. |
@@ -67,17 +67,17 @@ The distinction is not tidiness. The engine's output is a distribution over *eff
 one presentation of one percentile of it under an assumption the engine never made. Folding the
 calendar into the sampling loop would put a working day inside ten thousand runs that do not need
 one, and would make `Engine.VERSION` change every time somebody adjusts a holiday — which is
-decision 9 of `m3b-plan.md` misfiring, because a calendar change is not a model change and must
+decision 9 of `common-cause-and-scope-growth.md` misfiring, because a calendar change is not a model change and must
 not invalidate a stored forecast's numbers.
 
 **The client is the other wrong place**, and more tempting: the browser knows the locale, the
 timezone and today's date. But an assumption made in the browser cannot be stored on the run, and
-an assumption that is not stored is one M10 cannot tell apart from a plan that moved. The
+an assumption that is not stored is one the reporting work cannot tell apart from a plan that moved. The
 conversion is the server's; only the *formatting* is the browser's.
 
 ### Decision 2 — The working day belongs to one worker, not to the team
 
-**This is the decision this milestone exists to get right.** `Schedule.finish` returns a
+**This is the decision this work exists to get right.** `Schedule.finish` returns a
 completion *time*: items run in parallel across `capacity` slots, and the number that comes back
 is when the last one ends, not the sum of everybody's effort. Capacity is already inside it.
 
@@ -100,7 +100,7 @@ the same plan at capacity 1 once both are converted.
 
 ### Decision 3 — Hours per working day, and a rule with a name
 
-The roadmap's instruction is *"keep it crude and visible, and replace it in M11"*. So:
+The roadmap's instruction is *"keep it crude and visible, and replace it in the resource model"*. So:
 
 - **`workingHoursPerDay`** — one number a person states, like capacity.
 - **A calendar rule with a name**, `five_day_week`: Monday to Friday count, Saturday and Sunday
@@ -108,13 +108,13 @@ The roadmap's instruction is *"keep it crude and visible, and replace it in M11"
 
 | Rejected | Why |
 |---|---|
-| Hours per calendar week, one number | Crude in the wrong way. It cannot say which day a plan lands on, and the answer this milestone exists to give is a day. |
-| A configurable set of weekdays | A four-day week is real, and it is one more schema, one more control and one more thing to store per run for a case a team can express today by stating a shorter day. M11 owns the calendar properly. |
-| Holidays now | The moment a holiday list exists it belongs to an organisation, gets edited, and every historical date moves — which is the whole of decision 5. It is M11's, with a new rule name. |
+| Hours per calendar week, one number | Crude in the wrong way. It cannot say which day a plan lands on, and the answer this work exists to give is a day. |
+| A configurable set of weekdays | A four-day week is real, and it is one more schema, one more control and one more thing to store per run for a case a team can express today by stating a shorter day. The resource model owns the calendar properly. |
+| Holidays now | The moment a holiday list exists it belongs to an organisation, gets edited, and every historical date moves — which is the whole of decision 5. It is the resource model's, with a new rule name. |
 
 **The rule is a name and not a boolean** for the reason `priority_rule` is: two defensible rules
 give two different dates from identical data, so a run made under one must never be silently
-compared with a run made under another. When M11 adds holidays it adds a rule name, and every
+compared with a run made under another. When the resource model adds holidays it adds a rule name, and every
 run made before it keeps resolving under the rule it was made with.
 
 ### Decision 4 — The caller states the start date
@@ -148,17 +148,17 @@ across time is decision 3's rule name, not a stored copy of the answer.
 | Rejected | Why |
 |---|---|
 | Five date columns beside the five hour columns | Pure redundancy — a deterministic function of four columns already on the row — and five more things to keep in step the first time the derivation is corrected. |
-| Derive from a *setting* on the organisation | The failure this whole table exists to prevent. Somebody edits the working day, every historical date silently moves, and M10 reports a slide that never happened. The assumption is copied onto the run, exactly as capacity is. |
+| Derive from a *setting* on the organisation | The failure this whole table exists to prevent. Somebody edits the working day, every historical date silently moves, and the reporting work reports a slide that never happened. The assumption is copied onto the run, exactly as capacity is. |
 
-### Decision 6 — A run made before M4 has no date, and that is the honest answer
+### Decision 6 — A run made before the calendar has no date, and that is the honest answer
 
-M3b's migration backfilled its three columns with zeros, and that was *true*: those runs really
+The common-cause model's migration backfilled its three columns with zeros, and that was *true*: those runs really
 did assume no common cause and no unlisted work. **The same move here would be a lie.** A run made
 last week did not assume a six-hour day; it assumed nothing, because it produced no date at all.
 
 So `starts_on`, `working_hours_per_day` and `calendar_rule` are **nullable**, a run without them
 reports hours and no dates, and the screen says so in one line rather than showing a date that
-nobody's assumptions produced. This is the same thread as M3b's retired limitation codes: history
+nobody's assumptions produced. This is the same thread as the common-cause model's retired limitation codes: history
 keeps saying what it actually said.
 
 It costs the response an optional field and the frontend a branch, and both are the price of not
@@ -191,7 +191,7 @@ costs nothing and needs no conversion. `divide(..., 0, RoundingMode.CEILING)` is
 All five percentiles are in every response. So moving between 50, 80 and 95 changes a date on
 screen **without a request going out**, and that is not an optimisation — it is the feature.
 
-The reframing this milestone is for only works if the trade is immediate: somebody says "can we
+The reframing this work is for only works if the trade is immediate: somebody says "can we
 go faster", and the answer is a control moving from 95 to 80 and a date moving two weeks earlier
 while everybody watches. A round trip per click, or worse a re-simulation with a different seed,
 would make the two numbers look like two different forecasts rather than two readings of one.
@@ -202,8 +202,8 @@ confidence a run was made at; there is only the confidence somebody is reading i
 ### Decision 9 — The working day is not pre-filled; the start date is
 
 Six required boxes is where this form arrives, and the instinct will be to fill some in. Two
-decisions already say why the working day must stay empty: `m3a-plan.md` decision 6 refused to
-default the capacity because **every default is a hidden claim**, and `m3b-plan.md` decision 7
+decisions already say why the working day must stay empty: `simulation-engine.md` decision 6 refused to
+default the capacity because **every default is a hidden claim**, and `common-cause-and-scope-growth.md` decision 7
 kept its two parameters required even though they have a neutral value, because a box already
 answered is a box nobody reads. A working day is the same claim about the same team — and it is
 the number that turns a model's output into something a person will act on.
@@ -216,7 +216,7 @@ one edit away.
 
 **What is not the answer** is remembering the last run's assumptions and filling them in. That is
 the same box-nobody-reads with a better excuse. The previous run's assumptions are already on
-screen — M3b put them in the history line — so re-answering is copying something visible rather
+screen — the common-cause model put them in the history line — so re-answering is copying something visible rather
 than accepting something invisible. If that proves too tedious in practice, the fix is a
 deliberate "same as last time" action somebody presses, not a form that fills itself in.
 
@@ -224,11 +224,11 @@ deliberate "same as last time" action somebody presses, not a form that fills it
 
 The band in hours is what the model produced. The date is that number with an assumption on top,
 and the assumption is exactly the kind that gets forgotten. Both are on screen: the date large,
-the hours beside it, and the working day stated in the same sentence as the five assumptions M3b
+the hours beside it, and the working day stated in the same sentence as the five assumptions the common-cause model
 already prints.
 
 Removing the hours would leave nothing on the page that came out of the engine, and would make
-the working day invisible in the way this milestone's own note warns about: *an assumption users
+the working day invisible in the way this work's own note warns about: *an assumption users
 cannot see is one they will mistake for a result.*
 
 ---
@@ -287,7 +287,7 @@ an implementation detail, and changing it is a migration rather than a rename.
 **One method was written and deleted before it shipped.** An `isWorkingDay` predicate is the
 obvious companion to `finishOn` and nothing calls it — the weekend skip is internal to the
 arithmetic. A public method with no caller is a branch the coverage gate cannot honestly close
-and a second answer to "what is a working day" waiting for M11 to disagree with.
+and a second answer to "what is a working day" waiting for the resource model to disagree with.
 
 ---
 
@@ -301,7 +301,7 @@ and a second answer to "what is a working day" waiting for M11 to disagree with.
 - `POST /api/projects/{projectId}/forecasts` gains `startsOn` (required, a date) and
   `workingHoursPerDay` (required, `@Positive @Max(24) @Digits(integer = 2, fraction = 2)`).
 - The response gains the three assumptions and five derived dates — `p10Date` … `p95Date` —
-  every one of them absent for a run made before this milestone.
+  every one of them absent for a run made before this work.
 - `ForecastResponse` does the deriving through `WorkingCalendar`; nothing else in the application
   knows how a date is made.
 
@@ -319,7 +319,7 @@ currently has.
 
 **The stored rule name is what decides whether a run has dates, and this is the one addition
 worth arguing about.** The bullets say the three columns are absent together for a run made
-before M4, which suggests testing all three for null. `ForecastResponse.dateOf` instead asks one
+before the calendar, which suggests testing all three for null. `ForecastResponse.dateOf` instead asks one
 question — `WorkingCalendar.RULE.equals(run.getCalendarRule())` — and derives nothing when the
 answer is no. Three consequences, all of them the point:
 
@@ -333,7 +333,7 @@ answer is no. Three consequences, all of them the point:
   in the coverage gate no honest test can close.
 - A calendar is all three columns or none, and nothing in the application can write a partial
   row, so the rule name standing in for the other two costs nothing today and starts earning the
-  day M11 adds a second name.
+  day the resource model adds a second name.
 
 **Four refusals on the request, not two.** The bullets name the working day's constraints;
 `startsOn` also carries `@NotNull`, and the two missing-field cases are tested alongside the
@@ -345,7 +345,7 @@ visibly the same number in two files that must agree.
 calendar — a start date with no working day — would make `dateOf` throw, and a database
 constraint would rule it out. This schema has no `CHECK` anywhere: invariants are the
 application's, exactly as tenant isolation is. Adding the first one here for a row nothing can
-write would be a new convention introduced by a milestone that does not need it. The same
+write would be a new convention introduced by a piece of work that does not need it. The same
 reasoning covers a stored working day of zero, which is refused at the request and unreachable
 from any row this application wrote.
 
@@ -362,7 +362,7 @@ what it claims. `DATE_FIELDS` in the test names the five, so adding a sixth mean
 
 **The "row written directly" is written with `JdbcTemplate`**, the only SQL in the API suite.
 The alternative — a second `ForecastRun` constructor omitting the three columns — would be a
-supported way to create the row this milestone exists to stop being created. An `update` that
+supported way to create the row this work exists to stop being created. An `update` that
 nulls the columns is exactly what `V14` left behind, and it says so.
 
 **The frontend is now sending a request the server refuses**, which is step 3's job to fix and is
@@ -381,11 +381,11 @@ stated here so it is not discovered as a surprise. `npm run test` is unaffected 
 - The result leads with a date at a chosen confidence — a control offering **50 / 80 / 95%** —
   and the hours band stays beneath it.
 - Moving the control moves the date with no request (decision 8), which is the trade this
-  milestone exists to make visible: lower confidence, earlier date, same plan.
-- The working day joins the assumptions sentence M3b already prints, and the history line, for
+  work exists to make visible: lower confidence, earlier date, same plan.
+- The working day joins the assumptions sentence the common-cause model already prints, and the history line, for
   the reason the other five are there: two runs read under different calendars are not a date
   moving.
-- A run made before M4 shows its hours and says in one line why it has no date.
+- A run made before the calendar shows its hours and says in one line why it has no date.
 - Dates render through `formatDay`, never `new Date(iso)` — the rule `CLAUDE.md` already states,
   and the one that decides whether a date is off by one for half the planet.
 
@@ -421,14 +421,14 @@ is that plus the one field — the visitor-visible names stay complete, which is
 banner quiet for a complaint shown against its own box.
 
 **The calendar is its own sentence rather than words inside the assumptions sentence.** The
-bullet says the working day "joins the assumptions sentence M3b already prints". Written that
+bullet says the working day "joins the assumptions sentence the common-cause model already prints". Written that
 way, a run with no calendar needs the entire paragraph a second time with the calendar clause
 removed — two long strings that will eventually disagree. It is a second `<p className="assumptions">`
 instead, rendered only when there is one, sitting immediately beneath the first: same place on
 screen, same styling, not behind a disclosure, and one wording. The history line takes the same
 shape — `earlier.entry` unchanged, with `earlier.calendar` appended when the run has one.
 
-**Two ways to have no date, not one.** The bullet names the pre-M4 run. There is a second, and it
+**Two ways to have no date, not one.** The bullet names the pre-the calendar run. There is a second, and it
 is the direction this pair versions in: a run stored under a calendar rule the browser has never
 heard of. `describeDate` tells them apart on `workingHoursPerDay` — absent means nobody stated
 one, present means the rule is unreadable — and says which. It is the same move
@@ -451,8 +451,8 @@ control's test real: a panel that ignored the selection and always showed `p80Da
 against any fixture where the dates agree.
 
 **Some styling, contrary to the panel's own standing note.** `App.css` says the forecast is
-deliberately plain until M5 fixes what the estimate form asks. The date gets a size above the
-band anyway, because the ranking of those two lines *is* the milestone's argument — the date is
+deliberately plain until elicitation fixes what the estimate form asks. The date gets a size above the
+band anyway, because the ranking of those two lines *is* the work's argument — the date is
 what somebody asked for and the band is what the model produced — and leaving them identical
 would make the hours read as the headline and the date as a footnote. Nothing else was touched.
 
@@ -460,14 +460,14 @@ would make the hours read as the headline and the date as a footnote. Nothing el
 
 ## Step 4 — Close out ✅ *done*
 
-- `roadmap.md`: mark M4 done, and with it **Tier 1** — the roadmap's own bar for "beats a
+- `../roadmap.md`: mark the calendar done, and with it **Tier 1** — the roadmap's own bar for "beats a
   spreadsheet" is a Monte Carlo rollup and a ship date at a confidence level, and both now exist.
-- `roadmap.md`: record what M11 inherits — the working day is a stated number today and becomes a
+- `../roadmap.md`: record what the resource model inherits — the working day is a stated number today and becomes a
   derived one when real availability arrives, which is a **new calendar rule name** rather than an
   edit to this one, and old runs keep resolving under `five_day_week`.
-- `roadmap.md`: record what M10 inherits — a date per run under a stated calendar, which is what
+- `../roadmap.md`: record what the reporting work inherits — a date per run under a stated calendar, which is what
   makes a sliding-date detector able to tell a plan that moved from a calendar that changed.
-- `product-concept.md`: *Ship date at a confidence level* stops being design intent, and the
+- `../product-concept.md`: *Ship date at a confidence level* stops being design intent, and the
   *Deferred* note about mapping effort onto calendar dates gets its second half answered.
 - `CLAUDE.md`: the working day is one worker's and capacity is already in the number; the
   division is exact because a day boundary is a step; a date is derived and the rule is stored;
@@ -475,11 +475,11 @@ would make the hours read as the headline and the date as a footnote. Nothing el
 
 ### As built — where it differs from the above
 
-**Every bullet landed, and two notes were discharged that this list did not name.** `roadmap.md`
-carries two `>` blocks under M4 that this step had no entry for, because both were promises the
-*previous* milestone made rather than facts this one recorded: M3's *What M4 inherits* said the
+**Every bullet landed, and two notes were discharged that this list did not name.** `../roadmap.md`
+carries two `>` blocks under the calendar that this step had no entry for, because both were promises the
+*previous* work made rather than facts this one recorded: the simulation engine's *What the calendar inherits* said the
 working-day assumption had deliberately not been invented anywhere it could be inherited by
-accident, and M4's own *Note* said keep it crude and **visible**. Each now says how it was
+accident, and the calendar's own *Note* said keep it crude and **visible**. Each now says how it was
 honoured, in the place a reader meets the promise rather than in the section that kept it. The
 second is the one worth having: the crude half is three columns and a five-day week, and the
 visible half took most of the care.
@@ -487,8 +487,8 @@ visible half took most of the care.
 **Three places said something that had quietly stopped being true**, and none of them was on the
 list:
 
-- The **icebox item on alternative units** said a working day acquires a length in M11. It has
-  one now — and the note says explicitly that a unit setting must *not* borrow it, because M4's
+- The **icebox item on alternative units** said a working day acquires a length in the resource model. It has
+  one now — and the note says explicitly that a unit setting must *not* borrow it, because the calendar's
   number is stated per run and stored on it. A display multiplier reading a per-run assumption
   would rescale every historical estimate the moment somebody edited a working day, which is the
   failure decision 5 exists to prevent, arriving through a door nobody was watching.
@@ -496,8 +496,8 @@ list:
   schema". `forecast_runs.starts_on` is a third, and it is the same argument reaching the other
   way — a day the caller *states* rather than reports, because an instant is not a date without a
   timezone.
-- **`product-concept.md`'s *Deferred* note** bundled working days with people, allocation and
-  holidays as one deferral. M4 took the last clause alone, and the As-built note says what made
+- **`../product-concept.md`'s *Deferred* note** bundled working days with people, allocation and
+  holidays as one deferral. The calendar took the last clause alone, and the As-built note says what made
   it separable: the assumption is *stated per forecast* rather than modelled, so nothing has to
   know who is working when.
 
@@ -509,13 +509,13 @@ the forecasting section. A seventh convention went elsewhere on purpose: the fro
 running in `America/New_York` is a testing rule, not a forecasting one, and it belongs beside "a
 test double that answers every URL alike is a lying double".
 
-**The roadmap's "what I would build next" now says M5**, which this step did not ask for and
+**The roadmap's "what I would build next" now says elicitation**, which this step did not ask for and
 which the document would have gone on answering wrongly. The argument is not new but it is
-sharper for M4 having landed: elicitation was already scheduled early because three boxes labelled
+sharper for the calendar having landed: elicitation was already scheduled early because three boxes labelled
 P10/P50/P90 produce garbage carrying a probability — and that garbage now carries a *day of the
 week*, which is worse, because a date is the thing people act on.
 
-### The review pass — what a read of the whole milestone changed
+### The review pass — what a read of the whole work changed
 
 Six changes after close-out, recorded here rather than folded back into the steps because they
 happened afterwards and the point of these sections is when a thing was decided.
@@ -540,18 +540,18 @@ deliberately — one so the refusal arrives against the box somebody typed in, o
 cannot be handed nonsense by a caller that skipped it — but a bound is a fact about days and gets
 stated once.
 
-**Three strings that M4 had quietly made untrue**, none of them in any step's diff:
+**Three strings that the calendar had quietly made untrue**, none of them in any step's diff:
 
 - *"not one of them has an answer this application can give for you"* on the empty forecast panel.
   The start date now has one, so it reads "almost none" — and the comment above it says why the
   exception is a fact rather than a claim.
 - *"All five, beside the band"* on the assumptions catalogue entry. Five of six, with the sixth in
   its own sentence and the reason for the split named.
-- *"Two of these are always here"* on the limitations block, which **M3b** made false rather than
-  M4 — it retired the two codes that described the engine. Fixed while the file was open.
+- *"Two of these are always here"* on the limitations block, which **The common-cause model** made false rather than
+  the calendar — it retired the two codes that described the engine. Fixed while the file was open.
 
 A fourth was checked and left: `max: 'Use no more than {{value}}.'` said its only user was the
-sample count, which the M3b percentages had already outgrown; its comment now lists all four.
+sample count, which the the common-cause model percentages had already outgrown; its comment now lists all four.
 
 **What was checked and found sound**, since that is worth as much as the list above:
 `CODE_PRECEDENCE` already ranks `positive`, `max` and `digits`, so the two constraint pairs a
@@ -572,7 +572,7 @@ calendar never reached the model.
 
 **The interesting part is the absence of a default, and it is the mirror of `V13`.** That
 migration backfilled zeros and could argue they were true. This one has nothing true to write: a
-run made before M4 assumed no calendar, because it produced no date. A default here would invent
+run made before the calendar assumed no calendar, because it produced no date. A default here would invent
 a claim on behalf of somebody who never made one, and it would do it in the one table whose whole
 purpose is to say what was actually assumed.
 
@@ -580,9 +580,9 @@ purpose is to say what was actually assumed.
 
 ## Sequencing and risk
 
-**The risk in M4 is not arithmetic.** Every number here is checkable on paper, there are no
+**The risk in the calendar is not arithmetic.** Every number here is checkable on paper, there are no
 statistics, and step 1 is a few dozen lines with an answer a person can count out on a calendar.
-That is exactly what makes it dangerous: the milestone will feel finished long before it is
+That is exactly what makes it dangerous: the work will feel finished long before it is
 right, because the part that can be wrong is not the part that can be tested easily.
 
 **The one that will actually go wrong** is decision 2 — dividing by the team's hours rather than
@@ -600,10 +600,10 @@ this paragraph.
   moved. If somebody expects the calendar to double the effect, they have decision 2's bug in
   their head rather than in the code.
 
-**What this milestone must not absorb.** Holidays and per-person availability are M11, and the
+**What this work must not absorb.** Holidays and per-person availability are the resource model, and the
 moment either appears the calendar stops being a stated number and becomes a derived one — which
-is a new rule name and a bigger milestone. Plain-language sentences ("85% likely to finish
-between 12 October and 20 November") and the burn-up are M10, which is where an *audience* who
+is a new rule name and a bigger work. Plain-language sentences ("85% likely to finish
+between 12 October and 20 November") and the burn-up are the reporting work, which is where an *audience* who
 does not know what P90 means gets designed for. Inverse queries — "what do I cut to hit 1
-November" — are M7, and they read this milestone's output rather than extending it. The line to
-hold is that M4 turns one number into one date under one visible assumption, and stops.
+November" — are the inverse query, and they read this work's output rather than extending it. The line to
+hold is that the calendar turns one number into one date under one visible assumption, and stops.

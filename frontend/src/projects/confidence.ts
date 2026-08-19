@@ -11,7 +11,7 @@
  *
  * **A view over one run and never a re-run.** All five percentiles are already in the
  * response, so moving between these changes a date on screen without a request going out —
- * which is not an optimisation but the feature. The trade this milestone exists to make
+ * which is not an optimisation but the feature. The trade this work exists to make
  * visible only works if it is immediate: somebody asks whether the plan can go faster, and
  * the answer is a control moving from 95 to 80 and a date moving with it, on one screen,
  * from one forecast. A round trip would make two readings of one run look like two

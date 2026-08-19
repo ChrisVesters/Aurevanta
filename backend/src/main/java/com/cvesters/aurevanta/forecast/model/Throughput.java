@@ -19,9 +19,9 @@ import com.cvesters.aurevanta.forecast.model.ThroughputForecast.Delivered;
  * <strong>Items and not hours, which is what lets this answer on the day it
  * ships.</strong> A completion date is required on everything ever marked done, so the
  * history below exists in full for every plan this product holds.
- * {@code actual_effort_hours} carries no such requirement and M8's coverage counts are
- * the measurement of what that costs — a throughput built on hours would be a second
- * feature whose ordinary answer is "nothing to report yet".
+ * {@code actual_effort_hours} carries no such requirement and calibration's coverage
+ * counts are the measurement of what that costs — a throughput built on hours would be a
+ * second feature whose ordinary answer is "nothing to report yet".
  *
  * <p>
  * <strong>Every week from the first completion to the as-of date is in here, and the
@@ -68,7 +68,7 @@ public final class Throughput {
 	 * items a week with forty left, the 85% answer lands between seven and thirteen weeks
 	 * on one month of history and between eight and twelve on a quarter, against a truth
 	 * of ten. The first is not a wide forecast but a random one; the second is wide and
-	 * centred, which is worth showing. `m9-plan.md` carries the tables.
+	 * centred, which is worth showing. `docs/design/throughput.md` carries the tables.
 	 */
 	public static final int WORTH_SHOWING = 13;
 

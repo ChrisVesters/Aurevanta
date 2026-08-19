@@ -1,7 +1,7 @@
--- The two assumptions M3b added to the model, stored beside the answer they produced.
+-- The two assumptions the common-cause model added to the model, stored beside the answer they produced.
 --
 -- Real columns rather than fields in the `inputs` document, for the reason capacity and
--- priority_rule already have them: M10 compares these across the runs of one plan, and a
+-- priority_rule already have them: the reporting layer compares these across the runs of one plan, and a
 -- comparison is a query. Two forecasts of the same plan made under different assumptions
 -- are not a movement, and a detector that could not see the difference would report one.
 --
@@ -28,7 +28,7 @@ alter table forecast_runs
 -- And then the default goes, which is the point of doing it in two statements. A default
 -- left in place would let a future insert omit an assumption and be handed one by the
 -- database — exactly the "a server that picked would be making a claim about a team it has
--- never met" this milestone refuses everywhere else. Existing rows get a true zero; nothing
+-- never met" this work refuses everywhere else. Existing rows get a true zero; nothing
 -- after this may leave the question unanswered.
 alter table forecast_runs
     alter column team_factor_worse_by_percent drop default,

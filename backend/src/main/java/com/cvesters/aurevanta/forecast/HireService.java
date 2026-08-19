@@ -24,13 +24,13 @@ import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.ResourceNotInForecastException;
 
 /**
- * What another unit of one pool would buy against a stored run — M11.
+ * What another unit of one pool would buy against a stored run — the resource model.
  *
  * <p>
- * <strong>The pairing is exact for free</strong>, unlike M7's cut, which has to take a
- * draw and discard it to keep the stream aligned: units change what may <em>start</em>
- * and never what is sampled, so the counterfactual and the baseline draw the same numbers
- * in the same order from the same seed.
+ * <strong>The pairing is exact for free</strong>, unlike a cut, which has to take a draw
+ * and discard it to keep the stream aligned: units change what may <em>start</em> and
+ * never what is sampled, so the counterfactual and the baseline draw the same numbers in
+ * the same order from the same seed.
  *
  * <p>
  * <strong>Hiring is weighed and never decided.</strong> Nothing is written. What a person
@@ -52,15 +52,15 @@ class HireService {
 	 * What adding to one pool would be worth, measured against a stored run.
 	 *
 	 * <p>
-	 * <strong>M7's machinery answering `roadmap.md`'s most compelling question.</strong>
-	 * Every counterfactual is a replay of the stored run from its own seed with one pool
-	 * larger — nothing is written, and forty simulations could go past without
-	 * {@code forecast_runs} gaining a row.
+	 * <strong>the cut search's machinery answering `roadmap.md`'s most compelling
+	 * question.</strong> Every counterfactual is a replay of the stored run from its own
+	 * seed with one pool larger — nothing is written, and forty simulations could go past
+	 * without {@code forecast_runs} gaining a row.
 	 *
 	 * <p>
 	 * <strong>The pairing is exact for free here, where a cut had to work for
-	 * it.</strong> M7's cut takes a draw and discards it, because an item that took no
-	 * draw would shift every later number in the run and turn the measurement into noise.
+	 * it.</strong> a cut takes a draw and discards it, because an item that took no draw
+	 * would shift every later number in the run and turn the measurement into noise.
 	 * Units change what may <em>start</em> and never what is sampled, so the two runs
 	 * being compared draw the same numbers in the same order without anything being
 	 * arranged.
@@ -91,7 +91,8 @@ class HireService {
 		}
 
 		List<ItemModel> plan = inputs.toModels();
-		// The baseline does two jobs, as M7's does: it is what every row below is
+		// The baseline does two jobs, as the inverse query's does: it is what every row
+		// below is
 		// measured
 		// against, and it proves this engine still reproduces the run it is about to give
 		// advice on.
@@ -125,8 +126,8 @@ class HireService {
 	 *
 	 * <p>
 	 * Days are the difference between two <em>dates</em> and never hours converted, which
-	 * is M4's step function met from the same direction M10's decomposition met it: each
-	 * end is rounded up to a whole day on its own.
+	 * is the calendar's step function met from the same direction the reporting layer's
+	 * decomposition met it: each end is rounded up to a whole day on its own.
 	 */
 	private static HireStepResponse step(ForecastRun run, int units, Forecast stands, Forecast with, int confidence) {
 		LocalDate was = dateOf(run, stands, confidence);

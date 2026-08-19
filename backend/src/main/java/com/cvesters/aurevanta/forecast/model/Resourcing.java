@@ -12,7 +12,7 @@ package com.cvesters.aurevanta.forecast.model;
  * schedule that is feasible when the work is typed is feasible when it is not — <strong>a
  * capacity number is therefore a lower bound on when a plan finishes rather than an
  * approximation of it</strong>, and it errs in the one direction this product exists to
- * correct. {@code m11-plan.md} carries the table.
+ * correct. {@code docs/design/resources-and-people.md} carries the table.
  *
  * <p>
  * <strong>One pool of <em>n</em> units with nothing named is capacity <em>n</em>
@@ -32,10 +32,10 @@ package com.cvesters.aurevanta.forecast.model;
  *
  * <p>
  * <strong>Units are occupancy and never speed.</strong> Two units means the work ties up
- * two, not that it goes twice as fast. {@code m11-plan.md} decision 5 is the argument and
- * its last line is the one that decides: effort divided by headcount is checkable against
- * nothing, where every other modelling decision in M3 is checkable against arithmetic
- * that exists outside this codebase.
+ * two, not that it goes twice as fast. {@code docs/design/resources-and-people.md}
+ * decision 5 is the argument and its last line is the one that decides: effort divided by
+ * headcount is checkable against nothing, where every other modelling decision in the
+ * simulation engine is checkable against arithmetic that exists outside this codebase.
  */
 public final class Resourcing {
 
@@ -58,7 +58,7 @@ public final class Resourcing {
 
 	/**
 	 * A plan with one undifferentiated pool and nothing named, which is what every
-	 * forecast made before M11 assumed.
+	 * forecast made before the resource model assumed.
 	 * @param capacity how many pieces of work may be under way at once
 	 * @param items how many there are
 	 * @throws IllegalArgumentException if the capacity is not a positive number of things

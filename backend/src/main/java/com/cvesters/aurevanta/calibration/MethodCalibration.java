@@ -7,7 +7,7 @@ import com.cvesters.aurevanta.forecast.model.Calibration;
  *
  * <p>
  * <strong>This is what {@code V15} was added for, and it is the only instrument that can
- * ever say whether M5 worked.</strong> That milestone's claim is that changing the
+ * ever say whether elicitation worked.</strong> That work's claim is that changing the
  * *question* produces honester ranges, and its failure mode is a form that feels better
  * and changes nothing — which nothing in the test suite can settle. Split the calibration
  * record by how each range was asked for and the question answers itself.

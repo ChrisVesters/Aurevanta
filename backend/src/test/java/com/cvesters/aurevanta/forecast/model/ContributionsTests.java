@@ -11,8 +11,8 @@ import static org.assertj.core.api.Assertions.within;
 
 /**
  * <strong>{@code sharesOfASumAreTheShareOfItsVariance} is the oracle, and it is the whole
- * reason this milestone is checkable.</strong> Correlation against a scheduled plan has
- * no closed form — that is why `roadmap.md` says contribution has to be measured against
+ * reason this work is checkable.</strong> Correlation against a scheduled plan has no
+ * closed form — that is why `roadmap.md` says contribution has to be measured against
  * project completion rather than derived — but the degenerate case does: for independent
  * draws <em>summed</em>, one draw's squared correlation with the total is exactly its
  * share of the total variance, which is the number a summing model computes directly. So
@@ -21,8 +21,9 @@ import static org.assertj.core.api.Assertions.within;
  *
  * <p>
  * The second one to read is {@code aPlanOfABillionHoursIsStillMeasuredCorrectly}, which
- * carries the measurement `m6-plan.md` opens with: the obvious one-pass formula returns
- * {@code NaN} there, and it is in the assertion so that nobody quietly puts it back.
+ * carries the measurement `docs/design/variance-contribution.md` opens with: the obvious
+ * one-pass formula returns {@code NaN} there, and it is in the assertion so that nobody
+ * quietly puts it back.
  */
 class ContributionsTests {
 
@@ -42,7 +43,7 @@ class ContributionsTests {
 	 * when the sum of its draws says it does, and there the squared correlations are the
 	 * variance shares and add to exactly 1 — 4.5 and 0.5 out of 5.0. Anything that
 	 * changes this has stopped computing what a summing model computed, which is the
-	 * thing M6 is supposed to generalise rather than replace.
+	 * thing the contribution ranking is supposed to generalise rather than replace.
 	 */
 	@Test
 	void sharesOfASumAreTheShareOfItsVariance() {
@@ -90,13 +91,13 @@ class ContributionsTests {
 	}
 
 	/**
-	 * <strong>The measurement `m6-plan.md` opens with, as a regression.</strong> A
-	 * correlation does not care where zero is, so shifting both series by a billion must
-	 * change nothing — and it changes nothing here, while the sums-of-squares formula
-	 * subtracts two nearly equal enormous numbers and comes back with {@code NaN}. That
-	 * is not merely a worse answer: {@code NaN} is not valid JSON, so the endpoint that
-	 * published it would fail rather than lie, which is the better of two bad outcomes
-	 * and is not a defence.
+	 * <strong>The measurement `docs/design/variance-contribution.md` opens with, as a
+	 * regression.</strong> A correlation does not care where zero is, so shifting both
+	 * series by a billion must change nothing — and it changes nothing here, while the
+	 * sums-of-squares formula subtracts two nearly equal enormous numbers and comes back
+	 * with {@code NaN}. That is not merely a worse answer: {@code NaN} is not valid JSON,
+	 * so the endpoint that published it would fail rather than lie, which is the better
+	 * of two bad outcomes and is not a defence.
 	 */
 	@Test
 	void aPlanOfABillionHoursIsStillMeasuredCorrectly() {
@@ -132,9 +133,9 @@ class ContributionsTests {
 	 * <strong>Decision 5, and it is the ordinary case rather than an edge one.</strong>
 	 * An item nobody estimated weighs nothing in every run; work already finished has
 	 * nothing left; and three identical numbers are somebody saying they are certain,
-	 * which M2 accepts on purpose. All three never move, so none of them is what the
-	 * finish moved with — and none of them is a {@code NaN} that would sort unpredictably
-	 * through a ranking and fail to serialise.
+	 * which the plan schema accepts on purpose. All three never move, so none of them is
+	 * what the finish moved with — and none of them is a {@code NaN} that would sort
+	 * unpredictably through a ranking and fail to serialise.
 	 */
 	@Test
 	void aSourceThatNeverVariesContributesExactlyNothing() {

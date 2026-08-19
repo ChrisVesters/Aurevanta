@@ -28,7 +28,7 @@ export type Contribution = {
   itemId: string | null;
   /**
    * What that work is called *now*, from the plan rather than from the run — the snapshot a
-   * run stores never held a title, because M10 diffs those and a rename is not a thing that
+   * run stores never held a title, because the reporting layer diffs those and a rename is not a thing that
    * moved. Null for the two sources that are not work.
    */
   title: string | null;
@@ -94,7 +94,7 @@ export type CutPlan = {
  * What it would take to hit a date, measured against one stored run.
  *
  * The hours the date came to travel with it, because a target date only means anything
- * under a working day and a calendar — M4's rule about a stated assumption arriving beside
+ * under a working day and a calendar — the calendar's rule about a stated assumption arriving beside
  * the number it produced, in the one place where the number is a recommendation.
  */
 export type CutOptions = {
@@ -116,7 +116,7 @@ export type CutOptions = {
  * **These are not a footnote.** A number shown without them is the thing this product
  * exists to replace, so they are printed beside the answer rather than behind a link.
  *
- * **The first two are retired and still listed here.** M3b models a shared team factor and
+ * **The first two are retired and still listed here.** The common-cause model models a shared team factor and
  * scope growth, so nothing writes them any more — but every forecast made before it still
  * carries them, and this screen shows the runs a plan has accumulated rather than only its
  * newest. Dropping them from this union would describe a run made last month as saying
@@ -466,7 +466,7 @@ export type BurnUpConeWeek = {
  * total inside it rather than starting again from zero, so nothing on this side adds the two
  * together — which is the arithmetic that gets done wrong.
  *
- * **The cone is M9's bootstrap and never the engine's band.** A burn-up's future is how many
+ * **The cone is the throughput forecast's bootstrap and never the engine's band.** A burn-up's future is how many
  * *items* are done by each week, and the engine has no notion of that: it forecasts effort.
  * Same history, same sampler and same seed as the date beside it, so the picture and the
  * number cannot disagree.

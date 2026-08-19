@@ -6,11 +6,11 @@
 -- half of what it holds could be given back.
 --
 -- **Occupancy is not speed.** Two units means the item ties up two, not that it goes twice
--- as fast. `roadmap.md` says that with an allocation "M2's stored effort finally converts to
--- duration honestly", and m11-plan.md decision 5 disagrees: an estimate is what somebody
+-- as fast. `roadmap.md` says that with an allocation "the schema's stored effort finally converts to
+-- duration honestly", and docs/design/resources-and-people.md decision 5 disagrees: an estimate is what somebody
 -- said the *task* would take and already implies whoever does it, effort divided by
 -- headcount is linear speed-up with no communication cost, and — the reason that decides it
--- — there is no oracle. Every modelling decision in M3 is checkable against arithmetic that
+-- — there is no oracle. Every modelling decision in the simulation engine is checkable against arithmetic that
 -- exists outside this codebase, and "two people finish this in 60% of the time" is checkable
 -- against nothing.
 --
@@ -18,7 +18,7 @@
 -- one free, in declaration order (decision 6). That is what an unannotated item *is* —
 -- generic work anybody can pick up — and it is what makes a plan with one pool and no
 -- requirements identical to today's capacity model, which is the whole of the version-bump
--- containment this milestone rests on.
+-- containment this work rests on.
 
 create table requirements (
     id           uuid    not null,

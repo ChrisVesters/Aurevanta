@@ -29,9 +29,9 @@ import com.cvesters.aurevanta.user.User;
  * <p>
  * <strong>There is no update and no delete here, and that is the whole design.</strong>
  * Recording a second estimate for the same item leaves the first exactly where it is; the
- * newer one simply becomes the current one. M8 asks how often a person's band contained
- * the truth, which is a question about what they said at the time, and only rows nothing
- * rewrites can answer it.
+ * newer one simply becomes the current one. Calibration asks how often a person's band
+ * contained the truth, which is a question about what they said at the time, and only
+ * rows nothing rewrites can answer it.
  *
  * <p>
  * Depends on {@code item} and never the other way round: an estimate is <em>of</em> a
@@ -117,7 +117,7 @@ public class EstimateService {
 	 *
 	 * <p>
 	 * <strong>Scoped to one organisation, and that corrects a comment in
-	 * {@code V9}</strong>, which says M8 calibrates "across everything they ever
+	 * {@code V9}</strong>, which says calibration calibrates "across everything they ever
 	 * estimated, in whichever organisation". It does not, and it must not:
 	 * {@code estimates} carries a {@code tenant_id}, isolation is enforced here, and
 	 * reading somebody's estimates from another organisation would be a cross-tenant leak

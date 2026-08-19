@@ -86,8 +86,8 @@ import com.cvesters.aurevanta.user.User;
 public class ForecastService {
 
 	/**
-	 * The three confidences M4's control offers, and the only three anything publishes a
-	 * second reading at.
+	 * The three confidences the calendar's control offers, and the only three anything
+	 * publishes a second reading at.
 	 *
 	 * <p>
 	 * The other two percentiles have no control and no need. Stated here because two
@@ -280,7 +280,8 @@ public class ForecastService {
 		// rather than the one this code has by the time somebody reads it.
 		// The team goes on the row as well as into the snapshot, and the duplication is
 		// deliberate: two readers want it per run — the panel that prints what a forecast
-		// assumed, and M10's detector, which walks a whole history — and the snapshot
+		// assumed, and the drift detector, which walks a whole history — and
+		// the snapshot
 		// beside
 		// it holds five hundred items and every range anybody typed.
 		ForecastTerms terms = new ForecastTerms(Engine.VERSION, Schedule.PRIORITY_RULE, WorkingCalendar.RULE,
@@ -364,9 +365,9 @@ public class ForecastService {
 	 * <strong>Two of these used to be on every run and are on none of them now.</strong>
 	 * {@code no_team_factor} and {@code no_scope_uncertainty} described the engine rather
 	 * than the plan — it sampled every item independently and forecast only the work
-	 * somebody had written down — and M3b is the milestone that removed their cause
-	 * rather than their wording. What is left describes the plan being forecast, which is
-	 * why those two could be retired and these cannot.
+	 * somebody had written down — and the common-cause model is the change that removed
+	 * their cause rather than their wording. What is left describes the plan being
+	 * forecast, which is why those two could be retired and these cannot.
 	 *
 	 * <p>
 	 * A run made before that is still carrying them, which is the whole reason

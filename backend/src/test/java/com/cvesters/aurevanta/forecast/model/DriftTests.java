@@ -17,12 +17,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * <p>
  * <strong>The measurement is the point of this class and these are it, made into
- * cases.</strong> `m10-plan.md` measured a rule about the direction of the last few runs
- * firing on 86% of plans re-forecast weekly for six months with no slide in them at all,
- * and no run length rescuing it. So the first case here is a plan that walks out four
- * times running and has not moved an inch since it started, and it must say nothing —
- * that is the 86% turned into a test rather than a paragraph, which is what this step's
- * own <em>done when</em> asks for.
+ * cases.</strong> `docs/design/communicating-a-forecast.md` measured a rule about the
+ * direction of the last few runs firing on 86% of plans re-forecast weekly for six months
+ * with no slide in them at all, and no run length rescuing it. So the first case here is
+ * a plan that walks out four times running and has not moved an inch since it started,
+ * and it must say nothing — that is the 86% turned into a test rather than a paragraph,
+ * which is what this step's own <em>done when</em> asks for.
  *
  * <p>
  * The rest of it is the yardstick: the same eight days are the whole of a plan that
@@ -81,10 +81,11 @@ class DriftTests {
 	 * <strong>A band of no days is a short plan and not a confident one, so it gets no
 	 * verdict.</strong> Both ends of a band are rounded up to a whole day on their own,
 	 * so a plan of a few days puts them on the same one — and that is exactly the plan
-	 * where `m10-plan.md` step 3 measured re-running alone moving the date by
-	 * <em>days</em>. The measurement that says this detector needs no noise floor was
-	 * taken on a twelve-item chain and does not hold here, so the yardstick being missing
-	 * means no answer rather than the strictest answer in the product.
+	 * where `docs/design/communicating-a-forecast.md` step 3 measured re-running alone
+	 * moving the date by <em>days</em>. The measurement that says this detector needs no
+	 * noise floor was taken on a twelve-item chain and does not hold here, so the
+	 * yardstick being missing means no answer rather than the strictest answer in the
+	 * product.
 	 */
 	@Test
 	void aPlanWhoseBandIsUnderADayHasNoYardstickAndSaysNothing() {
@@ -135,9 +136,9 @@ class DriftTests {
 	}
 
 	/**
-	 * The one that is a refusal everywhere else in this milestone is only a boundary
-	 * here: there is nothing to compare a run against across a version bump, so the
-	 * window stops at it rather than the whole history being declined.
+	 * The one that is a refusal everywhere else in this work is only a boundary here:
+	 * there is nothing to compare a run against across a version bump, so the window
+	 * stops at it rather than the whole history being declined.
 	 */
 	@Test
 	void anOlderEngineStartsANewWindow() {
@@ -194,9 +195,9 @@ class DriftTests {
 	}
 
 	/**
-	 * A run made before M4 has hours and no date, so there is nothing here to measure in
-	 * days — and reading it under today's calendar is what `V14` refused to do by not
-	 * backfilling.
+	 * A run made before the calendar has hours and no date, so there is nothing here to
+	 * measure in days — and reading it under today's calendar is what `V14` refused to do
+	 * by not backfilling.
 	 */
 	@Test
 	void aHistoryWithNoCalendarHasNoDaysAndNoVerdict() {

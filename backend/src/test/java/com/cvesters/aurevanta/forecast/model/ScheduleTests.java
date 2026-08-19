@@ -352,7 +352,10 @@ class ScheduleTests {
 		assertThat(plan.finish(new double[] { 0.5, 1, 1, 5 }, new int[] { 0 }, 1)).isCloseTo(22.5, within(EXACT));
 	}
 
-	/** Nothing discovered is the plan exactly as it was, which is what M3a forecast. */
+	/**
+	 * Nothing discovered is the plan exactly as it was, which is what the simulation
+	 * engine forecast.
+	 */
 	@Test
 	void discoveringNothingIsTheSamePlan() {
 		Schedule plan = schedule(3, 2, edge(0, 1));
@@ -481,7 +484,7 @@ class ScheduleTests {
 	}
 
 	/**
-	 * <strong>The measurement this milestone exists for, as a case anybody can check by
+	 * <strong>The measurement this work exists for, as a case anybody can check by
 	 * hand.</strong> Four items of ten hours and four units of capacity: interchangeable,
 	 * they all run at once and the plan takes ten. Split into two pools of two with three
 	 * items needing the first, and the third of them waits — because a unit of the other

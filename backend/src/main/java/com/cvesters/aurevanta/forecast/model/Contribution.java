@@ -13,12 +13,13 @@ package com.cvesters.aurevanta.forecast.model;
  * tested against and it is not a case this product models.
  *
  * <p>
- * <strong>In a real forecast they sum to more than 1.</strong> M3b's team factor
- * multiplies every item in a run by the same draw, so everything moves with everything,
- * and the shares overlap. A screen that presented them as percentages would show a plan
- * whose parts account for three hundred percent of its own uncertainty — which is
- * precisely the kind of precise-looking, wrong number `product-concept.md` exists to
- * complain about. They are a <em>ranking</em>, and the wording on screen has to say so.
+ * <strong>In a real forecast they sum to more than 1.</strong> The common-cause model's
+ * team factor multiplies every item in a run by the same draw, so everything moves with
+ * everything, and the shares overlap. A screen that presented them as percentages would
+ * show a plan whose parts account for three hundred percent of its own uncertainty —
+ * which is precisely the kind of precise-looking, wrong number `product-concept.md`
+ * exists to complain about. They are a <em>ranking</em>, and the wording on screen has to
+ * say so.
  *
  * <p>
  * Exactly zero for a source that never varies, which is the ordinary case rather than an

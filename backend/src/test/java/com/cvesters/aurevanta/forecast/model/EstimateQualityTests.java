@@ -8,19 +8,19 @@ import static org.assertj.core.api.Assertions.within;
 
 /**
  * <strong>{@code theCanonicalGarbagePassesBothChecks} is the one to read, and it is a
- * test that asserts a failure.</strong> `m5-plan.md` opens with the measurement it
- * carries: every Fibonacci triple agrees with itself to within a few percent and sits
- * just above the ratio rule, so neither check catches the estimate this whole milestone
- * is named after. That is not a bug to fix by moving a threshold — it is why the order
- * the three questions are asked in is the defence and these two are a backstop. The
- * numbers are in the assertion rather than only in the plan so that anybody who "fixes" a
- * threshold has to come here and read why it is where it is.
+ * test that asserts a failure.</strong> `docs/design/elicitation.md` opens with the
+ * measurement it carries: every Fibonacci triple agrees with itself to within a few
+ * percent and sits just above the ratio rule, so neither check catches the estimate this
+ * whole design is named after. That is not a bug to fix by moving a threshold — it is why
+ * the order the three questions are asked in is the defence and these two are a backstop.
+ * The numbers are in the assertion rather than only in the plan so that anybody who
+ * "fixes" a threshold has to come here and read why it is where it is.
  */
 class EstimateQualityTests {
 
 	/**
-	 * <strong>The measurement this milestone is built on.</strong> Consistency within a
-	 * few percent of perfect and a P90 about 1.6 times the P50, on all four — coherent
+	 * <strong>The measurement this work is built on.</strong> Consistency within a few
+	 * percent of perfect and a P90 about 1.6 times the P50, on all four — coherent
 	 * garbage, invisible to anything that looks at three numbers on their own.
 	 */
 	@Test
@@ -94,10 +94,10 @@ class EstimateQualityTests {
 	}
 
 	/**
-	 * <strong>Certainty is not an error.</strong> M2 accepts three identical numbers on
-	 * purpose — it is somebody saying they know — and `LogNormalFit` fits it as a point
-	 * mass rather than refusing. So this grades it: perfectly consistent, and tight,
-	 * which is exactly what it is.
+	 * <strong>Certainty is not an error.</strong> The plan schema accepts three identical
+	 * numbers on purpose — it is somebody saying they know — and `LogNormalFit` fits it
+	 * as a point mass rather than refusing. So this grades it: perfectly consistent, and
+	 * tight, which is exactly what it is.
 	 */
 	@Test
 	void threeIdenticalNumbersAreConsistentAndTight() {

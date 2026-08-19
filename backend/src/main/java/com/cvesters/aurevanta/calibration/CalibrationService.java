@@ -29,12 +29,12 @@ import com.cvesters.aurevanta.problem.NotAMemberException;
  * How often this organisation's ranges contained the truth.
  *
  * <p>
- * <strong>It reads and stores nothing</strong>, which is M6's decision 1 spent a third
- * time: a stored hit rate would only ever explain the estimates written after somebody
- * added the column, and a derived one explains every estimate this product has ever held.
- * It is also the only thing here that can be true — a calibration figure changes every
- * time anybody finishes a task, so writing one down would freeze a number whose whole
- * nature is that it moves.
+ * <strong>It reads and stores nothing</strong>, which is the contribution ranking's
+ * decision 1 spent a third time: a stored hit rate would only ever explain the estimates
+ * written after somebody added the column, and a derived one explains every estimate this
+ * product has ever held. It is also the only thing here that can be true — a calibration
+ * figure changes every time anybody finishes a task, so writing one down would freeze a
+ * number whose whole nature is that it moves.
  *
  * <p>
  * <strong>Two reads joined in memory rather than one query</strong>, and the reason is

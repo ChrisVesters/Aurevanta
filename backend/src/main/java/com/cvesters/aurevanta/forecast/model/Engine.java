@@ -47,12 +47,12 @@ public final class Engine {
 	 * nothing can check.
 	 *
 	 * <p>
-	 * <strong>Version 2 contains version 1 rather than replacing it.</strong> M3a is this
-	 * engine with {@link TeamFactor#NONE} and {@link ScopeGrowth#NONE} — not
-	 * approximately but draw for draw, because a parameter that changes no number also
-	 * takes no draw from the generator. So replaying a version 1 run means running
-	 * version 2 with the parameters version 1 implied, and there is no second code path
-	 * to be kept in step with this one.
+	 * <strong>Version 2 contains version 1 rather than replacing it.</strong> the
+	 * simulation engine is this engine with {@link TeamFactor#NONE} and
+	 * {@link ScopeGrowth#NONE} — not approximately but draw for draw, because a parameter
+	 * that changes no number also takes no draw from the generator. So replaying a
+	 * version 1 run means running version 2 with the parameters version 1 implied, and
+	 * there is no second code path to be kept in step with this one.
 	 *
 	 * <p>
 	 * <strong>Version 3 contains version 2 in exactly the same way, and it is a
@@ -64,11 +64,12 @@ public final class Engine {
 	 * before it knew what a resource was, and they are unchanged to the last bit.
 	 *
 	 * <p>
-	 * So M11 bumps this and every run made before it still replays — which is what M6's
-	 * ranking, M7's cuts and M10's decomposition all need, since each of them is a replay
-	 * of a stored run. What M10's <em>comparison</em> does across the bump is refuse, and
-	 * that is right rather than unfortunate: a plan re-forecast against a team that has
-	 * been described for the first time has answered a different question.
+	 * So the resource model bumps this and every run made before it still replays — which
+	 * is what the contribution ranking, the cut search and the reporting work's
+	 * decomposition all need, since each of them is a replay of a stored run. What the
+	 * reporting layer's <em>comparison</em> does across the bump is refuse, and that is
+	 * right rather than unfortunate: a plan re-forecast against a team that has been
+	 * described for the first time has answered a different question.
 	 *
 	 * <p>
 	 * <strong>The rule that buys, for whoever bumps this next.</strong> Either the new
@@ -76,9 +77,9 @@ public final class Engine {
 	 * before the bump becomes a record that can be read and never replayed. A change that
 	 * cannot be reduced to a parameter — a different fit, a scheduler that is genuinely
 	 * different rather than more general — does not get to pretend otherwise: it bumps
-	 * this, old runs become read-only history, and M10 has to be told, because comparing
-	 * runs across an incomparable bump is how a tool reports a date sliding when nothing
-	 * moved.
+	 * this, old runs become read-only history, and the reporting layer has to be told,
+	 * because comparing runs across an incomparable bump is how a tool reports a date
+	 * sliding when nothing moved.
 	 */
 	public static final int VERSION = 3;
 
@@ -96,12 +97,13 @@ public final class Engine {
 	 * and that is not built.
 	 *
 	 * <p>
-	 * <strong>M3b moved that number without moving this one.</strong> Scope growth makes
-	 * every run schedule the items it discovered as well as the ones somebody listed, so
-	 * the worst case a caller can ask for went from about three seconds to about nine.
-	 * The bound stays where it is because it was never the thing protecting the server —
-	 * the ceiling on the growth percentages is set from the *single-forecast* budget, and
-	 * the concurrency limit that would actually protect it is still not built.
+	 * <strong>the common-cause model moved that number without moving this one.</strong>
+	 * Scope growth makes every run schedule the items it discovered as well as the ones
+	 * somebody listed, so the worst case a caller can ask for went from about three
+	 * seconds to about nine. The bound stays where it is because it was never the thing
+	 * protecting the server — the ceiling on the growth percentages is set from the
+	 * *single-forecast* budget, and the concurrency limit that would actually protect it
+	 * is still not built.
 	 */
 	public static final int MAX_SAMPLE_COUNT = 100_000;
 
@@ -138,7 +140,7 @@ public final class Engine {
 
 	/**
 	 * The same forecast against a number rather than a team, which is what every run made
-	 * before M11 asked for.
+	 * before the resource model asked for.
 	 *
 	 * <p>
 	 * <strong>One pool of that many units with nothing named</strong> — see
@@ -165,8 +167,8 @@ public final class Engine {
 	 * <strong>Watching changes nothing, and that is the property to keep.</strong> The
 	 * observer is told after every draw has been taken and it draws nothing itself, so
 	 * the same seed produces the same numbers whether anybody is listening or not —
-	 * {@code EngineTests} asserts it byte for byte. That is why M6 needs no version bump:
-	 * an engine that can be watched is the same engine.
+	 * {@code EngineTests} asserts it byte for byte. That is why the contribution ranking
+	 * needs no version bump: an engine that can be watched is the same engine.
 	 *
 	 * <p>
 	 * The two-argument shape above delegates here with {@link RunObserver#NONE}, the way
@@ -192,7 +194,7 @@ public final class Engine {
 			// Unreachable through the API, where `nothing_to_forecast` has already
 			// refused
 			// a plan with no estimate in it — a refusal doing load-bearing work two
-			// milestones away from where it was written, and worth knowing about before
+			// features away from where it was written, and worth knowing about before
 			// somebody relaxes it. Reachable from a test, which is why it is stated.
 			throw new IllegalArgumentException(
 					"A plan expected to grow needs an estimate for the new work to resemble");
@@ -238,7 +240,8 @@ public final class Engine {
 			finishes[run] = schedule.finish(durations, parentOf, found);
 			// After every draw this run takes, and taking none of its own. An observer
 			// that moved a single number off the generator would unreplay every forecast
-			// stored before it, which is M3b's rule arriving in a second place.
+			// stored before it, which is the common-cause model's rule arriving in a
+			// second place.
 			observer.observed(durations, plan.length, discovered, stretch, finishes[run]);
 		}
 		return summarise(finishes);

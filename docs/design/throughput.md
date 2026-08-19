@@ -1,35 +1,35 @@
-# M9 — Throughput cross-check: implementation plan
+# The throughput cross-check — the design record
 
 > **Built, 2026-08-18.** All six steps are done and each carries its own *As built* section.
 > **No migration, no column and no index**, and no change to anything the engine samples —
 > `Engine.VERSION` is still 2. **It is the one forecast in this product that needs nothing of
 > anybody**: no estimate, no assumption, no measured actual, only that work has been finished and
 > dated, which this product already requires. That is why it can answer on the day it ships where
-> M8's calibration cannot.
+> calibration cannot.
 >
-> **Scope.** `roadmap.md` M9: a second, independent forecast from historical throughput, with no
+> **Scope.** The throughput forecast: a second, independent forecast from historical throughput, with no
 > estimation involved — and **the gap between the two forecasts is the deliverable**. When the
 > team says six weeks and their own history says eleven, that is far harder to dismiss than either
 > number alone, because both came from the team. Excluded and argued below: story points and
-> velocity (icebox — decision 11), per-person throughput (decision 11, and it is M8's leaderboard
+> velocity (icebox — decision 11), per-person throughput (decision 11, and it is calibration's leaderboard
 > objection again), replacing the engine with this (decision 10), and reading throughput across a
 > whole organisation rather than one plan (decision 9).
 >
-> **How to read this.** Decisions first. The one that decides whether this milestone reports
+> **How to read this.** Decisions first. The one that decides whether this work reports
 > signal or a comfortable number is **decision 5** — a bootstrap cannot imagine a week worse than
 > the worst one it has seen, and the measurement below says what that costs. The one that decides
 > whether the *comparison* means anything is **decision 7**: the two forecasts default to
 > answering slightly different questions, and a gap that is partly a difference in the question is
-> worse than no gap at all. **Decision 6 corrects `roadmap.md`.**
+> worse than no gap at all. **Decision 6 corrects `../roadmap.md`.**
 >
-> **Why this is worth building straight after M8.** M8 shipped an instrument with no reading in
+> **Why this is worth building straight after calibration.** calibration shipped an instrument with no reading in
 > it: calibration needs finished work carrying an estimate *and* a measured actual, and the actual
-> is optional because most teams do not track it. **M9 needs neither.** `completed_on` is required
+> is optional because most teams do not track it. **The throughput forecast needs neither.** `completed_on` is required
 > on every item ever marked done, so the history it reads already exists in full for every plan
 > this product holds — which makes it the one forecast that can say something on the day it ships.
 >
 > **And the honest caveat.** This is the first forecast in the product that is not checkable
-> against arithmetic. M3 had a closed form, M4 a calendar anybody can count on their fingers, M6 an
+> against arithmetic. The simulation engine had a closed form, the calendar a calendar anybody can count on their fingers, the contribution ranking an
 > exact degenerate case. A bootstrap's answer is right if the future resembles the past, and
 > nothing in this repository can tell you whether it does. What can be measured is how much the
 > answer moves for reasons that are not about the team, and that is what the section below does.
@@ -40,14 +40,14 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | A team's weeks, including the empty ones ✅ *done* | M2 |
+| 1 | A team's weeks, including the empty ones ✅ *done* | the plan schema |
 | 2 | The projection, and what a bootstrap cannot see ✅ *done* | 1 |
 | 3 | Reading a plan's history and what is left in it ✅ *done* | 1 |
 | 4 | On an endpoint ✅ *done* | 2, 3 |
 | 5 | The gap, beside the band ✅ *done* | 4 |
 | 6 | Close out ✅ *done* | 1–5 |
 
-**M9 adds no migration.** Every number it reads is already stored: `work_items.completed_on` is
+**The throughput forecast adds no migration.** Every number it reads is already stored: `work_items.completed_on` is
 required on anything marked done, and the backlog is the items that are not. No index either —
 `ix_work_items_tenant_project_archived` reaches one plan's items, and 500 of them is the stated
 ceiling.
@@ -56,7 +56,7 @@ ceiling.
 
 ## The measurement this plan is built on
 
-**Two runs, and the second is the one that decides the milestone.** Both are simulations of the
+**Two runs, and the second is the one that decides the work.** Both are simulations of the
 method rather than measurements of this codebase — there is nothing built yet to measure — so they
 are reproducible from the description alone: a bootstrap of the kind decision 4 specifies, against
 a process whose truth is known because it was generated.
@@ -115,37 +115,37 @@ settles.** That decides decision 12's floor and what the screen says below it.
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | What is counted | **Items completed, never hours.** `completed_on` is required; `actual_effort_hours` is not, and M8 measured what that costs. |
+| 1 | What is counted | **Items completed, never hours.** `completed_on` is required; `actual_effort_hours` is not, and calibration measured what that costs. |
 | 2 | The period | **A calendar week, under a stored rule name** — `WorkingCalendar.RULE`'s argument, one layer up. |
 | 3 | Empty weeks | **Part of the history**, and dropping them is the single easiest way to get this wrong. |
 | 4 | How it is projected | **A bootstrap over observed weeks**, not a fitted distribution. Constant throughput gives an exact answer. |
 | 5 | What it cannot see | **A week worse than the worst one observed.** Reported, never patched. |
-| 6 | Does it absorb scope growth? | **No, and `roadmap.md` is wrong about this.** It absorbs the drag of past discovered work, not the fact that more will appear. |
+| 6 | Does it absorb scope growth? | **No, and `../roadmap.md` is wrong about this.** It absorbs the drag of past discovered work, not the fact that more will appear. |
 | 7 | What the two forecasts are compared on | **One question, stated four ways**, or the gap is partly a difference in the question. |
 | 8 | Where the date comes from | **Elapsed weeks, with no working day** — which is exactly why it absorbs holidays. |
 | 9 | Whose history | **The plan's own.** An organisation-wide rate needs to know how attention is split, and nothing records that. |
 | 10 | What it is not | **Not a replacement for the engine, and not a tiebreaker.** Two forecasts that disagree are the output. |
-| 11 | What M9 must not become | **Not velocity, not story points, not a per-person rate.** |
+| 11 | What the throughput forecast must not become | **Not velocity, not story points, not a per-person rate.** |
 | 12 | How little history is too little | **Stated once beside the arithmetic**, with a floor that refuses and a span the reader can see. |
 
 ### Decision 1 — Items completed, never hours
 
 The history is a count of items finished per week, read off `work_items.completed_on`.
 
-**This is what makes M9 the one forecast that can answer on the day it ships.** `DONE` requires a
+**This is what makes the throughput forecast the one forecast that can answer on the day it ships.** `DONE` requires a
 completion date — `progress_date_required` refuses it otherwise — so every item this product has
-ever seen finished carries one. `actual_effort_hours` carries no such requirement, and M8's
+ever seen finished carries one. `actual_effort_hours` carries no such requirement, and calibration's
 coverage counts are the measurement of what that means in practice: most finished work never
 records it. A throughput built on hours would be a second feature whose ordinary answer is
 "nothing to report yet", and there is no reason to build two of those.
 
-It also keeps the promise in the milestone's name. Counting hours would need somebody to have
+It also keeps the promise in the work's name. Counting hours would need somebody to have
 estimated or measured something; counting items needs somebody to have *finished* something, which
 is the one thing a team does whether or not they use this tool properly.
 
 | Rejected | Why |
 |---|---|
-| Hours completed per week | Needs `actual_effort_hours`, which is optional and mostly absent — M8's own problem, bought a second time. |
+| Hours completed per week | Needs `actual_effort_hours`, which is optional and mostly absent — calibration's own problem, bought a second time. |
 | Story points per week | The icebox's, and it needs a unit this schema does not have. |
 | Items *started* per week | Starting is optional (`DONE` needs no start), and a started item is not a delivered one. |
 
@@ -169,12 +169,12 @@ before anything changed. A week is also the unit teams already describe themselv
 
 A week in which nothing was finished is a week the team had. Dropping it inflates the rate by
 exactly the fraction of the time the team was not delivering — which is the fraction this whole
-milestone exists to capture.
+work exists to capture.
 
 **This is the easiest thing here to get wrong**, because the data arrives as a list of completion
 dates and the obvious implementation groups them. Grouping produces only the weeks that have
 something in them. Holidays, the incident, the week everybody was in a workshop and the week two
-people were ill are all *absent* from that grouping, and they are precisely what `roadmap.md` means
+people were ill are all *absent* from that grouping, and they are precisely what `../roadmap.md` means
 when it says throughput "implicitly absorbs interruptions, holidays … and the fact that nobody
 works eight focused hours". Absorbing them means counting them.
 
@@ -213,12 +213,12 @@ confident.
 
 What ships instead is the window itself: how many weeks, the first and last, the best week and the
 **worst** week observed. A reader who knows their team stops for a week each quarter can see in one
-line whether the history contains one. That is the same move M3a made with its limitations and M8
+line whether the history contains one. That is the same move the simulation engine made with its limitations and calibration
 made with its coverage — say what the number did not include, beside the number.
 
 ### Decision 6 — It does not absorb scope growth, and the roadmap is wrong about this
 
-`roadmap.md` says throughput "implicitly absorbs interruptions, holidays, **scope growth**, and the
+`../roadmap.md` says throughput "implicitly absorbs interruptions, holidays, **scope growth**, and the
 fact that nobody works eight focused hours". Three of those four are right. Scope growth is not,
 and the error runs in the flattering direction.
 
@@ -227,7 +227,7 @@ week while two of every ten were things nobody had listed has a rate of five, ea
 unlisted work. Project the forty items you can see at five a week and you get eight weeks — but
 historically only four of every five completions went to listed work, so forty listed items take
 ten. **The projection is optimistic by exactly the share of throughput that goes to work nobody has
-written down yet**, and that share is the thing M3b models explicitly and this cannot see at all.
+written down yet**, and that share is the thing the common-cause model models explicitly and this cannot see at all.
 
 Nothing in the schema says which items were discovered mid-flight, so it cannot be measured here —
 `work_items.created_at` against a plan's start is the nearest thing, and it would count a backlog
@@ -240,7 +240,7 @@ typed in over two weeks as scope growth. So this is a **limitation and not a cor
 question.** Left alone, the two forecasts differ in four ways that have nothing to do with the team
 disagreeing with itself:
 
-| | The engine (M3) | Throughput (M9) |
+| | The engine (the simulation engine) | Throughput (the throughput forecast) |
 |---|---|---|
 | Unlisted work | Modelled, from two parameters somebody stated | Not modelled — decision 6 |
 | Unestimated items | In the graph at zero effort, and reported as a limitation | **Counted like any other item** — it needs no estimate |
@@ -262,11 +262,11 @@ the comparison at its most useful.
 
 `WorkingCalendar` exists because the engine's output is *effort* and a date needs an assumption
 about what a day holds. Throughput has no such problem: a week of history is a week of wall clock,
-holidays and Fridays and all. Multiplying it by a working day would be M4's own error — capacity
+holidays and Fridays and all. Multiplying it by a working day would be the calendar's own error — capacity
 counted twice — arriving from the other side.
 
 So the answer is a number of **calendar weeks** from the as-of date, and its date is the as-of date
-plus that many weeks. **Nothing in M9 reads `working_hours_per_day` and nothing should.** It is
+plus that many weeks. **Nothing in the throughput forecast reads `working_hours_per_day` and nothing should.** It is
 also why throughput absorbs holidays for free while the engine cannot: a holiday is a week with a
 smaller number in it, already counted.
 
@@ -283,11 +283,11 @@ what it finished across every plan; applying it to one plan's backlog assumes th
 of that rate here. A team running three plans would get three forecasts, each assuming it has the
 whole team — and every one of them would be optimistic by however much attention goes elsewhere.
 Correcting that needs to know how attention is split, and **nothing in this schema records it**:
-there are no assignments, no allocations, and M11 is where resources arrive.
+there are no assignments, no allocations, and the resource model is where resources arrive.
 
-The cost is that a young plan has no forecast. That is the same answer M8 gives to an organisation
+The cost is that a young plan has no forecast. That is the same answer calibration gives to an organisation
 that has finished nothing, and it is preferable to a confident number built on a split nobody
-stated. **The organisation-wide variant is named and deferred**, and what it waits on is M11.
+stated. **The organisation-wide variant is named and deferred**, and what it waits on is the resource model.
 
 ### Decision 10 — Not a replacement, and not a tiebreaker
 
@@ -295,19 +295,19 @@ Two forecasts that disagree are the output. This does not average them, pick one
 throughput answer into the engine as a prior.
 
 **Averaging is the change that will be proposed**, because two numbers is uncomfortable and one is
-tidy. It destroys the only thing the milestone produces: "the team says six weeks and their own
+tidy. It destroys the only thing the work produces: "the team says six weeks and their own
 history says eleven" is an argument that starts a conversation, and "eight and a half weeks" is a
-number that ends one with nobody having learnt anything. It is also the M3a averaging objection —
+number that ends one with nobody having learnt anything. It is also the the simulation engine averaging objection —
 turning disagreement into false confidence — arriving one level up.
 
-### Decision 11 — What M9 must not become
+### Decision 11 — What the throughput forecast must not become
 
 - **Not velocity, and not story points.** A rate of *points* per week needs a unit this schema
   does not have; the icebox records what adopting one would cost and names throughput as where a
   defensible velocity would eventually come from. Items per week needs nothing.
-- **Not a per-person throughput.** It is M8's leaderboard objection with a different metric:
+- **Not a per-person throughput.** It is calibration's leaderboard objection with a different metric:
   ranking people by items closed is won by closing small items, and this product ranks work.
-- **Not a burn-up.** That is M10's, it is a chart, and it answers "how far along" rather than
+- **Not a burn-up.** That is the reporting work's, it is a chart, and it answers "how far along" rather than
   "when".
 - **Not a second thing to configure.** The engine asks for five assumptions; this asks for a date
   and nothing else, and that asymmetry is most of why the comparison is worth having.
@@ -325,7 +325,7 @@ Two numbers, both in the pure class next to the function they bound, following
   and worth marking.
 
 **The browser is told neither number.** It renders a flag the server sent, exactly as it does for
-`EstimateQuality` and for M8's coverage — one rule about one history, in one place.
+`EstimateQuality` and for calibration's coverage — one rule about one history, in one place.
 
 ---
 
@@ -407,8 +407,8 @@ branches and zero missed instructions.
 - **`ThroughputForecast`** — resample weeks with replacement, accumulate until the backlog is
   covered, count the weeks; ten thousand runs; percentiles read off the result.
   - **The same five percentiles the engine reports**, so the two answers are read at the same
-    confidences and M4's control means the same thing on both.
-  - `java.util.Random`, for `m3a-plan.md`'s reason: its algorithms are in its contract, so a JDK
+    confidences and the calendar's control means the same thing on both.
+  - `java.util.Random`, for `simulation-engine.md`'s reason: its algorithms are in its contract, so a JDK
     upgrade cannot silently move an answer.
   - **A deterministic seed from the question** — the plan, the as-of date and the backlog count —
     published in the answer and overridable. Nothing is stored (decision 10's neighbour), so the
@@ -427,14 +427,14 @@ branches and zero missed instructions.
 **Tests.** **The oracle is exactness**: twenty weeks of exactly five, forty items, answers exactly
 eight weeks in every run with zero spread — checkable on paper, and it is what a fitted model could
 not offer. A history of alternating 10 and 0 answers the same *mean* and a visibly wider band than
-a history of steady 5, which is the property the whole milestone is for. Doubling the backlog
+a history of steady 5, which is the property the whole work is for. Doubling the backlog
 roughly doubles the weeks and does not change the shape. The same seed gives the same answer and a
 different seed gives a different one — the pair, so that neither passes because the sampler does
 nothing. **The blindness is asserted rather than assumed**: a history with no zero week never
 produces a run containing one, which is decision 5 written as a test so that nobody later "fixes"
 it. An empty backlog and an all-zero history each answer rather than hang.
 
-**Done when** the answer can be checked by hand on a history anybody can add up.
+**Done when** The answer can be checked by hand on a history anybody can add up.
 
 ### As built — where it differs from the above
 
@@ -470,13 +470,13 @@ interpolation and the deviation divides by the count rather than one less — bo
 and both are copied *because* they are: two answers read at the same confidence have to be read the
 same way, or the gap between them is partly a difference in rounding. The comment on each says so.
 
-**No histogram**, unlike `Forecast`. Nothing in M9 draws a chart, and the icebox's distribution
+**No histogram**, unlike `Forecast`. Nothing in the throughput forecast draws a chart, and the icebox's distribution
 curves are where one would matter. Left out rather than carried unused.
 
 **The oracle came out exactly as hoped**, which is worth recording because a bootstrap is the kind
 of thing that usually cannot be checked: twenty weeks of exactly five, forty items, and every one
 of ten thousand runs answers eight weeks with a standard deviation of zero. Beside it,
-`theSameAverageWithAWorseWeekIsAWiderAnswer` is the milestone in one case — ten-and-nothing has the
+`theSameAverageWithAWorseWeekIsAWiderAnswer` is the work in one case — ten-and-nothing has the
 *identical* mean rate to a steady five and a visibly wider answer, which is what a mean cannot see
 and what resampling is for.
 
@@ -495,7 +495,7 @@ and what resampling is for.
 - **`WorkItemService.remainingIn(...)`** — how many items are not done. Archived ones are
   **excluded** here, and the asymmetry is the point: putting work away means it is not going to be
   delivered, so it is not in the backlog, while the record of what *was* delivered does not change.
-  This is the same split M8 makes between coverage counts and scored evidence, and both comments
+  This is the same split calibration makes between coverage counts and scored evidence, and both comments
   say which.
 - **Unestimated items count**, needing no special case — decision 7's second row, and the one
   place this forecast is strictly better informed than the engine's.
@@ -508,14 +508,14 @@ asserted directly, because the two rules point opposite ways and a single "ignor
 pass one of them. Items still in progress are in the backlog and not the history. `not_a_member`
 and `project_not_found`.
 
-**Done when** the backlog and the history disagree about archived work, deliberately.
+**Done when** The backlog and the history disagree about archived work, deliberately.
 
 ### As built — where it differs from the above
 
 **`remainingIn` hands back an `int` and not the `long` a count arrives as**, through
 `Math.toIntExact`. `Throughput.project` takes an `int`, so the narrowing has to happen somewhere,
 and here is where the argument for it lives: 500 items to a plan is the stated ceiling this
-milestone's arithmetic assumes. A number that could not fit is a broken assumption and should say
+work's arithmetic assumes. A number that could not fit is a broken assumption and should say
 so, rather than wrap silently into a backlog of minus two billion — and step 4 does not have to
 think about it at all.
 
@@ -527,7 +527,7 @@ nothing pointing back here. `finishedWorkWithNoDayOnItIsLeftOut` writes exactly 
 item is not finished work being ignored; it is finished work nobody can place in a week.
 
 **Two methods and two project lookups**, where one call returning both would have halved them. Kept
-apart for M8's reason: each is a different question, and each re-reads the caller's standing rather
+apart for calibration's reason: each is a different question, and each re-reads the caller's standing rather
 than trusting a check made somewhere else. Four indexed lookups across step 4's request is the
 price of not having a copy of the membership rule to keep in step.
 
@@ -557,11 +557,11 @@ says.
   as of any day, so a row would be a cached answer to a question that is cheap to ask again.
 - **The response** carries the window (weeks, first, last, best, worst), the backlog count, the
   five percentiles in weeks, the five dates, the seed, the rule name, and `limitations`.
-  - **Weeks and dates both**, for M4's reason: the weeks are what the history produced and the
+  - **Weeks and dates both**, for the calendar's reason: the weeks are what the history produced and the
     dates are one presentation of them, and publishing only the date would hide the unit the answer
     was actually computed in.
   - **Percentiles are null together when the window is below the floor**, and the window is not —
-  the reader gets the history and no forecast, which is M8's empty state in a second place.
+  the reader gets the history and no forecast, which is calibration's empty state in a second place.
 - Any member, organisation from the token, `project_not_found` and `not_a_member` and no other
   refusal — plus `throughput_history_too_short`, which is the floor.
 
@@ -576,7 +576,7 @@ a two-organisation fixture; an as-of date before the last completion is refused.
 
 **The bullets contradict each other about the floor, and the contradiction is resolved toward the
 window.** One says the percentiles are null below it and "the window is not — the reader gets the
-history and no forecast, which is M8's empty state in a second place"; the last lists
+history and no forecast, which is calibration's empty state in a second place"; the last lists
 `throughput_history_too_short` among the refusals. Both cannot hold: a refusal withholds the
 window, which is the half a reader can judge for themselves. So it is a **limitation** and the
 answer is a `200` carrying the history and a reason.
@@ -614,11 +614,11 @@ with a **required query parameter**, and a missing or unreadable one arrived as 
 a problem document is still a problem document. `handleUnusableParameter` closes it for both cases
 at once, reporting `validation_failed` with the parameter under `errors` in the shape a field
 complaint already has — `not_null` for absent, `invalid` for unreadable, both already in the
-frontend catalogue. That is a fix to shared machinery rather than to M9, and it is here because M9
+frontend catalogue. That is a fix to shared machinery rather than to the throughput forecast, and it is here because the throughput forecast
 is what made it reachable.
 
 **Its own controller, not a sixth method on `ForecastController`.** That one creates and reads rows
-in `forecast_runs` — the history M10 walks of somebody deliberately re-forecasting. This creates
+in `forecast_runs` — the history the reporting work walks of somebody deliberately re-forecasting. This creates
 nothing and reads no run.
 
 **Counts.** 16 cases in `ThroughputApiTests`; 940 backend tests pass, with every `Throughput` type,
@@ -631,7 +631,7 @@ the new refusal and `ApiExceptionHandler` at zero missed branches and zero misse
 **Goal.** Two dates, side by side, with the four things that differ named under them.
 
 - **On the plan screen, inside `ForecastPanel`**, under the band rather than on a page of its own.
-  `roadmap.md` is explicit that the gap is the deliverable, and a second page is two numbers nobody
+  `../roadmap.md` is explicit that the gap is the deliverable, and a second page is two numbers nobody
   puts next to each other.
 - **The comparison is presentational and is not a new quantity.** The screen shows the engine's
   date at the confidence already chosen, the throughput date at the same confidence, and the
@@ -639,7 +639,7 @@ the new refusal and `ApiExceptionHandler` at zero missed branches and zero misse
   subtraction of two answers to slightly different questions (decision 7). What it names instead
   are the four differences, from the table in decision 7, with the two that are *live* for this
   run filled in: whether scope growth was assumed, and how much of the plan is unestimated.
-- **The confidence control moves both.** M4's control reads percentiles already in the response and
+- **The confidence control moves both.** the calendar's control reads percentiles already in the response and
   sends no request; this keeps that property by holding both sets of percentiles client-side, so
   the trade reads as one trade rather than two screens.
 - **The window is on screen with the answer** — "13 weeks of history, best 9, worst 0" — because
@@ -650,7 +650,7 @@ the new refusal and `ApiExceptionHandler` at zero missed branches and zero misse
 
 **Tests.** Both dates render at the chosen confidence and both move when it changes. A plan below
 the floor shows the window and no second date, and the panel is otherwise unaffected — the
-throughput read is its own request and a failure in it must leave the band alone, which is M8's
+throughput read is its own request and a failure in it must leave the band alone, which is calibration's
 track-record line rule and is asserted the same way. The four differences render, and the two live
 ones carry this run's numbers. Mocked by URL, since the panel now makes four requests.
 
@@ -675,7 +675,7 @@ and it is what the two extra branches cover.
 
 **The throughput read is keyed on the plan and not on the run.** Everything else in this panel
 reloads when a forecast is made; this answer moves when work is *finished*, so re-running the
-engine leaves it alone. That is the same distinction M8's track-record line draws, arriving for a
+engine leaves it alone. That is the same distinction calibration's track-record line draws, arriving for a
 different reason.
 
 **And the step broke four tests in another suite, which is the finding worth keeping.**
@@ -702,30 +702,30 @@ lines.
 **Goal.** The record matches what was built.
 
 - Each step's `### As built — where it differs from the above` is written in the change that built
-  it. This step is the whole-milestone read.
-- `roadmap.md`: M9 marked done with its own *As built*, and **decision 6's correction written into
-  the M9 section itself** — the "implicitly absorbs … scope growth" sentence is wrong and the next
-  reader must not inherit it. The *What is next* line moves to M10.
+  it. This step is the whole-work read.
+- `../roadmap.md`: the throughput forecast marked done with its own *As built*, and **decision 6's correction written into
+  the the throughput forecast section itself** — the "implicitly absorbs … scope growth" sentence is wrong and the next
+  reader must not inherit it. The *What is next* line moves to the reporting work.
 - `CLAUDE.md`: a throughput section in the shape of the others.
-- `product-concept.md`: whatever it says about a second opinion, answered.
-- **The review pass**, as in M5 through M8: read the milestone end to end and record what that read
-  changed. Every one of the last four found something, and M8's found the milestone contradicting
+- `../product-concept.md`: whatever it says about a second opinion, answered.
+- **The review pass**, as in elicitation through calibration: read the work end to end and record what that read
+  changed. Every one of the last four found something, and calibration's found the work contradicting
   its own decision.
 
-**Done when** the next reader can tell what M9 decided without reading its code.
+**Done when** The next reader can tell what the throughput forecast decided without reading its code.
 
 ### As built — where it differs from the above
 
-`roadmap.md` marks M9 done, carries its own *As built*, and — the part that mattered — **has the
+`../roadmap.md` marks the throughput forecast done, carries its own *As built*, and — the part that mattered — **has the
 "implicitly absorbs … scope growth" sentence corrected in place**, because the wrong version is the
 quotable one and a note in a plan nobody opens would not have stopped it being repeated.
-`product-concept.md` says the same, and adds what the build learnt that "present them alongside"
+`../product-concept.md` says the same, and adds what the build learnt that "present them alongside"
 did not anticipate. `CLAUDE.md` has a throughput section in the shape of the others. *What is next*
-is M10.
+is the reporting work.
 
-### The review pass — what a read of the whole milestone changed
+### The review pass — what a read of the whole work changed
 
-**It found three things, and one of them was this milestone contradicting an argument it had made
+**It found three things, and one of them was this work contradicting an argument it had made
 one step earlier.**
 
 **`ThroughputService.historyOf` trusted the query's ordering.** It took the last element of the
@@ -750,9 +750,9 @@ the band alone" had been built as "say nothing at all". A refusal that names som
 somebody's own plan is exactly the one to pass on, so the block now renders with the reason where
 the second date would have gone, and the wording says which task to go and correct. **The
 underlying gap — that nothing in the domain refuses a day that has not happened — is written up in
-`roadmap.md` under *Dates the schema accepts and reality does not*, and is not M9's to fix.**
+`../roadmap.md` under *Dates the schema accepts and reality does not*, and is not the throughput forecast's to fix.**
 
-**One case the read added rather than corrected.** A run made before M4 has no dates, and the
+**One case the read added rather than corrected.** A run made before the calendar has no dates, and the
 history beside it still has one of its own: it now shows what it has rather than nothing, and a
 test says so.
 
@@ -770,7 +770,7 @@ and would have shown a date with no warning at all, which is how it was noticed.
 **`Throughput.weeks()` was called by no application code.** `project` resamples the array directly
 because it is on the same class, and the response reports figures rather than a list of integers —
 so a public accessor, its defensive copy and the test asserting that copy all existed for nobody.
-That is `BandScore.percentile()` from M8's cleanup, in a second place. The step 1 assertions that
+That is `BandScore.percentile()` from calibration's cleanup, in a second place. The step 1 assertions that
 used it now go through the accessors a reader is actually shown, and they pin the same cases
 exactly: `weekCount`, `completed`, `perWeek`, `best` and `worst` distinguish ten-then-nothing from a
 steady two and a half just as an array comparison did. The order-independence case compares the two
@@ -793,7 +793,7 @@ each has a test whose failure would be the first thing anybody saw.
 
 **None, and this time it is not a design achievement so much as a consequence.** `completed_on` has
 been required on every finished item since `V10`, and the backlog is the items that do not have
-one. M6 and M7 stored nothing because their answers were replays; M8 added a table because the
+one. The contribution ranking and the inverse query stored nothing because their answers were replays; calibration added a table because the
 evidence it read was being written over. This reads a column that is already there, already
 required, and already dated.
 
@@ -805,9 +805,9 @@ already exists. Anybody about to add one should have a measurement first.
 
 ## Sequencing and risk
 
-**The risk in M9 is that it is the first forecast with no oracle behind its claim.** Step 2 has an
+**The risk in the throughput forecast is that it is the first forecast with no oracle behind its claim.** Step 2 has an
 exact case — constant throughput, an answer anybody can divide by hand — and that checks the
-*sampler*. Nothing checks the *premise*, which is that next quarter resembles last quarter. M3 had
+*sampler*. Nothing checks the *premise*, which is that next quarter resembles last quarter. The simulation engine had
 a closed form for its arithmetic and stated its assumptions on screen; this has the same
 arrangement and one of the assumptions is much larger.
 
@@ -818,24 +818,24 @@ which inflates the rate by exactly the idle fraction and produces a *faster* for
 looking wrong. The defences are the 2.5-not-10 test in step 1, decision 3, and this paragraph.
 
 **The second is decision 6 being un-corrected.** The roadmap sentence is quotable and wrong, and
-the failure mode is that somebody reads it, concludes M9 already handles scope growth, and compares
+the failure mode is that somebody reads it, concludes the throughput forecast already handles scope growth, and compares
 a throughput forecast against an engine run configured with 40% growth — producing a gap that is
 mostly the growth parameter. Step 6 changes the sentence at source for that reason.
 
 **The third is decision 10, and it will be proposed by somebody reasonable.** Two dates is
-uncomfortable; averaging them is one line. It deletes the milestone.
+uncomfortable; averaging them is one line. It deletes the work.
 
 **Two things that will look like bugs and are not.**
 
 - **A throughput forecast much *later* than the engine's.** That is the expected result and the
-  reason the milestone exists — the engine sums estimates of focused work and the history contains
+  reason the work exists — the engine sums estimates of focused work and the history contains
   every meeting, incident and holiday. A team seeing them agree closely should be more suspicious
   than one seeing them differ.
 - **A throughput forecast much *earlier* than the engine's, on a half-estimated plan.** The engine
   carries unestimated items at zero effort and says so; throughput counts them like anything else.
   The engine is the one under-reporting there, and decision 7's second row is what says so.
 
-**What this milestone must not absorb.** The burn-up and the plain-language sentences are M10's.
-Resources and allocation are M11's, and they are also what an organisation-wide throughput waits
-on. Story points are the icebox's. The line to hold is that M9 counts what a plan finished, projects
+**What this work must not absorb.** The burn-up and the plain-language sentences are the reporting work's.
+Resources and allocation are the resource model's, and they are also what an organisation-wide throughput waits
+on. Story points are the icebox's. The line to hold is that the throughput forecast counts what a plan finished, projects
 what it has left, and puts the answer next to the other one.

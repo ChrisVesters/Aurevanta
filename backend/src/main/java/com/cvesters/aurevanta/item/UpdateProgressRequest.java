@@ -19,7 +19,7 @@ import jakarta.validation.constraints.Positive;
  *
  * @param actualEffortHours optional in every state, including {@code DONE}. Most teams do
  * not track it, and refusing to let somebody mark an item finished because they cannot
- * say how long it took would refuse the common case in order to serve M8.
+ * say how long it took would refuse the common case in order to serve calibration.
  */
 public record UpdateProgressRequest(@NotNull WorkItemStatus status,
 

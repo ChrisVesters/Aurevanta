@@ -1,10 +1,10 @@
 -- Forecast runs: every answer this product has ever given, kept.
 --
--- m2-plan.md deliberately did *not* build this table, on the grounds that its columns are
+-- docs/design/plans-and-estimates.md deliberately did *not* build this table, on the grounds that its columns are
 -- the engine's inputs and outputs and designing them before the engine existed would have
--- been guessing. The obligation it handed over was that M3 must persist every run from its
+-- been guessing. The obligation it handed over was that the simulation engine must persist every run from its
 -- first commit rather than adding persistence once the engine worked — because this history
--- cannot be reconstructed later, and M10's sliding-date detector and the movement
+-- cannot be reconstructed later, and the drift detector and the movement
 -- decomposition both read it.
 --
 -- Written once and never updated, like estimates and for the same reason: a run is the
@@ -43,14 +43,14 @@ create table forecast_runs (
     -- luck.
     engine_version       integer not null,
 
-    -- Coverage as it was at the moment of the run, not as it is now. m2-plan.md decision 5:
+    -- Coverage as it was at the moment of the run, not as it is now. docs/design/plans-and-estimates.md decision 5:
     -- a forecast covers the work that carries an estimate and says how much it left out.
     item_count           integer not null,
     estimated_item_count integer not null,
 
     -- numeric(14, 2) in hours: a hundredth of an hour is thirty-six seconds, which is finer
     -- than any forecast means anything to. Real columns rather than buried in the document
-    -- below, because M10 compares these across runs and a comparison is a query.
+    -- below, because the reporting layer compares these across runs and a comparison is a query.
     mean_hours           numeric(14, 2) not null,
     p10_hours            numeric(14, 2) not null,
     p50_hours            numeric(14, 2) not null,
@@ -60,7 +60,7 @@ create table forecast_runs (
 
     -- The resolved inputs, as a value rather than as rows. Live rows will not do: items get
     -- reworded, edges get rubbed out and progress changes daily, so a run that referenced
-    -- them would describe something that no longer exists within a week. M10's movement
+    -- them would describe something that no longer exists within a week. The reporting work's movement
     -- decomposition — "out 8 days: +5 new scope, +4 re-estimates, -1 progress" — is a diff
     -- of two of these, and is impossible against rows that moved.
     --
@@ -68,7 +68,7 @@ create table forecast_runs (
     -- whatever replays or diffs it, and a second schema to migrate in lockstep with the
     -- first would be a cost with no reader.
     inputs               jsonb not null,
-    -- The shape of the answer, and what the model did not do (m3a-plan.md decision 12).
+    -- The shape of the answer, and what the model did not do (docs/design/simulation-engine.md decision 12).
     outputs              jsonb not null,
 
     constraint pk_forecast_runs primary key (id),
@@ -78,7 +78,7 @@ create table forecast_runs (
     constraint fk_forecast_runs_requester foreign key (requested_by_user_id) references users (id)
 );
 
--- Every read is "this plan's runs, newest first" — the history screen, and M10's detector
+-- Every read is "this plan's runs, newest first" — the history screen, and the drift detector
 -- comparing each run with the one before it.
 create index ix_forecast_runs_tenant_project_created
     on forecast_runs (tenant_id, project_id, created_at desc);

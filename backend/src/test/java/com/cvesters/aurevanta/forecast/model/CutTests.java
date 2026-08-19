@@ -13,12 +13,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * <strong>{@code cuttingOneItemMovesNoOtherNumberInTheRun} is the whole of this step, and
- * it is the assertion the milestone's honesty rests on.</strong> An inverse query
- * compares a plan with a plan-minus-something, and two runs with different random numbers
- * differ by more than most cuts are worth — measured, the same plan re-seeded moves the
- * answer by more than a point at ten thousand runs while a cut worth having buys about
- * five. So the counterfactual has to draw the <em>same</em> numbers, and this is what
- * says it does: every other item, every run, exactly the duration it had before.
+ * it is the assertion the work's honesty rests on.</strong> An inverse query compares a
+ * plan with a plan-minus-something, and two runs with different random numbers differ by
+ * more than most cuts are worth — measured, the same plan re-seeded moves the answer by
+ * more than a point at ten thousand runs while a cut worth having buys about five. So the
+ * counterfactual has to draw the <em>same</em> numbers, and this is what says it does:
+ * every other item, every run, exactly the duration it had before.
  *
  * <p>
  * Nothing else in the suite would notice it breaking. A decoupled comparison still

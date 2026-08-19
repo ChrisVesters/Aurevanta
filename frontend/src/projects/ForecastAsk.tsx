@@ -41,7 +41,7 @@ const ASKED_FOR = [...NUMBERS, 'startsOn'];
  * for complaints about fields the visitor can see.
  *
  * **Nothing here has a default and that is the whole design.** Capacity moves the P90 by
- * 70%; the two M3b assumptions have a neutral value — zero — and zero is a claim, that
+ * 70%; the two the common-cause model assumptions have a neutral value — zero — and zero is a claim, that
  * nothing in this team's world has a common cause and that no unlisted work will ever
  * appear. A box already filled in is a box nobody reads.
  */
@@ -143,7 +143,7 @@ export function ForecastAsk({
       )}
 
       {/*
-        The two questions M3b exists to ask, in the only form anybody can answer them:
+        The two questions the common-cause model exists to ask, in the only form anybody can answer them:
         a percentile of an outcome rather than a parameter of a distribution. Both are
         required and neither is pre-filled, because zero is a claim — that nothing goes
         wrong for everybody at once, and that nobody will discover anything — and a

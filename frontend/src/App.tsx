@@ -52,7 +52,7 @@ function App() {
           <Route path="/app" element={<DashboardPage />} />
           {/*
             Addressed by identifier and not by organisation handle: the organisation comes
-            from the token, as it does on every other route. That is what lets M1a's two
+            from the token, as it does on every other route. That is what lets the handle change's two
             deferrals — reserved handles, and redirects for retired ones — stay deferred.
           */}
           <Route path="/app/projects" element={<ProjectsPage />} />

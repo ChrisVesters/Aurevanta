@@ -40,7 +40,7 @@ describe('ChooseOrganisationPage', () => {
   });
 
   /**
-   * Since M1a a name is not unique, so this list can offer the same word twice. Inside
+   * Since chosen handles a name is not unique, so this list can offer the same word twice. Inside
    * the button, because two buttons that read the same are two buttons anybody
    * navigating by their names cannot choose between.
    */

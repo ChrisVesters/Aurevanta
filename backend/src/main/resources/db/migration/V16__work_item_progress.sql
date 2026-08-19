@@ -5,10 +5,10 @@
 -- reported it, so a progress claim is the third kind of evidence in this schema and the
 -- only one that is not evidence: an estimate is immutable and names an estimator, a
 -- forecast run is immutable and names a requester, and this was neither. That asymmetry
--- was never a decision anybody took — m2-plan.md argues at length for the other two and
+-- was never a decision anybody took — docs/design/plans-and-estimates.md argues at length for the other two and
 -- this simply never came up.
 --
--- The concrete cost is M8's own exclusion rule. An estimate written after the work began
+-- The concrete cost is calibration's own exclusion rule. An estimate written after the work began
 -- is a report by somebody who could already see how the task was going, and counting it
 -- flatters the one number in this product whose entire value is that it is unflattering.
 -- That rule compares estimates.created_at against started_on — and started_on can be moved
@@ -23,14 +23,14 @@
 create table work_item_progress (
     id                  uuid not null,
     -- Denormalised the way work_items and estimates carry theirs. Isolation is enforced in
-    -- application code, and the rule is only as good as it is easy to follow: M8 reads this
+    -- application code, and the rule is only as good as it is easy to follow: calibration reads this
     -- table for a whole organisation at once and must be able to scope that read without
     -- reaching through anything.
     tenant_id           uuid not null,
     work_item_id        uuid not null,
     -- Who made the claim, which is the half of this that no column on work_items has ever
     -- held. A user rather than a membership, following estimates.estimator_user_id: a
-    -- membership is deletable — M1 made sure of it, because removing somebody must not
+    -- membership is deletable — the team model made sure of it, because removing somebody must not
     -- delete their account — and a report is a thing a person said, which outlives their
     -- standing in the organisation they said it in.
     reported_by_user_id uuid not null,
@@ -62,11 +62,11 @@ create table work_item_progress (
 -- deduplicating them would be this table deciding which claims were worth keeping, which is
 -- the behaviour it exists to replace.
 
--- Both readers walk one item's reports in the order they arrived: M8 takes the earliest
+-- Both readers walk one item's reports in the order they arrived: calibration takes the earliest
 -- start ever claimed, and the progress form shows the latest line.
 create index ix_work_item_progress_item_reported on work_item_progress (work_item_id, reported_at);
 
--- M8 reads a whole organisation's reports at once, and this also serves the tenant cascade.
+-- calibration reads a whole organisation's reports at once, and this also serves the tenant cascade.
 create index ix_work_item_progress_tenant on work_item_progress (tenant_id);
 
 -- Serves the reporter foreign key, which has no index of its own from the constraint.
@@ -75,8 +75,8 @@ create index ix_work_item_progress_reporter on work_item_progress (reported_by_u
 -- NOTHING IS BACKFILLED, and that is a decision rather than an omission.
 --
 -- This follows V14 and not V13. V13 wrote zeros into the forecast assumption columns and
--- could argue they were true — a run made before M3b really did assume no team factor. V14
--- deliberately wrote nothing, because a run made before M4 did not assume a six-hour day;
+-- could argue they were true — a run made before the common-cause model really did assume no team factor. V14
+-- deliberately wrote nothing, because a run made before the calendar did not assume a six-hour day;
 -- it assumed no calendar at all, and a default would have invented a claim on behalf of
 -- somebody who never made one.
 --

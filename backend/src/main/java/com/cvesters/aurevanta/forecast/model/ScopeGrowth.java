@@ -32,9 +32,9 @@ public record ScopeGrowth(LogNormalFit multiplier) {
 	 * A plan somebody is claiming holds every piece of work it will ever hold.
 	 *
 	 * <p>
-	 * What M3a did, and so the other half of what makes a version 1 run replayable by
-	 * this engine. It is a strong claim rather than an absence of one, which is why
-	 * nothing hands it out by default.
+	 * What the simulation engine did, and so the other half of what makes a version 1 run
+	 * replayable by this engine. It is a strong claim rather than an absence of one,
+	 * which is why nothing hands it out by default.
 	 */
 	public static final ScopeGrowth NONE = new ScopeGrowth(new LogNormalFit(0.0, 0.0));
 
@@ -105,8 +105,9 @@ public record ScopeGrowth(LogNormalFit multiplier) {
 	 * to expect has arrived and been written down, and nothing here knows what the plan
 	 * looked like when it began. Finished work counts towards the base for the same
 	 * reason: the question is how much a plan like this one turns out to hold, not how
-	 * much of it is left. Both stop being guesses once M8 can read a plan's own history,
-	 * which is the answer decision 3 gives to weighting where new work lands as well.
+	 * much of it is left. Both stop being guesses once calibration can read a plan's own
+	 * history, which is the answer decision 3 gives to weighting where new work lands as
+	 * well.
 	 * @param items how many pieces of work the plan holds today, finished ones included
 	 */
 	public int sample(int items, RandomGenerator random) {

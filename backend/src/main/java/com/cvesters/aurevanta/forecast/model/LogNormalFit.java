@@ -40,8 +40,8 @@ public record LogNormalFit(double mu, double sigma) {
 	 * <p>
 	 * <strong>Equal ends are not a degenerate case to refuse.</strong> They make
 	 * {@code sigma} zero, which is a point mass — somebody saying they are certain — and
-	 * every draw returns the same number. M2 accepts three identical values, so this must
-	 * too, and nothing here divides by {@code sigma} in order that it can.
+	 * every draw returns the same number. The plan schema accepts three identical values,
+	 * so this must too, and nothing here divides by {@code sigma} in order that it can.
 	 *
 	 * <p>
 	 * The two refusals below cannot be reached through the API: {@code @Positive} and
@@ -130,9 +130,9 @@ public record LogNormalFit(double mu, double sigma) {
 	 *
 	 * <p>
 	 * <strong>Reported, never acted on.</strong> A discrepancy is not a fault to refuse —
-	 * M2 accepts any ascending three points on purpose — it is evidence that the three
-	 * numbers were not thought about together, which is the first thing M5's elicitation
-	 * work will want to see.
+	 * the plan schema accepts any ascending three points on purpose — it is evidence that
+	 * the three numbers were not thought about together, which is the first thing
+	 * elicitation's elicitation work will want to see.
 	 */
 	public double consistency(double statedP50) {
 		return statedP50 / median();

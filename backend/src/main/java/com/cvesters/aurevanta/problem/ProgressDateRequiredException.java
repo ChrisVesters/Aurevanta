@@ -9,8 +9,8 @@ import org.springframework.http.HttpStatus;
  * <p>
  * A refusal rather than a server-supplied default, which is the decision worth recording.
  * Stamping "now" would be easy and would quietly invent the one thing this row exists to
- * hold — M10's burn-up and M8's calibration both read these dates, and neither can tell a
- * date somebody reported from a date the server guessed while nobody was looking.
+ * hold — the burn-up and calibration's both read these dates, and neither can tell a date
+ * somebody reported from a date the server guessed while nobody was looking.
  *
  * <p>
  * Not a per-field complaint, for the same reason as {@link EstimateOutOfOrderException}:

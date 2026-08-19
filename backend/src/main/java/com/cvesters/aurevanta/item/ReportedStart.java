@@ -14,8 +14,8 @@ import java.util.UUID;
  * <p>
  * <strong>Earliest, because that is the unflattering direction.</strong> Two claims about
  * when work began means the earlier one wins: moving a start date later is what turns a
- * report into a forecast in M8's exclusion rule, so the rule reads the first thing
- * anybody said rather than the last.
+ * report into a forecast in calibration's exclusion rule, so the rule reads the first
+ * thing anybody said rather than the last.
  *
  * @param startedOn never null — an item nobody has claimed a start for has no row here at
  * all, which is a different answer from a start of nothing.

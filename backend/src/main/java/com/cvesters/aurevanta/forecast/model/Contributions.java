@@ -43,7 +43,10 @@ public final class Contributions implements RunObserver {
 
 	private final double[] mean;
 
-	/** Welford's M2 per source: the sum of squared deviations from the running mean. */
+	/**
+	 * Welford's the plan schema per source: the sum of squared deviations from the
+	 * running mean.
+	 */
 	private final double[] spread;
 
 	/** The co-moment of each source with the outcome. */
@@ -112,12 +115,13 @@ public final class Contributions implements RunObserver {
 	 * <p>
 	 * <strong>A source that never varied contributes exactly nothing, and that is the
 	 * ordinary case.</strong> Three of them arrive in every real plan: an item nobody
-	 * estimated, which M3a keeps in the graph as a zero-effort node; work already
-	 * finished, which has nothing left; and an estimate of three identical numbers, which
-	 * M2 accepts on purpose because it is somebody saying they are certain. Their
-	 * correlation is {@code 0/0}, and a {@code NaN} would sort unpredictably through a
-	 * ranking and fail to serialise at all — so the answer is zero, which is also true: a
-	 * number that never moves cannot be what the finish moved with.
+	 * estimated, which the simulation engine keeps in the graph as a zero-effort node;
+	 * work already finished, which has nothing left; and an estimate of three identical
+	 * numbers, which the plan schema accepts on purpose because it is somebody saying
+	 * they are certain. Their correlation is {@code 0/0}, and a {@code NaN} would sort
+	 * unpredictably through a ranking and fail to serialise at all — so the answer is
+	 * zero, which is also true: a number that never moves cannot be what the finish moved
+	 * with.
 	 *
 	 * <p>
 	 * The same guard covers a plan that finished at the same moment in every run. There

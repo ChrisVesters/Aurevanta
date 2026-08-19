@@ -4,7 +4,7 @@
 -- **It is in the snapshot already, and that is not enough.** `forecast_runs.inputs` holds the
 -- whole declaration, so nothing is lost — but reading it costs parsing a document that also
 -- holds five hundred items and every range anybody typed, and two readers need this on every
--- run of a plan at once: the panel that prints what a forecast assumed, and M10's detector,
+-- run of a plan at once: the panel that prints what a forecast assumed, and the drift detector,
 -- which walks a whole history to decide whether a date has been drifting. A column is what
 -- makes both of those a read rather than a page of JSON per row.
 --

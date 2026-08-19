@@ -46,8 +46,9 @@ public interface WorkItemProgressRepository extends JpaRepository<WorkItemProgre
 	 *
 	 * <p>
 	 * One grouped query for a whole organisation rather than a lookup per item, the way
-	 * {@code ProjectRepository.itemCounts} is: M8 scores every completed item at once, so
-	 * asking per item would be a query per piece of work a team has ever finished.
+	 * {@code ProjectRepository.itemCounts} is: calibration scores every completed item at
+	 * once, so asking per item would be a query per piece of work a team has ever
+	 * finished.
 	 *
 	 * <p>
 	 * Reports that claim no start are left out rather than counted as a start of nothing

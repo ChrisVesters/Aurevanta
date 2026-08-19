@@ -48,13 +48,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * written over every time somebody made a claim.
  *
  * <p>
- * <strong>What this class is really testing is M8's exclusion rule.</strong> A hit rate
- * that refuses to score an estimate written after the work began is only as trustworthy
- * as the date it compares against, and that date used to be editable by anybody with no
- * trace. The cases worth reading are therefore the ones about a start date that moved:
- * the boundary must take the earliest claim, because moving a start later is the
- * direction that turns a report into a forecast and makes the number kinder than the
- * truth.
+ * <strong>What this class is really testing is calibration's exclusion rule.</strong> A
+ * hit rate that refuses to score an estimate written after the work began is only as
+ * trustworthy as the date it compares against, and that date used to be editable by
+ * anybody with no trace. The cases worth reading are therefore the ones about a start
+ * date that moved: the boundary must take the earliest claim, because moving a start
+ * later is the direction that turns a report into a forecast and makes the number kinder
+ * than the truth.
  *
  * <p>
  * The refusals live next door in {@code WorkItemProgressApiTests}; what they contribute
@@ -158,7 +158,7 @@ class WorkItemProgressLogApiTests {
 	/**
 	 * The first claim stays exactly as it was made. This is the whole property — an
 	 * estimate is immutable for the same reason, and a report that could be rewritten
-	 * would leave M8 measuring against whatever somebody last found convenient.
+	 * would leave calibration measuring against whatever somebody last found convenient.
 	 */
 	@Test
 	void aSecondReportLeavesTheFirstWhereItIs() throws Exception {
@@ -214,7 +214,7 @@ class WorkItemProgressLogApiTests {
 		assertThat(this.reports.findAll()).isEmpty();
 	}
 
-	// The boundary M8 scores against -------------------------------------------
+	// The boundary calibration scores against -------------------------------------------
 
 	/**
 	 * <strong>The case this table was added for.</strong> A start moved forward would

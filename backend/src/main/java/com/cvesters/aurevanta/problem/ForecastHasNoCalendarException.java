@@ -6,11 +6,11 @@ import org.springframework.http.HttpStatus;
  * A question about a date was asked of a run that has no calendar to read one with.
  *
  * <p>
- * Every run made before M4 is one of these: it produced hours and no date, because nobody
- * had stated a working day yet, and nothing backfilled one onto it. So "can this hit 1
- * November?" cannot be turned into a number of hours for it, and the honest answer is
- * that the question does not apply rather than an answer under a working day this server
- * picked.
+ * Every run made before the calendar is one of these: it produced hours and no date,
+ * because nobody had stated a working day yet, and nothing backfilled one onto it. So
+ * "can this hit 1 November?" cannot be turned into a number of hours for it, and the
+ * honest answer is that the question does not apply rather than an answer under a working
+ * day this server picked.
  *
  * <p>
  * The same rule the dates themselves follow, in the only form that fits an inverse query:

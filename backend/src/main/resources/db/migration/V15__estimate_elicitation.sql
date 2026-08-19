@@ -1,9 +1,9 @@
 -- How the three numbers in each row were asked for.
 --
--- This is the only instrument that can ever say whether M5 worked. The milestone's claim is
+-- This is the only instrument that can ever say whether elicitation worked. The work's claim is
 -- that changing the *question* produces honester ranges, and the failure mode it has to
 -- live with is that a better form feels better and changes nothing. Nothing in the test
--- suite can settle that: the only evidence is M8's calibration record — how often somebody's
+-- suite can settle that: the only evidence is the calibration record — how often somebody's
 -- P10–P90 band actually contained the truth — partitioned by how each estimate was
 -- collected. Without this column that partition does not exist.
 --
@@ -20,7 +20,7 @@ alter table estimates
 
 -- The backfill is TRUE, which is what makes this V13 and not V14.
 --
--- M4's calendar columns were left null because a run made before M4 assumed no working day
+-- the calendar's calendar columns were left null because a run made before the calendar assumed no working day
 -- — there was nothing honest to write, and a default would have invented a claim on behalf
 -- of somebody who never made one. Here there is something honest to write: every estimate in
 -- this table was typed into three boxes labelled P10, P50 and P90, because that is the only

@@ -12,9 +12,10 @@ import org.springframework.http.HttpStatus;
  * wrong", and pointing at one box here would be picking a culprit arbitrarily.
  *
  * <p>
- * Worth refusing rather than accepting and letting M3 sort out, because a band whose ends
- * are the wrong way round is not a pessimistic estimate or an optimistic one — it is a
- * typo, and fitting a distribution to it would produce a confident number from nonsense.
+ * Worth refusing rather than accepting and letting the simulation engine sort out,
+ * because a band whose ends are the wrong way round is not a pessimistic estimate or an
+ * optimistic one — it is a typo, and fitting a distribution to it would produce a
+ * confident number from nonsense.
  */
 public class EstimateOutOfOrderException extends ApiProblemException {
 

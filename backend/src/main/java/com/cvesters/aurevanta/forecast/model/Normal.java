@@ -34,9 +34,9 @@ public final class Normal {
 	 *
 	 * <p>
 	 * Every three-point estimate in this product is fitted through this number, and so is
-	 * M3b's team factor. It is written out rather than computed from {@link #quantile} so
-	 * that the two disagree loudly if either is wrong; {@code NormalTests} asserts they
-	 * agree.
+	 * the common-cause model's team factor. It is written out rather than computed from
+	 * {@link #quantile} so that the two disagree loudly if either is wrong;
+	 * {@code NormalTests} asserts they agree.
 	 */
 	public static final double P90_Z = 1.2815515655446004;
 

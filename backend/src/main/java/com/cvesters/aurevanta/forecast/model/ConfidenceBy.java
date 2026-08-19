@@ -5,11 +5,11 @@ package com.cvesters.aurevanta.forecast.model;
  *
  * <p>
  * <strong>The whole of an inverse query's answer, and it needed no engine
- * change.</strong> "Can we hit 1 November at 85%?" is a question about a date, which M4's
- * calendar turns into a number of hours; from there it is a count of the runs that came
- * in under it. M6 built the seam that makes that free — {@link RunObserver} is told each
- * run's completion as it goes past — so nothing here samples anything, stores anything,
- * or knows what a date is.
+ * change.</strong> "Can we hit 1 November at 85%?" is a question about a date, which the
+ * calendar's calendar turns into a number of hours; from there it is a count of the runs
+ * that came in under it. The contribution ranking built the seam that makes that free —
+ * {@link RunObserver} is told each run's completion as it goes past — so nothing here
+ * samples anything, stores anything, or knows what a date is.
  *
  * <p>
  * <strong>Counting rather than reading a percentile, and the difference matters at the
@@ -44,8 +44,8 @@ public final class ConfidenceBy implements RunObserver {
 	 *
 	 * <p>
 	 * Everything but the completion is ignored, and deliberately: this asks whether the
-	 * plan made it, not what made it late. The second question is M6's and has its own
-	 * observer.
+	 * plan made it, not what made it late. The second question is the contribution
+	 * ranking's and has its own observer.
 	 */
 	@Override
 	public void observed(double[] durations, int items, double discoveredHours, double stretch, double completion) {

@@ -3,7 +3,7 @@ import type { Membership, Organisation } from '../auth/types';
 /**
  * Which of these organisations share their name with another in the same list.
  *
- * Since M1a a name is not unique, so a person who belongs to two organisations called
+ * Since chosen handles a name is not unique, so a person who belongs to two organisations called
  * Acme sees the same word twice. It only matters where a *choice* is being made between
  * them — the chooser and the switcher — and only for the ones that actually repeat:
  * putting a handle under every name would be noise for the overwhelming majority who have

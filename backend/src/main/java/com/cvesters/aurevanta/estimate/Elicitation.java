@@ -15,11 +15,11 @@ import com.cvesters.aurevanta.problem.UnknownElicitationMethodException;
  * column and {@code EstimateQuality} is not.
  *
  * <p>
- * <strong>It is also the only instrument that can say whether M5 worked.</strong> This
- * milestone's claim is that changing the question produces honester ranges, and its
- * failure mode is a form that feels better and changes nothing — which no test can
- * detect. The only evidence is M8's calibration record split by these names, and a split
- * needs a column.
+ * <strong>It is also the only instrument that can say whether elicitation
+ * worked.</strong> This work's claim is that changing the question produces honester
+ * ranges, and its failure mode is a form that feels better and changes nothing — which no
+ * test can detect. The only evidence is the calibration record split by these names, and
+ * a split needs a column.
  *
  * <p>
  * Names rather than an enum, following {@code Schedule.PRIORITY_RULE} and
@@ -33,11 +33,11 @@ public final class Elicitation {
 	 * Three boxes labelled P10, P50 and P90, filled in together and in any order.
 	 *
 	 * <p>
-	 * Every estimate written before M5 is one of these, which is what {@code V15}
-	 * backfilled and why that backfill is true rather than convenient: it is the only
-	 * form this product has ever had. {@code product-concept.md} is blunt about what it
-	 * produces — 3/5/8 without anybody thinking — and this constant is what lets that
-	 * claim eventually be measured rather than merely asserted.
+	 * Every estimate written before elicitation is one of these, which is what
+	 * {@code V15} backfilled and why that backfill is true rather than convenient: it is
+	 * the only form this product has ever had. {@code product-concept.md} is blunt about
+	 * what it produces — 3/5/8 without anybody thinking — and this constant is what lets
+	 * that claim eventually be measured rather than merely asserted.
 	 */
 	public static final String THREE_POINT = "three_point";
 

@@ -7,9 +7,9 @@ import org.springframework.http.HttpStatus;
  *
  * <p>
  * Either they are of different plans, or they were made by different versions of the
- * engine. The second is M6's argument rather than a fussy check: a comparison across a
- * version bump is not a rougher comparison, it is an exact account of a movement that
- * never happened — and it would look entirely reasonable.
+ * engine. The second is the contribution ranking's reasoning rather than a fussy check: a
+ * comparison across a version bump is not a rougher comparison, it is an exact account of
+ * a movement that never happened — and it would look entirely reasonable.
  *
  * <p>
  * <strong>Everything else two runs can disagree about is reported rather than

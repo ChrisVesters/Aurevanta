@@ -91,8 +91,8 @@ class WorkItemProgressMigrationTests {
 
 	/**
 	 * The whole of the decision. An item that was already under way gets no report,
-	 * because nobody knows who said it was — and the boundary M8 measures against falls
-	 * back to the column on the item for exactly these rows.
+	 * because nobody knows who said it was — and the boundary calibration measures
+	 * against falls back to the column on the item for exactly these rows.
 	 */
 	@Test
 	void nothingIsInventedOnBehalfOfSomebodyWhoNeverMadeAReport() throws SQLException {

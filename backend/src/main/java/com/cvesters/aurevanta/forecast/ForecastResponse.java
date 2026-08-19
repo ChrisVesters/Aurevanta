@@ -26,8 +26,8 @@ import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
  * what the engine produced; a date is one percentile of it with a working day laid on
  * top, and that assumption is exactly the kind that gets forgotten. Removing the hours
  * would leave nothing here that came out of the model and would make the working day
- * invisible in the way this milestone's own warning describes — <em>a date is the first
- * thing this product emits that looks like a fact</em>.
+ * invisible in the way this work's own warning describes — <em>a date is the first thing
+ * this product emits that looks like a fact</em>.
  *
  * <p>
  * <strong>The assumptions travel with the number, and so do the limitations.</strong> A
@@ -47,7 +47,8 @@ import com.cvesters.aurevanta.forecast.model.WorkingCalendar;
  * @param teamFactorWorseByPercent and the two ends of {@code scopeGrowth}, sent back
  * because what produced a number has to travel with it. They are also what tells two runs
  * of one plan apart: a band that moved because somebody answered these differently is not
- * a plan that slipped, and M10 compares them precisely so that it does not say otherwise.
+ * a plan that slipped, and the reporting layer compares them precisely so that it does
+ * not say otherwise.
  * @param startsOn and {@code workingHoursPerDay} and {@code calendarRule} are the same
  * thing for the dates: three runs of one plan under three working days are three readings
  * rather than a date moving. Absent together, for a run made before a calendar existed.

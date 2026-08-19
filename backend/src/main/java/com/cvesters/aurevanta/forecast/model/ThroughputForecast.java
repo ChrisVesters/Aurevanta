@@ -10,8 +10,8 @@ import java.util.List;
  * {@link Forecast}.</strong> The engine answers in effort and needs a working day before
  * it can name a date; this counts wall-clock weeks in which a team delivered whatever it
  * delivered, so the holidays and the incident and the Friday afternoons are already
- * inside the number. Multiplying it by a working day would be M4's own error — capacity
- * counted twice — arriving from the other side.
+ * inside the number. Multiplying it by a working day would be the calendar's own error —
+ * capacity counted twice — arriving from the other side.
  *
  * <p>
  * <strong>Whole weeks, because the model has no finer grain.</strong> A bootstrap draws a
@@ -21,8 +21,9 @@ import java.util.List;
  * is {@code Engine}'s reason for taking the nearest rank and is the same reason here.
  *
  * <p>
- * The five percentiles are the engine's five, so that M4's confidence control means the
- * same thing on both answers and a reader comparing them is comparing like with like.
+ * The five percentiles are the engine's five, so that the calendar's confidence control
+ * means the same thing on both answers and a reader comparing them is comparing like with
+ * like.
  *
  * @param standardDeviationWeeks the spread, which is here because it is what the oracle
  * checks: a team that finished exactly the same number every week must answer with zero.

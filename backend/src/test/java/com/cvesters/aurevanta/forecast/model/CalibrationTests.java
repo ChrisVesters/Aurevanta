@@ -128,9 +128,10 @@ class CalibrationTests {
 	}
 
 	/**
-	 * Three identical numbers are somebody saying they are certain, which M2 accepts on
-	 * purpose. Whether the outcome fell between the two ends is still a perfectly good
-	 * question; where it fell on a scale is not, because there is no scale.
+	 * Three identical numbers are somebody saying they are certain, which the plan schema
+	 * accepts on purpose. Whether the outcome fell between the two ends is still a
+	 * perfectly good question; where it fell on a scale is not, because there is no
+	 * scale.
 	 */
 	@Test
 	void aClaimOfCertaintyIsScoredWithoutBeingModelled() {
@@ -355,9 +356,9 @@ class CalibrationTests {
 	// How little a rate says ---------------------------------------------------
 
 	/**
-	 * The table this milestone's screens are designed around, asserted so that a change
-	 * to the interval is a change to a document as well as to a function. Four in five
-	 * and thirty-two in forty are both 80% and only one of them means anything.
+	 * The table this work's screens are designed around, asserted so that a change to the
+	 * interval is a change to a document as well as to a function. Four in five and
+	 * thirty-two in forty are both 80% and only one of them means anything.
 	 */
 	@Test
 	void theIntervalIsWhatSaysHowLittleASmallSampleSays() {

@@ -9,9 +9,9 @@ import org.springframework.http.HttpStatus;
  * The dependency asked for would make a plan wait for itself.
  *
  * <p>
- * The one refusal in this milestone that is a property of the whole graph rather than of
- * any row in it, which is why it is decided under a write lock on the plan — two edges
- * can each be acyclic against the graph as it was read and cyclic together.
+ * The one refusal in this work that is a property of the whole graph rather than of any
+ * row in it, which is why it is decided under a write lock on the plan — two edges can
+ * each be acyclic against the graph as it was read and cyclic together.
  *
  * <p>
  * <strong>Carries the path that would have closed, in the order it would have

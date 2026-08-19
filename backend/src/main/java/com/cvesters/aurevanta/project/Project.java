@@ -20,8 +20,8 @@ import jakarta.persistence.Table;
  * <p>
  * The name is not unique and nothing is derived from it. Two projects in one organisation
  * may share one — a team running the same shape of work every quarter is the ordinary
- * case — and {@link #getId()} is what addresses one. That is the lesson M1a paid a
- * milestone for, applied before the mistake rather than after it.
+ * case — and {@link #getId()} is what addresses one. That is the lesson chosen handles
+ * paid a work for, applied before the mistake rather than after it.
  */
 @Entity
 @Table(name = "projects")
@@ -75,10 +75,10 @@ public class Project {
 	 * Puts the project away without destroying it.
 	 *
 	 * <p>
-	 * The only way anything leaves a listing in M2. Every member may write plan data, so
-	 * a delete would be one person destroying a colleague's work with nothing to put back
-	 * — and the estimates hanging off a project are the evidence M8 calibrates against
-	 * long after anybody would have thought to keep them.
+	 * The only way anything leaves a listing in the plan schema. Every member may write
+	 * plan data, so a delete would be one person destroying a colleague's work with
+	 * nothing to put back — and the estimates hanging off a project are the evidence
+	 * calibration calibrates against long after anybody would have thought to keep them.
 	 *
 	 * <p>
 	 * Keeps the first moment, the way {@code User.markEmailVerified} does: archiving

@@ -8,7 +8,7 @@ package com.cvesters.aurevanta.forecast.model;
  * is a hit rate of 80% and says nothing whatever: the 80% interval on it runs from 51% to
  * 94%, which is consistent with a team that is well calibrated and with one that is badly
  * overconfident. A rate published without its interval invites somebody to act on five
- * completed tasks, and M8's whole output is a number about a small sample.
+ * completed tasks, and calibration's whole output is a number about a small sample.
  *
  * <p>
  * <strong>Wilson's interval rather than the normal approximation</strong>, which fails in

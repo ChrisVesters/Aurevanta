@@ -16,9 +16,9 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
  * {@code twentyPointOhOneHoursAtSixPointSixSevenIsThreeDaysAndNotFour} is decision 7 as a
  * regression: a double gets that one wrong by a whole day, and every other arithmetic
  * case here passes either way. The one about capacity is decision 2, which is the mistake
- * this milestone exists to avoid — dividing by a team's daily total rather than one
- * worker's produces a date that is wrong by exactly the capacity factor, and every test
- * that only checks <em>a date came out</em> passes.
+ * this work exists to avoid — dividing by a team's daily total rather than one worker's
+ * produces a date that is wrong by exactly the capacity factor, and every test that only
+ * checks <em>a date came out</em> passes.
  */
 class WorkingCalendarTests {
 

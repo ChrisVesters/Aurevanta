@@ -5,14 +5,14 @@ package com.cvesters.aurevanta.forecast.model;
  *
  * <p>
  * <strong>Hours, not dates.</strong> Turning effort into a calendar needs an assumption
- * about what a working day is worth, and M4 is where that assumption gets made visibly.
- * Inventing one here would bury it in the one place `roadmap.md` says it must not be
- * buried.
+ * about what a working day is worth, and the calendar is where that assumption gets made
+ * visibly. Inventing one here would bury it in the one place `roadmap.md` says it must
+ * not be buried.
  *
  * <p>
- * <strong>Five percentiles rather than two</strong>, and the odd one out is the P80: M4's
- * confidence control offers 50, 80 and 95, and a percentile nobody stored is a re-run to
- * answer.
+ * <strong>Five percentiles rather than two</strong>, and the odd one out is the P80: the
+ * calendar's confidence control offers 50, 80 and 95, and a percentile nobody stored is a
+ * re-run to answer.
  *
  * @param standardDeviationHours the spread, which is here because it is what the
  * closed-form oracle checks. A sum of independent draws has an exactly known variance

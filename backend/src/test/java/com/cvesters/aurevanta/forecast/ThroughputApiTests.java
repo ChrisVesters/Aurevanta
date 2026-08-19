@@ -268,9 +268,10 @@ class ThroughputApiTests {
 	}
 
 	/**
-	 * <strong>Its past and no cone, saying which</strong> — M9's three states arriving
-	 * here unchanged. The cone is absent exactly when the projection is, so a picture can
-	 * never show a future the sentence beside it declines to state.
+	 * <strong>Its past and no cone, saying which</strong> — the throughput forecast's
+	 * three states arriving here unchanged. The cone is absent exactly when the
+	 * projection is, so a picture can never show a future the sentence beside it declines
+	 * to state.
 	 */
 	@Test
 	void tooLittleHistoryDrawsItsPastAndNoCone() throws Exception {
@@ -327,9 +328,9 @@ class ThroughputApiTests {
 	// The three ways to have no projection --------------------------------------
 
 	/**
-	 * <strong>The window ships and the projection does not</strong>, which is M8's empty
-	 * state in a second place: a reader gets what there is and a reason, rather than an
-	 * absence.
+	 * <strong>The window ships and the projection does not</strong>, which is
+	 * calibration's empty state in a second place: a reader gets what there is and a
+	 * reason, rather than an absence.
 	 */
 	@Test
 	void tooLittleHistoryIsAWindowAndNoForecast() throws Exception {

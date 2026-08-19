@@ -1,4 +1,4 @@
-# M10 — Communicating to people who do not know what P90 means: implementation plan
+# Communicating a forecast to people who do not know what P90 means — the design record
 
 > **Proposal, 2026-08-18. Built, 2026-08-19.** Six steps, **no migration, and no change to anything
 > the engine samples** — `Engine.VERSION` is still 2, as expected. Each step gained its
@@ -6,32 +6,32 @@
 >
 > **Read step 6's record first if you are here for one thing.** The close-out review found this
 > plan reintroducing, in step 5's own example sentence, the exact two-sided form decision 2 was
-> written to remove from `roadmap.md` — which is what a review pass is for and what the rest of
+> written to remove from `../roadmap.md` — which is what a review pass is for and what the rest of
 > this document could not have caught.
 >
-> **Scope, and it is smaller than `roadmap.md`'s bullets.** That section lists five things and
+> **Scope, and it is smaller than `../roadmap.md`'s bullets.** That section lists five things and
 > **two of them are cut here** — the probabilistic critical path and merge-bias-as-a-number
-> (decision 1). What is left is the milestone's own stated purpose: a plan's forecast said in a
+> (decision 1). What is left is the work's own stated purpose: a plan's forecast said in a
 > sentence anybody can read, a picture of it, and the two questions somebody asks second — *has
 > this been getting worse?* and *why did the date move?* The last of those is the icebox's
-> **forecast movement decomposition**, promoted into the milestone because it is the same
+> **forecast movement decomposition**, promoted into the work because it is the same
 > machinery as the detector and because the icebox calls it "the feature I would most want as a
 > user".
 >
 > **How to read this.** Decisions first. The one that decides whether the detector reports
 > anything real is **decision 5**, and the measurement below is why: a rule about the *direction*
 > a date moves fires on 86% of plans re-forecast weekly for six months with no slide at all. The
-> one that decides whether the decomposition is honest is **decision 6**, which is M6's "these do
+> one that decides whether the decomposition is honest is **decision 6**, which is the contribution ranking's "these do
 > not add up" arriving for the third time in a form where they finally must. **Decision 2
-> corrects a sentence in `roadmap.md`.**
+> corrects a sentence in `../roadmap.md`.**
 >
-> **This is the first milestone whose output is prose and pictures rather than numbers**, and that
-> changes what can go wrong. Every milestone so far could be wrong in a way a test catches. A
+> **This is the first work whose output is prose and pictures rather than numbers**, and that
+> changes what can go wrong. Every work so far could be wrong in a way a test catches. A
 > sentence that is technically accurate and read as something else fails no test at all — and the
 > roadmap's own example sentence is one of those, which is decision 2.
 >
-> **And it brings the first chart.** `roadmap.md` records under *Reworking the interface* that the
-> rework is worth doing **before** M10 spends effort on charts, because "a confidence cone, a
+> **And it brings the first chart.** `../roadmap.md` records under *Reworking the interface* that the
+> rework is worth doing **before** the reporting work spends effort on charts, because "a confidence cone, a
 > burn-up and a criticality heatmap are exactly the things that get built twice if the second
 > build is a rework". That has not happened, and this plan does not wait for it — decision 9 says
 > what is built so that a rework restyles rather than rebuilds, and what survives one either way.
@@ -42,16 +42,16 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | One sentence anybody can read ✅ *done* | M4 |
-| 2 | When two forecasts may be compared ✅ *done* | M3, M4 |
-| 3 | Why the date moved ✅ *done* | 2, M6's replay |
+| 1 | One sentence anybody can read ✅ *done* | the calendar |
+| 2 | When two forecasts may be compared ✅ *done* | the simulation engine, the calendar |
+| 3 | Why the date moved ✅ *done* | 2, the contribution ranking's replay |
 | 4 | Whether it keeps moving out ✅ *done* | 2 |
-| 5 | The burn-up, and the first chart in this product ✅ *done* | M9 |
+| 5 | The burn-up, and the first chart in this product ✅ *done* | the throughput forecast |
 | 6 | Close out ✅ *done* | 1–5 |
 
 **No migration is expected.** Everything here is derived: `forecast_runs` already stores each run's
 inputs, its seed, its calendar and its engine version, and `work_items.completed_on` already
-carries the burn-up's past. That is M6's decision 1 spent a fourth time, and this is the milestone
+carries the burn-up's past. That is the contribution ranking's decision 1 spent a fourth time, and this is the work
 where it pays best — a decomposition computed at read time explains every pair of runs this
 product has ever stored, where a stored one would explain only the pairs made after it existed.
 
@@ -63,7 +63,7 @@ product has ever stored, where a stored one would explain only the pairs made af
 
 ### How far a date moves for no reason at all
 
-The same plan, re-forecast with nothing changed but the seed. Twelve items in a chain — M3a's
+The same plan, re-forecast with nothing changed but the seed. Twelve items in a chain — the simulation engine's
 oracle shape, so the finish is a sum of log-normals — and the 80th percentile taken across thirty
 seeds:
 
@@ -76,7 +76,7 @@ seeds:
 **At the sample count this product uses, the answer moves by a fifth of a working day** — and the
 date is a whole day, arrived at by `ceil`. So an unchanged plan re-forecast twice gives *the same
 date*, essentially always. **The detector therefore needs no noise floor**, which is the opposite
-of what M7 found for cuts and is worth stating for that reason: there the noise was most of the
+of what the inverse query found for cuts and is worth stating for that reason: there the noise was most of the
 signal, and here there is none.
 
 ### And why the obvious rule is still useless
@@ -106,8 +106,8 @@ decision 5.
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | What M10 is for | **The reader who does not know what P90 means.** Criticality and merge bias serve the one who does, and leave. |
-| 2 | What the sentence says | **One-sided, not two.** `roadmap.md`'s own example is a two-sided interval and everything in this product is one-sided. |
+| 1 | What the reporting work is for | **The reader who does not know what P90 means.** Criticality and merge bias serve the one who does, and leave. |
+| 2 | What the sentence says | **One-sided, not two.** `../roadmap.md`'s own example is a two-sided interval and everything in this product is one-sided. |
 | 3 | What makes two runs comparable | **The calendar, the engine version and the five assumptions.** Anything else compares two different questions. |
 | 4 | What happens when they are not | **A term, not a refusal** — "six of those eight days were you halving the capacity" is the useful answer. |
 | 5 | What the detector measures | **Cumulative drift against the band's own width**, never the direction of the last few runs. |
@@ -115,35 +115,35 @@ decision 5.
 | 7 | The order they are applied in | **A stated rule with a name**, because the order decides the attribution. |
 | 8 | Where the progress term comes from | **The log `V16` added**, read rather than inferred from a snapshot diff. |
 | 9 | The first chart | **The text equivalent is the feature and the drawing is the enhancement** — which is also what survives the interface rework. |
-| 10 | Where the cone comes from | **M9's bootstrap, extended to a trajectory.** The engine forecasts effort and has no notion of items over time. |
+| 10 | Where the cone comes from | **The throughput forecast's bootstrap, extended to a trajectory.** The engine forecasts effort and has no notion of items over time. |
 | 11 | What is stored | **Nothing.** |
-| 12 | What M10 must not become | **Not a report builder, not a dashboard, not a second forecast.** |
+| 12 | What the reporting work must not become | **Not a report builder, not a dashboard, not a second forecast.** |
 
-### Decision 1 — Criticality and merge bias leave this milestone
+### Decision 1 — Criticality and merge bias leave this work
 
-`roadmap.md` lists five bullets. Two of them are cut and put in the icebox: **the probabilistic
+`../roadmap.md` lists five bullets. Two of them are cut and put in the icebox: **the probabilistic
 critical path** and **merge bias surfaced as a number**.
 
-**The milestone's own title is the argument.** It is for the reader who does not know what P90
+**The work's own title is the argument.** It is for the reader who does not know what P90
 means. A criticality index — *this path drives completion in 40% of runs* — is strictly more
 statistics than the band it sits beside, and merge bias as a figure is a correction to a number
 that reader has not yet understood. Both are for somebody who already reads the band fluently, and
-putting them here would make the milestone about two audiences at once.
+putting them here would make the work about two audiences at once.
 
 **They are also not communication work at all.** Every other bullet is a presentation of something
 already computed and stored; these two need `Schedule` to start reporting which items were on the
 deciding path in each run, which is a change to what the engine observes, a new accumulator, and an
 oracle of its own. That is modelling depth wearing a communication label, and it is the shape of
-thing M3b was.
+thing the common-cause model was.
 
 They go beside *a proper variance decomposition* in the icebox, which was turned down there for a
-neighbouring reason. **The distinction `roadmap.md` draws between criticality and M6's ranking is
+neighbouring reason. **The distinction `../roadmap.md` draws between criticality and the contribution ranking's ranking is
 worth keeping verbatim when they move**, because it is the thing anybody building them will get
 wrong: an item that never varies can decide the finish in every run and widen the band by nothing.
 
 ### Decision 2 — The sentence is one-sided, and the roadmap's example is not
 
-`roadmap.md` offers *"85% likely to finish between 12 October and 20 November."* That is a
+`../roadmap.md` offers *"85% likely to finish between 12 October and 20 November."* That is a
 **two-sided interval**, and every date this product has ever published is one-sided: `p80Date` is
 the day by which four runs in five had finished, and the confidence control reads exactly that.
 
@@ -155,9 +155,9 @@ somebody commits to is a date they will not be past, so the sentence is:
 
 > **There is an 85% chance this is finished by 20 November.**
 
-with the confidence control the only thing that changes it. **The band in hours stays**, for M4's
+with the confidence control the only thing that changes it. **The band in hours stays**, for the calendar's
 reason — remove it and nothing on screen came out of the engine — but the sentence goes first and
-in the largest type on the panel, because the whole milestone is that the sentence is what gets
+in the largest type on the panel, because the whole work is that the sentence is what gets
 pasted into somebody's email.
 
 | Rejected | Why |
@@ -172,10 +172,10 @@ A pair of runs may be compared when they share: the **engine version**, the **ca
 **working day**, and the **five assumptions** (capacity, team factor, both scope-growth ends, and
 the start date). Anything else and the two answered different questions.
 
-This is `roadmap.md`'s own warning made into a rule — "a comparison across runs made under
+This is `../roadmap.md`'s own warning made into a rule — "a comparison across runs made under
 different calendars, or across an `Engine.VERSION` bump, is the way this feature reports a slide
-that never happened" — and M4 is what made it checkable, since every run stores the calendar it was
-read under. It is also the same instinct as M6's `forecast_replay_mismatch`, which refuses to
+that never happened" — and the calendar is what made it checkable, since every run stores the calendar it was
+read under. It is also the same instinct as the contribution ranking's `forecast_replay_mismatch`, which refuses to
 explain a run the engine no longer reproduces: **a comparison between incomparable things is not a
 rougher comparison, it is an exact comparison of something nobody asked about.**
 
@@ -186,7 +186,7 @@ decision 4 is where it goes.
 
 ### Decision 4 — An assumption that changed is a term, not a refusal
 
-M6 refuses to explain a run it cannot reproduce. This does the opposite: where two runs differ in
+The contribution ranking refuses to explain a run it cannot reproduce. This does the opposite: where two runs differ in
 their assumptions, the difference is **measured and reported as its own line** rather than
 disqualifying the pair.
 
@@ -195,7 +195,7 @@ start date, they raise the growth range after a bad month — and the single mos
 feature can say is *six of those eight days were you halving the capacity*. Refusing that pair
 would leave somebody staring at two dates a fortnight apart with no account of either.
 
-The line between this and M6's refusal is worth stating, because they look contradictory. M6
+The line between this and the contribution ranking's refusal is worth stating, because they look contradictory. The contribution ranking
 refuses when **the model** cannot reproduce the run — there is nothing to compare *with*. This
 reports when **the question** changed, which is exactly the thing worth reporting. An
 `Engine.VERSION` difference is the first kind and still refuses; everything else is the second.
@@ -229,13 +229,13 @@ browser is told the flag rather than the number.
 its total, and **the obvious implementation cannot deliver it**: re-running the plan with one change
 at a time and reporting each difference separately gives terms that do not add, because a
 simulation is not linear in its inputs. Two changes that both load the same bottleneck overlap
-exactly as M7's two cuts on one chain do.
+exactly as the inverse query's two cuts on one chain do.
 
-M6 and M7 both met this and both answered *do not add them* — a ranking, and a measured cumulative
+The contribution ranking and the inverse query both met this and both answered *do not add them* — a ranking, and a measured cumulative
 list. **Here that answer is not available**, because the sentence is the feature: an account of a
 movement that does not account for the movement is not an account.
 
-So the terms are computed the way M7's cut *plan* is: **applied one at a time, in a stated order,
+So the terms are computed the way the inverse query's cut *plan* is: **applied one at a time, in a stated order,
 re-running after each, each term being the difference that step made with every earlier step
 already applied.** They then sum to the total by construction, and the last step lands exactly on
 the newer run's own date — which is the assertion that says the whole thing is honest.
@@ -264,7 +264,7 @@ four will act on it, and swapping steps 2 and 3 can move days between those two 
 
 ### Decision 8 — The progress term is read, not inferred
 
-`roadmap.md` records under *Progress is written over* that M10's decomposition "carries a '−1
+`../roadmap.md` records under *Progress is written over* that the reporting work's decomposition "carries a '−1
 progress' term it can currently only *infer* by diffing two forecast snapshots, rather than reading
 what somebody reported and when". **`V16` fixed that and nothing has read it since.** This is the
 reader it was built for.
@@ -277,7 +277,7 @@ them on Tuesday" — and those move a date for entirely different reasons.
 
 ### Decision 9 — The text equivalent is the feature; the drawing is the enhancement
 
-This milestone brings the first chart in the product, and *Cross-cutting* says the accessibility bar
+This work brings the first chart in the product, and *Cross-cutting* says the accessibility bar
 set by the auth forms must survive it: "a confidence cone needs a non-visual equivalent".
 
 **Inverted, deliberately.** The equivalent is not a fallback bolted to a picture — it is built
@@ -286,29 +286,29 @@ first is about accessibility:
 
 - A cone described in words has to be *understood* before it can be described, which is a better
   filter on whether the picture is worth drawing than drawing it is.
-- `roadmap.md` warns that charts built before the interface rework get built twice. **A text
+- `../roadmap.md` warns that charts built before the interface rework get built twice. **A text
   equivalent is not restyled by a rework**, so the half that survives is the half built first.
 - It is the same rule the rest of this product already keeps: the percentile table stays as the text
   equivalent of any curve, and a band never appears without its caveats.
 
-The drawing itself is **inline SVG with no chart library**, following the bars M6 and M8 already
+The drawing itself is **inline SVG with no chart library**, following the bars the contribution ranking and calibration already
 render — a dependency whose styling a rework would have to fight is exactly what that warning is
 about.
 
-### Decision 10 — The cone is M9's bootstrap, not the engine's band
+### Decision 10 — The cone is the throughput forecast's bootstrap, not the engine's band
 
 A burn-up is items completed against time, and its cone is *how many items will be done by each
 future week*. **The engine cannot answer that.** It forecasts effort and reports when a plan
 finishes; it has no notion of an item count over time, and inventing one from the finish
 distribution would mean assuming a shape for the trajectory that nothing measured.
 
-M9's bootstrap already draws a week at a time and accumulates until the backlog is covered — the
+The throughput forecast's bootstrap already draws a week at a time and accumulates until the backlog is covered — the
 trajectory is *the thing it walks over* and is currently thrown away in favour of the week it
 stopped on. Recording the running total per week gives every percentile of the cone from the same
 sampler, the same history and the same seed as the date beside it.
 
-**That is why M9 had to come first**, and it is worth noting that neither milestone's plan
-anticipated it: M9 was written as a cross-check and turns out to be the only thing in the product
+**That is why the throughput cross-check had to come first**, and it is worth noting that neither design
+anticipated it: it was written as a cross-check and turns out to be the only thing in the product
 that can draw the future half of a burn-up.
 
 ### Decision 11 — Nothing is stored
@@ -317,22 +317,22 @@ No table, no column, no cached decomposition. `forecast_runs` holds every run's 
 calendar and version; `work_items.completed_on` and `work_item_progress` hold the rest. Everything
 here is a read.
 
-M6's decision 1, a fourth time — and the strongest instance yet: a decomposition computed at read
+The contribution ranking's decision 1, a fourth time — and the strongest instance yet: a decomposition computed at read
 time explains **every pair of runs this product has ever stored**, including the ones made a year
-before this milestone existed. A stored one would explain only the pairs made after it, which is the
-same trade M8's calibration took and the same one M7 took for cuts.
+before this work existed. A stored one would explain only the pairs made after it, which is the
+same trade calibration's calibration took and the same one the inverse query took for cuts.
 
-### Decision 12 — What M10 must not become
+### Decision 12 — What the reporting work must not become
 
 - **Not a report builder.** One sentence, one chart, one history, one decomposition. A page where
   somebody chooses what to show is a different product.
 - **Not a dashboard.** Every one of these belongs beside the plan it is about; a screen that
-  aggregates plans is a portfolio feature and needs M11's ideas about resources first.
-- **Not a third forecast.** The burn-up draws M9's answer and the sentence says M3's. Nothing here
+  aggregates plans is a portfolio feature and needs the resource model's ideas about resources first.
+- **Not a third forecast.** The burn-up draws the throughput forecast's answer and the sentence says the simulation engine's. Nothing here
   computes a new number about the future.
 - **Not the export.** A shareable read-only link and a PNG for slides are both in the icebox, both
-  are what makes this milestone reach people, and both are separately arguable. The line to hold is
-  that M10 makes the answer legible and does not distribute it.
+  are what makes this work reach people, and both are separately arguable. The line to hold is
+  that the reporting work makes the answer legible and does not distribute it.
 
 ---
 
@@ -347,7 +347,7 @@ same trade M8's calibration took and the same one M7 took for cuts.
   the hours are what justify it.
 - **The confidence control keeps its place and its meaning** — it already reads percentiles
   already in the response and sends no request, and now it rewrites the sentence as well as the
-  date. That is M4's property extended rather than a second control.
+  date. That is the calendar's property extended rather than a second control.
 - **A run with no calendar says so in the same voice.** `describeDate` already distinguishes "no
   calendar" from "a rule this version cannot resolve"; both become sentences rather than
   explanations of a missing field.
@@ -357,7 +357,7 @@ same trade M8's calibration took and the same one M7 took for cuts.
 
 **Tests.** The sentence renders at each of the three confidences and says a different date at
 each. It is one-sided: no case anywhere produces "between … and …", asserted as the absence of a
-second date in that sentence. A run made before M4 gets the no-calendar sentence and no invented
+second date in that sentence. A run made before the calendar gets the no-calendar sentence and no invented
 day. The band and the limitations are still on screen beside it, because the failure mode of this
 step is quietly becoming the only thing shown.
 
@@ -366,7 +366,7 @@ step is quietly becoming the only thing shown.
 ### As built — where it differs from the above
 
 **Most of this step turned out to be built already, and saying so is more useful than pretending
-otherwise.** M4 shipped the headline sentence one-sided (`80% likely to be finished by 25 August`),
+otherwise.** the calendar shipped the headline sentence one-sided (`80% likely to be finished by 25 August`),
 above the band, at 22px against the band's 18 — so three of the five bullets describe the screen as
 it stood. What was left was the wording and one thing the bullets did not name.
 
@@ -382,7 +382,7 @@ than one sentence needs.
 finished by X" was already plain and already one-sided. What changed is that it no longer opens
 with a bare percentage — which reads as a statistic before it reads as a sentence — and that it now
 has a subject. Anybody expecting decision 2 to have overturned something will find it did not:
-**the two-sided form `roadmap.md` proposes was never what this product shipped**, and the decision's
+**the two-sided form `../roadmap.md` proposes was never what this product shipped**, and the decision's
 work is to stop it being introduced rather than to remove it.
 
 **Two properties were asserted rather than built.** The case named *says one date and never a window* pins the absence —
@@ -408,7 +408,7 @@ functions and lines. No backend change.
 - **`Comparable` in `forecast.model`** — pure: given two runs' identifying facts, are they
   answering the same question, and if not, which of the four things differ?
   - The **engine version** differing is not a difference to report but a **refusal**: there is
-    nothing to compare with, which is M6's `forecast_replay_mismatch` argument rather than
+    nothing to compare with, which is the contribution ranking's `forecast_replay_mismatch` argument rather than
     decision 4's.
   - The **calendar rule** and the **working day** differing means the dates are not on one scale.
     Reported, and the comparison is made in *hours* rather than days so it still says something.
@@ -436,7 +436,7 @@ would have been found by whoever next wanted to sort something.
 
 **`ForecastService.comparable(…)` is not here, and has moved to the step that consumes it.** The
 bullets put it in this step; nothing calls it until steps 3 and 4, and a service method whose only
-caller is its own test is precisely what the M8 and M9 cleanups deleted twice. The pure half is
+caller is its own test is precisely what the calibration and the throughput forecast cleanups deleted twice. The pure half is
 genuinely shared by both later steps and is built now; the list-shaped read is step 4's own shape —
 step 3 wants a *pair*, not a history — so each will build what it needs where it needs it.
 
@@ -457,7 +457,7 @@ somewhere else. It is `compareTo` throughout, with a case asserting the same num
 ways is the same assumption.
 
 **One case the coverage gate asked for and it turned out to be the right property.** The null
-branch for a run made before M4 was covered in one direction only — older-without-calendar against
+branch for a run made before the calendar was covered in one direction only — older-without-calendar against
 newer-with. Rather than a mirror of that one case, the test asserts the *symmetry*: which of the
 two is older changes nothing about what they disagree about. A screen walking a history backwards
 and one walking it forwards must say the same thing, and that is worth more than the branch it was
@@ -478,14 +478,14 @@ added to cover.
   older run's stored inputs, then applies one class of change at a time, re-running after each and
   reading the chosen percentile's date. Each term is the difference that step made **with every
   earlier step already applied**, so they sum by construction (decision 6).
-  - The replay is M6's, through the same method, because two ways of re-running one stored forecast
+  - The replay is the contribution ranking's, through the same method, because two ways of re-running one stored forecast
     would eventually be one right way and one that had drifted.
   - **The last step must land exactly on the newer run's own stored date.** That is the assertion
     that says the decomposition is a decomposition and not five plausible numbers.
   - The **progress** term reads `work_item_progress` (decision 8) rather than inferring from the
     status in the two snapshots.
 - **Cost.** One re-run per step, five steps, on top of the two runs themselves — about the shape of
-  M7's cut search and well inside its budget. Stated in the response the way M7 states its
+  the inverse query's cut search and well inside its budget. Stated in the response the way the inverse query states its
   simulation count, so the price is visible rather than surprising.
 
 **Tests.** **The oracle is that they add up**: for any pair, the terms sum to the difference between
@@ -497,7 +497,7 @@ capacity differs reports an assumptions term. The progress term reads the log: a
 weeks ago and only *recorded* between the two runs is attributed to progress, which a snapshot diff
 alone cannot distinguish from work that happened in between.
 
-**Done when** the five numbers explain the whole of the movement and not most of it.
+**Done when** The five numbers explain the whole of the movement and not most of it.
 
 ### As built — where it differs from the above
 
@@ -526,16 +526,16 @@ and `changingTheWorkingDayIsACalendarTermAndMovesNoHours` asserts every other te
 The calendar and the start move the date without touching an hour, so the last two states need no
 replay at all — but the *older* run needs one of its own to prove it still reproduces, or a baseline
 the engine no longer makes is absorbed silently into the sampling term. Five model-changing states
-plus that check is six, and the count is published the way M7 publishes its own.
+plus that check is six, and the count is published the way the inverse query publishes its own.
 
 **`Movement` is in `forecast` and not `forecast.model`.** It orders changes to `ForecastInputs`,
 which is a feature-package type, so a rule about it cannot live in the package that imports nothing
 from this codebase — the same reasoning that moved step 2's service method.
 
 **The endpoint is here rather than later**, because a service method whose only caller is its own
-test is what the M8 and M9 cleanups deleted twice. **And that exposes a gap in this plan: no step
+test is what the calibration and the throughput forecast cleanups deleted twice. **And that exposes a gap in this plan: no step
 puts any of this on screen.** Steps 4 and 5 are the detector and the burn-up, and step 6 is close
-out — so the decomposition and the detector both end the milestone with an endpoint and no reader.
+out — so the decomposition and the detector both end the work with an endpoint and no reader.
 That is for step 6's review pass to settle rather than something to quietly add here.
 
 **`ForecastService` gained one shared replay rather than a second one.** A decomposition varies the
@@ -582,7 +582,7 @@ narrow band and not on a wide one, which is the whole of decision 5. A capacity 
 starts a new window rather than contributing drift. One run, and two runs, each answer rather than
 dividing by zero.
 
-**Done when** the 86% false positive rate is a test rather than a paragraph.
+**Done when** The 86% false positive rate is a test rather than a paragraph.
 
 ### As built — where it differs from the above
 
@@ -601,13 +601,13 @@ this exists to notice rather than a distortion to correct for.
 `sameQuestion` carries the reasoning where somebody about to "fix" it will read it.
 
 **The listing is an object now and was an array, which is the one breaking change in the
-milestone.** The bullets say the verdict rides on the endpoint that lists a plan's
+work.** The bullets say the verdict rides on the endpoint that lists a plan's
 forecasts, and there is nowhere on a *run* to hang a property of the *sequence* — so
 `GET /api/projects/{id}/forecasts` answers `{runs, drift}`. Everything a run said before it
 is byte for byte where it was; the only caller is `ForecastPanel`, and it reads `runs`.
 
 **Days, and no hours beside them.** `MovementResponse` publishes both, so that a run made
-before M4 still accounts for its movement in the unit the engine works in. This does not,
+before the calendar still accounts for its movement in the unit the engine works in. This does not,
 and the reason is that here the two numbers have to be in *one* unit: a drift is only worth
 anything against the band it is measured against, and the band a reader is looking at is in
 days. A window with no calendar therefore reports its window, no days and no verdict —
@@ -634,7 +634,7 @@ measured at all instead of being a zero denominator.
 be a second constant nothing measured, and the honest reading of a plan that has drifted
 out for a year under one set of assumptions is that it has drifted out for a year.
 
-**Two duplicates were removed rather than made.** Which column one of M4's three
+**Two duplicates were removed rather than made.** Which column one of the calendar's three
 confidences names was a private `switch` in `MovementService` and is now `ForecastRun.hoursAt`,
 and the three confidences themselves are `ForecastService.CONFIDENCES` rather than an array
 in each response that publishes them. Both would have been the second copy that eventually
@@ -669,15 +669,15 @@ without seeing it.
 
 - **`Throughput.project` gains a trajectory** (decision 10): the running total per week across
   every run, from which each percentile of the cone is read. Same sampler, same history, same seed
-  as the date M9 already publishes, so the picture and the number cannot disagree.
+  as the date the throughput forecast already publishes, so the picture and the number cannot disagree.
   - It changes no draw and takes no extra randomness — the accumulation is over numbers the loop
-    already produces, which is M6's `RunObserver` argument in a smaller place.
-- **The past comes from M9's history**, which already reads `completed_on` per week.
+    already produces, which is the contribution ranking's `RunObserver` argument in a smaller place.
+- **The past comes from the throughput forecast's history**, which already reads `completed_on` per week.
 - **The text equivalent first** (decision 9): a short table of what was delivered by week and what
   the cone says for a handful of future weeks, and a sentence naming the shape — *"delivered 104 of
   144; on this history the last is done between 12 October and 30 November"*. It is what the tests
   assert.
-- **Then the drawing**, inline SVG, no library, following M6's and M8's bars. A line for what has
+- **Then the drawing**, inline SVG, no library, following the contribution ranking's and calibration's bars. A line for what has
   been delivered and a band behind it for the cone, `aria-hidden` with the table as its label,
   because a picture and its equivalent saying the same thing twice to a screen reader is worse than
   either.
@@ -687,7 +687,7 @@ cone's every percentile is the whole backlog, and at week zero it is nothing. Th
 its width at a late week is smaller than at an early one, which is the property the picture claims
 and the only one a reader takes from its shape. The table renders every week it says it does. The
 SVG is absent from the accessibility tree and the table is not. A plan with too little history draws
-its past and no cone, saying which — M9's three states arriving here unchanged.
+its past and no cone, saying which — the throughput forecast's three states arriving here unchanged.
 
 **Done when** somebody who cannot see the chart is told the same thing.
 
@@ -769,7 +769,7 @@ test can cover is the hole `WorkItemService.requireConsistent` refuses a `switch
 so the walk was rewritten to have no tail at all.
 
 **`BurnUpResponse` is null exactly where `window` is**, and `cone` is null exactly where
-`projection` is — M9's "separately absent" rule inherited rather than restated. That needed
+`projection` is — the throughput forecast's "separately absent" rule inherited rather than restated. That needed
 `ThroughputService.project` to hand back the forecast rather than the response built from it,
 so the date and the cone are two readings of one object; before, the only thing that knew
 whether a projection existed was a response type the burn-up could not read.
@@ -785,29 +785,29 @@ tests pass at 100% of statements, branches, functions and lines.
 
 **Goal.** The record matches what was built.
 
-- Each step's `### As built` is written in the change that built it. This step is the whole-milestone
+- Each step's `### As built` is written in the change that built it. This step is the whole-work
   read.
-- `roadmap.md`: M10 marked done with its own *As built*; **the two cut bullets moved into the
+- `../roadmap.md`: the reporting work marked done with its own *As built*; **the two cut bullets moved into the
   icebox with their reasoning intact** (decision 1), and the two-sided example sentence corrected in
   place (decision 2) rather than only here — the wrong version is the quotable one, which is the
-  lesson M9's close-out learnt. *What is next* moves to M11.
+  lesson the throughput forecast's close-out learnt. *What is next* moves to the resource model.
 - `CLAUDE.md`: a section on the sentence, the comparability rule, the ordered decomposition and the
   chart's text-first contract.
-- `product-concept.md`: whatever it says about communicating a forecast, answered.
-- **The review pass**, as in M5 through M9: read the milestone end to end and record what that read
-  changed. Every one of the last five found something, and three of them found the milestone
+- `../product-concept.md`: whatever it says about communicating a forecast, answered.
+- **The review pass**, as in elicitation through the throughput forecast: read the work end to end and record what that read
+  changed. Every one of the last five found something, and three of them found the work
   contradicting one of its own decisions.
 
-**Done when** the next reader can tell what M10 decided without reading its code.
+**Done when** The next reader can tell what the reporting work decided without reading its code.
 
 ### As built — where it differs from the above
 
-**The review pass found three things and the first is the one this milestone exists to
+**The review pass found three things and the first is the one this work exists to
 prevent.**
 
 **Step 5's own example sentence was two-sided, which is what decision 2 exists to stop.** The
 plan proposes *"delivered 104 of 144; on this history the last is done between 12 October and
-30 November"*, and it shipped that way. It is the same shape as `roadmap.md`'s example — the one
+30 November"*, and it shipped that way. It is the same shape as `../roadmap.md`'s example — the one
 decision 2 was written to correct — reintroduced eleven steps later by the plan that corrected
 it, in the step furthest from where the decision is stated. Worse, its second half restated a
 date the same panel already carries **one-sided** three lines above. What is left is *"Delivered
@@ -822,9 +822,9 @@ deliberately.** Both now have one:
   plan whose date keeps moving out is one whose latest date is worth less than it looks, so it
   belongs where that date is. It says the two dates, the distance and the band it is measured
   against, and says **nothing at all** when the plan is merely churning — a warning that fires
-  on a plan that is fine is the 86% this milestone measured, arriving through the screen.
+  on a plan that is fine is the 86% this work measured, arriving through the screen.
 - **The account of why the date moved sits under the earlier forecast it is measured against**,
-  behind a question somebody has to ask, because it costs six simulations — **seven since M11's
+  behind a question somebody has to ask, because it costs six simulations — **seven since the resource model's
   review split hiring out of the scope term**, which is where that decomposition is now read.
   The terms render in
   the order the server attributed them and are never re-sorted: the order *is* the rule, so a
@@ -832,35 +832,35 @@ deliberately.** Both now have one:
   where both runs have a date — a run made before there was a calendar has hours and no day, and
   "why did the date move" is not a question about it.
 - **Both are read at whichever confidence the control is set to and neither sends a request when
-  it moves.** M4 built that property for the date; the drift arrives with the listing and the
+  it moves.** the calendar built that property for the date; the drift arrives with the listing and the
   account arrives with all three readings, so it costs nothing to keep.
 
 **The third finding is smaller and is about this plan rather than the product.** Step 2's
 bullets put `ForecastService.comparable(...)` in step 2; step 4 built `DriftResponse.over`
 instead and no service method exists. That is the same correction step 2's own record made in
-advance — a service method whose only caller is its own test is what the M8 and M9 cleanups
+advance — a service method whose only caller is its own test is what the calibration and the throughput forecast cleanups
 deleted twice — so the plan is consistent with itself and with the code, and the bullet is
 simply spent.
 
 **What the close-out changed outside the code.**
 
-- `roadmap.md`: M10 marked done with its own *As built*; **the two-sided example sentence
-  corrected in place**, because the wrong version is the quotable one — M9's close-out learnt
+- `../roadmap.md`: the reporting work marked done with its own *As built*; **the two-sided example sentence
+  corrected in place**, because the wrong version is the quotable one — the throughput forecast's close-out learnt
   that and this is the second time it has mattered. The two cut bullets moved to the icebox
   under *Modelling depth* with their reasoning intact, and *forecast movement decomposition*
   left the icebox as built, carrying the two things it turned out to need that the entry never
-  named. *What is next* moves to M11. The **interface rework** entry gains what it cost to build
+  named. *What is next* moves to the resource model. The **interface rework** entry gains what it cost to build
   a chart before it, and the **accessibility** bullet gains the inversion that made it cheap.
-- `product-concept.md`: the *Communicating to stakeholders* open question answered, with the
+- `../product-concept.md`: the *Communicating to stakeholders* open question answered, with the
   same correction to the same sentence — it carried the two-sided form too. Its **merge bias**
-  section says what happened to it: captured by the engine since M3a, and *surfacing* it cut
-  from this milestone rather than forgotten.
+  section says what happened to it: captured by the engine since the simulation engine, and *surfacing* it cut
+  from this work rather than forgotten.
 - `CLAUDE.md`: a section on the one-sided sentence, the comparability rule, the ordered
   decomposition, the drift threshold, and the chart's text-first contract.
 
 ### The code review, and what it changed
 
-**A review of the whole milestone found eight things; five were acted on, one was already
+**A review of the whole work found eight things; five were acted on, one was already
 answered at its source, and two were left with the reason written down.**
 
 **The detector fired on plans with no yardstick, and that is the one that would have been
@@ -878,7 +878,7 @@ that asserted the opposite says so.
 change.** `forecast_runs.priority_rule` is stored and `Schedule.PRIORITY_RULE` is a *name* for
 exactly `WorkingCalendar.RULE`'s reason — a second one is expected — and nothing in the
 comparability rule looked at it. The day one ships, every plan re-forecast across the change
-would have reported the jump as drift, which is `roadmap.md`'s slide that never happened. It is
+would have reported the jump as drift, which is `../roadmap.md`'s slide that never happened. It is
 now a **refusal** rather than a term, beside the engine version: a calendar is laid over an
 answer the engine has already given, so two calendars are one answer read twice, where a
 priority rule is *inside* the scheduler and two rules are two answers. **Decision 3 lists four
@@ -900,13 +900,13 @@ heading was `scope="colgroup"`, which points at a `<colgroup>` element: the head
 finished work while `remaining` excludes archived work, so *"delivered 300 of 340"* can sit over
 a plan screen showing forty rows. Both are right and `WorkItemRepository` argues it in full —
 work delivered and later put away was still delivered, and work put away before it was finished
-is not going to be delivered at all. M10 is the first place the two are added, so
+is not going to be delivered at all. The reporting work is the first place the two are added, so
 `BurnUpResponse` now says so where somebody would otherwise "fix" it.
 
 **And two were left.** A failed request for an account of a movement leaves no way to re-ask
-without reloading — which is exactly what the contributions panel has done since M6, so fixing
+without reloading — which is exactly what the contributions panel has done since the contribution ranking, so fixing
 one of two identical dead ends would create the drift this codebase warns about, and fixing both
-is a change to a panel M10 did not build. It is recorded here so that whoever fixes one fixes
+is a change to a panel the reporting work did not build. It is recorded here so that whoever fixes one fixes
 the other. The second is that `Comparison.sameStart()` has no caller but its own test: it is
 kept, because the four groupings together cover all seven differences exactly once and
 `Drift.sameQuestion` deliberately uses three of them — an omission nobody could notice if the
@@ -914,14 +914,14 @@ fourth did not exist. `Comparison.identical()` had no such argument and was dele
 
 **Counts.** 14 new cases in `ForecastPanel.test.tsx` and one reworded; 461 frontend tests pass
 at 100% of statements, branches, functions and lines. 3 new backend cases and one rewritten;
-1,010 backend tests pass, with every type this milestone added at zero missed branches and zero
+1,010 backend tests pass, with every type this work added at zero missed branches and zero
 missed instructions.
 
 ---
 
 ## Migrations
 
-**None expected**, and this is the fourth milestone in a row without one. Every input is already
+**None expected**, and this is the fourth work in a row without one. Every input is already
 stored and already dated: `forecast_runs` keeps each run's inputs, seed, calendar, engine version
 and assumptions; `work_items.completed_on` carries the burn-up's past; `work_item_progress` carries
 the progress term. Anybody about to write `V17__forecast_movement.sql` should read decision 11
@@ -932,10 +932,10 @@ explains every pair this product has ever held.
 
 ## Sequencing and risk
 
-**The risk in M10 is that nothing it produces can be wrong in a way a test catches.** Every
-milestone so far had an oracle: a closed form, a byte-identical replay, an exact decile set, a
+**The risk in the reporting work is that nothing it produces can be wrong in a way a test catches.** Every
+work so far had an oracle: a closed form, a byte-identical replay, an exact decile set, a
 history anybody can add up. A sentence that is accurate and read as something else fails nothing —
-and `roadmap.md`'s own example sentence is one of those, which is why decision 2 is the first
+and `../roadmap.md`'s own example sentence is one of those, which is why decision 2 is the first
 substantive decision in the plan rather than a wording note near the end.
 
 **The one that will actually go wrong** is the decomposition's terms drifting apart from their
@@ -962,7 +962,7 @@ keeping, the text equivalent, is not what a rework touches.
   already, and a plan whose P10 and P90 dates are two months apart has not been surprised by a week.
   The flag is about drift the plan did not already say was possible.
 
-**What this milestone must not absorb.** Criticality and merge bias have left it (decision 1).
-Resources are M11's. The shareable link, the PNG export and the scheduled digest are the icebox's and
-are what *distribute* this rather than what makes it legible. The line to hold is that M10 says what
+**What this work must not absorb.** Criticality and merge bias have left it (decision 1).
+Resources are the resource model's. The shareable link, the PNG export and the scheduled digest are the icebox's and
+are what *distribute* this rather than what makes it legible. The line to hold is that the reporting work says what
 the product already knows, in a form somebody outside the team can read, and stops.

@@ -28,7 +28,7 @@ type WorkItemFormProps = {
  * rewords one.
  *
  * Deliberately two plain boxes. The estimate this item will carry is step 3's, and making
- * *that* form good is M5's whole milestone — `product-concept.md` is explicit that three
+ * *that* form good is the whole of elicitation — `product-concept.md` is explicit that three
  * boxes labelled P10/P50/P90 produce numbers nobody thought about, which is a question a
  * better-looking form cannot answer.
  */

@@ -10,10 +10,10 @@ import com.cvesters.aurevanta.forecast.model.Calibration;
  * not be added together.
  *
  * <p>
- * <strong>The split is the milestone.</strong> An estimate written after the work began
- * is a report by somebody who could already see how the task was going, and folding it
- * into the headline flatters the one number in this product whose entire value is that it
- * is unflattering. So the buckets are decided by <em>when</em> each range was written
+ * <strong>The split is the work.</strong> An estimate written after the work began is a
+ * report by somebody who could already see how the task was going, and folding it into
+ * the headline flatters the one number in this product whose entire value is that it is
+ * unflattering. So the buckets are decided by <em>when</em> each range was written
  * relative to the first day anybody claimed the work had started, and nothing is thrown
  * away — scoring the late ones separately says how large the hindsight effect is on a
  * team's own work, which is the strongest available argument that the rule is not

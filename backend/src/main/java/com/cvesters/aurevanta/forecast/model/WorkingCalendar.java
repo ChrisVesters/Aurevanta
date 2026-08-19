@@ -20,13 +20,13 @@ import java.util.Objects;
  *
  * <p>
  * <strong>The working day is one worker's, never the team's, and this is the whole
- * milestone.</strong> {@link Schedule#finish} already ran {@code capacity} items at a
- * time, so the hours that arrive here are a completion <em>time</em> and not a sum of
- * everybody's effort — capacity is inside the number already. Dividing by a team's daily
- * total ("four people at six hours each, so a working day is 24 hours") counts capacity
- * twice and produces a date four times too early, with the band unchanged, the assumption
- * on screen and nothing anywhere looking wrong. That is why nothing in this class has
- * ever heard of how many people there are.
+ * work.</strong> {@link Schedule#finish} already ran {@code capacity} items at a time, so
+ * the hours that arrive here are a completion <em>time</em> and not a sum of everybody's
+ * effort — capacity is inside the number already. Dividing by a team's daily total ("four
+ * people at six hours each, so a working day is 24 hours") counts capacity twice and
+ * produces a date four times too early, with the band unchanged, the assumption on screen
+ * and nothing anywhere looking wrong. That is why nothing in this class has ever heard of
+ * how many people there are.
  *
  * <p>
  * <strong>The division is exact because a day boundary is a step.</strong> {@code ceil}

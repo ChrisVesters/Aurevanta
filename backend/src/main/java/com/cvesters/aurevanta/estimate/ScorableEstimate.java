@@ -22,9 +22,9 @@ import java.util.UUID;
  * @param estimatorName so that a record can name a person without holding the member list
  * — and without needing them to still be in it, since an estimate outlives a membership.
  * @param elicitationMethod how the range was asked for, which is the whole reason
- * {@code V15} exists: split a calibration record by this column and M5's own question
- * answers itself. A raw string rather than a constant, so a value this code has never
- * heard of groups under its own name instead of making the row unreadable.
+ * {@code V15} exists: split a calibration record by this column and elicitation's own
+ * question answers itself. A raw string rather than a constant, so a value this code has
+ * never heard of groups under its own name instead of making the row unreadable.
  * @param actualHours the item's, repeated on each of its estimates. Two people who
  * estimated one task are scored against one outcome, and it is cheaper to repeat it here
  * than to look the item up again per row.

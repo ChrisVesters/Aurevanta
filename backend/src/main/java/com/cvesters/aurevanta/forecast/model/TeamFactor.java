@@ -42,10 +42,11 @@ public record TeamFactor(LogNormalFit multiplier) {
 	 * No common cause at all — every run multiplies by exactly 1, and nothing is drawn.
 	 *
 	 * <p>
-	 * This is what M3a did, which is what makes it the compatibility layer rather than a
-	 * branch beside one: a version 1 run is a version 2 run with this. It is not a
-	 * default anybody gets by omission, because zero is a claim — that nothing in this
-	 * team's world has a common cause — and a claim has to be made by somebody.
+	 * This is what the simulation engine did, which is what makes it the compatibility
+	 * layer rather than a branch beside one: a version 1 run is a version 2 run with
+	 * this. It is not a default anybody gets by omission, because zero is a claim — that
+	 * nothing in this team's world has a common cause — and a claim has to be made by
+	 * somebody.
 	 */
 	public static final TeamFactor NONE = new TeamFactor(new LogNormalFit(0.0, 0.0));
 
@@ -101,12 +102,12 @@ public record TeamFactor(LogNormalFit multiplier) {
 	 *
 	 * <p>
 	 * <strong>{@link #NONE} draws nothing, and that is the subtlest thing in this
-	 * milestone.</strong> Multiplying by an always-1 factor would be harmless; taking the
-	 * draw that produces it would not, because it advances the generator and every
-	 * subsequent number in the run shifts. Every stored forecast is replayable only while
-	 * a seed means what it meant, so a factor of none has to be free — otherwise version
-	 * 1 stops being version 2 with its parameters zeroed, and the promise that makes old
-	 * runs readable quietly stops holding with nothing failing to say so.
+	 * work.</strong> Multiplying by an always-1 factor would be harmless; taking the draw
+	 * that produces it would not, because it advances the generator and every subsequent
+	 * number in the run shifts. Every stored forecast is replayable only while a seed
+	 * means what it meant, so a factor of none has to be free — otherwise version 1 stops
+	 * being version 2 with its parameters zeroed, and the promise that makes old runs
+	 * readable quietly stops holding with nothing failing to say so.
 	 */
 	public double sample(RandomGenerator random) {
 		if (this.multiplier.sigma() == 0.0) {

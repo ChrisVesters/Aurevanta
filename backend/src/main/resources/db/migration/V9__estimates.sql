@@ -2,7 +2,7 @@
 -- never rewritten.
 --
 -- There is no updated_at and there will be no update endpoint. A revision is a new row,
--- because M8 measures how often a person's range contained the truth — which is a question
+-- because calibration measures how often a person's range contained the truth — which is a question
 -- about what they said *at the time*. An UPDATE would answer it with what they think now,
 -- and the evidence for the old answer would simply be gone.
 
@@ -10,14 +10,14 @@ create table estimates (
     id                uuid not null,
     tenant_id         uuid not null,
     work_item_id      uuid not null,
-    -- The estimator is a user, not a membership. A membership can be deleted — M1 made
+    -- The estimator is a user, not a membership. A membership can be deleted — the team model made
     -- sure of that, because removing somebody must not delete their account — and hanging
     -- this off one would destroy years of calibration evidence as a side effect of a
-    -- person leaving. M8 calibrates per estimator across everything they ever estimated,
+    -- person leaving. Calibration calibrates per estimator across everything they ever estimated,
     -- in whichever organisation.
     estimator_user_id uuid not null,
     -- Effort in hours, never duration: duration is effort divided by what is assigned to
-    -- it, and that division is M11's. Two decimal places, matched by @Digits on the
+    -- it, and that division is the resource model's. Two decimal places, matched by @Digits on the
     -- request so nothing is silently rounded on the way in — an estimate that arrived as
     -- 0.005 and landed as 0.00 would break the "greater than zero" rule after the check
     -- that enforces it.
@@ -47,5 +47,5 @@ create index ix_estimates_item_estimator_created
 create index ix_estimates_tenant on estimates (tenant_id);
 
 -- Serves the estimator foreign key, which has no index of its own from the constraint —
--- and M8 will read exactly this way: everything one person ever estimated.
+-- and calibration will read exactly this way: everything one person ever estimated.
 create index ix_estimates_estimator on estimates (estimator_user_id);

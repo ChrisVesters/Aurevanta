@@ -160,7 +160,7 @@ describe('AppLayout', () => {
   /**
    * The switcher loads its own list, and a rename changes neither the id it is keyed on
    * nor the membership behind it — so without a reason to reload, the option goes on
-   * offering the old name until a full reload or a switch. Since M1a a name is not
+   * offering the old name until a full reload or a switch. Since chosen handles a name is not
    * unique, which is what makes a stale one worse than merely out of date: the rename may
    * have been the thing telling two options apart.
    */

@@ -203,7 +203,7 @@ describe('TargetDate', () => {
 
   /**
    * <strong>The date became hours through this run's own calendar, and the answer says
-   * which.</strong> M4's rule about a stated assumption arriving beside the number it
+   * which.</strong> The calendar's rule about a stated assumption arriving beside the number it
    * produced, in the one place on this screen where the number is a recommendation.
    */
   it('states what the date came to and how much simulating it took', async () => {
@@ -424,7 +424,7 @@ describe('TargetDate', () => {
   /**
    * <strong>A run with no calendar cannot be asked about a date at all</strong>, so it says
    * which of the two absences it is rather than showing a form that could only be refused.
-   * A run made before M4 assumed no working day; a run made under a calendar this version
+   * A run made before the calendar assumed no working day; a run made under a calendar this version
    * cannot read assumed one nobody here can resolve.
    */
   it('shows a reason rather than a form for a run made before there was a calendar', async () => {

@@ -19,13 +19,15 @@ import com.cvesters.aurevanta.problem.ForecastReplayMismatchException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 
 /**
- * What a plan holds, ranked by how much each of it widened the forecast — M6.
+ * What a plan holds, ranked by how much each of it widened the forecast — the
+ * contribution ranking.
  *
  * <p>
  * <strong>Nothing is stored, and that is what makes it work on the past.</strong> The
- * per-item durations come from replaying the run out of its own seed, which is what M3a
- * kept a seed for. A stored contribution would only ever explain runs made after the
- * column existed; a derived one explains every forecast this product has ever produced.
+ * per-item durations come from replaying the run out of its own seed, which is what the
+ * simulation engine kept a seed for. A stored contribution would only ever explain runs
+ * made after the column existed; a derived one explains every forecast this product has
+ * ever produced.
  *
  * <p>
  * Its own service rather than another method on {@link ForecastService}, which is the
@@ -51,9 +53,9 @@ class ContributionService {
 	 * <strong>Nothing was stored for this and nothing is stored by it.</strong> The
 	 * durations a ranking needs are a per-item, per-run number — five million of them for
 	 * a plan at the scale this product supports — so the run is replayed from its seed
-	 * instead, which is what M3a kept a seed for. The payoff is not the space saved: a
-	 * stored column would only ever have explained runs made after it existed, and this
-	 * explains every forecast this product has ever produced.
+	 * instead, which is what the simulation engine kept a seed for. The payoff is not the
+	 * space saved: a stored column would only ever have explained runs made after it
+	 * existed, and this explains every forecast this product has ever produced.
 	 *
 	 * <p>
 	 * <strong>And the replay has to prove it is the same engine before it may explain

@@ -28,7 +28,7 @@ import jakarta.persistence.Table;
  * <p>
  * An edge is the difference between a queue and a plan: the same items forecast at wildly
  * different dates depending only on how they are joined up, so this row is not decoration
- * on the schema — it is half of what M3 reads.
+ * on the schema — it is half of what the simulation engine reads.
  */
 @Entity
 @Table(name = "dependencies")

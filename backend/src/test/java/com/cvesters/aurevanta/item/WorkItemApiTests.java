@@ -240,8 +240,9 @@ class WorkItemApiTests {
 	}
 
 	/**
-	 * The ceiling the milestone fixed, exercised rather than assumed: it is what decides
-	 * that this endpoint needs no pagination and that M3 can forecast in a request.
+	 * The ceiling the work fixed, exercised rather than assumed: it is what decides that
+	 * this endpoint needs no pagination and that the simulation engine can forecast in a
+	 * request.
 	 */
 	@Test
 	void fiveHundredItemsLoadInOneResponse() throws Exception {

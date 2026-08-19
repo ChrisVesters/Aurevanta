@@ -24,7 +24,8 @@ import jakarta.persistence.Table;
  *
  * <p>
  * A task rather than a story or an epic: coarser units hide scope growth inside the
- * estimate, and M3 models that growth separately, so it would be counted twice.
+ * estimate, and the simulation engine models that growth separately, so it would be
+ * counted twice.
  *
  * <p>
  * Holds a {@link Tenant} of its own as well as a {@link Project}, which is a join's worth
@@ -102,9 +103,10 @@ public class WorkItem {
 	 * same rule projects follow, for the same reason.
 	 *
 	 * <p>
-	 * Nothing in M2 deletes one. From step 3 an item carries estimates, which are what M8
-	 * measures a person's calibration against; an item that could be deleted would be a
-	 * way to lose that evidence long before anything reads it.
+	 * Nothing in the plan schema deletes one. From step 3 an item carries estimates,
+	 * which are what calibration measures a person's calibration against; an item that
+	 * could be deleted would be a way to lose that evidence long before anything reads
+	 * it.
 	 */
 	public void archive(Instant at) {
 		if (this.archivedAt == null) {

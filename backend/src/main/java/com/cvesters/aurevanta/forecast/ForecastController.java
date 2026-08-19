@@ -24,8 +24,9 @@ import com.cvesters.aurevanta.security.AuthenticatedUser;
  *
  * <p>
  * <strong>Three endpoints and no fourth.</strong> Nothing updates a run and nothing
- * deletes one: it is the record of what this product said on a date, and M10 asks whether
- * that date has been sliding — a question only an unedited history can answer.
+ * deletes one: it is the record of what this product said on a date, and the reporting
+ * work asks whether that date has been sliding — a question only an unedited history can
+ * answer.
  *
  * <p>
  * Addressed the way an item is: made and listed <em>within</em> a plan, which is the only
@@ -104,9 +105,9 @@ class ForecastController {
 	 *
 	 * <p>
 	 * Its own request rather than part of the forecast, so that asking for a forecast
-	 * costs what it costs today — the two-second budget {@code m3a-plan.md} measured is
-	 * what keeps one inside the request that asked for it, and most callers never open
-	 * this.
+	 * costs what it costs today — the two-second budget
+	 * {@code docs/design/simulation-engine.md} measured is what keeps one inside the
+	 * request that asked for it, and most callers never open this.
 	 */
 	@GetMapping("/api/forecasts/{runId}/contributions")
 	List<ContributionResponse> contributions(@AuthenticationPrincipal AuthenticatedUser caller,

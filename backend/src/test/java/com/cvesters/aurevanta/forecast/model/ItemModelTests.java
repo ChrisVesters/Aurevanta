@@ -231,8 +231,8 @@ class ItemModelTests {
 	 * condition on.</strong> Nineteen to twenty-one hours, and a hundred spent: the
 	 * distribution holds no probability out there at all, so the remainder collapses to
 	 * nothing. That is not a forecast, it is the model reporting that this estimate has
-	 * been falsified — and what fixes it is a revision, which M2 makes a new row rather
-	 * than a rewrite.
+	 * been falsified — and what fixes it is a revision, which the plan schema makes a new
+	 * row rather than a rewrite.
 	 */
 	@Test
 	void anEstimateComprehensivelyOutrunHasNothingLeftToSay() {

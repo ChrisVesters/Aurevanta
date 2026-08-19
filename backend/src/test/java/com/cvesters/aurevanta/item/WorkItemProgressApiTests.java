@@ -42,9 +42,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>
  * The cases worth reading are the refusals and the clearing. A date the server invented
- * would be indistinguishable, to M8 and M10, from one somebody reported — and a start
- * date left behind on work that has been put back to not-started would be evidence of
- * something that did not happen.
+ * would be indistinguishable, to calibration and the reporting layer, from one somebody
+ * reported — and a start date left behind on work that has been put back to not-started
+ * would be evidence of something that did not happen.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -143,7 +143,7 @@ class WorkItemProgressApiTests {
 	}
 
 	/**
-	 * M8 wants it and most teams do not measure it, so it cannot be the price of
+	 * calibration wants it and most teams do not measure it, so it cannot be the price of
 	 * finishing.
 	 */
 	@Test

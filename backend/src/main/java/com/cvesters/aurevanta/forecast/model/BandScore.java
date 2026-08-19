@@ -14,11 +14,11 @@ package com.cvesters.aurevanta.forecast.model;
  * <strong>The hit rate never goes through the fit, and that is what makes it the number
  * to put in front of a sceptic.</strong> It would give the same answer if this product
  * replaced the log-normal tomorrow, so a change to how a range is modelled can move the
- * corrections M8 offers and cannot move the headline it offers them beside. It also
- * disposes of the degenerate case without a special path: three identical numbers make
- * {@code sigma} zero and leave {@code z} undefined, but whether the actual fell between
- * the two ends is perfectly well defined, and the answer is almost always no. Somebody
- * who claimed certainty and was wrong scores a miss, which is correct.
+ * corrections calibration offers and cannot move the headline it offers them beside. It
+ * also disposes of the degenerate case without a special path: three identical numbers
+ * make {@code sigma} zero and leave {@code z} undefined, but whether the actual fell
+ * between the two ends is perfectly well defined, and the answer is almost always no.
+ * Somebody who claimed certainty and was wrong scores a miss, which is correct.
  *
  * <p>
  * <strong>The stated middle plays no part at all</strong>, which is why it is not an

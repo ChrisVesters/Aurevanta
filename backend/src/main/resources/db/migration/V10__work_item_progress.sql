@@ -1,8 +1,8 @@
 -- Progress: what has already happened, so a forecast can exclude it rather than predict it
 -- again.
 --
--- Without this there is no mid-project re-forecast, no burn-up (M10) and no calibration
--- (M8) — the last of which needs the one column here nobody is obliged to fill in.
+-- Without this there is no mid-project re-forecast, no burn-up (the reporting layer) and no calibration
+-- (calibration) — the last of which needs the one column here nobody is obliged to fill in.
 --
 -- Dependencies were to share this migration; they have one of their own, so that each step
 -- is a commit that stands up by itself.
@@ -20,7 +20,7 @@ alter table work_items
     add column started_on date,
     add column completed_on date,
     -- What it actually took, in the same hours an estimate is given in — the two are
-    -- compared directly, and M8's whole question is how often the band contained this.
+    -- compared directly, and calibration's whole question is how often the band contained this.
     --
     -- Optional even when the work is done, deliberately. Most teams do not track it, and
     -- refusing to let somebody mark an item finished because they cannot say how long it

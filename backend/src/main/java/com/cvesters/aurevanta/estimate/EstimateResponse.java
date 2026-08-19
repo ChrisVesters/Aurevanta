@@ -27,7 +27,8 @@ import com.cvesters.aurevanta.forecast.model.EstimateQuality;
  * <p>
  * The alternative was for the browser to decide whether a range is worth questioning,
  * which would be two rules about one estimate that can disagree — the thing
- * {@code m3a-plan.md} rejected in advance and by name when it handed this over.
+ * {@code docs/design/simulation-engine.md} rejected in advance and by name when it handed
+ * this over.
  *
  * @param createdAt when this range was given, which is the whole reason the row exists. A
  * later one does not replace it; it merely becomes the current one.

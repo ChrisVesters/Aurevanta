@@ -1,6 +1,6 @@
 # Security review — 12 August 2026, at `31296d0`
 
-> **Scope.** The whole application as built through M0, M1 and M1a: authentication and JWT
+> **Scope.** The whole application as built through the original tenancy design, the team model and chosen handles: authentication and JWT
 > handling, the verification gate, password reset, emailed single-use tokens, invitations,
 > tenant isolation, member administration, outbound mail, the problem-document surface, and
 > the frontend's handling of tokens and errors. Not a review of a diff — everything, as it
@@ -22,19 +22,19 @@
 |---|---|---|---|
 | 1 | [The credential cannot be withdrawn, and sits where a script can read it](#1--the-credential-cannot-be-withdrawn-and-sits-where-a-script-can-read-it) | Medium | Any time — but its two halves are one migration, so do them together |
 | 2 | [Registration is a free, repeatable account-existence oracle](#2--registration-is-a-free-repeatable-account-existence-oracle) | Medium | Before a registration screen is redesigned; the ordering fix is free today |
-| 3 | [An invitation token is interpolated into an API path unencoded](#3--an-invitation-token-is-interpolated-into-an-api-path-unencoded) | Low | Before M2 — its blast radius is the endpoint set |
+| 3 | [An invitation token is interpolated into an API path unencoded](#3--an-invitation-token-is-interpolated-into-an-api-path-unencoded) | Low | Before the plan schema — its blast radius is the endpoint set |
 | 4 | [Raw invitation tokens travel in the request line](#4--raw-invitation-tokens-travel-in-the-request-line) | Low | Before the API is public; fixing 4 removes 3 |
 
 **"Cheapest moment", not "deadline", and the distinction is the point.** Only 3 and 4 are made
-worse by a milestone — 3 is bounded by which body-less `POST` endpoints exist and M2 adds
+worse by a piece of work — 3 is bounded by which body-less `POST` endpoints exist and the plan schema adds
 endpoints, 4 is a wire format that is cheap to change while nothing external depends on it. 1
 and 2 cost the same to fix whenever they are fixed; what changes is only how long the exposure
-ran. Attaching those two to a milestone would make them look like that milestone's scope, and
+ran. Attaching those two to a piece of work would make them look like that work's scope, and
 scope is what gets cut.
 
 **3 and 4 are the same secret, one hop apart.** Fix 4 and 3 goes with it.
 
-`roadmap.md` lists these under *Cross-cutting, not a milestone* for the same reason, with a
+`roadmap.md` lists these under *Cross-cutting, not a piece of work* for the same reason, with a
 table that points back here. **This file is the record**; that one exists so the debt is
 visible from the plan.
 
@@ -85,7 +85,7 @@ in as `OWNER`.
 A `jti` deny list holding entries for the token's TTL is the alternative and is strictly more
 machinery. Shortening the TTL narrows the window without closing it.
 
-CLAUDE.md already records this as a deferred M1 trade-off, and the deferral was defensible
+CLAUDE.md already records this as a deferred the team model trade-off, and the deferral was defensible
 when nothing had been built on top of it. What has changed is that the reset endpoint is now
 the *only* way back for an account behind the verification gate, so "recovery" is a claim the
 product makes and does not keep.
@@ -153,7 +153,7 @@ shape: `email_already_registered` when the address has an account, `slug_taken` 
 not. Both branches roll back — nothing is created, nothing is mailed.
 
 **Registration always disclosed something here**, as most products do, and that on its own is
-not what this finding is about. What M1a's required handle added is a probe that is
+not what this finding is about. What chosen handles's required handle added is a probe that is
 *repeatable* and *free of side effects*: before it, testing an address meant either being
 told it was taken or actually creating an account for it, which is destructive, visible, and
 usable once. Now the answer costs nothing. The `refundRecipient` added on 12 August — which
@@ -178,7 +178,7 @@ genuine collision is refused before a bcrypt is paid — which closes the timing
 same move. Answering an already-registered address with the same non-committal `202` the
 reset and resend endpoints use, plus a "you already have an account" mail, closes it fully at
 the cost of a slower, stranger registration form. **Decide which of those two is wanted before
-M2**, because the second one changes a screen.
+the plan schema**, because the second one changes a screen.
 
 ---
 
@@ -205,7 +205,7 @@ JS — the method is fixed by the call site, and the body is fixed to `undefined
 `{displayName, password}`. The best available primitive is making an owner resend an
 invitation whose UUID the attacker already knows. That is why it is Low, and also why it will
 not stay Low by itself: **the blast radius is whichever body-less `POST` endpoints happen to
-exist**, and M2 adds endpoints.
+exist**, and the plan schema adds endpoints.
 
 **Fix:** `encodeURIComponent` at both call sites. Better, have `apiRequest` take path
 segments rather than a pre-joined string, so no future call site can forget. Finding 4 makes
@@ -258,9 +258,9 @@ request.
 Recorded so they are not rediscovered as findings.
 
 - **`SlugTakenException.suggested` discloses handle occupancy.** Being offered `acme-7` says
-  `acme` through `acme-6` exist. Handles are public URL identifiers by design — M2 puts them
+  `acme` through `acme-6` exist. Handles are public URL identifiers by design — the plan schema puts them
   in URLs — so this discloses something intended to be public, and the alternative is the
-  availability endpoint M1a deliberately did not build.
+  availability endpoint chosen handles deliberately did not build.
 - **`management.endpoint.health.show-details=when-authorized` with no `roles` set** means any
   authenticated caller, including a member of an unrelated tenant, sees datasource and
   disk-space details. Trivial, and `never` would cost nothing — worth doing when the actuator
@@ -348,5 +348,5 @@ something about where this kind of review is weak: `localStorage` was documented
 about in a docstring, and deliberate, and every one of those made it read as settled rather
 than as a decision still open to being taken again.
 
-Worth repeating after M2, which is the first milestone to carry domain data and the first to
+Worth repeating after the plan schema, which is the first work to carry domain data and the first to
 put an organisation handle in a URL.

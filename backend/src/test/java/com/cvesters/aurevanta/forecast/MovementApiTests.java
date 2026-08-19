@@ -157,8 +157,8 @@ class MovementApiTests {
 	/**
 	 * <strong>Nothing changed at all, so every term is nothing.</strong> The two runs
 	 * differ only in their seeds — which is a difference, and is what the sampling term
-	 * exists to absorb: the plan for this milestone did not name that step, and without
-	 * it the terms sum to the distance between two things nobody was shown.
+	 * exists to absorb: the plan for this work did not name that step, and without it the
+	 * terms sum to the distance between two things nobody was shown.
 	 */
 	@Test
 	void twoRunsOfAnUnchangedPlanMoveOnlyBecauseTheyWereRunTwice() throws Exception {
@@ -327,13 +327,13 @@ class MovementApiTests {
 	}
 
 	/**
-	 * <strong>Hiring is not scope, and this is the term that says so.</strong> M11 put
-	 * the team inside the stored inputs, so a run made after somebody joined differed
-	 * from its predecessor in the <em>plan</em> as far as a decomposition reading that
-	 * snapshot could see — and a reader who had changed nothing about the work was told
-	 * their scope had grown by however long the new person saved them. The terms still
-	 * summed, because the sum telescopes whichever line the days are put on; what was
-	 * wrong was the line.
+	 * <strong>Hiring is not scope, and this is the term that says so.</strong> the
+	 * resource model put the team inside the stored inputs, so a run made after somebody
+	 * joined differed from its predecessor in the <em>plan</em> as far as a decomposition
+	 * reading that snapshot could see — and a reader who had changed nothing about the
+	 * work was told their scope had grown by however long the new person saved them. The
+	 * terms still summed, because the sum telescopes whichever line the days are put on;
+	 * what was wrong was the line.
 	 */
 	@Test
 	void hiringIsItsOwnTermAndNotScope() throws Exception {
@@ -397,10 +397,10 @@ class MovementApiTests {
 	}
 
 	/**
-	 * A plan whose first forecast predates M4 and whose second does not: the terms before
-	 * the calendar arrives have no days to report and the ones after it do. Reading the
-	 * early ones through today's calendar is exactly what `V14` refused to do by
-	 * backfilling.
+	 * A plan whose first forecast predates the calendar and whose second does not: the
+	 * terms before the calendar arrives have no days to report and the ones after it do.
+	 * Reading the early ones through today's calendar is exactly what `V14` refused to do
+	 * by backfilling.
 	 */
 	@Test
 	void aCalendarThatArrivedBetweenTheTwoLeavesTheEarlierTermsInHours() throws Exception {
@@ -517,10 +517,11 @@ class MovementApiTests {
 	}
 
 	/**
-	 * <strong>M6's argument rather than a fussy check.</strong> A comparison across a
-	 * version bump is not a rougher comparison; it is an exact account of a movement that
-	 * never happened, and it would look entirely reasonable. The row is aged by hand
-	 * because that is what a version bump does to every run already stored.
+	 * <strong>the contribution ranking's reasoning rather than a fussy check.</strong> A
+	 * comparison across a version bump is not a rougher comparison; it is an exact
+	 * account of a movement that never happened, and it would look entirely reasonable.
+	 * The row is aged by hand because that is what a version bump does to every run
+	 * already stored.
 	 */
 	@Test
 	void refusesTwoRunsMadeByDifferentEnginesEntirely() throws Exception {
@@ -686,7 +687,8 @@ class MovementApiTests {
 
 	/**
 	 * A calendar is required of every run made today, so the only way to have one without
-	 * is to be older than M4 — which is what `V14` left, and what this reproduces.
+	 * is to be older than the calendar — which is what `V14` left, and what this
+	 * reproduces.
 	 */
 	private void madeBeforeThereWasACalendar(UUID runId) {
 		this.database.update("update forecast_runs set starts_on = null, working_hours_per_day = null,"

@@ -108,7 +108,7 @@ const CHART = { width: 640, height: 160, top: 10, bottom: 10 };
 /**
  * The same series as the table above, drawn.
  *
- * **Inline SVG and no chart library**, following the bars M6 and M8 already render: a
+ * **Inline SVG and no chart library**, following the bars the contribution ranking and calibration already render: a
  * dependency whose styling a rework would have to fight is exactly what `roadmap.md` warns
  * about. It reads the CSS variables the rest of the product is coloured from, so it follows
  * a theme rather than pinning one.

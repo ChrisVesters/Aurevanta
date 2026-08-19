@@ -16,18 +16,19 @@ import static org.assertj.core.api.Assertions.within;
  * it.
  *
  * <p>
- * <strong>{@code watchingAForecastChangesNoNumberInIt} is the one that decides whether M6
- * needs a version bump</strong>, and the answer is no: an observer is told after every
- * draw and takes none of its own, so the same seed produces byte-identical percentiles
- * whether anybody is listening or not. It is the same discipline M3b's
- * {@code TeamFactor.NONE} follows, asserted the same way.
+ * <strong>{@code watchingAForecastChangesNoNumberInIt} is the one that decides whether
+ * the contribution ranking needs a version bump</strong>, and the answer is no: an
+ * observer is told after every draw and takes none of its own, so the same seed produces
+ * byte-identical percentiles whether anybody is listening or not. It is the same
+ * discipline the common-cause model's {@code TeamFactor.NONE} follows, asserted the same
+ * way.
  *
  * <p>
  * <strong>{@code aWideItemOffTheDecidingPathContributesAlmostNothing} is the one worth
  * reading twice.</strong> It is `roadmap.md`'s claim made executable: the widest item in
  * the plan — by a factor of forty in variance — contributes least, because it sits beside
  * the chain that actually decides the finish. A summing model would have ranked it first,
- * which is exactly why M6 exists.
+ * which is exactly why the contribution ranking exists.
  */
 class RunContributionTests {
 
@@ -79,7 +80,7 @@ class RunContributionTests {
 	}
 
 	/**
-	 * <strong>And the case the closed form gets wrong, which is the milestone.</strong> A
+	 * <strong>And the case the closed form gets wrong, which is the point.</strong> A
 	 * lone item of 5 to 50 hours has <em>forty-five times</em> the variance of any link
 	 * in the chain beside it — a summing model would rank it first and send somebody off
 	 * to spike it. It runs in parallel with a chain five times as long, so it almost

@@ -1,31 +1,31 @@
-# M7 — Inverse queries: implementation plan
+# What to cut to hit a date — the design record
 
 > **Built, 2026-08-17.** All six steps are done and each carries its own *As built* section.
 > `Engine.VERSION` is still 2, no migration was added, and nothing a cuts request does is written
 > down. With this, **Tier 2 is complete.**
 >
-> **Scope.** `roadmap.md` M7: run the question backwards. Not *when will this finish* but **what
+> **Scope.** The inverse query: run the question backwards. Not *when will this finish* but **what
 > do I cut to hit 1 November at 85%**, with each candidate ranked by the confidence it actually
-> buys. Excluded: adding people rather than removing work (M11 — same machinery, a different
-> lever), the plain-language sentences and the burn-up (M10), anything that *performs* a cut
+> buys. Excluded: adding people rather than removing work (the resource model — same machinery, a different
+> lever), the plain-language sentences and the burn-up (the reporting work), anything that *performs* a cut
 > (this proposes; somebody else decides), and any change to what the engine samples — **nothing
 > here changes it, and `Engine.VERSION` does not move.**
 >
-> **How to read this.** Decisions first. The one that decides whether this milestone reports
+> **How to read this.** Decisions first. The one that decides whether this work reports
 > signal or noise is decision 2 — *a cut is a draw discarded, not an item removed* — and the
 > measurement below is why. The one that decides whether it is honest is decision 7, which is
-> M6's "these do not add up" arriving again in a form that is far more tempting to add up.
+> the contribution ranking's "these do not add up" arriving again in a form that is far more tempting to add up.
 >
 > **Why this is the last of Tier 2, and what it changes.** Everything so far answers a question
 > somebody asks *about* a plan. This is the first that answers a question asked *of* one — it
-> turns a reporting surface into something opened during planning, which is `product-concept.md`'s
+> turns a reporting surface into something opened during planning, which is `../product-concept.md`'s
 > own phrase for it. It is also the first feature whose output is a **recommendation**, and that
 > is a different kind of thing to be wrong about: a band that is too tight is a bad forecast, and
 > a cut list that is wrong sends somebody to delete work for nothing.
 >
 > **What it costs, and why that shapes everything.** Every candidate is a whole simulation. There
 > is no closed form, no shortcut, and no way to evaluate a cut except to run the plan without it —
-> which is precisely why `roadmap.md` says naive "rank by size" suggestions will be wrong. The
+> which is precisely why `../roadmap.md` says naive "rank by size" suggestions will be wrong. The
 > budget is the design constraint, and decisions 1, 9 and 10 are all about spending it honestly.
 
 ---
@@ -34,16 +34,16 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | Reading a date backwards, and counting the runs that beat it ✅ *done* | M4, M6 |
-| 2 | A cut that moves no other draw ✅ *done* | M3 |
+| 1 | Reading a date backwards, and counting the runs that beat it ✅ *done* | the calendar, the contribution ranking |
+| 2 | A cut that moves no other draw ✅ *done* | the simulation engine |
 | 3 | What one cut buys ✅ *done* | 1, 2 |
 | 4 | The shortest list that gets there ✅ *done* | 3 |
 | 5 | On screen ✅ *done* | 4 |
 | 6 | Close out ✅ *done* | 1–5 |
 
-**M7 adds no columns and no migration**, for M6's reason: everything is evaluated against a
+**The inverse query adds no columns and no migration**, for the contribution ranking's reason: everything is evaluated against a
 stored run, replayed from its own seed. It also adds no engine behaviour — one flag on
-`ItemModel`, which the engine already reads, and M6's `RunObserver`, which already exists.
+`ItemModel`, which the engine already reads, and the contribution ranking's `RunObserver`, which already exists.
 
 ---
 
@@ -71,7 +71,7 @@ is reporting a coin flip as a recommendation.
 **Pairing the two sides halves it, and the ranking is what it rescues.** Same seed both sides:
 1.84 pp of spread becomes 0.75 pp at ten thousand runs. Two candidates whose true effects differ
 by a point and a half can be ordered when the comparison is paired and cannot be when it is not —
-and the *order* is the entire output of this milestone.
+and the *order* is the entire output of this work.
 
 **Even paired, three quarters of a point is not nothing.** Two candidates within about a point of
 each other are not really ordered, and nothing on screen may imply otherwise. That is decision 8's
@@ -86,13 +86,13 @@ job.
 | 1 | Where candidates come from | **The caller names them.** What is droppable is a judgement about value, which the server has none of. |
 | 2 | What a "cut" is | **A draw taken and discarded**, so every other item gets the number it got in the baseline. |
 | 3 | What else must not move | **The priority order.** A cut changes what an item costs, never where the scheduler ranks it. |
-| 4 | What it is all measured against | **One stored run, replayed**, with M6's guard — the same plan, seed, capacity and assumptions. |
-| 5 | Where the target date becomes hours | **The run's own calendar**, so a run made before M4 cannot answer at all. |
-| 6 | Is M6's ranking the shortlist? | **No, and `roadmap.md` is wrong about this.** Contribution measures the spread; a cut buys a date. |
-| 7 | Whether the numbers may be added | **Never**, and this is the milestone's own version of M6's trap. |
+| 4 | What it is all measured against | **One stored run, replayed**, with the contribution ranking's guard — the same plan, seed, capacity and assumptions. |
+| 5 | Where the target date becomes hours | **The run's own calendar**, so a run made before the calendar cannot answer at all. |
+| 6 | Is the contribution ranking's ranking the shortlist? | **No, and `../roadmap.md` is wrong about this.** Contribution measures the spread; a cut buys a date. |
+| 7 | Whether the numbers may be added | **Never**, and this is the work's own version of the contribution ranking's trap. |
 | 8 | The cumulative answer | **Computed, greedily, one re-evaluation at a time** — never inferred from the singles. |
 | 9 | What bounds the work | **A stated number of simulations**, reported in the answer rather than hidden. |
-| 10 | What M7 must not become | **Not an editor, not an optimiser, not M11.** |
+| 10 | What the inverse query must not become | **Not an editor, not an optimiser, not the resource model.** |
 
 ### Decision 1 — The caller names the candidates
 
@@ -103,7 +103,7 @@ them; it proposes nothing of its own.
 worth four weeks that the regulator requires is not a candidate; a two-day nicety is. Nothing in
 this schema records that, and inventing a ranking over work whose importance is unknown would be
 a tool recommending that somebody delete something because it happened to be on the critical path.
-`roadmap.md`'s own line is *it proposes, and somebody else decides* — this is what that means in
+`../roadmap.md`'s own line is *it proposes, and somebody else decides* — this is what that means in
 practice: **the person says what is negotiable, and the tool says what each is worth.**
 
 It also bounds the cost honestly. Every candidate is a full simulation, so an implementation that
@@ -113,8 +113,8 @@ a request that takes four minutes.
 | Rejected | Why |
 |---|---|
 | The server proposes candidates from the whole plan | Four minutes at 500 items, and it recommends deleting work whose value it cannot see. |
-| Shortlist by M6's contribution, then evaluate | The heuristic is wrong in a specific and systematic direction — decision 6. |
-| Shortlist by size | The failure `roadmap.md` names by name: the biggest item off the deciding path buys nothing. |
+| Shortlist by the contribution ranking's contribution, then evaluate | The heuristic is wrong in a specific and systematic direction — decision 6. |
+| Shortlist by size | The failure `../roadmap.md` names by name: the biggest item off the deciding path buys nothing. |
 
 ### Decision 2 — A cut is a draw taken and discarded
 
@@ -156,10 +156,10 @@ deserves. That costs nothing: it takes zero time, so it finishes the instant it 
 ### Decision 4 — Everything is measured against one stored run
 
 The baseline is not a fresh forecast. It is a run that already exists, replayed from its seed with
-its own capacity, sample count, calendar and both M3b parameters — which is what makes the
+its own capacity, sample count, calendar and both the common-cause model parameters — which is what makes the
 counterfactual a counterfactual rather than a different question.
 
-**And the replay proves itself first**, exactly as M6's does: the six figures it produces are
+**And the replay proves itself first**, exactly as the contribution ranking's does: the six figures it produces are
 compared against the six on the row, and any difference refuses the whole request with
 `forecast_replay_mismatch`. A recommendation derived from a model that did not produce the run is
 worse than a ranking derived from one, because somebody acts on it.
@@ -169,7 +169,7 @@ two gets you there" is a statement about a *named run*, and the run is still the
 
 ### Decision 5 — The target date becomes hours through the run's own calendar
 
-M4 stored `starts_on`, `working_hours_per_day` and `calendar_rule` on every run precisely so that
+The calendar stored `starts_on`, `working_hours_per_day` and `calendar_rule` on every run precisely so that
 a date could be read back under the calendar it was made with. The inverse query needs the
 conversion in the other direction: **how many hours fit between the start and the target**, which
 is the count of working days times the working day.
@@ -182,15 +182,15 @@ boundary would put a plan on the wrong side of a date it just met.
 **A run made before there was a calendar cannot answer**, and says so rather than assuming a
 working day. Same rule, same reason, same shape as the dates themselves.
 
-### Decision 6 — M6's ranking is not the shortlist, and the roadmap is wrong about this
+### Decision 6 — the contribution ranking's ranking is not the shortlist, and the roadmap is wrong about this
 
-`roadmap.md` says: *"M6's ranking says which items the finish actually moves with, which is the
+`../roadmap.md` says: *"the contribution ranking's ranking says which items the finish actually moves with, which is the
 shortlist worth re-running rather than the whole plan."* **That is wrong in a specific and
 systematic direction, and it is worth correcting here rather than discovering later.**
 
-M6 ranks by contribution to the **spread** — the correlation between an item's duration and the
+The contribution ranking ranks by contribution to the **spread** — the correlation between an item's duration and the
 finish. A task that always takes exactly forty hours has a correlation of zero: it never varies,
-so nothing moves with it. M6 reports it at the bottom of the list, correctly.
+so nothing moves with it. The contribution ranking reports it at the bottom of the list, correctly.
 
 Cutting it removes forty hours from every single run. It is frequently the **best** thing to cut.
 
@@ -201,9 +201,9 @@ certain-but-large work, which is exactly the work a team can most confidently pl
 Since decision 1 has the caller name the candidates, no shortlist heuristic is needed at all —
 which is the second reason for decision 1 and the better one.
 
-### Decision 7 — The numbers may never be added, and here it is worse than M6
+### Decision 7 — The numbers may never be added, and here it is worse than the contribution ranking
 
-M6's shares overlapped and a reader might have summed them. Here the temptation is far stronger,
+The contribution ranking's shares overlapped and a reader might have summed them. Here the temptation is far stronger,
 because every figure is a percentage of confidence with a plus sign in front of it, and three of
 them in a list reads as arithmetic waiting to happen.
 
@@ -214,7 +214,7 @@ branches and shortening one leaves the other deciding. Occasionally they buy mor
 
 So: each single is labelled as **what this buys on its own**, the cumulative answer is a separate
 thing that was actually computed (decision 8), and nothing on screen puts the two in a column
-where they could be added. This is M6's caveat with the volume turned up.
+where they could be added. This is the contribution ranking's caveat with the volume turned up.
 
 ### Decision 8 — The cumulative answer is computed, not inferred
 
@@ -236,7 +236,7 @@ is the confidence of a run with both cut, not the sum of two singles.
 
 Every candidate is a whole forecast: measured at **490 ms** for five hundred items at ten thousand
 runs, and single-digit milliseconds for a plan of twelve. The cost is the plan's size times the
-number of evaluations, and the second is what this milestone controls.
+number of evaluations, and the second is what this work controls.
 
 So the request is bounded — at most **twelve candidates**, and a greedy search that stops at the
 bar — and **the answer says how many simulations it did** and whether it stopped for want of
@@ -256,8 +256,8 @@ is visible, rather than on the sample count, which is not.
 - **Not an optimiser.** Decision 8 is greedy on purpose. A tool that claimed the optimal cut set
   would be claiming to know what "optimal" means, which needs the value of the work, which
   decision 1 says the server does not have.
-- **Not M11.** "What if we add a person" uses the same machinery — replay a stored run with one
-  parameter changed — and it changes `capacity`, which is not a cut. When M11 lands, this becomes
+- **Not the resource model.** "What if we add a person" uses the same machinery — replay a stored run with one
+  parameter changed — and it changes `capacity`, which is not a cut. When the resource model lands, this becomes
   one lever of two rather than growing a second feature inside it.
 
 ---
@@ -272,7 +272,7 @@ came in under one.
 - A target before the start is zero hours rather than a negative number; a target on a weekend
   counts to the last working day before it.
 - `ConfidenceBy` in `forecast.model` — a `RunObserver` that counts completions within a budget and
-  reports the share. **No engine change**: M6 built this seam.
+  reports the share. **No engine change**: the contribution ranking built this seam.
 
 **Tests.** **The oracle is that the two functions agree**: for a spread of hour figures, the plan
 finishing on `finishOn(start, h, d)` has `h <= hoursBy(start, that day, d)`, and `h` one hundredth
@@ -389,7 +389,7 @@ four lines in `ItemModel.sample`: take the draw, then throw it away.
 - `POST /api/forecasts/{runId}/cuts` `{by, confidence, candidates}` — a POST because the body
   carries a list of identifiers, and the one that writes nothing, exactly as
   `/api/estimates/quality` is.
-- Replays the run with M6's guard, converts the target through the run's own calendar, and
+- Replays the run with the contribution ranking's guard, converts the target through the run's own calendar, and
   evaluates the baseline plus one counterfactual per candidate.
 - Answers: the hours the target became, the baseline confidence, and each candidate with the
   confidence it reaches and what that buys — ranked by the confidence bought, not by the order
@@ -398,11 +398,11 @@ four lines in `ItemModel.sample`: take the draw, then throw it away.
   budget allows.
 
 **Tests.** Cutting an item that is never on the deciding path buys nothing measurable, and cutting
-one that always is buys a great deal — the same shape M6's counter-oracle takes, in the currency
+one that always is buys a great deal — the same shape the contribution ranking's counter-oracle takes, in the currency
 of a date. **A candidate that never varies still buys time**, which is decision 6's correction
 made executable: an item fitted to a point mass has no contribution to the spread at all and moves
 the date when it goes. The hours the target became are on the response, and match
-`WorkingCalendar.hoursBy`. A run made before M4 is refused and named. A candidate the run never
+`WorkingCalendar.hoursBy`. A run made before the calendar is refused and named. A candidate the run never
 held is refused. Thirteen candidates are refused with the budget in the message. The endpoint
 writes nothing, and a run in another organisation is `forecast_not_found`.
 
@@ -419,7 +419,7 @@ The cap stays at twelve, and the reasoning is the one decision 9 already set out
 gives, it gives on the number of candidates, which is visible, and never on the sample count,
 which is not.** Halving the runs would halve the cost and put the paired spread back to 1.9 points
 — most of what a cut is worth — so the search would rank by luck while looking exactly as
-confident. What actually fixes six seconds is the per-tenant concurrency limit `roadmap.md`
+confident. What actually fixes six seconds is the per-tenant concurrency limit `../roadmap.md`
 already records as missing, and eventually doing this out of band. **Step 5 inherits a consequence
 of it**: a screen that fires this off and shows nothing for six seconds looks broken, so the
 waiting has to be visible.
@@ -432,7 +432,7 @@ document-level refusal rather than `@Size(max = 12)` on the list, which would ha
 `max_size` code — whose wording is *"use no more than 12 characters"*, because that constraint has
 only ever bounded strings.
 
-**`ForecastRun.hasReadableCalendar()` now states a rule that was written twice.** M4's response
+**`ForecastRun.hasReadableCalendar()` now states a rule that was written twice.** the calendar's response
 tests `WorkingCalendar.RULE.equals(getCalendarRule())` to decide whether to publish dates, and an
 inverse query has to ask the same question before turning a date into hours. Two copies would be
 two chances for one to start reading a run through a calendar it was not made with.
@@ -458,7 +458,7 @@ feature.
 
 ## Step 4 — The shortest list that gets there ✅ *done*
 
-**Goal.** The question the milestone is named for: what do I cut to hit the date.
+**Goal.** The question the work is named for: what do I cut to hit the date.
 
 - Greedy accumulation over the same candidates: best single, then best of the rest **with it
   already cut**, until the bar is met or nothing is left.
@@ -557,7 +557,7 @@ component that fetches something no other part of its host wants is a component.
 
 **Which work the run was about is worked out from two timestamps, because nothing on the wire
 says.** `ForecastResponse` carries no item list — the snapshot keeps identifiers and no titles
-on purpose, so that M10 can diff two runs without a rename reading as movement — so the tick
+on purpose, so that the reporting work can diff two runs without a rename reading as movement — so the tick
 list offers live work whose `createdAt` is no later than the run's. That errs in the safe
 direction in both of its two ways of being wrong: work written down since is never offered, and
 work put away since is in the snapshot but absent from the live listing, so it is not offered
@@ -605,17 +605,17 @@ the work request and giving a ticked candidate back.
 
 ## Step 6 — Close out ✅ *done*
 
-- `roadmap.md`: mark M7 done, and with it **Tier 2** — variance contribution and inverse queries
+- `../roadmap.md`: mark the inverse query done, and with it **Tier 2** — variance contribution and inverse queries
   were the whole of it.
-- `roadmap.md`: **correct its own M7 note** — M6's ranking is not the shortlist, and decision 6
-  says why. That sentence has been in the document since before M6 existed and is wrong in a way
+- `../roadmap.md`: **correct its own the inverse query note** — the contribution ranking's ranking is not the shortlist, and decision 6
+  says why. That sentence has been in the document since before the contribution ranking existed and is wrong in a way
   that would have produced a systematically misleading feature.
-- `roadmap.md`: record what M11 inherits — "what if we add a person" is this machinery with
+- `../roadmap.md`: record what the resource model inherits — "what if we add a person" is this machinery with
   `capacity` as the lever instead of a cut, which is a parameter change on a replayed run rather
   than a second feature.
-- `roadmap.md`: record what M10 inherits — a target date and a confidence are now things a plan
+- `../roadmap.md`: record what the reporting work inherits — a target date and a confidence are now things a plan
   can hold an opinion about, which is what a plain-language sentence needs.
-- `product-concept.md`: *Inverse queries* stops being design intent, and Tier 2 is complete.
+- `../product-concept.md`: *Inverse queries* stops being design intent, and Tier 2 is complete.
 - `CLAUDE.md`: a cut is a draw discarded so the comparison is paired; the priority order never
   moves; the numbers never add; the cumulative answer is computed; candidates come from the
   caller and never from the server.
@@ -624,34 +624,34 @@ the work request and giving a ticked candidate back.
 
 All six bullets are done, and two of them turned out to be larger than they read.
 
-**Correcting the M7 note was already done, in step 0.** The blockquote in `roadmap.md` that says
-M6's ranking is not the shortlist was written while this plan was — the correction is only worth
+**Correcting the the inverse query note was already done, in step 0.** The blockquote in `../roadmap.md` that says
+the contribution ranking's ranking is not the shortlist was written while this plan was — the correction is only worth
 anything if it lands before somebody builds from the wrong sentence, not after. What close-out
 added was the tense: the section now reports what shipped rather than what to watch for.
 
-**A seventh thing needed correcting, and this step found it.** `roadmap.md`'s *Which forecast runs
-are history* section says M7 "breaks the assumption" that every row in `forecast_runs` is somebody
-deliberately re-forecasting, and sets out two ways to answer it. **M7 took the first — nothing is
+**A seventh thing needed correcting, and this step found it.** `../roadmap.md`'s *Which forecast runs
+are history* section says the inverse query "breaks the assumption" that every row in `forecast_runs` is somebody
+deliberately re-forecasting, and sets out two ways to answer it. **The inverse query took the first — nothing is
 persisted at all** — so that section now records the answer rather than leaving an open question
-whose premise stopped being true. It matters because M10's sliding-date detector reads that table,
+whose premise stopped being true. It matters because the reporting work's sliding-date detector reads that table,
 and an open question about it reads as a hazard that has not been dealt with.
 
-**What M11 and M10 inherit went into `roadmap.md`'s M7 section rather than into theirs**, which is
-where M6 put the same thing and is the right place: a milestone's own section is what somebody
+**What the resource model and the reporting work inherit went into `../roadmap.md`'s the inverse query section rather than into theirs**, which is
+where the contribution ranking put the same thing and is the right place: a piece of work's own section is what somebody
 reads when they get to it, and a note about the future left in a future section is a note nobody
-finds until it is too late to shape the work. M11's is that "what if we add a person" is a
-parameter change on a replayed run rather than a second feature; M10's is that a target date and a
+finds until it is too late to shape the work. The resource model's is that "what if we add a person" is a
+parameter change on a replayed run rather than a second feature; the reporting work's is that a target date and a
 confidence are now things a plan can hold an opinion about.
 
 **`CLAUDE.md` gained a section rather than a paragraph.** The five rules the bullet lists are five
 different ways of getting this feature quietly wrong, and four of them look like simplifications
-from the outside — which is the same reason the M3a decisions have a section of their own. It sits
+from the outside — which is the same reason the the simulation engine decisions have a section of their own. It sits
 under *Forecasting* beside variance contribution, since both are lenses on a replayed run and both
 turn on the same rule about numbers that must not be added.
 
 ---
 
-## The review pass — what a read of the whole milestone changed
+## The review pass — what a read of the whole work changed
 
 Six steps written one after another leave seams that only a read of the whole thing finds. Two of
 these were defects, and both would have shipped looking entirely reasonable.
@@ -677,10 +677,10 @@ rather than assumed.
 
 **Two ways to replay one stored run had appeared.** Step 3 added `replay`, and `contributionsTo`
 went on building its own `Engine.run` call by hand — so a parameter added to a run in future would
-be passed by one of them and not the other. That fails loudly rather than silently, since M6's
+be passed by one of them and not the other. That fails loudly rather than silently, since the contribution ranking's
 guard compares the replay against the row, but it fails as *"this forecast cannot be broken
 down"*, which is a poor way to learn that a replay had stopped being told about something. Both now
-go through `replay`, and the two M3b assumptions are read off the row by `teamFactorOf` and
+go through `replay`, and the two the common-cause model assumptions are read off the row by `teamFactorOf` and
 `scopeGrowthOf` — needed twice, because whether either was modelled at all is what decides whether
 it gets a contribution row.
 
@@ -706,7 +706,7 @@ component, so it reads its own. `percent(baseline)` was recomputed four times in
 new strings used curly apostrophes where the catalogue uses straight ones.
 
 **And a coverage flicker turned out to be a test passing for the wrong reason.** One run reported a
-single uncovered statement in `ProjectPage`, a file this milestone does not touch; the next was
+single uncovered statement in `ProjectPage`, a file this work does not touch; the next was
 clean. It was the same statement every time — the branch behind *"says so when archiving is
 refused"* — and a test cannot pass without running the line that produces the message it asserts.
 It could, because the refusal was queued with `mockResolvedValueOnce`: **that page loads five
@@ -725,7 +725,7 @@ the part that took a fix rather than a re-run.
 
 ## Migrations
 
-**None.** Everything is evaluated against a stored run, replayed from its seed — M6's decision 1,
+**None.** Everything is evaluated against a stored run, replayed from its seed — the contribution ranking's decision 1,
 spent a second time. A table of "cut scenarios" would be a record of a question somebody asked
 once, and the question is cheaper to ask again than to keep.
 
@@ -733,7 +733,7 @@ once, and the question is cheaper to ask again than to keep.
 
 ## Sequencing and risk
 
-**The risk in M7 is that it is the first feature whose output is an instruction.** Every milestone
+**The risk in the inverse query is that it is the first feature whose output is an instruction.** Every work
 so far reported something: a band, a date, a ranking. This one says *drop these two things*, and
 somebody will. A forecast that is wrong wastes a meeting; a cut list that is wrong deletes work.
 
@@ -754,13 +754,13 @@ same table.
 **Two things that will look like bugs and are not.**
 
 - **Cutting a large task buys nothing.** It is off the path that decides the finish. That is the
-  entire reason this milestone re-runs the schedule instead of ranking by size, and it is the same
-  fact M6 reports from the other side.
+  entire reason this work re-runs the schedule instead of ranking by size, and it is the same
+  fact the contribution ranking reports from the other side.
 - **Cutting two things buys less than the two numbers beside them.** They overlap. The cumulative
   figure is the measured one and the singles are each measured alone; both are true and they are
   answers to different questions.
 
-**What this milestone must not absorb.** Performing the cut is the plan screen's, and archiving
-already exists there. Adding people is M11's, and it is the same machinery with a different lever.
-Plain-language output and the burn-up are M10's. The line to hold is that M7 evaluates a named set
+**What this work must not absorb.** Performing the cut is the plan screen's, and archiving
+already exists there. Adding people is the resource model's, and it is the same machinery with a different lever.
+Plain-language output and the burn-up are the reporting work's. The line to hold is that the inverse query evaluates a named set
 of candidates against one stored run and stops.

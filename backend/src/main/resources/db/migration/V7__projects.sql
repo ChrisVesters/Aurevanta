@@ -2,7 +2,7 @@
 -- getting at it. A named container an organisation puts a plan in.
 --
 -- The name is deliberately not unique, and this time that is a decision rather than the
--- accident M1a spent a milestone undoing. Two projects called "Q3 platform work" in one
+-- accident chosen handles spent a piece of work undoing. Two projects called "Q3 platform work" in one
 -- organisation is ordinary — a team runs the same shape of work every quarter — and the id
 -- is what addresses one. Nothing is derived from the name and nothing routes by it.
 
@@ -15,10 +15,10 @@ create table projects (
     -- ways to spell it is how a query comes to miss half of them.
     description varchar(2000),
     created_at  timestamp with time zone not null,
-    -- When it was put away, and null while it is not. M2 has no hard delete at all:
+    -- When it was put away, and null while it is not. The plan schema has no hard delete at all:
     -- every member may write plan data (decision 6), so a delete would be one person
     -- destroying a colleague's work with nothing to put back — and an estimate is
-    -- evidence M8 calibrates against years after anyone would think to keep it.
+    -- evidence calibration calibrates against years after anyone would think to keep it.
     archived_at timestamp with time zone,
     constraint pk_projects primary key (id),
     -- There is nothing to plan for an organisation that is gone, and everything below

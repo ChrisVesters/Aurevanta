@@ -8,17 +8,17 @@ import com.cvesters.aurevanta.forecast.model.ThroughputForecast;
  * When the backlog runs out, in weeks and in days.
  *
  * <p>
- * <strong>Both, for M4's reason.</strong> The weeks are what the history produced and the
- * dates are one presentation of them; publishing only the date would hide the unit the
- * answer was computed in, and a reader comparing this with the engine's band needs to see
- * that one is counted in wall-clock weeks and the other derived from effort through a
- * working day.
+ * <strong>Both, for the calendar's reason.</strong> The weeks are what the history
+ * produced and the dates are one presentation of them; publishing only the date would
+ * hide the unit the answer was computed in, and a reader comparing this with the engine's
+ * band needs to see that one is counted in wall-clock weeks and the other derived from
+ * effort through a working day.
  *
  * <p>
  * <strong>No working day appears anywhere in here.</strong> A week of history is a week
  * of wall clock with its holidays and its Friday afternoons already inside it, so the
- * date is the as-of day plus that many weeks. Dividing by a working day would be M4's own
- * error — capacity counted twice — arriving from the other side.
+ * date is the as-of day plus that many weeks. Dividing by a working day would be the
+ * calendar's own error — capacity counted twice — arriving from the other side.
  *
  * @param seed a string and not a number, because it is sixty-four bits and a JSON number
  * is a double in a browser: as a number nearly every seed published would arrive silently

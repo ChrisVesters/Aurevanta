@@ -13,11 +13,11 @@ import java.util.List;
  * percentile moves by about a fifth of a working day between seeds, and a date is a whole
  * day — so every movement a history holds is real. But real movement in a plan that is
  * not slipping has no <em>direction</em>: it goes out one week and in the next. A rule
- * reading three successive increases therefore reads a coin, and `m10-plan.md` has the
- * table: it fires on 37% of plans re-forecast weekly for two months, 86% over six, and
- * 98% over a year, on plans that are not slipping at all. Four in a row fires on 83% of
- * them within a year and five on 56%, so <strong>no threshold on direction rescues
- * it</strong>.
+ * reading three successive increases therefore reads a coin, and
+ * `docs/design/communicating-a-forecast.md` has the table: it fires on 37% of plans
+ * re-forecast weekly for two months, 86% over six, and 98% over a year, on plans that are
+ * not slipping at all. Four in a row fires on 83% of them within a year and five on 56%,
+ * so <strong>no threshold on direction rescues it</strong>.
  *
  * <p>
  * <strong>What is left is magnitude, and the only honest yardstick is the plan's own
@@ -50,11 +50,11 @@ import java.util.List;
  * this answers one question and answering the opposite one in the same field would make
  * the flag unreadable. <strong>Never true without a band to measure against
  * either</strong> — with a yardstick of zero the rule degenerates into "any drift at
- * all", and the plans it degenerates on are precisely the small ones, where `m10-plan.md`
- * step 3 measured re-running alone moving the date by <em>days</em>. The measurement that
- * says this detector needs no noise floor was taken on a twelve-item chain and does not
- * hold there, so a plan with no band to speak of gets no verdict rather than the
- * strictest one in the product.
+ * all", and the plans it degenerates on are precisely the small ones, where
+ * `docs/design/communicating-a-forecast.md` step 3 measured re-running alone moving the
+ * date by <em>days</em>. The measurement that says this detector needs no noise floor was
+ * taken on a twelve-item chain and does not hold there, so a plan with no band to speak
+ * of gets no verdict rather than the strictest one in the product.
  */
 public record Drift(int runs, LocalDate fromDate, LocalDate toDate, Integer days, Integer bandDays, boolean movingOut) {
 

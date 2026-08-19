@@ -363,7 +363,7 @@ function Answer({ answer }: { answer: CutOptions }) {
  *
  * **A run's snapshot is the work the plan held at the moment it was asked for**, and nothing
  * in the forecast response lists it — deliberately, since the snapshot keeps identifiers and
- * no titles so that M10 can diff two runs without a rename reading as movement. So this
+ * no titles so that the reporting layer can diff two runs without a rename reading as movement. So this
  * compares the two moments, which errs in the safe direction: work added since is never
  * offered, and work put away since the run is in the snapshot but absent from the live
  * listing, so it is not offered either. Offering too few is an omission somebody can see;

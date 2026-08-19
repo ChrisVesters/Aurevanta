@@ -15,15 +15,15 @@ import jakarta.validation.constraints.PositiveOrZero;
  * What to assume while forecasting a plan.
  *
  * <p>
- * <strong>The capacity has no default anywhere, and since M11 it is one of two ways of
- * saying the same thing.</strong> A dependency graph with no bound on concurrency assumes
- * unlimited parallelism and is optimistic by the same margin that summing durations is
- * pessimistic — the same ten items came out at 51 or 86 days at the P90 in
- * {@code roadmap.md}'s measurement, depending on nothing else. A number that moves the
- * answer by that much is not an implementation detail, and a server that filled it in
+ * <strong>The capacity has no default anywhere, and since the resource model it is one of
+ * two ways of saying the same thing.</strong> A dependency graph with no bound on
+ * concurrency assumes unlimited parallelism and is optimistic by the same margin that
+ * summing durations is pessimistic — the same ten items came out at 51 or 86 days at the
+ * P90 in {@code roadmap.md}'s measurement, depending on nothing else. A number that moves
+ * the answer by that much is not an implementation detail, and a server that filled it in
  * would leave the caller holding a claim about their team that they never made. This is
- * M1a's argument about the organisation handle reaching a second place: an assumption is
- * only honest when somebody made it.
+ * the handle change's argument about the organisation handle reaching a second place: an
+ * assumption is only honest when somebody made it.
  *
  * <p>
  * <strong>So it is optional here and required by the service</strong>, which is the one
@@ -38,11 +38,12 @@ import jakarta.validation.constraints.PositiveOrZero;
  * <p>
  * <strong>The three percentages are required for a sharper version of the same
  * reason.</strong> Unlike capacity they have a neutral value — zero — and zero is exactly
- * what the engine did before M3b. That is not an absence of a claim but a strong one:
- * that nothing in this team's world has a common cause, and that no unlisted work will
- * ever appear. Defaulting to it would ship M3a's behaviour under M3b's name with the
- * notices that admitted to it deleted and nothing put in their place. Somebody who does
- * want that may say so by typing zero, and the run will report that they did.
+ * what the engine did before the common-cause model. That is not an absence of a claim
+ * but a strong one: that nothing in this team's world has a common cause, and that no
+ * unlisted work will ever appear. Defaulting to it would ship the simulation engine's
+ * behaviour under the common-cause model's name with the notices that admitted to it
+ * deleted and nothing put in their place. Somebody who does want that may say so by
+ * typing zero, and the run will report that they did.
  *
  * @param sampleCount optional, because ten thousand is a statement about sampling error
  * rather than about this plan — a tenth the cost of a hundred thousand, for an error
@@ -106,9 +107,9 @@ public record CreateForecastRequest(@Positive Integer capacity,
 	 * picked.</strong> Every percent of it is items the scheduler has to run: at the five
 	 * hundred a plan may hold, ten thousand runs cost 413ms with no growth, 915ms at this
 	 * bound, 1.9s at 500% and 3.4s at 1000%. This is the last value that leaves the
-	 * two-second budget {@code m3a-plan.md} decision 8 measured with room in it, and that
-	 * budget is the whole of why a forecast is answered inside the request rather than
-	 * queued.
+	 * two-second budget {@code docs/design/simulation-engine.md} decision 8 measured with
+	 * room in it, and that budget is the whole of why a forecast is answered inside the
+	 * request rather than queued.
 	 */
 	static final int MAX_PERCENT = 200;
 

@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next';
  * What one piece of work a run was about is called, on a screen reading that run.
  *
  * **Stated once because it is one fact answered three ways**, and two of the three are easy
- * to get subtly wrong. A run's snapshot never held a title — M10 diffs those snapshots and a
+ * to get subtly wrong. A run's snapshot never held a title — the reporting layer diffs those snapshots and a
  * rename is not a thing that moved — so every screen showing work a forecast was about
  * resolves the name from the plan as it stands now, and has to say what it found:
  *

@@ -299,7 +299,7 @@ export const en = {
           hint: 'Ten thousand unless you say otherwise, which is accurate to well under a percent.'
         }
       },
-      // The headline, and the whole reason this milestone exists: nobody asks for a
+      // The headline, and the whole reason this work exists: nobody asks for a
       // distribution, they ask what to promise. Moving the control moves the date without
       // a request going out, which is not an optimisation but the feature — "can we go
       // faster?" stops being a capitulation and becomes "we can commit at lower
@@ -307,7 +307,7 @@ export const en = {
       confidence: {
         legend: 'How confident do you need to be?',
         option: '{{value}}%',
-        // **The line this milestone exists for, and the test of it is whether it can be
+        // **The line this work exists for, and the test of it is whether it can be
         // pasted into an email unedited.** It could not: it named a confidence and a day and
         // never what was being forecast, so it only made sense on the screen it was already
         // on. It also opened with a bare percentage, which reads as a statistic before it
@@ -348,14 +348,14 @@ export const en = {
       },
       // Five of the six, beside the band and never behind a disclosure: a forecast whose
       // assumptions are one click away is a forecast that gets screenshotted without them.
-      // The sixth is the calendar, in its own sentence below because a run made before M4
+      // The sixth is the calendar, in its own sentence below because a run made before the calendar
       // has none and this paragraph would otherwise need writing twice.
       // Zeros read a little flatly here, and that is the honest reading — somebody who
       // assumed no common cause and no unlisted work said so, and the number says they did.
       assumptions:
         'Assuming {{capacity}} things under way at once, up to {{worseBy}}% longer in a bad stretch, and {{growthLow}}–{{growthHigh}}% more work than has been listed — over {{samples}} simulated runs.',
       // Beside the number rather than behind a link. The first two below are retired:
-      // M3b models what they name, so nothing writes them any more — and the wording stays
+      // the common-cause model models what they name, so nothing writes them any more — and the wording stays
       // because the runs a plan made before it are still on this screen.
       // What the ranges feeding this band have historically been worth. A caveat about the
       // *inputs* and never a correction to the number: applying a calibration factor would
@@ -566,7 +566,7 @@ export const en = {
           met: 'This plan already gets there: {{confidence}}% of its runs came in by that date.',
           short:
             "As it stands, {{confidence}}% of this plan's runs came in by that date.",
-          // The stated assumption beside the number it produced, which is M4's rule
+          // The stated assumption beside the number it produced, which is the calendar's rule
           // arriving in the one place where the number is a recommendation.
           budget:
             "That date is {{hours}} hours of work under this run's own calendar, measured over {{simulations}} runs of the plan."
@@ -595,7 +595,7 @@ export const en = {
           entry: '{{what}} — {{confidence}}%, {{buys}} points better.'
         }
       },
-      // `roadmap.md`'s most compelling question, answered with M7's machinery. It weighs
+      // `roadmap.md`'s most compelling question, answered with the cut search's machinery. It weighs
       // and never decides: what a person costs and how long they take to be useful are
       // judgements this application holds none of.
       hiring: {
@@ -703,7 +703,7 @@ export const en = {
         title: 'Earlier forecasts',
         // Carries its assumptions, because two runs of one plan made under different ones
         // are not a date moving — and a list that showed only the numbers would read as
-        // though they were. That is M10's whole problem, arriving early enough to design
+        // though they were. That is the whole problem of saying a forecast plainly, arriving early enough to design
         // around rather than to discover.
         entry:
           '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work, asked for by {{who}}.',
@@ -729,7 +729,7 @@ export const en = {
       submitting: 'Creating…'
     },
     // The work inside one plan. No numbers on any of it yet: estimates are the next step,
-    // and how they are *asked for* is a milestone of its own.
+    // and how they are *asked for* is a subject of its own.
     items: {
       title: 'Work',
       loading: 'Loading work…',
@@ -762,7 +762,7 @@ export const en = {
         open: 'Estimate',
         openNamed: 'Estimate {{title}}',
         // Hours of effort, never a date and never a duration: what a day is worth is a
-        // question about calendars and who is available, and that is a later milestone's
+        // question about calendars and who is available, and that is a later work's
         // to answer rather than something to bake into what somebody types here.
         hint: 'In hours of effort — how much work it is, not how long it will be before it is done.',
         // One question at a time, and the percentile names appear in none of them. "P90"
@@ -1048,7 +1048,7 @@ export const en = {
       widthReading:
         'These ranges would have had to be {{multiplier}} times as wide to have contained the outcome as often as they claimed. Well-judged ranges read 1.0.',
       // Not an edge case: three identical numbers is somebody saying they are certain, and
-      // M2 accepts it on purpose. It counts in the rate above and cannot count in either
+      // the plan schema accepts it on purpose. It counts in the rate above and cannot count in either
       // reading here, so the two denominators differ and this says by how much.
       certain_one:
         '1 estimate claimed certainty and is counted in the rate above but not here.',
@@ -1081,7 +1081,7 @@ export const en = {
       figureDetail_one: '{{low}}–{{high}}% · 1 estimate',
       figureDetail_other: '{{low}}–{{high}}% · {{count}} estimates'
     },
-    // What V15 exists for, and the only evidence M5's claim will ever have.
+    // What V15 exists for, and the only evidence elicitation's claim will ever have.
     methods: {
       title: 'By how the range was asked for',
       lede: 'The question changed in August 2026. Whether that produced honester ranges is a thing only this table can answer.',
@@ -1299,7 +1299,7 @@ export const en = {
       // A run the engine no longer reproduces exactly. Breaking it down would mean ranking
       // a plan under a model that never forecast it — which would look entirely reasonable,
       // and is why the server refuses rather than approximates.
-      // Two runs made by different versions of the model. M6's argument rather than a fussy
+      // Two runs made by different versions of the model. The contribution ranking's argument rather than a fussy
       // check: an account of a movement between two models is an exact account of a movement
       // that never happened, and it would look entirely reasonable.
       // Bean Validation cannot ask whether a capacity is needed, because that depends on

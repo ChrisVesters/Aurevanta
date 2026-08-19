@@ -101,9 +101,9 @@ class LogNormalFitTests {
 	}
 
 	/**
-	 * Somebody who is certain. M2 accepts three identical numbers, so this has to fit
-	 * rather than refuse, and it has to come out as a point mass rather than as something
-	 * very nearly one.
+	 * Somebody who is certain. The plan schema accepts three identical numbers, so this
+	 * has to fit rather than refuse, and it has to come out as a point mass rather than
+	 * as something very nearly one.
 	 */
 	@Test
 	void aRangeOfNothingIsAPointMass() {
@@ -121,10 +121,10 @@ class LogNormalFitTests {
 	}
 
 	/**
-	 * The signal M5 will build on. An estimator whose middle sits high has a long left
-	 * tail they have not thought about, and one whose middle sits low has a range they
-	 * padded at the top; the number says which, and this milestone does nothing else with
-	 * it.
+	 * The signal elicitation will build on. An estimator whose middle sits high has a
+	 * long left tail they have not thought about, and one whose middle sits low has a
+	 * range they padded at the top; the number says which, and this work does nothing
+	 * else with it.
 	 */
 	@Test
 	void aMiddleThatArguesWithItsEndsSaysWhichWay() {

@@ -13,8 +13,9 @@ import org.springframework.http.HttpStatus;
  * <p>
  * <strong>A partly estimated plan is not refused, at any coverage above nothing.</strong>
  * A plan half filled in is every real plan on its first day, which is why coverage is
- * reported prominently rather than demanded — {@code m2-plan.md} decision 5. Inventing a
- * threshold here would be re-litigating that with a number nobody chose.
+ * reported prominently rather than demanded — {@code docs/design/plans-and-estimates.md}
+ * decision 5. Inventing a threshold here would be re-litigating that with a number nobody
+ * chose.
  */
 public class NothingToForecastException extends ApiProblemException {
 

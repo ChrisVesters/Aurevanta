@@ -110,7 +110,7 @@ export const PROJECTS: Project[] = [
   }
 ];
 
-/** Put away rather than deleted, which is the only way anything leaves a list in M2. */
+/** Put away rather than deleted, which is the only way anything leaves a list in the plan schema. */
 export const ARCHIVED_PROJECT: Project = {
   id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
   name: 'Last year',
@@ -165,7 +165,7 @@ export const ARCHIVED_WORK_ITEM: WorkItem = {
 
 /**
  * What Ada last said about the first item, and Bob about it too — one current estimate per
- * person, which is the shape the schema is built for even though M2 shows it plainly.
+ * person, which is the shape the schema is built for even though the plan schema shows it plainly.
  *
  * The three quality fields carry what the server would actually compute for these ranges,
  * rather than convenient values: 3/12 implies a middle of 6 against a stated 5, which is
@@ -234,12 +234,12 @@ export const DEPENDENCIES: Dependency[] = [
 ];
 
 /**
- * One answer the engine gave, with both of M3b's assumptions answered and neither of them
+ * One answer the engine gave, with both of the common-cause model's assumptions answered and neither of them
  * zero — so a screen that dropped them, or that only rendered them when they happened to
  * be interesting, fails rather than passes.
  *
  * It carries a limitation for the same reason: one a plan can still earn, since the two
- * that described the engine were retired when M3b built what they named.
+ * that described the engine were retired when the common-cause model built what they named.
  */
 export const FORECAST: Forecast = {
   id: '50505050-5050-5050-5050-505050505050',
@@ -253,14 +253,14 @@ export const FORECAST: Forecast = {
   scopeGrowthP10Percent: 20,
   scopeGrowthP90Percent: 60,
   // A Monday, a six-hour day and the one rule there is. All three are null together on a
-  // run made before M4, and a case about that says so rather than inheriting these.
+  // run made before the calendar, and a case about that says so rather than inheriting these.
   startsOn: '2026-08-17',
   workingHoursPerDay: 6,
   calendarRule: 'five_day_week',
   // A string, because a seed is sixty-four bits and a JSON number here is a double.
   seed: '-7203484712345678901',
   // Version 2 models the shared team factor and scope growth; a run made without either
-  // still says so through the limitations below, which is what M3b step 4 deletes.
+  // still says so through the limitations below, which is what the common-cause model step 4 deletes.
   engineVersion: 2,
   priorityRule: 'most_work_waiting',
   itemCount: 2,

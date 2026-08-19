@@ -38,9 +38,9 @@ class ComparisonTests {
 
 	/**
 	 * <strong>The one that refuses rather than reports.</strong> A ranking from a
-	 * different model is an exact ranking of a plan nobody forecast — M6's argument, and
-	 * the only difference here that means there is nothing to compare with rather than
-	 * something to say.
+	 * different model is an exact ranking of a plan nobody forecast — the contribution
+	 * ranking's argument, and the only difference here that means there is nothing to
+	 * compare with rather than something to say.
 	 */
 	@Test
 	void aDifferentEngineIsNothingToCompareWith() {
@@ -102,7 +102,7 @@ class ComparisonTests {
 	 * <strong>A team of the same size and a different shape is a different
 	 * question.</strong> Capacity sees six units either way; three and three becoming two
 	 * and four moves the date, and a comparison blind to it would report that as a plan
-	 * sliding — which is the one thing M10's detector exists to avoid.
+	 * sliding — which is the one thing the drift detector exists to avoid.
 	 */
 	@Test
 	void aReshapedTeamIsAnAssumptionEvenAtTheSameCapacity() {
@@ -165,8 +165,8 @@ class ComparisonTests {
 	}
 
 	/**
-	 * A run made before M4 has no calendar at all rather than a default one, so two of
-	 * them agree with each other — and neither agrees with a run that has one.
+	 * A run made before the calendar has no calendar at all rather than a default one, so
+	 * two of them agree with each other — and neither agrees with a run that has one.
 	 */
 	@Test
 	void twoRunsMadeBeforeThereWasACalendarAgreeWithEachOther() {

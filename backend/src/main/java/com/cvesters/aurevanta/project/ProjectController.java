@@ -29,9 +29,10 @@ import com.cvesters.aurevanta.security.AuthenticatedUser;
  * tenant-owned data, so there is nothing here to point at somebody else's plans.
  *
  * <p>
- * No handle in any of these URLs, deliberately. {@code m2-plan.md} decides that this
- * milestone does not route by organisation handle, which is what lets M1a's two deferrals
- * — reserved handles, and redirects for retired ones — stay deferred.
+ * No handle in any of these URLs, deliberately.
+ * {@code docs/design/plans-and-estimates.md} decides that this work does not route by
+ * organisation handle, which is what lets the handle change's two deferrals — reserved
+ * handles, and redirects for retired ones — stay deferred.
  */
 @RestController
 @RequestMapping("/api/projects")

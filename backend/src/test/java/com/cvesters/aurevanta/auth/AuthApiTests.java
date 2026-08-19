@@ -210,8 +210,8 @@ class AuthApiTests {
 	}
 
 	/**
-	 * The whole point of M1a. There are thousands of Acme Consultings and nothing about
-	 * this product makes the first to arrive the owner of the name.
+	 * The whole point of chosen handles. There are thousands of Acme Consultings and
+	 * nothing about this product makes the first to arrive the owner of the name.
 	 */
 	@Test
 	void registrationAcceptsAnOrganisationNameSomebodyElseAlreadyUses() throws Exception {
@@ -568,7 +568,7 @@ class AuthApiTests {
 	/**
 	 * Name and handle are passed separately because they are no longer derived from one
 	 * another: the caller chooses the handle, and a test that let one stand for both
-	 * could not express the case this milestone exists for.
+	 * could not express the case this work exists for.
 	 */
 	private String registration(String organisation, String slug, String email) throws Exception {
 		return this.json.writeValueAsString(new RegistrationRequest(organisation, slug, "Ada", email, PASSWORD));

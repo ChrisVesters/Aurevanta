@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Positive;
  * A date somebody wants, and the work they are willing to drop to get it.
  *
  * <p>
- * <strong>The candidates come from the caller, and that is the milestone's first
+ * <strong>The candidates come from the caller, and that is the work's first
  * decision.</strong> Which work is negotiable is a judgement about its value, and nothing
  * in this schema records any: a task worth four weeks that a regulator requires is not a
  * candidate, and a two-day nicety is. A server that proposed its own list would be

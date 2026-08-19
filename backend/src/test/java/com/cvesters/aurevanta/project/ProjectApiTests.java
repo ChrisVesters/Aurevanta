@@ -125,7 +125,7 @@ class ProjectApiTests {
 	}
 
 	/**
-	 * The lesson M1a paid a milestone for, applied before the mistake rather than after
+	 * The lesson chosen handles paid for, applied before the mistake rather than after
 	 * it: a team running the same shape of work every quarter is the ordinary case, and
 	 * the identifier is what addresses one.
 	 */

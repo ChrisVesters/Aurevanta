@@ -10,8 +10,8 @@ import java.util.List;
  * <strong>The hours are on the answer because the date is not the whole of the
  * question.</strong> A target date only means something under a working day and a
  * calendar, and this run carries both — so the budget it became is shown rather than left
- * implicit. That is M4's rule about a stated assumption arriving beside the number it
- * produced, in the one place where the number is a recommendation.
+ * implicit. That is the calendar's rule about a stated assumption arriving beside the
+ * number it produced, in the one place where the number is a recommendation.
  *
  * @param targetHours what the date came to, through the run's own calendar
  * @param baselineConfidence the share of this run that already beat the date, as a

@@ -52,7 +52,7 @@ class WorkItemController {
 
 	/**
 	 * The work in one plan, in the order it was written down. Not paginated, because 500
-	 * items to a project is the ceiling this milestone fixed so that it need not be.
+	 * items to a project is the ceiling this work fixed so that it need not be.
 	 */
 	@GetMapping("/api/projects/{projectId}/items")
 	List<WorkItemResponse> list(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId,
@@ -78,7 +78,7 @@ class WorkItemController {
 	 * the two are different acts by different people at different moments: rewording a
 	 * task is planning, and saying it finished on Tuesday is reporting. Keeping them
 	 * apart also keeps a rename from having to carry — and so being able to overwrite —
-	 * the dates M8 and M10 read.
+	 * the dates calibration and the reporting layer read.
 	 */
 	@PatchMapping("/api/items/{itemId}/progress")
 	WorkItemResponse recordProgress(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID itemId,

@@ -61,7 +61,7 @@ export type WorkItem = {
  * and unlike those four, nothing ever writes over one. A second report is a second row.
  *
  * The item keeps its latest state because that is what a screen draws and what a forecast
- * reads; this exists because M8 refuses to score an estimate written after the work began,
+ * reads; this exists because calibration refuses to score an estimate written after the work began,
  * and the day work began has to be a thing somebody said rather than a thing anybody can
  * quietly move afterwards.
  */
@@ -133,7 +133,7 @@ export type Estimate = {
   /**
    * How the three numbers were asked for. The only thing about an estimate the server
    * stores rather than derives, because it is the only one that leaves no trace in the
-   * numbers — and it is what lets M8 eventually ask whether changing the question changed
+   * numbers — and it is what lets calibration eventually ask whether changing the question changed
    * how often a band contained the truth.
    */
   method: string;

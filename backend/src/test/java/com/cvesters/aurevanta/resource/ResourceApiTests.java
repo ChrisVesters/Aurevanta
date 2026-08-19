@@ -37,10 +37,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * The pools an organisation says it has.
  *
  * <p>
- * <strong>The case worth reading first is {@link #twoPoolsMayShareOneName}.</strong> M1a
- * spent a whole milestone undoing a uniqueness constraint nobody chose, and every table
- * since has had to decide deliberately whether a name addresses anything. This one does
- * not: two teams called "Designers" is somebody's business.
+ * <strong>The case worth reading first is {@link #twoPoolsMayShareOneName}.</strong>
+ * chosen handles spent a whole work undoing a uniqueness constraint nobody chose, and
+ * every table since has had to decide deliberately whether a name addresses anything.
+ * This one does not: two teams called "Designers" is somebody's business.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -186,8 +186,9 @@ class ResourceApiTests {
 	}
 
 	/**
-	 * M1a's lesson, applied before the mistake rather than after it: nothing is derived
-	 * from a name and nothing routes by one, so two pools may share one.
+	 * the handle change's lesson, applied before the mistake rather than after it:
+	 * nothing is derived from a name and nothing routes by one, so two pools may share
+	 * one.
 	 */
 	@Test
 	void twoPoolsMayShareOneName() throws Exception {

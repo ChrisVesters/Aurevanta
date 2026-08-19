@@ -1,7 +1,7 @@
-# The code review taken after M11
+# The code review taken after the resource model
 
-**Every milestone on `roadmap.md` is built, so this is the first pass over the codebase that
-is not about a feature.** It looks at what M0–M11 left behind: how large the classes got, where
+**Every work on `roadmap.md` is built, so this is the first pass over the codebase that
+is not about a feature.** It looks at what the original tenancy design–the resource model left behind: how large the classes got, where
 responsibilities drifted, and which packages grew faster than the reasons for them. It is the
 structural twin of `security.md` — a standing record of what was examined, what was changed,
 and what was examined and deliberately left alone.
@@ -19,18 +19,18 @@ rather than an impression.
 ### 1. `ForecastService` was five services in a trench coat — **split**
 
 At 520 code lines it was 6% of the backend in one class, twice the size of the next one, and it
-held five unrelated jobs: making a forecast, reading runs back, M6's contribution ranking, M7's
-cuts, and M11's hires. The precedent for the fix was already in the same package and had been
-since M9 — `MovementService` and `ThroughputService` are exactly these things, done right.
+held five unrelated jobs: making a forecast, reading runs back, the contribution ranking's contribution ranking, the inverse query's
+cuts, and the resource model's hires. The precedent for the fix was already in the same package and had been
+since the throughput forecast — `MovementService` and `ThroughputService` are exactly these things, done right.
 
 The rule the split follows: **this service makes forecasts and reads them; everything that
 *explains* one is its own service and writes nothing.**
 
 | new class | what it is | code lines |
 |---|---|---|
-| `ContributionService` | M6 — what widened the band | 41 |
-| `CutService` | M7 — what to drop, and the greedy search | 170 |
-| `HireService` | M11 — what another unit would buy | 71 |
+| `ContributionService` | the contribution ranking — what widened the band | 41 |
+| `CutService` | the inverse query — what to drop, and the greedy search | 170 |
+| `HireService` | the resource model — what another unit would buy | 71 |
 | `ForecastReplays` | the one place a stored run is re-run | 51 |
 | `PlanTitles` | what a run's work is called *now* | 25 |
 
@@ -80,7 +80,7 @@ existed for questions most readers never ask. Each is now keyed on the run it is
 new forecast clears them by remounting — which deleted a handler that had to remember to reset
 six things by hand.
 
-**`forecastText.ts` is the one worth arguing for.** M10's whole subject is saying a forecast to
+**`forecastText.ts` is the one worth arguing for.** the reporting work's whole subject is saying a forecast to
 somebody who does not know what P90 means, and its sharpest rule — *one date, never a window* —
 is a rule about a string. A function that builds one can be read and tested; the same rule
 spread through JSX is a rule nobody can check.
@@ -94,7 +94,7 @@ is the only thing that crosses, and it crosses as a string.
 ### 5. `CurrentUser` was a component nothing used — **deleted**
 
 A `@Component` in `security` reading the `SecurityContextHolder`, with no caller in `main/`
-and one test of its own. That alone is M10's precedent for `Comparison.identical()`. What made
+and one test of its own. That alone is the reporting work's precedent for `Comparison.identical()`. What made
 it worse is that **`CLAUDE.md` named it as the rule** — "take the tenant from
 `CurrentUser.requiredTenantId()`" — while every controller in the application takes it from
 `@AuthenticationPrincipal AuthenticatedUser caller`. A document pointing at a mechanism nothing
@@ -168,7 +168,7 @@ describing the same shape.
 
 **`Schedule` at 350 code lines is now the largest class in the backend, and should be.** It is
 the serial schedule generation scheme, its resource loop and its stopping rule; every part of
-it is argued for in `m3a-plan.md` and `m11-plan.md`, and splitting it would put the argument in
+it is argued for in `design/simulation-engine.md` and `design/resources-and-people.md`, and splitting it would put the argument in
 two files.
 
 **`en.ts` at 1,388 lines.** One catalogue per locale is the design. Adding a locale is a new
@@ -182,7 +182,7 @@ and end the session; every other tenant-scoped endpoint answers `not_a_member` a
 in. Two names for one query, two meanings, both documented. **Nothing was changed here, and
 reading the javadoc before merging them is the only reason.**
 
-**`Comparison.sameStart()` has no caller but its own test** — the same shape M10's review deleted
+**`Comparison.sameStart()` has no caller but its own test** — the same shape the reporting work's review deleted
 `Comparison.identical()` for, and the opposite conclusion. `Drift.sameQuestion` is
 `comparable() && sameCalendar() && sameAssumptions()`: this type's list exactly, minus this one.
 A reader checking that expression against the type has to be able to see what was left out.

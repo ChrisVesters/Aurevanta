@@ -136,9 +136,9 @@ class CalibrationServiceTests {
 	// The boundary -------------------------------------------------------------
 
 	/**
-	 * <strong>The property this whole milestone rests on.</strong> Both estimates below
-	 * are the same three numbers; only when they were written differs, and one of them
-	 * was written by somebody who could already see the task was running long. Fold them
+	 * <strong>The property this whole design rests on.</strong> Both estimates below are
+	 * the same three numbers; only when they were written differs, and one of them was
+	 * written by somebody who could already see the task was running long. Fold them
 	 * together and the headline improves for a reason that has nothing to do with
 	 * estimating.
 	 */
@@ -350,8 +350,9 @@ class CalibrationServiceTests {
 
 	/**
 	 * <strong>The tenant boundary is absolute, and this corrects a comment in
-	 * {@code V9}</strong>, which says M8 calibrates across everything one person ever
-	 * estimated in whichever organisation. A consultant with two clients has two records.
+	 * {@code V9}</strong>, which says calibration calibrates across everything one person
+	 * ever estimated in whichever organisation. A consultant with two clients has two
+	 * records.
 	 */
 	@Test
 	void anotherOrganisationsEvidenceIsInvisible() {

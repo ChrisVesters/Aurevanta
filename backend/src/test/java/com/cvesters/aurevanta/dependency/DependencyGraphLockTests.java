@@ -35,7 +35,7 @@ import com.cvesters.aurevanta.user.UserRole;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The one invariant in this milestone that a serial test cannot prove.
+ * The one invariant in this work that a serial test cannot prove.
  *
  * <p>
  * "The plan stays acyclic" is a property of every edge at once, and two callers can each

@@ -1,39 +1,39 @@
-# M8 — Actuals and calibration feedback: implementation plan
+# Actuals and calibration — the design record
 
 > **Built, 2026-08-18.** All six steps are done and each carries its own *As built* section.
 > One migration, no new problem code, and no change to anything the engine samples —
-> `Engine.VERSION` is still 2. **This is the first milestone whose headline number this product
+> `Engine.VERSION` is still 2. **This is the first work whose headline number this product
 > does not control**, and on the day it shipped almost every organisation's answer to it is
 > *nothing has been scored yet*.
 >
-> **Scope.** `roadmap.md` M8: record what happened, then measure the hit rate — of the items
+> **Scope.** Calibration: record what happened, then measure the hit rate — of the items
 > estimated, how many landed inside their P10–P90 band? It should be 80%; most teams score 30–50%.
 > Report it per estimator, offer a correction, and **refuse to score an estimate written after the
 > work began**, because somebody who can already see how a task is going is writing a report.
-> Split the record by `elicitation_method`, which is the only thing that can ever say whether M5
-> worked. Excluded and argued below: comparative framing (decision 10), proposing M3b's parameters
-> from history (decision 9), throughput (M9), the burn-up and the movement decomposition (M10),
+> Split the record by `elicitation_method`, which is the only thing that can ever say whether elicitation
+> worked. Excluded and argued below: comparative framing (decision 10), proposing the common-cause model's parameters
+> from history (decision 9), throughput (the throughput forecast), the burn-up and the movement decomposition (the reporting work),
 > and anything that feeds a correction back into a forecast (decision 8).
 >
-> **How to read this.** The decision that decides whether this milestone reports signal or
+> **How to read this.** The decision that decides whether this work reports signal or
 > flattery is **decision 1** — what counts as a forecast, and why a person's *day* cannot be
 > compared exactly with a server's *instant*. The one that decides whether it is honest under
 > pressure is **decision 6**: the hit rate on its own is trivially gamed by estimating 1–1000
 > hours, and the pair of numbers is not, which is why neither ships without the other.
 > **Decision 8** is the one somebody will want to undo first.
 >
-> **Why this milestone is different from every one before it.** M3 through M7 are all claims about
+> **Why this work is different from every one before it.** the simulation engine through the inverse query are all claims about
 > the future, checked against arithmetic. This is the first that is checked against **what
 > happened**, and it is therefore the first whose headline number this product does not control.
 > Everything else here can be made to look good by building it well. This one can only be made to
 > look good by *estimating* well, which is the point — and it is why every temptation in this plan
 > is a temptation to make the number nicer.
 >
-> **And the honest caveat, stated at the top the way `m5-plan.md` states its own.** On the day this
+> **And the honest caveat, stated at the top the way `elicitation.md` states its own.** On the day this
 > ships, almost every organisation's answer will be *nothing has been scored yet*, and that will
 > stay true for months. `actual_effort_hours` is optional and most teams do not track it; a
 > per-estimator reading needs tens of completed items before it can tell 45% from 80% (the table
-> below). **The empty state is therefore the main screen of this milestone for its first year**,
+> below). **The empty state is therefore the main screen of this work for its first year**,
 > and it is designed as such in step 5 rather than as a fallback.
 
 ---
@@ -43,17 +43,17 @@
 | Step | | Depends on |
 |---|---|---|
 | 1 | The progress record stops being written over ✅ *done* | — |
-| 2 | What one actual says about one range ✅ *done* | M2 |
+| 2 | What one actual says about one range ✅ *done* | the plan schema |
 | 3 | Which estimates were forecasts, and which were reports ✅ *done* | 1, 2 |
 | 4 | The record, on an endpoint ✅ *done* | 3 |
 | 5 | On screen, starting with the empty one ✅ *done* | 4 |
 | 6 | Close out ✅ *done* | 1–5 |
 
-**M8 adds one migration, and it creates a table rather than a column.** `V16__work_item_progress.sql` is an
+**Calibration adds one migration, and it creates a table rather than a column.** `V16__work_item_progress.sql` is an
 append-only log beside the four progress columns, not instead of them — the one piece of evidence
-in this milestone that cannot be reconstructed later, which is exactly the argument
-`roadmap.md` already makes for it under *Cross-cutting*. The calibration record itself is
-**derived**, M6's decision 1 spent a third time.
+in this work that cannot be reconstructed later, which is exactly the argument
+`../roadmap.md` already makes for it under *Cross-cutting*. The calibration record itself is
+**derived**, the contribution ranking's decision 1 spent a third time.
 
 ---
 
@@ -61,7 +61,7 @@ in this milestone that cannot be reconstructed later, which is exactly the argum
 
 **Not a measurement — there is nothing to measure yet, and saying so is the point.** Every other
 plan in this directory opens with numbers taken off a running system. This one opens with
-arithmetic that can be checked with a calculator, because the thing M8 measures does not exist in
+arithmetic that can be checked with a calculator, because the thing calibration measures does not exist in
 any database this product has ever written to. What *can* be settled in advance is how much
 evidence a hit rate needs before it means anything, and the answer decides two screens.
 
@@ -84,7 +84,7 @@ footnote, and the count is beside both — and a row with too little behind it s
 and no headline figure at all.
 
 **The team aggregate is what most organisations will read for the first year**, because it is the
-only bucket that reaches those counts. That is the reverse of the emphasis `roadmap.md` puts on
+only bucket that reaches those counts. That is the reverse of the emphasis `../roadmap.md` puts on
 it ("reporting that per estimator"), and it is a matter of arithmetic rather than of preference.
 
 **Detecting badness is cheap; confirming goodness is expensive.** Forty items settle whether a
@@ -132,13 +132,13 @@ never the rate alone.
 | 5 | Whether the hit rate goes through the fit | **No.** `p10 ≤ actual ≤ p90` is arithmetic on what somebody typed. Only the corrections use the log-normal. |
 | 6 | Whether the rate may ship alone | **Never**, in either direction: the rate alone is gamed by widening, the multiplier alone hides bias. And there is no ranking of people. |
 | 7 | How uncertain the number itself is | **A Wilson interval at 80%**, the same confidence as the band being measured, shown everywhere the rate is. |
-| 8 | Whether a correction feeds the engine | **No, and this is the one to defend.** M8 reports; applying it would close a loop on its own evidence. |
-| 9 | Whether history proposes M3b's parameters | **Not yet, and not from this number** — a per-estimate error is not a common cause, and folding one into the other counts the same spread twice. |
-| 10 | What M8 must not become | **Not comparative framing, not backtesting, not M9, not commitment tracking.** |
+| 8 | Whether a correction feeds the engine | **No, and this is the one to defend.** calibration reports; applying it would close a loop on its own evidence. |
+| 9 | Whether history proposes the common-cause model's parameters | **Not yet, and not from this number** — a per-estimate error is not a common cause, and folding one into the other counts the same spread twice. |
+| 10 | What calibration must not become | **Not comparative framing, not backtesting, not the throughput forecast, not commitment tracking.** |
 
 ### Decision 1 — A forecast is an estimate written before the work began
 
-`roadmap.md` states the rule and M2 made it computable: an estimate carries an immutable
+`../roadmap.md` states the rule and the plan schema made it computable: an estimate carries an immutable
 `created_at`, an item carries `started_on`, and an estimate on the wrong side of that is a report
 by somebody who could already see how the task was going. Counting it flatters the one number in
 this product whose entire value is that it is unflattering.
@@ -163,7 +163,7 @@ which is the whole reason step 1 exists. As the schema stands, `started_on` is w
 anybody with no trace that it ever said something else — so an estimate can be moved from *report*
 to *forecast* by editing the date it is measured against. Two claims about when work began means
 the earlier one wins, because moving a start later is the direction that flatters, and the tie-break
-rule throughout this milestone is that the unflattering reading wins.
+rule throughout this work is that the unflattering reading wins.
 
 | Rejected | Why |
 |---|---|
@@ -174,7 +174,7 @@ rule throughout this milestone is that the unflattering reading wins.
 
 ### Decision 2 — Three buckets, and nothing is thrown away
 
-`roadmap.md` offers a choice — exclude late estimates, "or score them separately, which is
+`../roadmap.md` offers a choice — exclude late estimates, "or score them separately, which is
 arguably the more interesting report of the two". Both, and a third the roadmap does not mention.
 
 | Bucket | Contains | Why it is its own row |
@@ -198,7 +198,7 @@ strongest available argument for why the exclusion rule is not pedantry.
 ### Decision 3 — One (item, estimator) pair, the last word before the boundary
 
 An item three people estimated yields three scored rows, not one. Calibration is a property of
-people, and M2's schema kept several current estimates per item precisely so that disagreement
+people, and the plan schema's schema kept several current estimates per item precisely so that disagreement
 survives to be read.
 
 **Which of an estimator's rows is scored: their last one before the boundary.** Not their newest
@@ -211,7 +211,7 @@ the count and the screen agree; this is the opposite case — evidence is eviden
 would make archiving a way to improve a hit rate. Nothing on screen invites that, and nothing
 should make it work.
 
-**Everything is scoped to one organisation**, and this corrects a comment in `V9`, which says M8
+**Everything is scoped to one organisation**, and this corrects a comment in `V9`, which says calibration
 "calibrates per estimator across everything they ever estimated, in whichever organisation". It
 does not. `estimates` carries a `tenant_id`, isolation is enforced in application code, and
 reading somebody's estimates from another organisation would be a cross-tenant leak however true
@@ -219,7 +219,7 @@ it is that the same person made them. A consultant with two clients has two reco
 never meet.
 
 **Somebody who has left still has a record.** The estimator is a `User` and not a `Membership` —
-M2 spent a decision on it — so their rows survive their removal, and their name comes off `users`.
+the plan schema spent a decision on it — so their rows survive their removal, and their name comes off `users`.
 An organisation's history of what it estimated does not change because somebody moved on.
 
 ### Decision 4 — An actual is recorded effort on finished work, and nothing else
@@ -228,7 +228,7 @@ An organisation's history of what it estimated does not change because somebody 
 number:
 
 - **Elapsed time is not effort.** `completed_on − started_on` is duration, and duration is effort
-  divided by what was assigned to it. That division is M11's, and `m4-plan.md`'s sharpest warning
+  divided by what was assigned to it. That division is the resource model's, and `calendar-and-dates.md`'s sharpest warning
   is about exactly this class of error: a quantity with capacity already inside it, divided again.
   A calibration built on elapsed days would report every estimator as wildly optimistic, by a
   factor nobody could see.
@@ -261,22 +261,22 @@ in the rate, are excluded from the corrections, and their number is published.
 
 **A hit rate on its own is gamed in one move.** Estimate everything 1–1000 hours and score 100%
 forever. This is not a hypothetical failure of a metric; it is the obvious response to being shown
-a number about yourself, and the wider bands would then be fed to M3, which would produce a band
+a number about yourself, and the wider bands would then be fed to the simulation engine, which would produce a band
 so wide nobody reads it. The product would have taught the failure it exists to detect — the same
 trap `EstimateQuality` names, arriving through the reporting layer instead of through a threshold.
 
 **The spread multiplier closes it, because it moves the other way.** Bands three times wider than
 the errors report `0.3`, which reads as *narrow these*. Bias and spread are two failures and
 neither statistic sees the other, so both are always on screen and neither is ever a headline
-alone. This is M3b's argument about the team factor and scope growth, arriving in a reporting
+alone. This is the common-cause model's argument about the team factor and scope growth, arriving in a reporting
 surface: two effects that load different failures are not substitutable, and collapsing them into
 one "estimation score" would delete the only thing that makes either safe to show.
 
 **And there is no leaderboard.** The per-estimator table is ordered **by name**, carries no rank,
 no badge and no aggregate score, and shows the count and interval on every row so that a person
 with six scored items is visibly not being compared with one who has ninety. This product ranks
-work — M6 ranks sources of spread, M7 ranks candidate cuts — and it does not rank people. The
-record exists so somebody can correct their own estimating, which is `roadmap.md`'s own phrase:
+work — the contribution ranking ranks sources of spread, the inverse query ranks candidate cuts — and it does not rank people. The
+record exists so somebody can correct their own estimating, which is `../roadmap.md`'s own phrase:
 the tool improves its users rather than merely serving them.
 
 ### Decision 7 — A Wilson interval, at 80%, everywhere the rate appears
@@ -307,12 +307,12 @@ would fail. The hit rate would simply improve, for the wrong reason, permanently
 **The second reason is reproducibility.** A forecast is currently a function of the ranges a team
 typed and the assumptions they stated. Multiply those ranges by a factor derived from a history
 that changes every time somebody finishes a task, and two runs of the same plan a week apart
-differ for a reason not stored on either row — which is precisely the failure M10's sliding-date
+differ for a reason not stored on either row — which is precisely the failure the reporting work's sliding-date
 detector exists to catch, arriving from inside the engine.
 
 **And it is not a `ForecastLimitation`.** Limitations are stored in `outputs` because a limitation
-is a property of the run frozen at the moment it was made — `m3a-plan.md` is explicit that
-deriving them at read time would have made every M3a run claim a model it never had. Calibration
+is a property of the run frozen at the moment it was made — `simulation-engine.md` is explicit that
+deriving them at read time would have made every the simulation engine run claim a model it never had. Calibration
 is the opposite kind of thing: it changes every week. Writing it onto a run would freeze a number
 that must move, and deriving a limitation at read time would break the rule that keeps the retired
 `no_team_factor` honest. It is a **caveat about the inputs**, read fresh, beside the band and
@@ -320,56 +320,56 @@ never inside it.
 
 | Rejected | Why |
 |---|---|
-| Multiply the ranges before forecasting | Closes the loop on M8's own evidence; the record then measures the correction. |
-| An opt-in "calibrated forecast" toggle | The same loop with a checkbox, plus two forecast kinds M10 has to tell apart. |
+| Multiply the ranges before forecasting | Closes the loop on calibration's own evidence; the record then measures the correction. |
+| An opt-in "calibrated forecast" toggle | The same loop with a checkbox, plus two forecast kinds the reporting work has to tell apart. |
 | Store the hit rate on the run | Freezes a number whose whole nature is that it moves. |
 | Publish it as a `ForecastLimitation` | Limitations are frozen at run time; this is not, and the enum's contract is that it is. |
 
-### Decision 9 — This does not propose M3b's parameters, and the reason is not "not yet"
+### Decision 9 — This does not propose the common-cause model's parameters, and the reason is not "not yet"
 
-`roadmap.md` records the obligation: both of M3b's parameters are "asked of a person now and
-derivable from history later", under the rule **propose from history, never default**. M8 is named
+`../roadmap.md` records the obligation: both of the common-cause model's parameters are "asked of a person now and
+derivable from history later", under the rule **propose from history, never default**. Calibration is named
 as one of the two places that data comes from. It is not built here, and the reason is sharper
 than a schedule.
 
 **A per-estimate error is not a common cause.** The spread multiplier measures how wide one
 person's range should have been around one task. The team factor is a single draw per run applied
 to *every* remaining item, because the codebase fights back for everybody at once. The errors this
-milestone measures contain both — the idiosyncratic part and the shared part, added together — and
+work measures contain both — the idiosyncratic part and the shared part, added together — and
 handing the whole multiplier to `TeamFactor` would count the shared component twice: once inside
-the widened estimates and once again in the factor. That is `m3b-plan.md` decision 3's rejection
+the widened estimates and once again in the factor. That is `common-cause-and-scope-growth.md` decision 3's rejection
 of scope-as-a-multiplier, reappearing from the calibration side.
 
 **The right route exists and is named rather than built**: decompose the residuals by *when* they
 happened, so the component shared across items completed in the same period is the team factor and
 what is left is the estimator's own error. That needs many completed plans, a period definition,
-and its own oracle. It is a milestone, not a step, and it belongs after M9 gives the same quantity
+and its own oracle. It is a piece of work, not a step, and it belongs after the throughput forecast gives the same quantity
 from an independent direction.
 
 **Scope growth is the easier half and still not here.** "How much did the last five plans grow in
 item count" needs a per-plan history of when items were added, which `work_items.created_at` can
-almost answer and `forecast_runs.inputs` can answer exactly — and it is M10's movement
+almost answer and `forecast_runs.inputs` can answer exactly — and it is the reporting work's movement
 decomposition wearing a different hat. It goes where that goes.
 
-### Decision 10 — What M8 must not become
+### Decision 10 — What calibration must not become
 
-- **Comparative framing is deferred, and this is the milestone that makes it possible.**
-  `m5-plan.md` moved it here because comparing an estimate with another *estimate* is a guess
+- **Comparative framing is deferred, and this is the change that makes it possible.**
+  `elicitation.md` moved it here because comparing an estimate with another *estimate* is a guess
   against a guess; "bigger or smaller than the auth migration?" is reference-class forecasting only
-  once the auth migration's **actual** is known. It cannot be built in the same milestone that
+  once the auth migration's **actual** is known. It cannot be built in the same work that
   first makes actuals exist: on day one there is no reference class, and it would add a third
   `elicitation_method` splitting a record that the table above shows is already thin at forty rows.
-  It is the next thing, and it needs M8 to have been running for a while.
+  It is the next thing, and it needs calibration to have been running for a while.
 - **Backtesting is not this** (icebox). Replaying a team's history to show what Aurevanta would
   have said is a different feature that happens to read the same rows.
 - **Commitment tracking is not this** (icebox). What was promised, at what confidence, on what
-  date, is organisational calibration one level up; M8 is per estimator.
-- **M9 is not this.** Throughput is a second forecast with no estimation in it. The gap between
-  the two is M9's deliverable and needs both to exist.
+  date, is organisational calibration one level up; calibration is per estimator.
+- **The throughput forecast is not this.** Throughput is a second forecast with no estimation in it. The gap between
+  the two is the throughput forecast's deliverable and needs both to exist.
 - **Estimate hygiene across a plan is not this** (icebox). Clustering on 3/5/8 is a pattern over
   estimates with no actuals involved.
 
-The line to hold: **M8 scores completed work against what was said about it beforehand, and
+The line to hold: **Calibration scores completed work against what was said about it beforehand, and
 stops.**
 
 ---
@@ -379,8 +379,8 @@ stops.**
 **Goal.** A progress report becomes the third kind of evidence in this schema rather than the one
 kind that is not: append-only, attributed, and timed by the server.
 
-`roadmap.md` carries this under *Cross-cutting* as **perishable** — every week it ships as it
-stands is a week of history that cannot be backfilled — and M8 is its first reader. As things are,
+`../roadmap.md` carries this under *Cross-cutting* as **perishable** — every week it ships as it
+stands is a week of history that cannot be backfilled — and calibration is its first reader. As things are,
 `WorkItem.recordProgress` writes `status`, `started_on`, `completed_on` and `actual_effort_hours`
 straight over whatever was there, `work_items` has no `updated_at`, and nothing records who said
 it. Decision 1's boundary is measured against a column anybody can move afterwards.
@@ -500,15 +500,15 @@ application separated by purity — a second one would make that sentence false.
   - The multiplier is the standard deviation of `z` **about its own mean**, not about zero, so that
     bias and spread are separated rather than mixed — a systematically optimistic estimator with
     perfectly wide bands must read as `0.5 / 1.0`, not as one inflated number.
-  - It keeps the `z` values, which M6's accumulator could not. A median needs them all, and the
+  - It keeps the `z` values, which the contribution ranking's accumulator could not. A median needs them all, and the
     population here is *completed work* — hundreds of rows — rather than ten thousand runs times
     five hundred items. **The naive two-pass mean and variance are used deliberately**, because the
-    series is standardised and centred near zero, which is the exact opposite of M6's million-hour
-    sums; `m6-plan.md` decision 6 explains why that difference matters and this is the case it
+    series is standardised and centred near zero, which is the exact opposite of the contribution ranking's million-hour
+    sums; `variance-contribution.md` decision 6 explains why that difference matters and this is the case it
     does not apply to. The comment says so, so that the two do not look like an inconsistency.
 - **`Proportion(hits, of)`** — the rate and its Wilson bounds at 80%, built on `Normal.P90_Z`.
   Zero out of zero is not a rate: it reports no value rather than `NaN`, which would sort
-  unpredictably and fail to serialise, exactly as M6's zero-variance case does.
+  unpredictably and fail to serialise, exactly as the contribution ranking's zero-variance case does.
 
 **Tests.** **The oracle is exactness, not convergence.** Ten actuals placed at the midpoints of
 the deciles of a known log-normal — `u` at 0.05, 0.15, … 0.95 — give a hit rate of exactly 8/10,
@@ -528,7 +528,7 @@ as in `ContributionsTests` — hours to minutes changes nothing. Three identical
 is decided, `modelled` is false, and the accumulator counts the row in the rate and not in the
 corrections. An empty accumulator reports nothing rather than dividing by zero.
 
-**Done when** every number this milestone publishes can be checked by hand on a case with a
+**Done when** every number this work publishes can be checked by hand on a case with a
 closed form.
 
 ### As built — where it differs from the above
@@ -690,7 +690,7 @@ touched services are at zero missed branches and zero missed instructions.
     `pointEstimates`, and nulls rather than zeros where nothing was scored.
   - `byEstimator` — the same shape per person, **over the forecasts bucket only**, ordered by
     display name (decision 6).
-  - `byMethod` — the same shape per `elicitation_method`, forecasts only. **This is what M5 shipped
+  - `byMethod` — the same shape per `elicitation_method`, forecasts only. **This is what elicitation shipped
     `V15` for**, and it is three lines of grouping here because that column exists.
   - `coverage` — what was not scored and why, which is step 5's main screen for a year.
   - `firstScored` / `lastScored` — the span the record covers, because a record with no dates on it
@@ -708,9 +708,9 @@ coverage counts, ordering by name, an organisation with nothing scored answering
 record full of nulls rather than a refusal. Tenant isolation with a two-organisation fixture, the
 way `MembershipApiTests` does it. `not_a_member` for a caller whose membership has gone. The
 `byMethod` split is asserted with `three_point` and `surprise_framed` rows scoring differently, so
-the query that answers M5's question is exercised rather than merely present.
+the query that answers elicitation's question is exercised rather than merely present.
 
-**Done when** the question "did changing how we ask change anything" has an endpoint that answers
+**Done when** The question "did changing how we ask change anything" has an endpoint that answers
 it.
 
 ### As built — where it differs from the above
@@ -779,12 +779,12 @@ year — exactly what is missing before that question has an answer.
   lands above your own 78th percentile* and *your ranges should have been 2.4 times wider*.
 - **Then the three buckets as a table**, so the reader can see the hindsight effect for themselves,
   and the by-method table, and the by-estimator table ordered by name.
-- **Bars rather than a chart**, as `ForecastPanel` renders M6's contributions — no chart library,
-  and the first real chart in this product stays where `roadmap.md` puts it, after the interface
+- **Bars rather than a chart**, as `ForecastPanel` renders the contribution ranking's contributions — no chart library,
+  and the first real chart in this product stays where `../roadmap.md` puts it, after the interface
   rework.
 - **`ProgressForm` asks for the actual at `DONE`, and says why.** Not required — that is settled in
   `V10` and in decision 4 — but a box with a sentence under it explaining that this is what makes
-  the next forecast measurable. This is the highest-leverage change in the milestone, because the
+  the next forecast measurable. This is the highest-leverage change in the work, because the
   whole record is built on an optional column.
 - **`ForecastPanel` carries one line beside the band**: what this organisation's estimates have
   historically been worth, with a link. A band with its own track record next to it is the most
@@ -821,7 +821,7 @@ percentile of 0.78 has no plain-English rendering that does not ask a reader to 
 probability, which is exactly what `EstimateForm` refuses to do. So it is a marker on a bar running
 between **Good case** and **Bad case** — the two questions somebody was actually asked — with a
 tick at the middle showing where a well-judged record would sit. The reader sees the gap; the page
-never names the number. M6's "a bar rather than a number, deliberately" arriving for a different
+never names the number. The contribution ranking's "a bar rather than a number, deliberately" arriving for a different
 reason.
 
 **And no threshold went into the browser, which took some care.** The obvious page classifies:
@@ -870,7 +870,7 @@ lede sit tighter than on every other page, so the reset is scoped to inside the 
 **Found while doing it, and unrelated:** `--muted` is used fifteen times in `App.css` and defined
 nowhere, so every one of them is a declaration the browser discards. It is pre-existing, it affects
 the forecast panel rather than this page, and it is left alone here rather than folded into a
-milestone it has nothing to do with.
+work it has nothing to do with.
 
 **Counts.** 28 new frontend cases; 423 frontend tests and 888 backend tests pass, with the frontend
 at 100% of statements, branches, functions and lines.
@@ -879,35 +879,35 @@ at 100% of statements, branches, functions and lines.
 
 ## Step 6 — Close out ✅ *done*
 
-**Goal.** The record of the milestone matches what was built.
+**Goal.** The record of the work matches what was built.
 
 - Each step's `### As built — where it differs from the above` is already written, in the change
-  that built it. This step is the whole-milestone read, not the place those get filled in.
-- `roadmap.md`: M8 marked done with its own *As built*, the *Progress is written over* section
+  that built it. This step is the whole-work read, not the place those get filled in.
+- `../roadmap.md`: calibration marked done with its own *As built*, the *Progress is written over* section
   under *Cross-cutting* retired with a pointer to `V16`, and the two inheritances decision 9 and
-  decision 10 defer written into M9/M10 and the icebox rather than left here to be rediscovered.
-  The M5 section's "what M8 inherits" gains the answer: the split exists and here is the endpoint
+  decision 10 defer written into the throughput forecast/the reporting work and the icebox rather than left here to be rediscovered.
+  The elicitation section's "what calibration inherits" gains the answer: the split exists and here is the endpoint
   that serves it.
 - `CLAUDE.md`: a section on calibration in the shape of the existing ones — the boundary rule, the
   three buckets, the rate-and-multiplier pairing, and the fact that nothing feeds the engine.
-- `product-concept.md`: the comparative-framing note updated to say the reference class now exists.
-- **The review pass**, as in M5, M6 and M7: read the milestone end to end and record what that read
+- `../product-concept.md`: the comparative-framing note updated to say the reference class now exists.
+- **The review pass**, as in elicitation, the contribution ranking and the inverse query: read the work end to end and record what that read
   changed, under its own heading. Every one of the last three found something.
 
-**Done when** the next reader can tell what M8 decided without reading its code.
+**Done when** The next reader can tell what calibration decided without reading its code.
 
 ### As built — where it differs from the above
 
-`roadmap.md` marks M8 done and carries its own *As built*; the *Progress is written over* section
+`../roadmap.md` marks calibration done and carries its own *As built*; the *Progress is written over* section
 under *Cross-cutting* is struck through and points at `V16`; decisions 9 and 10 are written into
-the M3b and M5 sections they were deferred from, and *What is next* now says M9. `CLAUDE.md` has a
-calibration section in the shape of the others. `product-concept.md`'s elicitation note says the
-split exists and the answer does not yet, and its scope-growth note says why M8 did not propose
-M3b's parameters.
+the the common-cause model and elicitation sections they were deferred from, and *What is next* now says the throughput forecast. `CLAUDE.md` has a
+calibration section in the shape of the others. `../product-concept.md`'s elicitation note says the
+split exists and the answer does not yet, and its scope-growth note says why calibration did not propose
+the common-cause model's parameters.
 
-### The review pass — what a read of the whole milestone changed
+### The review pass — what a read of the whole work changed
 
-**It found three things, and one of them was the milestone contradicting its own decision.**
+**It found three things, and one of them was the work contradicting its own decision.**
 
 **The rows published a rate with no interval.** Decision 6 says the per-estimator table "shows the
 count and interval on every row so that a person with six scored items is visibly not being
@@ -934,12 +934,12 @@ counted as one, which is what the number actually measures.
 
 **One thing the plan asked for and the build declined, recorded rather than quietly dropped.**
 Step 5's tests paragraph asks that "a row with too few scored shows its interval and no headline
-figure" — a threshold, and the browser is the one place this milestone decided a threshold may not
+figure" — a threshold, and the browser is the one place this work decided a threshold may not
 live. The interval on every row does that job without one: a row reading `26–48%` over 22 estimates
 says how little is behind it more precisely than a cut-off could, and without this end deciding
 what "too few" means.
 
-**A second pass over the whole milestone for dead weight found seven things, all of the same
+**A second pass over the whole work for dead weight found seven things, all of the same
 kind.** `BandScore.percentile()` and `Proportion.NOTHING` were public, documented, tested — and
 called by nothing but their own tests: the application turns a standardised value into a
 percentile inside `Calibration` and never one score at a time, and an empty `Proportion` arrives
@@ -947,7 +947,7 @@ from `new Proportion(0, 0)` rather than from a constant. Both are gone, and thei
 survive in better form: the two that went through `percentile()` now pin `z` against
 `Normal.P90_Z` directly, which says the same thing without round-tripping through the function
 under test. Five catalogue entries went the same way — `buckets.scored`, superseded when the row
-figure grew its interval, and three column headings for a table that is a list. That is M5's rule
+figure grew its interval, and three column headings for a table that is a list. That is elicitation's rule
 applied rather than restated: it deleted the `P10`/`P50`/`P90` entries rather than leave them
 unused, so the missing-translation failure is what stops one coming back.
 
@@ -956,7 +956,7 @@ unused, so the missing-translation failure is what stops one coming back.
 fraction digit so a multiplier reads `1.0` rather than `1`, the other does not. A shared wrapper
 over `Intl.NumberFormat` taking both options would be indirection with no rule inside it, which is
 not what "stated once" is for. And `--muted` is used fifteen times in `App.css` and defined
-nowhere, so every one of those declarations is discarded — pre-existing, outside this milestone,
+nowhere, so every one of those declarations is discarded — pre-existing, outside this work,
 and any fix changes how existing screens look, so it is reported rather than folded in here.
 
 **What the read did not find** is worth recording too, since the two hardest decisions were the
@@ -968,12 +968,12 @@ and each has a test whose failure would be the first thing anybody saw.
 
 ## Migrations
 
-**One: `V16__work_item_progress.sql`.** M6 and M7 added none, and this milestone would have added
+**One: `V16__work_item_progress.sql`.** the contribution ranking and the inverse query added none, and this work would have added
 none either — the calibration record is derived, and a stored one would only ever explain estimates
-written after it existed, which is `m6-plan.md` decision 1 for the third time.
+written after it existed, which is `variance-contribution.md` decision 1 for the third time.
 
 The exception is not calibration. It is the **evidence calibration reads**, which today is written
-over with no trace. `roadmap.md` puts it under *Cross-cutting* and calls it perishable, and M8 is
+over with no trace. `../roadmap.md` puts it under *Cross-cutting* and calls it perishable, and calibration is
 the first reader whose number can be flattered without it. It backfills nothing, deliberately, and
 `WorkItemProgressMigrationTests` asserts that nothing is what it backfilled.
 
@@ -984,10 +984,10 @@ rate is a number that must move, frozen.
 
 ## Sequencing and risk
 
-**The risk in M8 is not the arithmetic.** Every statistic here has an exact case — deciles of a
-known log-normal, a Wilson bound checkable on paper — so step 2 stands on the footing M3a and M6
+**The risk in calibration is not the arithmetic.** Every statistic here has an exact case — deciles of a
+known log-normal, a Wilson bound checkable on paper — so step 2 stands on the footing the simulation engine and the contribution ranking
 stood on. What has no oracle is **whether anything gets recorded at all**, and that is the risk
-the whole milestone carries: the record is built on an optional column that most teams do not fill
+the whole work carries: the record is built on an optional column that most teams do not fill
 in, and no amount of correct arithmetic produces a number from an empty table. That is why step 5
 designs the empty state first and why the progress form's prompt is not a nicety.
 
@@ -1016,7 +1016,7 @@ team that improved two years ago carries their old rows forever. The span is pub
 visible; fixing it properly means weighting by recency, which needs a number nobody can choose
 today. It is named in decision 7's neighbourhood and not guessed at.
 
-**What this milestone must not absorb.** Comparative framing is next and needs M8 to have run for a
-while. Proposing M3b's parameters needs a decomposition M8 cannot do alone. Throughput is M9's, the
-burn-up and the movement decomposition are M10's, and hygiene across a plan is the icebox's. The
-line to hold is that M8 scores completed work against what was said about it beforehand, and stops.
+**What this work must not absorb.** Comparative framing is next and needs calibration to have run for a
+while. Proposing the common-cause model's parameters needs a decomposition calibration cannot do alone. Throughput is the throughput forecast's, the
+burn-up and the movement decomposition are the reporting work's, and hygiene across a plan is the icebox's. The
+line to hold is that calibration scores completed work against what was said about it beforehand, and stops.

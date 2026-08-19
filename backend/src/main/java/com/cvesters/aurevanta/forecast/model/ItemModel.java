@@ -69,7 +69,7 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 	 * <p>
 	 * <strong>Finished work draws nothing, however it was estimated.</strong> A forecast
 	 * that re-predicted the past would be answering a question nobody asked, and the
-	 * whole reason M2 records progress is to be able to leave it out.
+	 * whole reason the plan schema records progress is to be able to leave it out.
 	 *
 	 * <p>
 	 * <strong>Unestimated work also draws nothing, and it is still here.</strong> That is
@@ -106,11 +106,11 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 	 *
 	 * <p>
 	 * <strong>Taking the draw is the point, and it is the least obvious line in this
-	 * milestone.</strong> An inverse query asks what a plan would look like without a
-	 * piece of work, and the only honest way to answer is to run it again — but two runs
-	 * with different random numbers differ by more than most cuts are worth. Measured: at
-	 * ten thousand runs the same plan re-seeded moves the answer by more than a point,
-	 * and a cut worth having buys about five. So the counterfactual has to use the
+	 * work.</strong> An inverse query asks what a plan would look like without a piece of
+	 * work, and the only honest way to answer is to run it again — but two runs with
+	 * different random numbers differ by more than most cuts are worth. Measured: at ten
+	 * thousand runs the same plan re-seeded moves the answer by more than a point, and a
+	 * cut worth having buys about five. So the counterfactual has to use the
 	 * <em>same</em> numbers as the run it is compared with, and that only holds if the
 	 * generator is left in exactly the same place. An item that drew nothing would let
 	 * every item after it sample from somewhere else in the stream, and nothing anywhere
@@ -249,7 +249,7 @@ public record ItemModel(UUID id, List<LogNormalFit> estimates, WorkItemStatus st
 			// The
 			// answer is nearly nothing, which is the model reporting that it has been
 			// falsified rather than a forecast worth acting on. What fixes it is a new
-			// estimate, which M2 makes a new row.
+			// estimate, which the plan schema makes a new row.
 			return 0.0;
 		}
 		// Uniform over the surviving tail, taken from the far end so that the value can

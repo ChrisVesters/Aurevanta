@@ -6,132 +6,85 @@ aggregation across tasks, and confidence bands.
 
 Licensed GPL-3.0.
 
-`docs/product-concept.md` holds the domain concepts and planned features — read it before
-designing schema or domain logic. It is design intent, not a description of existing code.
-`docs/roadmap.md` sequences that intent into milestones and records the decisions each one
-depends on; M0 (tenancy and identity), M1 (making it a team product), M1a (organisation names
-are not unique), M2 (the estimation schema), M3 (the simulation engine), M4 (a date you can
-commit to), M5 (elicitation), M6 (variance contribution), M7 (inverse queries), M8 (actuals and
-calibration), M9 (throughput), M10 (communicating it) and M11 (resources and people) are built. M4
-completed **Tier 1** — the roadmap's own bar for beating a spreadsheet, being a Monte Carlo rollup
-and a ship date at a confidence level — M5 then replaced the question the ranges feeding it are
-collected by, M6 made the band say what it is made of, and M7 ran the question backwards.
-**Tier 2 is complete**, and M8 is the first milestone that checks any of it against what happened —
-M9 then answers the same question from the other side and needs no estimate at all, which is why it
-is the one that can speak today. M10 is the one whose output is prose and pictures rather than
-numbers, and so the first that can be wrong in a way no test catches. M11 stopped a team
-being one number, and M12 (availability — when anybody is actually there) is next.
-`docs/m1-plan.md`, `docs/m1a-plan.md` and `docs/m2-plan.md` are the records of how each was
-done and where each departed from its own brief — M1a most of all, since it corrected M0 by a
-different route than the one it was written to take.
+`docs/README.md` is the index. **`docs/product.md` describes what this application does today,
+feature by feature — read it first if you do not already know the product.** `docs/product-concept.md` holds the domain
+concepts and the intent behind them; `docs/roadmap.md` is now only what is left to build.
 
-`docs/m3a-plan.md` and `docs/m3b-plan.md` are the two halves of M3, the simulation engine —
-which `roadmap.md` calls the product and everything before it was built to feed. **Both are
-built**, so a plan with ranges in it produces a band that models the common cause making good
-and bad luck stop cancelling, and the work nobody has written down yet. Read both before
-touching anything under `forecast`, because almost all of the risk is in decisions rather than
-in code: what happens when two people estimate the same task differently, what an unestimated
-item does to a graph it sits in the middle of, what "remaining work" means for a task already
-under way, and where newly discovered work attaches. **The failure mode here is not a crash but
-a plausible number**, which is why the engine is pure functions with an oracle behind every one
-of them.
-
-**They are two builds and one design**, split where a whole-plan closed form stops being
-available: M3a is proved against arithmetic that exists outside this codebase, and M3b — the
-shared team factor and scope growth — is proved in pieces, the strongest of which is that
-setting its two parameters to zero reproduces an M3a run byte for byte. **`m3b-plan.md` is the
-one to read for how a plan should be argued with**: its decision 6 predicted which of the two
-effects would be the heavier, the build measured it, and the measurement pointed the other way
-— so the `### As built` section says so and the decision came out stronger, because two effects
-that load different bottlenecks are even less substitutable than two of different sizes.
-
-`docs/m11-plan.md` is resources and people, and is **built**: a team is pools of units, and work
-says how many of which it ties up. It added **three migrations** and moved `Engine.VERSION` to
-**3**. **Read its measurements before arguing with its scope** — it cut two of `roadmap.md`'s five
-bullets on them, and what that document warns loudest about (the scheduling heuristic, worth
-0–9%) is a fifth of what it lists as an ordinary bullet (a team being typed rather than pooled,
-worth 14–59%, always optimistic). Decision 5 is the one most likely to be undone by somebody
+`docs/design/` holds one document per subject — the record of how each was built and, far more
+usefully, **what was decided and why**. Almost all of the risk in this codebase is in decisions
+rather than in code, and the entries below name the ones most likely to be undone by somebody
 being helpful.
 
-`docs/m10-plan.md` is communicating any of it, and is **built**: a sentence anybody can read,
-a burn-up, and the two questions somebody asks second — *has this been getting worse?* and *why
-did the date move?* It added **no migration and no column**, and `Engine.VERSION` is still 2.
-**Read its decision 2 before writing any sentence this product publishes**, and decision 5 before
-touching the detector: the milestone measured both of the obvious designs and both are wrong. Its
-close-out review is worth reading for what a review pass is for — it found the plan's own step 5
-reintroducing the two-sided sentence decision 2 exists to keep out.
+- **`design/simulation-engine.md`** and **`design/common-cause-and-scope-growth.md`** are the
+  two halves of the engine, and they are one design split where a whole-plan closed form stops
+  being available. **Read both before touching anything under `forecast`**: what happens when
+  two people estimate the same task differently, what an unestimated item does to a graph it
+  sits in the middle of, what "remaining work" means for a task already under way, and where
+  newly discovered work attaches. **The failure mode here is not a crash but a plausible
+  number**, which is why the engine is pure functions with an oracle behind every one of them.
+  The first half is proved against arithmetic that exists outside this codebase; the second is
+  proved in pieces, the strongest being that setting its two parameters to zero reproduces a
+  first-half run byte for byte. **The second is also the one to read for how a design should be
+  argued with**: its decision 6 predicted which of two effects would be heavier, the build
+  measured it, the measurement pointed the other way, and the decision came out stronger.
+- **`design/calendar-and-dates.md`** — turning hours into a date. **Read its decision 2 before
+  touching anything that divides hours by a day**: the engine's output already has capacity
+  inside it, so the working day is one worker's and never the team's, and getting that wrong
+  produces a date wrong by exactly the capacity factor with nothing on screen looking amiss.
+  Decision 7 is the other one worth knowing — the division is exact `BigDecimal` because a day
+  boundary is a step function, so a double is not off by a rounding error but by a whole day.
+- **`design/elicitation.md`** — how the three numbers are asked for. **Read the measurement at
+  the top before touching anything about estimate quality**: neither of the two obvious checks
+  catches the failure they exist to catch, because every Fibonacci triple agrees with itself.
+  The warnings are a backstop; the **order the questions are asked in** is the defence.
+- **`design/variance-contribution.md`** — ranking what widens a band. **Read its decision 3
+  before rendering any of it**: the obvious presentation is percentages, and they sum to well
+  over one because the shared factor makes everything move with everything.
+- **`design/what-to-cut.md`** — inverse queries. **Read its decision 2 before touching anything
+  about it.** A cut is a draw taken and *discarded*, never an item removed and never an item
+  with its estimates emptied: a weightless item takes no draws, every later item then samples
+  from a different place in the stream, and the resulting noise lands in the same range as the
+  effect being measured.
+- **`design/calibration.md`** — how often the ranges here contained the truth. **Read its
+  decision 1 before touching anything that decides which estimates count**, and decision 6
+  before rendering any of it. It is the first thing here whose headline number this product
+  does not control.
+- **`design/throughput.md`** — the second forecast, with no estimate in it. **Read its decision
+  6 before repeating the old claim that throughput absorbs scope growth**: it does not, and the
+  error runs in the flattering direction. Decision 5 decides whether the answer is honest.
+- **`design/communicating-a-forecast.md`** — a sentence anybody can read, a burn-up, and the two
+  questions somebody asks second. **Read its decision 2 before writing any sentence this product
+  publishes**, and decision 5 before touching the drift detector: both of the obvious designs
+  were measured and both are wrong. Its close-out review is worth reading for what a review pass
+  is for — it caught the document's own step 5 reintroducing the two-sided sentence decision 2
+  exists to keep out.
+- **`design/resources-and-people.md`** — a team is pools of units, and work says how many of
+  which it ties up. **Read its measurements before arguing with its scope**: the scheduling
+  heuristic everything warned loudest about is worth 0–9%, and a team being typed rather than
+  pooled — listed as an ordinary bullet — is worth 14–59% and always optimistic. Decision 5 is
+  the one most likely to be undone by somebody being helpful.
+- **`design/plans-and-estimates.md`**, **`design/teams-and-invitations.md`** and
+  **`design/organisation-handles.md`** cover the schema, the team model and the handle change.
+  The last is worth reading precisely because it records work that did something other than
+  what it was written to do, and corrected an earlier design by a different route than the one
+  it was written to take.
 
-`docs/m9-plan.md` is the throughput cross-check, and is **built**: a second forecast from what a
-plan has actually delivered, with no estimation in it. It added **no migration, no column and no
-index** — a completion date is required on anything marked done, so the history was already there —
-and `Engine.VERSION` is still 2. **Read its decision 6 before repeating what `roadmap.md` used to
-say**: throughput does *not* absorb scope growth, and the error runs in the flattering direction.
-Decision 5 is the one that decides whether the answer is honest.
+**A design document is updated as its subject changes, not afterwards.** The `### As built —
+where it differs from the above` sections are the point of these documents: a departure is only
+honestly recalled while it is still the thing you just decided, and leaving it to the end turns
+a record into a reconstruction.
 
-`docs/m8-plan.md` is actuals and calibration, and is **built**: how often the ranges written here
-contained what the work actually took. It is the first milestone whose headline number this
-product does not control — everything before it can be made to look good by building it well, and
-this one only by estimating well. **Read its decision 1 before touching anything that decides
-which estimates count**, and decision 6 before rendering any of it. It added **one migration**,
-`V16__work_item_progress.sql`, and no engine behaviour: `Engine.VERSION` is still 2.
+`docs/security.md` is the security review — four open findings with the moment each is cheapest
+to fix, what was deliberately accepted, and, at least as usefully, what was checked and found
+sound. None of them is scheduled, deliberately: they are carried under *Cross-cutting* in
+`roadmap.md`, because a security list inside a feature's bullets is scope, and scope is what
+gets cut. **Read it before changing anything it names**: two of the four are properties this
+codebase argues for elsewhere and does not keep.
 
-`docs/m7-plan.md` is inverse queries, and is **built**: what to cut to hit a date at a confidence.
-Like M6 it added **no column, no migration and no engine behaviour**, and `Engine.VERSION` is
-still 2. **Read its decision 2 before touching anything about it.** A cut is modelled as a draw
-taken and *discarded*, never as an item removed and never by emptying its estimates:
-`ItemModel.sample` returns from `weighsNothing()` before it draws, so a weightless item takes no
-draws and every later item is sampled from a different place in the stream. Measured, the noise
-then lands in the same range as the effect being measured and the ranking becomes a coin flip that
-looks exactly like an answer.
-
-`docs/m6-plan.md` is variance contribution, and is **built**: ranking what a plan holds by how
-much it widens the forecast. It added **no column and no migration** and did not move
-`Engine.VERSION`. **Read its decision 3 before rendering any of it** — the obvious presentation
-is percentages, and they sum to well over one, because M3b's shared factor makes everything move
-with everything.
-
-`docs/m5-plan.md` is elicitation, and is **built**: three boxes became three questions asked one
-at a time, so that three numbers stop being 3/5/8. **Read the measurement at the top before
-touching anything about estimate quality** — neither of the two checks the roadmap proposed
-catches the failure they exist to catch, because every Fibonacci triple agrees with itself to
-within a few percent and clears the ratio rule. The warnings are a backstop; the **order the
-questions are asked in** is the defence, and it is the one decision in that milestone with no
-test behind it. Its `### As built` for step 4 is worth reading for how a plan discovers a seam it
-did not know it needed: the review has to show server-computed flags *before* the row exists,
-which no amount of wanting could get from an endpoint that only answers submissions.
-
-`docs/m4-plan.md` is the calendar, and is **built**: a confidence control resolving the engine's
-hours into a date. **Read its decision 2 before touching anything that divides hours by a day** —
-the engine's output already has capacity inside it, so the working day is one worker's and never
-the team's, and getting that wrong produces a date wrong by exactly the capacity factor with
-nothing on screen looking amiss. Its decision 7 is the other one worth knowing: the division is
-exact `BigDecimal` because a day boundary is a step function, so a double is not off by a
-rounding error but by a whole day.
-
-**A plan is updated as its steps land, not at the end.** Mark the step `✅ *done*` on its
-heading and in the *At a glance* table, and write its `### As built — where it differs from
-the above` in the same change as the code. That section is the point of these documents:
-`m1a-plan.md` is worth reading precisely because it records a milestone that did something
-other than what it was written to do, and a departure is only honestly recalled while it is
-still the thing you just decided. Leaving it to the close-out step turns a record into a
-reconstruction.
-
-`docs/code-review.md` is the structural review taken after M11, and is the first pass over
-this codebase that is not about a feature: what M0–M11 left behind in class sizes, drifted
-responsibilities and packages that outgrew their reasons. **It changed no behaviour** — no
-migration, no column, no `Engine.VERSION` move, no endpoint and no wording — and the evidence
-is that both suites went through it unedited. Read its *examined and deliberately left alone*
-section before proposing a split it already declined: `problem`'s 51 classes, `WorkItems.tsx`'s
-736 lines and the five `forecast` services that return response types are each there with the
-reason, and two of the three look like defects from the outside.
-
-`docs/security.md` is the security review taken after M1a — four open findings with the moment
-each is cheapest to fix, what was deliberately accepted, and, at least as usefully, what was
-checked and found sound. None of them is scheduled into a milestone, deliberately: they are
-carried under *Cross-cutting* in `roadmap.md`, because a security list inside a milestone's
-bullets is scope, and scope is what gets cut. **Read it before changing anything it names**:
-two of the four are properties this codebase argues for elsewhere and does not keep, so a
-change made without it can quietly widen one.
+`docs/code-review.md` is the structural review taken once every planned feature was built:
+what grew too large, where responsibilities drifted, and — at least as usefully — what was
+examined and deliberately left alone. **Read its *examined and deliberately left alone* section
+before proposing a split it already declined.**
 
 ## Layout
 
@@ -258,8 +211,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   and everything under `/app` sits behind `RequireAuth`, inside a shared `AppLayout` that
   owns the header and the organisation switcher. **A plan is `/app/projects/{id}`, and no
   route anywhere carries an organisation handle** — the organisation comes from the access
-  token as it does on every request. M2 was expected to be what first put a handle in a URL
-  and deliberately was not, so M1a's two deferrals (reserved handles, redirects for retired
+  token as it does on every request. The plan schema was expected to be what first put a handle in a URL
+  and deliberately was not, so the handle change's two deferrals (reserved handles, redirects for retired
   ones) are still deferred and still recorded in `roadmap.md`. `/app/settings` is owner-only: the nav
   entry is hidden and the page says so, with the server refusing either way — what is on
   screen is a courtesy, not the boundary. **`/app/members` is not**, and the difference is
@@ -325,7 +278,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   Purpose-scoped, so a reset does not cancel a confirmation link the same person still needs.
 - **Sessions already issued survive a password change.** Access tokens are stateless and
   signed, so nothing can withdraw one before it expires. Closing that needs a token version
-  on the user or a deny list, and neither is in M1.
+  on the user or a deny list, and neither is built.
 - **`PasswordRules` in `user` states the bounds once.** Registration and reset both set a
   credential; if they disagreed, whichever asked for less would decide the rule for everyone,
   since anyone can reach the weaker endpoint.
@@ -351,7 +304,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   being written to cannot tell which endpoint sent what.
 - **A refusal that could never have sent a message gives the recipient's claim back**
   (`MailRateLimiter.refundRecipient`), and registration's `slug_taken` is the one that does.
-  M1a made it a refusal the product *invites* people to retry — the form fills in the free
+  Chosen handles made it a refusal the product *invites* people to retry — the form fills in the free
   alternative it carries — and a retry loop in front of three-per-quarter-hour locks
   somebody out of registering at all, and out of the password reset that shares the budget.
   **The source keeps its claim**, because that budget bounds what one client can make this
@@ -449,16 +402,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 ## Organisations: the name, and the handle
 
 - **The name is not unique and never was in reality.** Two organisations may both be called
-  Acme Consulting. M0 made the name unique by accident — it derived the slug from it and put
+  Acme Consulting. The original tenancy design made the name unique by accident — it derived the slug from it and put
   a unique index on that — which produced the one refusal in the system nobody could act on,
-  because a person cannot choose a different name for their own company. M1a is the
-  correction; `docs/m1a-plan.md` is its record.
+  because a person cannot choose a different name for their own company. Chosen handles is the
+  correction; `docs/design/organisation-handles.md` is its record.
 - **The handle is chosen, not derived.** `slug` is a required field on
   `RegistrationRequest` (as `organisationSlug`), `CreateOrganisationRequest` and
   `UpdateOrganisationRequest`. Nothing on the server derives one, and nothing allocates one:
   the caller brings a handle, and it is taken exactly as typed or refused.
 - **A refusal is only ever raised against something somebody chose.** That is the whole
-  property this milestone exists to establish, and it is why the field is required rather
+  property this work exists to establish, and it is why the field is required rather
   than optional. An omitted handle would have to be filled in by the server, and a server
   that picks cannot then refuse — so there would be two paths through creation answering
   differently, and the caller would be left holding a consequence they never chose.
@@ -503,9 +456,9 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   taking somebody's** — the collision check skips the caller's own, or renaming would be
   impossible without also re-addressing.
 - **Changing a handle breaks every link to it.** No redirect table, no retired handles that
-  keep resolving. That is free only while nothing routes by handle; M2 is the step that ends
-  it, and both this and reserved handles are recorded under M2 in `roadmap.md` rather than
-  left here to be rediscovered.
+  keep resolving. That is free only while nothing routes by handle; putting one in a URL is what ends
+  it, and both this and reserved handles are recorded in `roadmap.md` rather than left here to
+  be rediscovered.
 - **Deriving a handle from a name is the frontend's job** — `proposeSlug` in
   `src/tenant/slug.ts`, with accent folding, lowercasing and hyphenating. **`Slug.PATTERN` is
   the contract between the two and the server enforces it**, so a proposal the server would
@@ -610,7 +563,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   into the context is `AsyncEmailSender`, so a slow or unreachable server cannot add
   seconds to a request — and registration cannot fail because mail did. A caller therefore
   learns nothing about delivery; that is the trade, and closing it needs an outbox table
-  and a provider webhook, which M1 does not have.
+  and a provider webhook, neither of which exists.
 - **Mail sent inside a transaction goes out after it commits**, and not at all if it rolls
   back. A message almost always describes a row the same transaction just wrote — a token,
   an invitation — so sending it eagerly would race the commit and could deliver a link to
@@ -719,7 +672,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   owner undoes by inviting them again. Projects and work items carry `archived_at`;
   archiving hides them from the default listing and any member may bring one back. **There
   is a second, independent reason**, which is why the column is right rather than merely
-  defensible: an estimate is evidence M8 reads years from now, and deleting the item it
+  defensible: an estimate is evidence calibration reads years from now, and deleting the item it
   hangs on would destroy that evidence long before the feature that needs it exists.
 - **Archiving and unarchiving are one service method with a boolean**, because they are one
   decision read in both directions and two would be two lookups and two membership checks to
@@ -728,8 +681,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **A listing asks for one state or the other** — `?archived=true` — rather than returning
   both and leaving every caller to filter. The caller that forgot would show work somebody
   had deliberately put away as though it were live.
-- **A project's name is not unique, and this time that is a decision.** M1a spent a whole
-  milestone removing an accidental uniqueness constraint on an organisation's name; two
+- **A project's name is not unique, and this time that is a decision.** Chosen handles spent a whole
+  work removing an accidental uniqueness constraint on an organisation's name; two
   plans called "Q3 platform work" is ordinary, and the id is what addresses them. Listings
   order by name, then `created_at`, then id — a name alone is not a total order, and one
   that is nearly total rearranges itself between requests.
@@ -758,7 +711,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 - **Its own endpoint** — `PATCH /api/items/{id}/progress` — rather than more fields on the
   item. Rewording a task is planning and saying it finished on Tuesday is reporting, and
-  keeping them apart stops a rename from overwriting the dates M8 reads.
+  keeping them apart stops a rename from overwriting the dates calibration reads.
 - **`started_on` and `completed_on` are dates, and `forecast_runs.starts_on` is the only
   other one in this schema.** Everything else records a moment the *server* observed; these
   record a day a *person* reports or states. There is no time of day in "we finished it on the
@@ -771,7 +724,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   pick is its own, and the browser's pre-fill builds from local parts because `toISOString()`
   reports tomorrow after seven in the evening in New York.
 - **A state that needs a date and did not get one is refused, never stamped with the
-  server's clock** (`progress_date_required`). M8 and M10 read these dates and neither can
+  server's clock** (`progress_date_required`). Calibration and the reporting layer read these dates and neither can
   tell one somebody reported from one the server guessed while nobody was looking. Which box
   is missing depends on the state in another, so the refusal names no field.
 - **A claim carrying what its own status cannot hold is refused, not trimmed**
@@ -793,7 +746,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 ## Estimates: written once, never rewritten
 
 - **There is no update and no delete, and that is the whole design.** A revision is a new
-  row; the first stays exactly where it is. M8 asks how often a person's band contained the
+  row; the first stays exactly where it is. Calibration asks how often a person's band contained the
   truth, which is a question about what they *said at the time*, and only rows nothing
   rewrites can answer it. **Guard this with the test, not the intention** — an `UPDATE` will
   look simpler at some point, most likely when somebody fixes a typo in their own estimate.
@@ -803,16 +756,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **The current estimate is the newest row per (item, estimator)**, which the
   `(work_item_id, estimator_user_id, created_at desc)` index answers directly. Several
   people may hold a current estimate on one item at once — that is not a conflict to refuse
-  but the signal M3 gets to reason about.
-- **The estimator is a `User`, not a `Membership`.** A membership is deletable — M1 made
-  sure of it, because removing somebody must not delete their account — so hanging this off
+  but the signal the engine gets to reason about.
+- **The estimator is a `User`, not a `Membership`.** A membership is deletable — deliberately,
+  because removing somebody must not delete their account — so hanging this off
   one would destroy calibration evidence as a side effect of a person leaving. The foreign
   key deliberately does not cascade, mirroring "removal deletes the membership, never the
   identity".
 - **Effort in hours, `numeric(12, 2)`, and `@Digits(integer = 10, fraction = 2)` matches the
   column exactly.** Without it `0.005` passes `@Positive`, rounds to `0.00` on the way in and
   lands as an estimate of nothing — breaking the rule that had just admitted it, silently,
-  after the check that enforces it. A "day" is a calendar word and calendars are M11's; the
+  after the check that enforces it. A "day" is a calendar word and a calendar is what resources and availability decide; the
   UI may show days, the column stores hours.
 - **A band the wrong way round is `estimate_out_of_order`, a document-level code and not a
   field one.** Each of the three numbers is perfectly good and what is wrong is the
@@ -829,8 +782,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Coverage is counted in `ProjectRepository`, in JPQL naming `WorkItem` and `Estimate` and
   importing neither.** It is the one place a feature reaches into another's tables, and it is
   acceptable because Hibernate parses every query at startup — a renamed entity fails the
-  context rather than the next reader. Compare the package name written as a string that M1
-  lost silently. It counts *distinct* items, since three people estimating one task is one
+  context rather than the next reader. Compare the package name written as a string, which went stale silently once. It counts *distinct* items, since three people estimating one task is one
   item covered, and it ignores archived items so the count and the screen agree.
 
 ## Dependencies, and the lock that no constraint can replace
@@ -948,7 +900,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   probability, which nobody can do; surprise is a thing people recognise. The catalogue entries
   for `P10`/`P50`/`P90` were deleted rather than left unused, so the test setup's
   missing-translation failure is what stops one coming back as a "clearer" label.
-- **There is no fast path back to three boxes**, and adding one would undo the milestone: it
+- **There is no fast path back to three boxes**, and adding one would undo the work: it
   would be used by everybody, because it is quicker and because the people most certain they do
   not need the framing are the people it is for. Revising is the case that objection is
   strongest for, and it is answered by pre-filling every step from the current estimate.
@@ -994,7 +946,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   ascend has no fit, and without the check the endpoint would answer 500 to an ordinary typo.
 - **`elicitation_method` is stored because it cannot be recovered; the warnings are not because
   they can.** How a question was *put* leaves no trace in the three numbers, and it is the only
-  instrument that can ever say whether M5 worked — split M8's calibration record by it and the
+  instrument that can ever say whether elicitation worked — split the calibration record by it and the
   question answers itself. Whether a range is worth questioning is arithmetic over three columns
   and one constant, so keeping it would freeze today's threshold into rows that outlive it.
   `V15` backfilled `three_point` and that backfill is **true** (V13's move, not V14's): three
@@ -1022,12 +974,12 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   service, controller, responses — that reaches the other four domain packages through their
   services. **The failure mode here is not a crash but a plausible number**, and the seam is
   what makes the arithmetic checkable against sums that exist outside this codebase. The
-  strongest test in the milestone is that one: a chain at capacity 1 is a sum of independent
+  strongest test in the work is that one: a chain at capacity 1 is a sum of independent
   log-normals with an exact mean and variance, and forty tight tasks come out at 811.08
   sampled against 811.12 from the closed form and 811.1 from a measurement taken in
   `roadmap.md` before any of this existed.
 - **Four modelling decisions look like bugs from the outside and are not.** Each is argued in
-  `m3a-plan.md`; the risk is that one gets quietly *simplified* by somebody who did not read
+  `docs/design/simulation-engine.md`; the risk is that one gets quietly *simplified* by somebody who did not read
   it, which no test failure would announce as such.
   - **A mixture over estimators, never an average.** One estimator is sampled per item per
     run, so when two people disagree the band gets wider. That is the disagreement being
@@ -1044,15 +996,15 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   - **Capacity is required and has no default.** `roadmap.md` measured it moving the P90 by
     70%, and a default would be a claim about a team made by a server that has never met
     them. The box on screen is empty for the same reason: a box already filled in is a box
-    nobody reads. **The two M3b assumptions are required on the same grounds and one sharper
+    nobody reads. **The two common-cause assumptions are required on the same grounds and one sharper
     one**: they *have* a neutral value, zero, and zero is a claim — that nothing in this
     team's world has a common cause, and that no unlisted work will ever appear. Defaulting
-    to it would ship M3a's model under M3b's name with the notices that admitted to it
+    to it would ship the first half's model under the second half's name with the notices that admitted to it
     deleted.
-- **The two M3b effects are different effects and merging them would count one twice.** A
+- **The two common-cause effects are different effects and merging them would count one twice.** A
   shared team factor makes each item longer; scope growth makes more of them. Under a summing
   aggregator those are the same thing — which is why modelling scope as a multiplier is
-  rejected in `m3b-plan.md` decision 3, since two multipliers compose into one. **They
+  rejected in `docs/design/common-cause-and-scope-growth.md` decision 3, since two multipliers compose into one. **They
   separate only because the aggregator is a scheduler**: new items compete for slots, so they
   make the plan longer *and* make everything else wait. Measured, they load different
   bottlenecks — where capacity binds a multiplier is heavier, because more smaller pieces pack
@@ -1077,16 +1029,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   buys. `V13` backfilled the three assumption columns with zeros, and that is a *true* record
   of what those runs assumed rather than a placeholder. A future change that cannot be reduced
   to a parameter setting — a different fit, a different scheduler — does not get to pretend:
-  it bumps the version, old runs become read-only history, and M10 has to be told, because
+  it bumps the version, old runs become read-only history, and the reporting layer has to be told, because
   comparing runs across an incomparable bump is how a tool reports a date sliding when nothing
   moved.
 - **A run is written once and never updated, like an estimate.** `forecast_runs` stores its
   resolved inputs, its seed, its sample count, its capacity, its priority rule and
-  `Engine.VERSION`, so any run can be replayed exactly — which is where M6 gets its per-item
-  contribution instead of storing a duration vector per item per run, and what M10 reads to see
+  `Engine.VERSION`, so any run can be replayed exactly — which is where the contribution ranking gets its per-item
+  contribution instead of storing a duration vector per item per run, and what the reporting layer reads to see
   a date sliding. `ForecastApiTests` replays a stored snapshot and asserts it reproduces its
   stored percentiles: **that is the test that fails the day somebody changes the model without
-  bumping the version** — and M6 made the same comparison a runtime guard, so a run that no
+  bumping the version** — and the contribution ranking makes the same comparison a runtime guard, so a run that no
   longer reproduces is refused rather than explained.
 - **The generator is `java.util.Random`, deliberately.** It is the only one in the JDK whose
   algorithms are written into its *contract* rather than only its implementation.
@@ -1110,12 +1062,12 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   which is why they are not behind a disclosure — and neither are the five assumptions, for
   the same reason.
 - **`no_team_factor` and `no_scope_uncertainty` are retired, not deleted, and the difference
-  is the history.** M3b models what they name, so nothing writes them; the constants stay in
+  is the history.** The common-cause model models what they name, so nothing writes them; the constants stay in
   `ForecastLimitation` and their wording stays in the frontend catalogue, because every run
-  made before M3b still carries them in its stored `outputs` — and an enum missing a value
+  made before the common-cause model still carries them in its stored `outputs` — and an enum missing a value
   that exists in stored JSON is a forecast that cannot be deserialised at all. That is why
   limitations are stored on the run rather than worked out when it is read: a limitation
-  derived at read time would have made every M3a run silently claim a model it never had.
+  derived at read time would have made every earlier run silently claim a model it never had.
 - **Any member may forecast**, like everything else in the domain. A plan with nothing
   estimated is refused with `nothing_to_forecast` (`422`) and **no row is written** — a
   refusal that had stored a run would leave the history holding a forecast nobody received.
@@ -1127,7 +1079,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   what keeps a calendar change from being a model change — otherwise `Engine.VERSION` would
   have to move every time somebody adjusted a holiday, and a stored forecast's numbers would be
   invalidated by something that changed none of them.
-- **The working day is one worker's, never the team's, and this is the sharpest thing in M4.**
+- **The working day is one worker's, never the team's, and this is the sharpest thing in the calendar.**
   `Schedule.finish` already ran `capacity` items at a time, so the hours a date divides are a
   completion *time* with capacity inside them. Dividing by a team's daily total — "four people
   at six hours each, so a working day is 24" — counts capacity twice and produces a date four
@@ -1148,11 +1100,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   what is cheap and deterministic — and what makes it deterministic across time is the rule's
   *name*, `five_day_week`, held for the reason `priority_rule` is: two defensible calendars
   give two different dates from identical data. A working day read from a *setting* instead
-  would move every historical date the moment somebody edited it, and M10 would report a slide
+  would move every historical date the moment somebody edited it, and the reporting layer would report a slide
   that never happened.
 - **The stored rule is what decides whether a run has dates at all.** A run under a rule this
   code cannot resolve reports its hours, its own rule's name and no dates, rather than being
-  read through today's calendar. M11's real availability arrives as a **new rule name**, never
+  read through today's calendar. The resource model's real availability arrives as a **new rule name**, never
   as an edit to this one.
 - **A run made before a calendar existed has none, and the columns are nullable.** `V13`
   backfilled zeros and could argue they were true; `V14` deliberately backfilled nothing,
@@ -1163,7 +1115,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **The date is the headline and the hours stay.** A band in hours advertises that it came out
   of a model; "Aug 25" does not, and it gets pasted into a plan with the assumption behind it
   left in the browser. Removing the hours would leave nothing on screen that came out of the
-  engine, and would make the working day invisible in exactly the way this milestone warns
+  engine, and would make the working day invisible in exactly the way this work warns
   about. The confidence control (50 / 80 / 95%) reads percentiles already in the response, so
   moving it sends **no request** — that is the feature rather than an optimisation, since the
   trade only reads as a trade when both numbers are two readings of one forecast.
@@ -1174,7 +1126,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   value is correlated with the plan's completion across every run; the square of that is what
   the ranking is by. **They sum to exactly 1 only for a chain at capacity one with no common
   cause** — the summing model this product deliberately stopped using, and the closed-form
-  oracle `ContributionsTests` is built on. In any real forecast M3b's team factor multiplies
+  oracle `ContributionsTests` is built on. In any real forecast the common-cause model's team factor multiplies
   every item by the same draw, so everything moves with everything and the shares add to well
   over one. **Nothing may render them as percentages**: a bar per source, and the panel says in
   a line that they overlap and why. A screen showing a plan accounting for three hundred percent
@@ -1187,10 +1139,10 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   conclude their team has no common cause when what they did was decline to model one. Decided
   from what the run stored, which is the rule a run made before there was a calendar follows.
 - **Nothing is stored, and that is what makes it work on the past.** The per-item durations come
-  from replaying the run out of its own seed, which is what M3a kept a seed for. The decisive
+  from replaying the run out of its own seed, which is what the simulation engine kept a seed for. The decisive
   argument is not the five million numbers a column would hold: a stored contribution would only
   ever explain runs made after it existed, and a derived one explains every forecast this
-  product has ever produced. `V16` would be a mistake — see `m6-plan.md` decision 1.
+  product has ever produced. `V16` would be a mistake — see `docs/design/variance-contribution.md` decision 1.
 - **A replay must prove itself before it explains anything.** `ForecastService.contributionsTo`
   compares the replay's six figures against the six on the row and refuses with
   `forecast_replay_mismatch` on any difference. That is `ForecastApiTests`' persistence assertion
@@ -1217,7 +1169,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   it. The correlation is `0/0`, and a `NaN` would sort unpredictably through a ranking and fail
   to serialise at all.
 - **Titles come off the plan as it stands, because the snapshot never held one.** `ForecastInputs`
-  stores identifiers and no title on purpose — M10 diffs those snapshots and a rename is not a
+  stores identifiers and no title on purpose — the reporting layer diffs those snapshots and a rename is not a
   thing that moved — so the response resolves names from the live and archived listings. Work put
   away since is named and marked; work the plan no longer holds at all says so rather than
   rendering a blank. `describeWork` on the frontend and `titleOf`/`isArchived` on the backend are
@@ -1225,7 +1177,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 ### Inverse queries: what to cut, and the pairing that makes it an answer
 
-- **A cut is a draw taken and *discarded*, and this is the sharpest thing in M7.** `ItemModel`
+- **A cut is a draw taken and *discarded*, and this is the sharpest thing in the inverse query.** `ItemModel`
   carries a `cut` flag; `asCut()` sets it and `sample` still draws exactly as it would have, then
   returns zero. The two obvious alternatives are both wrong and the second is silent: **removing
   the item** shortens the loop and renumbers every edge, and **emptying its estimates** makes
@@ -1241,18 +1193,18 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **The caller names the candidates, and the server proposes none.** Which work is negotiable is a
   judgement about value and nothing in this schema records any — a four-week task a regulator
   requires is not a candidate and a two-day nicety is. It also bounds the cost honestly, since
-  every candidate is a whole simulation. **M6's ranking is not the shortlist**, and `roadmap.md`
-  said it was until M7 corrected it: an item that never varies contributes nothing to the spread
+  every candidate is a whole simulation. **The contribution ranking's ranking is not the shortlist**, and `roadmap.md`
+  said it was until the inverse query work corrected it: an item that never varies contributes nothing to the spread
   and is frequently the best thing to drop. **The same work named twice is one candidate** — a
   second mention asks no second question, and weighing it twice would rank one item in two rows
   and let the search cut it at two of its steps, reporting one sacrifice as two.
-- **The numbers never add, and here that matters more than it did in M6.** Every figure is a
+- **The numbers never add, and here that matters more than it does for the contribution ranking.** Every figure is a
   percentage with a plus sign in front of it, so a column of them reads as arithmetic waiting to
   happen. Two cuts on one chain shorten the same path; two on separate branches leave the later
   one deciding. So the singles are labelled *what this buys on its own*, **the cumulative answer
   is searched for and measured at every step**, and nothing on screen puts the two in one column.
 - **The search is greedy and says so.** Best single, then the best of what is left *with that one
-  already cut*. Round one of it **is** the singles — run once and read twice, so the two can never
+  already cut*. Round one of it **is** The singles — run once and read twice, so the two can never
   drift. It stops for one of three reasons and the answer names which: the bar was met, the
   candidates ran out, or the simulation budget did. **`BUDGET_SPENT` is not a defensive branch**;
   twelve candidates that never reach the bar would be seventy-nine runs, `MOST_SIMULATIONS` is 40,
@@ -1261,8 +1213,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Nothing is written, and that is what lets it answer about the past.** `cutsFor` is
   `readOnly`; every counterfactual is a replay of a stored run out of its own seed, and forty
   simulations can go past for one question without `forecast_runs` gaining a row. `roadmap.md`
-  worried this milestone would fill that table with hypotheticals and turn M10's sliding-date
-  detector into a history of things nobody planned; it did not, and M11 inherits the answer.
+  worried this work would fill that table with hypotheticals and turn the reporting layer's sliding-date
+  detector into a history of things nobody planned; it did not, and resourcing inherited the answer.
 - **It weighs and never decides.** `POST /api/forecasts/{runId}/cuts` changes nothing; acting on
   the answer means archiving work on the plan screen, where somebody can see what else it is
   connected to. The tick list on `TargetDate` offers only work the run was about — compared by
@@ -1271,7 +1223,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 ### Calibration: how often the ranges contained the truth
 
-- **`GET /api/calibration` stores nothing**, which is M6's decision 1 spent a third time: a
+- **`GET /api/calibration` stores nothing**, which is `design/variance-contribution.md`'s decision 1 spent a third time: a
   stored hit rate would explain only the estimates written after somebody added the column,
   and a derived one explains every estimate this product has ever held. It is also the only
   honest shape — a calibration figure changes every time anybody finishes a task, so writing
@@ -1319,7 +1271,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   which at four in five is genuinely three points past certainty — `CalibrationTests` keeps that
   form around to fail.
 - **Nothing is applied and nothing is judged.** The correction is reported and never fed back:
-  applying it closes a loop on M8's own evidence, so the record converges on 80% while the
+  applying it closes a loop on calibration's own evidence, so the record converges on 80% while the
   estimating does not change, and two runs of one plan would then differ for a reason stored on
   neither. It is **not** a `ForecastLimitation` either — those are frozen at run time and this
   moves every week — so the forecast panel carries it as a caveat about the inputs, read fresh
@@ -1327,11 +1279,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   what a well-judged set scores and shows what this one scored, because two rules about one
   estimate is what `EstimateQuality` exists to prevent.
 - **People are named and never ranked.** Rows come out in name order, then by identifier, with
-  the count and interval on each. This product ranks work — M6 ranks what widens a band, M7
+  the count and interval on each. This product ranks work — the contribution ranking ranks what widens a band, the cut search
   ranks what to cut — and a hit-rate leaderboard is won by writing one to a thousand.
 - **Nothing on the screen names a percentile.** Where the truth typically lands inside somebody's
   own range is drawn as a *position* between **Good case** and **Bad case** — the two questions
-  `EstimateForm` actually asks — with a tick at the middle. That is the same refusal M5 makes,
+  `EstimateForm` actually asks — with a tick at the middle. That is the same refusal elicitation makes,
   and it is why the nav says "Track record" while the route and the API say `calibration`.
 - **The empty state is the main screen for a year, and is designed as one.** Scoring needs
   finished work carrying both an estimate and a measured actual, and the actual is optional
@@ -1343,8 +1295,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 - **Items completed per calendar week, never hours.** `completed_on` is required on anything
   marked `DONE`, so this history exists in full for every plan — where `actual_effort_hours` is
-  optional and mostly absent, which is M8's own problem and the reason M9 can answer today and
-  M8 cannot. Counting items also means **an unestimated item is ordinary evidence**, where the
+  optional and mostly absent, which is calibration's own problem and the reason throughput can answer today and
+  calibration cannot. Counting items also means **an unestimated item is ordinary evidence**, where the
   engine carries it at zero effort and reports a limitation: that is the one place this
   forecast is better informed than the engine's.
 - **A week nobody finished anything in is part of the history, and it is the easiest thing here
@@ -1378,16 +1330,16 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `throughput_excludes_unlisted_work` goes out with every answer.
 - **The plan's own history, not the organisation's.** An organisation-wide rate applied to one
   of three plans is optimistic by however much attention goes elsewhere, and nothing in this
-  schema records how attention is split — that waits on M11. A young plan gets a window and no
-  forecast, which is M8's empty state in a second place.
+  schema records how attention is split — that waits on availability. A young plan gets a window and no
+  forecast, which is calibration's empty state in a second place.
 - **Elapsed weeks, and no working day anywhere.** A week of history already contains its
-  holidays and its Friday afternoons; multiplying it by a working day would be M4's own error —
+  holidays and its Friday afternoons; multiplying it by a working day would be the calendar's own error —
   capacity counted twice — from the other side. The as-of day is stated by the caller for
   `todayHere`'s reason.
 - **Nothing is stored, and there is no run.** `GET /api/projects/{id}/throughput?asOf=…` writes
   nothing: the history is already dated, so an answer as of any day is reproducible from it, and
   a row would be a cached answer to a cheap question. It also keeps `forecast_runs` meaning one
-  thing — somebody asked the engine — which is what M10's detector walks. The seed is derived
+  thing — somebody asked the engine — which is what the drift detector walks. The seed is derived
   from the question rather than random or configurable, so asking twice agrees.
 - **`ThroughputLimitation` is its own enum and not `ForecastLimitation`'s.** That one is
   serialised into `forecast_runs.outputs` and read back years later, which is why nothing may be
@@ -1415,9 +1367,9 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   `product-concept.md` both used to carry. A two-sided interval invites *so not before the
   12th?* — a question nobody manages against, about the end of the distribution the model is
   worst at — and it quietly halves the confidence a reader thinks they have at the far end.
-  M10's own plan reintroduced the wrong shape in a later step and its review pass caught it;
+  The reporting work's own plan reintroduced the wrong shape in a later step and its review pass caught it;
   The case named *says one date and never a window* is what fails if it comes back. **The band in hours stays**, for
-  M4's reason: remove it and nothing on screen came out of the engine.
+  the calendar's reason: remove it and nothing on screen came out of the engine.
 - **`Comparison` decides whether two runs may be set beside each other at all** — the engine
   version, the priority rule, the calendar rule, the working day, the five assumptions. It is `Comparable` in no
   file, deliberately: `java.lang.Comparable` is auto-imported into every one, so a class of that
@@ -1427,19 +1379,19 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   the priority rule are the two, and the second is worth knowing about because there is only one
   rule today: a calendar is laid over an answer the engine has already given, so two calendars
   are one answer read twice, where a priority rule is *inside* the scheduler and two rules are
-  two answers. The refusal and the reporting look contradictory and are not. M6 refuses when the *model* cannot reproduce a run — there is nothing to compare
+  two answers. The refusal and the reporting look contradictory and are not. The contribution ranking refuses when the *model* cannot reproduce a run — there is nothing to compare
   with. This reports when the *question* changed, which is the single most useful thing the
   feature says: *six of those eight days were you halving the capacity*.
 - **The decomposition's terms add up because they are computed cumulatively**, one change at a
   time in a stated order, each measured with every earlier one already applied and the last
   state being the newer run itself. The obvious version — re-run once per change and report each
   difference — gives five numbers that do not account for the movement they claim to explain,
-  because a simulation is not linear in its inputs. M6 and M7 both met this and both answered
-  *do not add them*; here the sentence **is** the feature, so that answer was not available.
+  because a simulation is not linear in its inputs. The contribution ranking and the cut search both met this and both answered
+  *do not add them*; here the sentence **is** The feature, so that answer was not available.
 - **`Movement.RULE` names the order for `Schedule.PRIORITY_RULE`'s reason.** Reordering `ORDER`
   is not a refactor: a reader told scope cost them five days and estimates four will act on it,
   and swapping those two steps moves days between the lines. Two of the seven steps are not in
-  the milestone's own plan and both are load-bearing — **`SAMPLING`**, because two runs never
+  the work's own plan and both are load-bearing — **`SAMPLING`**, because two runs never
   share a seed and without it the terms sum to the distance between two things nobody was
   shown, and **`CALENDAR`**, because a working day that changed moves the date without touching
   an hour and would otherwise land in a residual.
@@ -1464,7 +1416,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   table does not — a picture and its equivalent saying the same thing twice to a screen reader
   is worse than either. It is coloured from the same variables as everything else, so the
   interface rework restyles it rather than fighting it.
-- **The cone is M9's bootstrap and never the engine's band.** A burn-up's future is how many
+- **The cone is the throughput forecast's bootstrap and never the engine's band.** A burn-up's future is how many
   *items* are done by each week; the engine forecasts effort and has no notion of one, so
   inventing a trajectory from its finish distribution would assume a shape nothing measured.
   `Throughput.project` records the running total per week as it goes — no extra draw, so every
@@ -1479,7 +1431,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   whole simulations and most readers never ask.
 - **Nothing here is stored.** No migration, no column, no cached decomposition: `forecast_runs`
   already holds every run's inputs, seed, calendar and version, and `work_item_progress` holds
-  the rest. M6's decision 1 a fourth time, and the strongest instance of it — a decomposition
+  the rest. The contribution ranking's decision 1 a fourth time, and the strongest instance of it — a decomposition
   computed at read time explains every pair of runs this product has ever held.
 
 ### Resources: a team is not a number
@@ -1492,19 +1444,19 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **A capacity number is a lower bound on when a plan finishes, not an approximation of it.**
   Six units read as six interchangeable slots finish **14% to 59% earlier** than the same six
   split into two pools work cannot cross between, and further the more specialised the team.
-  Pooling is a relaxation, so the error only ever runs one way — which is why this milestone
-  exists and why the numbers are in `m11-plan.md` rather than in an argument.
+  Pooling is a relaxation, so the error only ever runs one way — which is why this work
+  exists and why the numbers are in `docs/design/resources-and-people.md` rather than in an argument.
 - **`Engine.VERSION` is 3 and contains 2 exactly.** One pool of *n* units with nothing named
   takes the same decisions in the same order as counting *n* slots did — not approximately:
   `ScheduleTests.answersExactlyWhatItAnsweredBeforeThereWereResources` holds six finishes read
-  out of that class before it knew what a resource was. That containment is what keeps M6's
-  ranking, M7's cuts and M10's decomposition answering for every run made before M11. M10's
+  out of that class before it knew what a resource was. That containment is what keeps the contribution ranking's
+  ranking, the cut search and the movement decomposition answering for every run made before the resource model. The reporting work's
   *comparison* refuses across the bump, and that is correct rather than unfortunate.
 - **Units are occupancy and never speed.** Two units means the work ties up two, not that it
   goes twice as fast. `roadmap.md` says the opposite and is corrected in place: an estimate is
   what somebody said the *task* would take and already implies whoever does it, effort divided
   by headcount is linear speed-up with no communication cost, and — the reason that decides it
-  — there is no oracle, where every other modelling decision in M3 is checkable against
+  — there is no oracle, where every other modelling decision in the simulation engine is checkable against
   arithmetic that exists outside this codebase.
 - **Work that names no resource takes one unit of whichever pool has one free, in declaration
   order.** Not unconstrained, which would make the first forecast after describing a team
@@ -1517,7 +1469,7 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **A blocked item does not hold its place.** When the next piece of work in priority order
   cannot have what it needs, the one behind it starts instead — a team that will not do
   available work because one person is busy is not a team anybody has. The scan that does this
-  needs a bound and **"is any unit free" is the wrong one**, in exactly the shape this milestone
+  needs a bound and **"is any unit free" is the wrong one**, in exactly the shape this work
   models: ten backend and one designer running work that is nearly all backend leaves the
   designer's unit free for most of the plan, so that guard is true throughout and every event
   walks every ready item again — 2,276 ms on a five-hundred-item plan against a budget of 2,000,
@@ -1548,21 +1500,21 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   is `progress_not_applicable`'s rule. The field is optional in the request and decided by the
   service, because Bean Validation cannot know whether a team has been described.
 - **A run stores the team it was scheduled against**, in a column as well as in the snapshot.
-  Two readers want it per run — the panel that prints what a forecast assumed and M10's
+  Two readers want it per run — the panel that prints what a forecast assumed and the reporting layer's
   detector, which walks a whole history — and the snapshot beside it holds five hundred items.
   It is also what lets `Comparison` see the *shape* of a team and not only its size: 3+3
   becoming 2+4 is the same capacity and a different question.
-- **Units come off the run and names off today's list**, which is M6's split for the work it
+- **Units come off the run and names off today's list**, which is the contribution ranking's split for the work it
   ranks. A pool renamed since is not a thing that moved; one put away since is marked; one this
   organisation no longer holds says so rather than rendering as a blank.
 - **Hiring is weighed and never decided.** `POST /api/forecasts/{runId}/hires` replays the
   stored run with one pool larger, one count at a time up to the number asked about, so the
   diminishing return is visible rather than inferred. Nothing is written. **The pairing is
-  exact for free**, unlike M7's cut, which has to take a draw and discard it: units change what
+  exact for free**, unlike a cut, which has to take a draw and discard it: units change what
   may *start* and never what is sampled. A run scheduled against a capacity is refused — "one
   more" is the question the forecast form already asks, and what this exists for is *which*
   pool.
-- **Hiring is not scope, and `Movement.Step.RESOURCES` is what says so.** M11 put the team
+- **Hiring is not scope, and `Movement.Step.RESOURCES` is what says so.** The resource model put the team
   inside `ForecastInputs`, so to a decomposition reading that snapshot a run made after somebody
   joined differed from its predecessor in the *plan* — and a reader who had changed nothing about
   the work was told their scope had grown by whatever the new person saved them. Split out of
@@ -1578,5 +1530,5 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   would turn "more people can be slower here" into a shrug.
 - **Nothing here reports on anybody.** A pool may name a person and that is a label for
   finding them; there is no screen that says what anybody is working on, and the moment one
-  ranked people by how busy they are this would be a different product. M8 made the same call:
+  ranked people by how busy they are this would be a different product. Calibration made the same call:
   people are named and never ranked.

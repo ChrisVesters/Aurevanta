@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.withinPercentage;
  * growing 4% is four tenths of an item, and rounding that to the nearest whole number
  * gives none — not usually, but in every run for ever, so a small and entirely real
  * growth becomes exactly no growth. It is the sort of bug that produces a plausible
- * number, which is the failure mode this whole milestone is arranged against.
+ * number, which is the failure mode this whole design is arranged against.
  */
 class ScopeGrowthTests {
 

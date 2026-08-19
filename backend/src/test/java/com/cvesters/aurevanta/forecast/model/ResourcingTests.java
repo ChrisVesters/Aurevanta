@@ -20,8 +20,8 @@ class ResourcingTests {
 	/**
 	 * <strong>The containment the version bump rests on, said as plainly as it can be
 	 * said.</strong> One pool, every item naming nothing — which is what every forecast
-	 * made before M11 assumed, and what every forecast made after it assumes until
-	 * somebody describes their team.
+	 * made before the resource model assumed, and what every forecast made after it
+	 * assumes until somebody describes their team.
 	 */
 	@Test
 	void aPlanWithNoTeamDeclaredIsOnePoolAndNothingNamed() {

@@ -21,7 +21,7 @@ const NOTHING: CalibrationRecord = {
 };
 
 /**
- * The counts from the table this milestone is designed around: eighteen of forty is 45%,
+ * The counts from the table this work is designed around: eighteen of forty is 45%,
  * with an interval that does not reach 80% — the first count at which a record says
  * anything at all.
  */
@@ -120,7 +120,7 @@ const RECORDED: Calibration = {
 /**
  * How often the ranges written here contained the truth.
  *
- * Three of these cases are the milestone rather than the page. **The empty state**, because
+ * Three of these cases are the work rather than the page. **The empty state**, because
  * that is what most organisations see for months and a screen that says only "no data"
  * guarantees it stays true. **The rate never appearing without its count, its interval and
  * the band-width reading beside it**, because each of those is what stops the number being
@@ -331,7 +331,7 @@ describe('CalibrationPage', () => {
     ).toBeInTheDocument();
   });
 
-  /** The split V15 exists for, and the only evidence M5's claim will ever have. */
+  /** The split V15 exists for, and the only evidence elicitation's claim will ever have. */
   it('splits the record by how the range was asked for', async () => {
     await open(RECORDED);
 

@@ -11,9 +11,10 @@ import com.cvesters.aurevanta.forecast.model.Contribution;
  * <strong>The share is not a share of anything, and the wording that renders it has to
  * say so.</strong> These sum to exactly 1 only for a chain at capacity one with no common
  * cause — the summing model this product deliberately stopped using. In a real forecast
- * M3b's team factor multiplies every item in a run by the same draw, so everything moves
- * with everything and the shares overlap: presenting them as percentages would show a
- * plan whose parts account for three hundred percent of its own uncertainty.
+ * the common-cause model's team factor multiplies every item in a run by the same draw,
+ * so everything moves with everything and the shares overlap: presenting them as
+ * percentages would show a plan whose parts account for three hundred percent of its own
+ * uncertainty.
  *
  * <p>
  * <strong>Three kinds of row, and the two that are not items are why the ranking is
@@ -26,10 +27,10 @@ import com.cvesters.aurevanta.forecast.model.Contribution;
  * @param itemId which piece of work this is, or null for the two sources that are not
  * pieces of work.
  * @param title what that work is called <em>now</em>, read off the plan rather than out
- * of the run. The snapshot never held a title — deliberately, since M10 diffs those
- * snapshots and a rename is not a thing that moved — and somebody reading this is being
- * told what to go and do, so the current name is the useful one. Null for the two sources
- * that are not work.
+ * of the run. The snapshot never held a title — deliberately, since the reporting layer
+ * diffs those snapshots and a rename is not a thing that moved — and somebody reading
+ * this is being told what to go and do, so the current name is the useful one. Null for
+ * the two sources that are not work.
  * @param archived whether that work has been put away since the run. Named rather than
  * hidden, the same choice an arrow pointing at archived work already makes: a top
  * contributor missing from the live plan is exactly the thing a reader would otherwise

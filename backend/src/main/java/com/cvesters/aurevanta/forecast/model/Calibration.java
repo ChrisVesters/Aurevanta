@@ -27,14 +27,15 @@ import java.util.List;
  * lands on somebody's own scale, and how much wider that scale should have been.
  *
  * <p>
- * <strong>The individual values are kept, which M6's accumulator could not afford
- * to.</strong> A median needs all of them, and the population here is completed work —
- * hundreds of rows over years — rather than ten thousand runs times five hundred items.
- * <strong>The two-pass mean and variance are used deliberately, and that is not an
- * inconsistency with {@code Contributions}.</strong> Its Welford update exists because
- * sums of squares over a plan of a million hours lose the answer in the third decimal and
- * go negative on a plan of a billion; this series is standardised, centred near zero and
- * a few units wide by construction, which is the one case that argument does not reach.
+ * <strong>The individual values are kept, which the contribution ranking's accumulator
+ * could not afford to.</strong> A median needs all of them, and the population here is
+ * completed work — hundreds of rows over years — rather than ten thousand runs times five
+ * hundred items. <strong>The two-pass mean and variance are used deliberately, and that
+ * is not an inconsistency with {@code Contributions}.</strong> Its Welford update exists
+ * because sums of squares over a plan of a million hours lose the answer in the third
+ * decimal and go negative on a plan of a billion; this series is standardised, centred
+ * near zero and a few units wide by construction, which is the one case that argument
+ * does not reach.
  */
 public final class Calibration {
 
@@ -176,8 +177,8 @@ public final class Calibration {
 	 * <p>
 	 * The sample form, dividing by {@code n − 1}: this is a spread estimated from a
 	 * sample of somebody's work and not the spread of a population that happens to be all
-	 * of it. The two differ by more than a rounding error at the counts M8 will actually
-	 * see — over ten outcomes they read 0.989 and 0.938 on the same numbers.
+	 * of it. The two differ by more than a rounding error at the counts calibration will
+	 * actually see — over ten outcomes they read 0.989 and 0.938 on the same numbers.
 	 * @throws IllegalStateException if fewer than two outcomes had a scale to land on
 	 */
 	public double bandWidthMultiplier() {

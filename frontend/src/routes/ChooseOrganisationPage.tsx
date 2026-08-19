@@ -35,7 +35,7 @@ export function ChooseOrganisationPage() {
     clear
   } = useFormFailure(['name', 'slug']);
   const handle = useProposedSlug();
-  // Two organisations may share a name since M1a; the handle is what tells them apart,
+  // Two organisations may share a name since chosen handles; the handle is what tells them apart,
   // and only where they actually do.
   const sharesName = sharedNames(memberships);
 

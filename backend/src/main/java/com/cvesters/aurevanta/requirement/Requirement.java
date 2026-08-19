@@ -29,13 +29,13 @@ import jakarta.persistence.Table;
  * <p>
  * <strong>{@link #getUnits()} is occupancy and never speed.</strong> Two units means the
  * item ties up two, not that it goes twice as fast. {@code roadmap.md} says that with an
- * allocation "M2's stored effort finally converts to duration honestly" and
- * {@code m11-plan.md} decision 5 disagrees: the estimate is what somebody said the
- * <em>task</em> would take and already implies whoever does it, effort divided by
- * headcount is linear speed-up with no communication cost, and — the reason that decides
- * it — there is no oracle. Every modelling decision in M3 is checkable against arithmetic
- * that exists outside this codebase, and "two people finish this in 60% of the time" is
- * checkable against nothing.
+ * allocation "the schema's stored effort finally converts to duration honestly" and
+ * {@code docs/design/resources-and-people.md} decision 5 disagrees: the estimate is what
+ * somebody said the <em>task</em> would take and already implies whoever does it, effort
+ * divided by headcount is linear speed-up with no communication cost, and — the reason
+ * that decides it — there is no oracle. Every modelling decision in the simulation engine
+ * is checkable against arithmetic that exists outside this codebase, and "two people
+ * finish this in 60% of the time" is checkable against nothing.
  *
  * <p>
  * <strong>Its own package, pointing at two others and pointed at by neither.</strong>

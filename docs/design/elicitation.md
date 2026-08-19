@@ -1,27 +1,27 @@
-# M5 — Elicitation that produces honest ranges: implementation plan
+# Elicitation that produces honest ranges — the design record
 
-> **Scope.** `roadmap.md` M5: replace what the estimate form *asks*, so that three numbers stop
+> **Scope.** Elicitation: replace what the estimate form *asks*, so that three numbers stop
 > being 3/5/8. Surprise framing to collect the two ends, a betting check to confirm the high one,
 > and two warnings that fire on ranges worth a second look. Excluded: comparative framing against
-> the team's own history (needs M8's actuals — decision 4), the appearance of anything (the
-> interface rework under *Future*), estimating in days rather than hours (M11 owns what a day is
+> the team's own history (needs calibration's actuals — decision 4), the appearance of anything (the
+> interface rework under *Future*), estimating in days rather than hours (the resource model owns what a day is
 > worth), planning-poker sessions and Delphi rounds (icebox), and anything that changes what the
 > engine does with the three numbers once it has them (nothing here does).
 >
-> **How to read this.** Decisions first. The one that decides whether this milestone is right or
+> **How to read this.** Decisions first. The one that decides whether this work is right or
 > merely finished is decision 2 — *the order the three questions are asked in* — because every
 > other part of this plan is defence in depth behind it, and the measurement below says the
 > defences do not hold on their own.
 >
-> **Why this is not optional, and why it cannot be checked.** `product-concept.md` is blunt:
+> **Why this is not optional, and why it cannot be checked.** `../product-concept.md` is blunt:
 > three boxes labelled P10/P50/P90 produce 3/5/8 without thinking, "which is strictly worse than
-> no tool because the garbage now carries a probability". Every milestone since has been built on
-> top of that form — M3 samples what it collects, M4 turns it into a date somebody will act on —
-> so this is the input to a machine that has spent four milestones learning to be trusted.
+> no tool because the garbage now carries a probability". Every work since has been built on
+> top of that form — the simulation engine samples what it collects, the calendar turns it into a date somebody will act on —
+> so this is the input to a machine that has spent four features learning to be trusted.
 >
-> **And here is the milestone's own failure mode.** M3's was a plausible number and M4's a
-> plausible date; **M5's is a form that feels better and changes nothing.** There is no test that
-> can fail when elicitation does not work. The only instrument that can ever answer it is M8's
+> **And here is the work's own failure mode.** the simulation engine's was a plausible number and the calendar's a
+> plausible date; **Elicitation's is a form that feels better and changes nothing.** There is no test that
+> can fail when elicitation does not work. The only instrument that can ever answer it is calibration's
 > calibration record, years from now, and only if the rows say which way they were asked — which
 > is the whole of why decision 8 stores a column that has exactly one value on the day it ships.
 
@@ -31,23 +31,23 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | What makes an estimate worth questioning ✅ *done* | M3 |
-| 2 | Recording how a range was asked for ✅ *done* | M2 |
+| 1 | What makes an estimate worth questioning ✅ *done* | the simulation engine |
+| 2 | Recording how a range was asked for ✅ *done* | the plan schema |
 | 3 | One question at a time, in the order that stops them anchoring ✅ *done* | 1, 2 |
 | 4 | The review, and the bet ✅ *done* | 3 |
 | 5 | Close out ✅ *done* | 1–4 |
 
-**M5 changes no stored number and no arithmetic.** `p10_hours`, `p50_hours` and `p90_hours` mean
+**Elicitation changes no stored number and no arithmetic.** `p10_hours`, `p50_hours` and `p90_hours` mean
 exactly what they meant, `LogNormalFit` fits them exactly as it did, and `Engine.VERSION` does not
 move. One column is added that describes *how the question was put*, and everything else in this
-milestone is a screen. That is deliberate, and it is what makes the milestone auditable later:
+work is a screen. That is deliberate, and it is what makes the work auditable later:
 if calibration improves, nothing but the question changed.
 
 ---
 
 ## The measurement this plan is built on
 
-Before designing anything, the two checks `roadmap.md` proposes were run against the failure they
+Before designing anything, the two checks `../roadmap.md` proposes were run against the failure they
 exist to catch. `consistency` is the stated middle over the middle the two ends imply
 (`LogNormalFit.consistency`, already built); the overconfidence rule is the roadmap's own "flag a
 P90 less than ~1.5× the P50".
@@ -65,13 +65,13 @@ P90 less than ~1.5× the P50".
 **Every Fibonacci triple passes both checks comfortably.** Consistency lands within 5% of perfect
 on three of the four, because a geometric-ish sequence is exactly what a log-normal fit expects —
 the numbers agree with each other beautifully. And the ratio sits at about 1.6 on all of them,
-which clears a 1.5 threshold. The canonical garbage this milestone exists to stop is **coherent
+which clears a 1.5 threshold. The canonical garbage this work exists to stop is **coherent
 garbage**: internally consistent, plausibly shaped, and invisible to every test that can be run on
 three numbers in isolation.
 
 Two things follow, and they are the spine of this plan.
 
-**The warnings are a backstop, not the defence.** Anybody who reads step 1 as the milestone has it
+**The warnings are a backstop, not the defence.** Anybody who reads step 1 as the work has it
 backwards. What the checks catch is somebody who typed carelessly in a *different* way — a middle
 pasted between two ends that were thought about, or a range so tight it could not have been meant
 — and those are worth catching. They are not what catches 3/5/8.
@@ -86,10 +86,10 @@ asked for*, and it leaves no trace in what was stored. Which is decision 8's who
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | What M5 replaces | **The questions, never the storage.** Three columns in, three columns out, same fit. |
+| 1 | What elicitation replaces | **The questions, never the storage.** Three columns in, three columns out, same fit. |
 | 2 | The order the three are asked in | **The unbounded end first, the middle last**, and the middle is never an anchor. |
 | 3 | How many are on screen at once | **One.** A visible previous answer is the anchor the order exists to prevent. |
-| 4 | Which framings ship | **Surprise** collects, **betting** confirms, two warnings advise. **Comparative waits for M8.** |
+| 4 | Which framings ship | **Surprise** collects, **betting** confirms, two warnings advise. **Comparative waits for calibration.** |
 | 5 | Whether a warning can refuse | **Never.** A warning that blocks is a rule people learn to satisfy. |
 | 6 | Where the thresholds live | **Once, in `forecast.model`, beside the function they bound.** |
 | 7 | May `estimate` import `forecast.model`? | **Yes.** The one-way rule is between *features*; a package with no state is not one. |
@@ -97,7 +97,7 @@ asked for*, and it leaves no trace in what was stored. Which is decision 8's who
 | 9 | Does the three-box form survive | **No.** A fast path to the garbage is a fast path to the garbage. |
 | 10 | What a colleague's estimate may show | **Names while you answer, numbers afterwards.** Two anchored estimates are one estimate. |
 
-### Decision 1 — M5 replaces the question and nothing else
+### Decision 1 — elicitation replaces the question and nothing else
 
 `estimates` keeps three `numeric(12, 2)` columns, immutably, with the estimator and the moment.
 `LogNormalFit` keeps fitting from the two ends and reporting the middle as a signal. `Engine` does
@@ -105,19 +105,19 @@ not move and neither does its version.
 
 This is worth stating because the temptation runs the other way. Better elicitation *feels* like
 it should produce a richer answer — a fourth point, a confidence-in-the-confidence, a shape — and
-every one of those is a schema change that would make every estimate written before M5
-incomparable with every one written after. **The one thing this milestone must preserve is that
-its own effect can be measured**, and M8 can only measure it by comparing like with like.
+every one of those is a schema change that would make every estimate written before elicitation
+incomparable with every one written after. **The one thing this work must preserve is that
+its own effect can be measured**, and calibration can only measure it by comparing like with like.
 
 | Rejected | Why |
 |---|---|
-| A fourth point, or a stated distribution shape | `product-concept.md` settled the shape: log-normal from two ends, because the number nobody knows is the maximum. More points would be more boxes, which is the disease. |
+| A fourth point, or a stated distribution shape | `../product-concept.md` settled the shape: log-normal from two ends, because the number nobody knows is the maximum. More points would be more boxes, which is the disease. |
 | Per-point confidence ("how sure are you about the P90?") | A question about a question. If somebody is unsure of their P90, the answer is a wider P90, which is what the framing is for. |
 | Storing the answers to the framing questions separately | They *are* the three numbers. A "surprise threshold" column and a `p90_hours` column holding the same value is one number stored twice, waiting to disagree. |
 
 ### Decision 2 — The unbounded end first, the middle last
 
-**This is the decision this milestone exists to get right**, and it is the one that has no test.
+**This is the decision this work exists to get right**, and it is the one that has no test.
 
 Three numbers asked together anchor on whichever is answered first, and the form as it stands
 invites the middle to be answered first — it is the easiest, it is in the centre of the row, and
@@ -138,7 +138,7 @@ So the order is:
 case has a floor — the work obviously takes something, and nobody's optimistic answer is zero —
 so an anchor above it compresses it much less than an anchor below the bad case compresses that.
 The bad case has no such floor above it: it can always be worse, which is the property
-`product-concept.md` chose the log-normal for, and it is the number every team gets wrong in the
+`../product-concept.md` chose the log-normal for, and it is the number every team gets wrong in the
 same direction. Asking it before any number exists on screen is the only moment it can be answered
 cold.
 
@@ -150,8 +150,8 @@ to be.
 | Rejected | Why |
 |---|---|
 | Low, then high, then middle | The natural reading order and the wrong one. The low end is the number people are most confident about, so it anchors hardest, and it anchors the end that most needs to be free. |
-| Middle first, then the ends outward | What the current form invites, and the failure this milestone is named after. |
-| Middle first, then "how much worse could it be?" as a multiplier | Superficially attractive — it is how M3b asks its team factor — and wrong here. M3b's multiplier has no natural anchor to corrupt; an estimate does, and asking for a multiple of it guarantees the tail is a function of the middle rather than of the work. |
+| Middle first, then the ends outward | What the current form invites, and the failure this work is named after. |
+| Middle first, then "how much worse could it be?" as a multiplier | Superficially attractive — it is how the common-cause model asks its team factor — and wrong here. The common-cause model's multiplier has no natural anchor to corrupt; an estimate does, and asking for a multiple of it guarantees the tail is a function of the middle rather than of the work. |
 
 ### Decision 3 — One question on screen at a time
 
@@ -176,11 +176,11 @@ a mitigation is a way to skip it — see decision 9.
 
 ### Decision 4 — Surprise collects, betting confirms, comparison waits
 
-`roadmap.md` names four things. They are not four of a kind, and treating them as a list to
-implement is how this milestone becomes three milestones.
+`../roadmap.md` names four things. They are not four of a kind, and treating them as a list to
+implement is how this work becomes three features.
 
 - **Surprise framing is how the numbers are collected.** It is decision 2's wording, and it is
-  already load-bearing elsewhere in this codebase: `m3b-plan.md`'s decision 2 asks its team factor
+  already load-bearing elsewhere in this codebase: `common-cause-and-scope-growth.md`'s decision 2 asks its team factor
   as "in a bad stretch, how much longer does everything take" for exactly this reason — *it is the
   only form of the question a person can actually answer*.
 - **Betting framing is a check on an answer, not a way to get one.** "Would you take 9-to-1 odds
@@ -191,7 +191,7 @@ implement is how this milestone becomes three milestones.
   than the auth migration in March?" is only reference-class forecasting if March's actual is
   known. Today the only comparison available is against *other estimates* — that is comparing a
   guess with a guess, and it would industrialise anchoring across a whole plan rather than within
-  one item. **It moves to M8**, where actuals exist, and it becomes much better there than it
+  one item. **It moves to calibration**, where actuals exist, and it becomes much better there than it
   could be here.
 - **Overconfidence and consistency warnings** ship, as step 1, with the measurement above
   attached to them so that nobody mistakes them for the defence.
@@ -216,7 +216,7 @@ to say what is odd about it and store what they said.
 `ForecastService.CONSISTENT_ENOUGH` is a quarter either way, and it currently lives in a service
 in the `forecast` feature. Step 1 needs the same number in `estimate`, and a copy would be two
 rules that can disagree about one estimate — `PasswordRules` exists in `user` to prevent exactly
-that, and `m3a-plan.md` names it by name when handing this problem over.
+that, and `simulation-engine.md` names it by name when handing this problem over.
 
 So both thresholds move to `forecast.model`, beside `LogNormalFit.consistency` and the arithmetic
 they bound, and `ForecastService` reads them from there. The overconfidence ratio is new and is
@@ -242,31 +242,31 @@ capacity or a seed.
 | Rejected | Why |
 |---|---|
 | Move `LogNormalFit` and `Normal` to a shared package | Correct in the abstract, and it would relocate the most carefully tested arithmetic in the product to make a point about naming. `forecast.model`'s own doc already says it is separated by purity rather than by feature; this is that sentence being taken at its word. |
-| Compute the ratio in the browser | Two rules about one estimate, which `m3a-plan.md` rejected in advance and by name. |
+| Compute the ratio in the browser | Two rules about one estimate, which `simulation-engine.md` rejected in advance and by name. |
 | Publish the threshold to the browser so it can decide | A worse version of the same thing: the number would be right and the *rule* would still be written twice. |
 
 ### Decision 8 — The method is stored; the warning is not
 
 `estimates` gains `elicitation_method`. `V15` backfills every existing row with `three_point` and
 then drops the default, which is `V13`'s move and deliberately not `V14`'s: that backfill is
-**true**. Every estimate written before this milestone really was typed into three boxes.
+**true**. Every estimate written before this work really was typed into three boxes.
 
-**This is the only instrument that can ever say whether M5 worked.** M8 measures how often
-somebody's band contained the truth; the question this milestone raises is whether *changing the
+**This is the only instrument that can ever say whether elicitation worked.** calibration measures how often
+somebody's band contained the truth; the question this work raises is whether *changing the
 question* changed that, and answering it means partitioning the calibration record by how each
 estimate was asked for. Without the column the only proxy is `created_at` against a deploy date
 that lives nowhere in the database — which is the reconstruction these documents exist to avoid.
 
 **The warning is not stored, and the contrast is the point.** "This estimate was flagged and
 submitted anyway" is recomputable from three numbers and one constant, so it is derived rather
-than kept — M4's decision 5, applied again. The method is not recoverable from anything at all,
+than kept — the calendar's decision 5, applied again. The method is not recoverable from anything at all,
 which is exactly why it is a column. *Store what cannot be worked out later; derive what can.*
 
 | Rejected | Why |
 |---|---|
-| Add the column when a second method exists | It exists now: this milestone creates the second one, and the rows on each side of it are the comparison. |
+| Add the column when a second method exists | It exists now: this work creates the second one, and the rows on each side of it are the comparison. |
 | An enum on the entity | `priority_rule` and `calendar_rule` are strings held by the class that implements the rule, and a stored value an enum has never heard of is unreadable rather than merely unknown. Same shape, same answer. |
-| Store the warnings so M8 can ask "did people ignore them?" | M8 measures whether the band held, which is better evidence than whether a heuristic fired. And a stored flag would freeze today's threshold into rows that outlive it. |
+| Store the warnings so calibration can ask "did people ignore them?" | calibration measures whether the band held, which is better evidence than whether a heuristic fired. And a stored flag would freeze today's threshold into rows that outlive it. |
 
 ### Decision 9 — The three-box form goes, and nothing replaces it as a fast path
 
@@ -274,7 +274,7 @@ which is exactly why it is a column. *Store what cannot be worked out later; der
 
 An "advanced" or "I know what I'm doing" three-box path would be used by everybody, because it is
 faster and because the people most confident they do not need the framing are the people the
-framing is for. **A fast path to the garbage is a fast path to the garbage.** The milestone is not
+framing is for. **A fast path to the garbage is a fast path to the garbage.** The work is not
 "offer a better way to estimate", it is "stop asking the question that produces 3/5/8".
 
 **The strongest objection is revision**, and it is answered rather than dismissed: changing an
@@ -291,7 +291,7 @@ The plan screen already shows *who* has estimated an item and shows only *your o
 row. That was not built as an anti-anchoring measure and it is one, so it is now a rule rather
 than an accident: **a colleague's numbers are not on screen while somebody is answering.**
 
-This is what keeps multi-estimator meaningful. `m2-plan.md` kept several current estimates per
+This is what keeps multi-estimator meaningful. `plans-and-estimates.md` kept several current estimates per
 item because two people disagreeing is signal for the engine to reason about; two people who
 anchored on each other are not two estimates, and the band they produce is confidently narrow for
 a reason nothing downstream can see.
@@ -320,7 +320,7 @@ measurement above is in the suite rather than only in this document; the other t
 triples do the same. A P90 of 1.4× the P50 is flagged as tight and 1.6× is not, either side of the
 boundary. A middle a long way from its implied one is flagged and one within a quarter is not,
 either side of that boundary. Equal ends — somebody claiming certainty — are consistent and tight
-rather than an error, since M2 accepts them. `ForecastService` produces `inconsistent_estimates`
+rather than an error, since the plan schema accepts them. `ForecastService` produces `inconsistent_estimates`
 for exactly the estimates `EstimateQuality` flags, so the two can no longer drift.
 
 **Done when** no two places in this application can disagree about whether one estimate is worth
@@ -341,7 +341,7 @@ their ratios in the assertion, so anybody who "fixes" a threshold has to come an
 where it is. `EstimateApiTests.theCanonicalGarbageIsReportedAsPerfectlyFine` asserts the same
 thing at the seam where somebody would actually meet it — 3/5/8 comes back over HTTP saying
 nothing is wrong with it. A test that asserts a failure is unusual enough to be worth naming: it
-is the plan's central claim, and if it ever stops holding, the milestone's design has changed and
+is the plan's central claim, and if it ever stops holding, the work's design has changed and
 somebody should notice.
 
 **One test the bullets asked for was written as a loop over both sides of the threshold rather
@@ -367,7 +367,7 @@ and the forecast suite can no longer disagree.
 
 ## Step 2 — Recording how a range was asked for ✅ *done*
 
-**Goal.** Every estimate says which question produced it, so that M8 can eventually say whether
+**Goal.** Every estimate says which question produced it, so that calibration can eventually say whether
 the question mattered.
 
 - `V15__estimate_elicitation.sql`: `elicitation_method varchar(40) not null default 'three_point'`,
@@ -382,11 +382,11 @@ the question mattered.
 
 **Tests.** A recorded estimate stores the method it was told and reports it. A method nothing
 recognises is refused, and no row is written. A missing method is refused against its own box. A
-row written before this milestone reads back as `three_point` — asserted against a row inserted
+row written before this work reads back as `three_point` — asserted against a row inserted
 directly, since nothing can create one through the API any more. The column has no default, so an
 insert that omits it fails rather than being assigned one.
 
-**Done when** the calibration question M8 will ask is answerable from the rows rather than from a
+**Done when** The calibration question calibration will ask is answerable from the rows rather than from a
 deploy date.
 
 ### As built — where it differs from the above
@@ -398,19 +398,19 @@ that version produced — three numbers and no word about how they were asked fo
 statement: an insert omitting the column now fails, and `information_schema` reports no default to
 inherit. The reason it is worth the fixture chain (tenant → user → project → work item → estimate)
 is that this column's entire value is its trustworthiness: a backfill that quietly missed rows, or
-a default that let later rows be handed a method nobody stated, would **corrupt** the evidence
+a default that let later rows be handed a method nobody stated, would **corrupt** The evidence
 rather than lose it, and corrupted evidence still looks like data. `V13` made the same kind of
 claim about every row in `forecast_runs` and nothing has ever checked it.
 
 **That test also absorbed two of the step's own bullets**, which as written could not both be
-true. "A row written before this milestone reads back as `three_point` — asserted against a row
+true. "A row written before this work reads back as `three_point` — asserted against a row
 inserted directly, since nothing can create one through the API any more" was written assuming
 step 3 had landed: today the API still records `three_point`, because the form still asks three
 boxes. And "an insert that omits it fails" cannot be asserted against the same directly-inserted
 row that the backfill is supposed to have filled in. Splitting them across the migration boundary
 is what makes both testable, and it is a better test than either bullet described.
 
-**The frontend was kept working rather than broken until step 3.** M4's step 2 left the browser
+**The frontend was kept working rather than broken until step 3.** the calendar's step 2 left the browser
 sending a request the server refused, and said so. Here that was avoidable and avoiding it is more
 honest: the existing three-box form genuinely *is* `three_point`, so it says so from today.
 `EstimateForm` owns the constant — the component that asks is the one that knows how it asked, so
@@ -577,18 +577,18 @@ on the server with no change here.
 
 ## Step 5 — Close out ✅ *done*
 
-- `roadmap.md`: mark M5 done. Record that **comparative framing moved to M8** with decision 4's
+- `../roadmap.md`: mark elicitation done. Record that **comparative framing moved to calibration** with decision 4's
   reason, since a reference class needs actuals and comparing guesses would industrialise the
-  anchoring this milestone exists to remove.
-- `roadmap.md`: record what M8 inherits — `elicitation_method` partitions the calibration record,
-  which is the only way the question this milestone asks about itself can ever be answered; and
+  anchoring this work exists to remove.
+- `../roadmap.md`: record what calibration inherits — `elicitation_method` partitions the calibration record,
+  which is the only way the question this work asks about itself can ever be answered; and
   the *estimate hygiene warnings* in the icebox now extend two checks that exist rather than one
   idea.
-- `roadmap.md`: the *Reworking the interface* note says M5 replaces what is asked and the rework
+- `../roadmap.md`: the *Reworking the interface* note says elicitation replaces what is asked and the rework
   replaces how everything looks. Half of that is now spent, and the note should say which half.
-- `product-concept.md`: *The input problem is harder than the maths* stops being design intent for
+- `../product-concept.md`: *The input problem is harder than the maths* stops being design intent for
   surprise and betting framing, and keeps it for comparative framing. The *Distribution fitting*
-  note's last sentence — pointing at *which* estimate is M5's — is discharged.
+  note's last sentence — pointing at *which* estimate is elicitation's — is discharged.
 - `CLAUDE.md`: the estimate form asks one question at a time in a fixed order and why; warnings
   advise and never refuse; the thresholds are stated once in `forecast.model` and `estimate` may
   import it; `elicitation_method` is stored because it cannot be recovered, and the warning is not
@@ -615,27 +615,27 @@ read them out of a `FormData`, and the note now says that the rule — not the s
 is false: it is still one input, a hint, a review and four buttons, deliberately plain like
 everything else. What changed is *why* it is plain — it is no longer the ugliest thing on screen
 for the reason it was — and the trap the note names has not moved at all. A beautifully styled
-form eliciting the same garbage was the risk before and still is: M5 changed the question, and
+form eliciting the same garbage was the risk before and still is: elicitation changed the question, and
 nothing about how anything looks has been shown to change an answer.
 
-**Three places said something M5 had made untrue, none of them in this step's list:**
+**Three places said something elicitation had made untrue, none of them in this step's list:**
 
-- `roadmap.md`'s header claimed Tier 1 as the state of the world, which was true and had stopped
+- `../roadmap.md`'s header claimed Tier 1 as the state of the world, which was true and had stopped
   being the whole of it.
-- `product-concept.md`'s status block said Tier 1 was built without saying that *The input
+- `../product-concept.md`'s status block said Tier 1 was built without saying that *The input
   problem is harder than the maths* mostly was too — the section that document argues hardest for
   after the core principle.
-- The **overconfidence bullet in M5's own roadmap section** still read as a proposal. It now
+- The **overconfidence bullet in elicitation's own roadmap section** still read as a proposal. It now
   carries a one-line note that both checks advise and never refuse, because that bullet is
   where somebody looking for "flag a tight P90" will land, and it is the one most likely to be
   re-implemented as a gate.
 
-**And `roadmap.md`'s "what I would build next" now says M6**, with the two traps named: variance
+**And `../roadmap.md`'s "what I would build next" now says the contribution ranking**, with the two traps named: variance
 contribution computed as a share of total variance is wrong once the aggregator is a scheduler,
 and changing the model to make the measurement easier is what `ForecastApiTests`' replay
 assertion exists to catch.
 
-### The review pass — what a read of the whole milestone changed
+### The review pass — what a read of the whole work changed
 
 Five changes after close-out, recorded here rather than folded into the steps because they
 happened afterwards.
@@ -685,8 +685,8 @@ machine load rather than to anything here.
 |---|---|
 | `V15__estimate_elicitation.sql` | one column on `estimates`, backfilled `three_point` and then stripped of its default |
 
-**The backfill is true, which is what makes it `V13` and not `V14`.** M4's calendar columns were
-left null because a run made before M4 assumed no working day — there was nothing honest to write.
+**The backfill is true, which is what makes it `V13` and not `V14`.** the calendar's calendar columns were
+left null because a run made before the calendar assumed no working day — there was nothing honest to write.
 Here there is: every estimate in the table was typed into three boxes, so writing `three_point`
 records what happened rather than inventing it. The default then goes in a second statement, so
 that nothing written afterwards can leave the question to the database.
@@ -695,8 +695,8 @@ that nothing written afterwards can leave the question to the database.
 
 ## Sequencing and risk
 
-**The risk in M5 is that it cannot fail visibly.** Every other milestone had an oracle: M3a had a
-closed form, M3b had a byte-identical degenerate case, M4 had a calendar anybody can count on
+**The risk in elicitation is that it cannot fail visibly.** Every other work had an oracle: the simulation engine had a
+closed form, the common-cause model had a byte-identical degenerate case, the calendar had a calendar anybody can count on
 their fingers. This one has a form that will be more pleasant to use and a hypothesis about human
 judgement that no test in this repository can settle. **It will feel finished on the day it ships
 and will not be answerable for a year.** That is not a reason to build it differently; it is the
@@ -720,11 +720,11 @@ this paragraph.
   shipping**, and the lever if it does fall is the revision path and keyboard flow, never a fast
   path back to three boxes.
 
-**What this milestone must not absorb.** Making the product *look* good is the interface rework
+**What this work must not absorb.** Making the product *look* good is the interface rework
 under *Future*, and it will be more tempting here than anywhere, because this is the screen being
 rebuilt and it is the ugliest one. They are different work: this replaces what is asked, that
 replaces how everything looks, and a beautifully styled form eliciting the same garbage is the
 outcome both notes exist to prevent. Planning poker and Delphi rounds are the icebox's, and they
 are the multi-estimator *workflow* rather than the single-estimator question. Estimating in days
-is M11's, since what a day is worth is a calendar question. The line to hold is that M5 changes
+is the resource model's, since what a day is worth is a calendar question. The line to hold is that elicitation changes
 three questions and one column, and stops.

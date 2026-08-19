@@ -32,7 +32,8 @@ import com.cvesters.aurevanta.problem.WorkItemNotFoundException;
 import com.cvesters.aurevanta.project.ProjectService;
 
 /**
- * Joining a plan up, which is what turns a list of work into a shape M3 can forecast.
+ * Joining a plan up, which is what turns a list of work into a shape the simulation
+ * engine can forecast.
  *
  * <p>
  * <strong>Finish-to-start with a lag, and nothing else</strong> (decision 4). The other

@@ -7,8 +7,8 @@ import java.util.List;
  *
  * <p>
  * Every run that was simulated falls in exactly one bucket, so the counts add up to the
- * sample count. M10 draws a curve from this rather than replaying ten thousand runs to
- * find out what one looked like.
+ * sample count. The reporting work draws a curve from this rather than replaying ten
+ * thousand runs to find out what one looked like.
  *
  * <p>
  * Counts are a {@code List} rather than an {@code int[]} on purpose: a record with an

@@ -116,7 +116,7 @@ public class MembershipService {
 	 * the role pinned into theirs until it expires — up to twelve hours. Every endpoint
 	 * that cares reads the membership back rather than trusting the claim, which is what
 	 * makes that survivable; a shorter answer would need a token version on the user or a
-	 * deny list, and neither is in M1.
+	 * deny list, and neither is in the team model.
 	 * @throws MemberNotFoundException if nobody in the caller's own organisation has that
 	 * identifier
 	 * @throws LastOwnerException if it would leave the organisation with no owner
@@ -180,8 +180,9 @@ public class MembershipService {
 	}
 
 	/**
-	 * The same re-read for an endpoint that any member may reach, which since M2 is most
-	 * of them: plan data is written by everybody, and roles govern administration only.
+	 * The same re-read for an endpoint that any member may reach, which since the plan
+	 * schema is most of them: plan data is written by everybody, and roles govern
+	 * administration only.
 	 *
 	 * <p>
 	 * Public for the same reason {@link #requireOwner} is. The tenant in an access token

@@ -17,8 +17,8 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
  * <p>
  * <strong>What is asserted here is that a variation varies one thing.</strong> A replay
  * is only worth anything if the two runs being compared differ where somebody asked and
- * nowhere else — which is M7's lesson about a cut taking a draw and discarding it,
- * arriving on the one type both counterfactuals go through.
+ * nowhere else — which is the inverse query's lesson about a cut taking a draw and
+ * discarding it, arriving on the one type both counterfactuals go through.
  */
 class ForecastInputsTests {
 

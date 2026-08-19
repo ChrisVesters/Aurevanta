@@ -12,8 +12,9 @@ public interface ForecastRunRepository extends JpaRepository<ForecastRun, UUID> 
 
 	/**
 	 * Every forecast of one plan, newest first — which is the order both readers want.
-	 * The history screen shows the latest and what it moved from, and M10's sliding-date
-	 * detector walks back through them looking for a date that keeps going out.
+	 * The history screen shows the latest and what it moved from, and the reporting
+	 * work's sliding-date detector walks back through them looking for a date that keeps
+	 * going out.
 	 *
 	 * <p>
 	 * The requester is fetched because their name is what a reader needs, and

@@ -15,9 +15,10 @@ import com.cvesters.aurevanta.item.WorkItem;
  *
  * <p>
  * <strong>Titles come off the plan and never off the snapshot</strong>, which holds
- * identifiers and no title on purpose: M10 diffs those snapshots and a rename is not a
- * thing that moved. So every answer that names a run's work — a contribution ranking and
- * a list of cuts — resolves the name against the plan as it stands today.
+ * identifiers and no title on purpose: the reporting layer diffs those snapshots and a
+ * rename is not a thing that moved. So every answer that names a run's work — a
+ * contribution ranking and a list of cuts — resolves the name against the plan as it
+ * stands today.
  *
  * <p>
  * Its own class because the three-way rule is the whole of it: named, named-and-put-away,

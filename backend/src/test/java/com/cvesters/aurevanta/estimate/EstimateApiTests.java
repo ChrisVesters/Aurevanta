@@ -47,8 +47,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * The tests worth reading twice are the ones about what <em>cannot</em> happen — that no
  * route rewrites a row, that a second estimate leaves the first readable, and that
  * removing somebody from an organisation does not take their estimates with them. Those
- * are the properties M8 depends on three years from now, and they are cheap to keep and
- * impossible to restore.
+ * are the properties calibration depends on three years from now, and they are cheap to
+ * keep and impossible to restore.
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -148,11 +148,11 @@ class EstimateApiTests {
 	}
 
 	/**
-	 * <strong>And the estimate this milestone is named after says nothing is wrong with
-	 * it.</strong> That is the measurement `m5-plan.md` opens with, asserted at the seam
-	 * somebody would actually meet it: 3/5/8 is coherent garbage, and a screen reading
-	 * these flags will show no warning at all. The question order is the defence; these
-	 * two are a backstop.
+	 * <strong>And the estimate this work is named after says nothing is wrong with
+	 * it.</strong> That is the measurement `docs/design/elicitation.md` opens with,
+	 * asserted at the seam somebody would actually meet it: 3/5/8 is coherent garbage,
+	 * and a screen reading these flags will show no warning at all. The question order is
+	 * the defence; these two are a backstop.
 	 */
 	@Test
 	void theCanonicalGarbageIsReportedAsPerfectlyFine() throws Exception {
@@ -185,7 +185,7 @@ class EstimateApiTests {
 	/**
 	 * <strong>The property this whole step exists for.</strong> A second estimate is a
 	 * second row: the first is still there, still readable, still what that person said
-	 * at the time — which is the only question M8 can ask.
+	 * at the time — which is the only question calibration can ask.
 	 */
 	@Test
 	void revisingAnEstimateLeavesTheFirstOneReadable() throws Exception {
@@ -227,7 +227,8 @@ class EstimateApiTests {
 
 	/**
 	 * Decision 2 working: two people may hold a current estimate on one item at once, and
-	 * their disagreement is signal M3 will read rather than a conflict to refuse here.
+	 * their disagreement is signal the simulation engine will read rather than a conflict
+	 * to refuse here.
 	 */
 	@Test
 	void twoEstimatorsHoldCurrentEstimatesOnOneItemAtOnce() throws Exception {
@@ -241,8 +242,9 @@ class EstimateApiTests {
 
 	/**
 	 * The estimator is a user and not a membership, so leaving an organisation does not
-	 * take a person's estimates with them. M1 made removal delete the membership and
-	 * never the identity; this is the half of that decision the schema had to keep.
+	 * take a person's estimates with them. The team model made removal delete the
+	 * membership and never the identity; this is the half of that decision the schema had
+	 * to keep.
 	 */
 	@Test
 	void anEstimateSurvivesItsEstimatorLeavingTheOrganisation() throws Exception {
@@ -396,8 +398,8 @@ class EstimateApiTests {
 	/**
 	 * <strong>Refused rather than stored, because the value of this column is exactly its
 	 * trustworthiness.</strong> A row claiming to have been collected a way nobody has
-	 * ever collected one would corrupt the one partition M8 can use to say whether
-	 * changing the question changed anything — and it would look like data.
+	 * ever collected one would corrupt the one partition calibration can use to say
+	 * whether changing the question changed anything — and it would look like data.
 	 */
 	@Test
 	void refusesAMethodThisServerHasNeverCollectedAnEstimateBy() throws Exception {
@@ -502,7 +504,8 @@ class EstimateApiTests {
 
 	/**
 	 * Decision 5's half of the bargain: a plan that is partly estimated is the ordinary
-	 * case, and what M2 owes M3 is a number saying how much of it was left out.
+	 * case, and what the plan schema owes the simulation engine is a number saying how
+	 * much of it was left out.
 	 */
 	@Test
 	void aProjectSaysHowMuchOfItIsEstimated() throws Exception {

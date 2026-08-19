@@ -8,8 +8,8 @@ import java.time.LocalDate;
  * <p>
  * <strong>Three of these rather than one, because the control moves.</strong> All of them
  * are arithmetic over dates this endpoint is already carrying, so publishing the three
- * M4's control offers costs nothing — and a reader who moves the control must not be
- * shown a verdict about a percentile they are no longer looking at.
+ * the calendar's control offers costs nothing — and a reader who moves the control must
+ * not be shown a verdict about a percentile they are no longer looking at.
  *
  * @param fromDate where the oldest run in the window put this percentile and
  * {@code toDate} where the newest one does, published so the flag can be checked rather

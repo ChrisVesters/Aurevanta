@@ -25,7 +25,8 @@ import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.TooManyCandidatesException;
 
 /**
- * What to cut to hit a date at a confidence, and what each cut would buy — M7.
+ * What to cut to hit a date at a confidence, and what each cut would buy — the inverse
+ * query.
  *
  * <p>
  * <strong>It weighs and never decides.</strong> Nothing here is written and nothing is

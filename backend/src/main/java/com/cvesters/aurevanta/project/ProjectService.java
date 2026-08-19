@@ -101,12 +101,12 @@ public class ProjectService {
 	 * moment.
 	 *
 	 * <p>
-	 * Public for {@code dependency}, which is the one thing in this milestone whose rule
-	 * is a property of a whole graph rather than of any row in it: two callers can each
-	 * read a plan their own new edge leaves acyclic and close a loop together. The lock
-	 * lives here rather than being taken on the repository directly so that reaching a
-	 * plan still goes through the one method that re-reads the caller's membership — a
-	 * lock is not a reason to skip the check that says they may be here at all.
+	 * Public for {@code dependency}, which is the one thing in this work whose rule is a
+	 * property of a whole graph rather than of any row in it: two callers can each read a
+	 * plan their own new edge leaves acyclic and close a loop together. The lock lives
+	 * here rather than being taken on the repository directly so that reaching a plan
+	 * still goes through the one method that re-reads the caller's membership — a lock is
+	 * not a reason to skip the check that says they may be here at all.
 	 *
 	 * <p>
 	 * The row it locks holds none of the graph. That is the point: the edges that would

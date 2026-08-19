@@ -14,7 +14,7 @@ import type { Contribution } from './forecastTypes';
  * rather than to hand four more pieces of it to the panel above.
  *
  * **Nothing may render these as percentages.** They are squared correlations, not a
- * partition: M3b's shared factor multiplies every item by the same draw, so everything moves
+ * partition: the common-cause model's shared factor multiplies every item by the same draw, so everything moves
  * with everything and the shares add to well over one. A bar per source, and a line saying
  * why they overlap.
  */

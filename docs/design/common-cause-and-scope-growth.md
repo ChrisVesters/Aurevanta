@@ -1,22 +1,22 @@
-# M3b — Correlation and scope: implementation plan
+# Common cause and scope growth — the design record
 
-> **Scope.** The second half of `roadmap.md` M3, and the half that cannot be checked against a
-> closed form: **the shared team factor** and **scope uncertainty**. M3a builds an engine that
+> **Scope.** The second half of the simulation engine, and the half that cannot be checked against a
+> closed form: **the shared team factor** and **scope uncertainty**. The first half builds an engine that
 > samples each item independently and forecasts exactly the work somebody listed. Both of those
-> are known to be wrong, and this milestone is where each stops being wrong. Excluded: calendar
-> dates (M4), elicitation (M5), variance contribution (M6), correlation *groups* beyond one
-> global factor (icebox), and any use of history to propose these parameters (M8/M9).
+> are known to be wrong, and this work is where each stops being wrong. Excluded: calendar
+> dates (the calendar), elicitation (elicitation), variance contribution (the contribution ranking), correlation *groups* beyond one
+> global factor (icebox), and any use of history to propose these parameters (calibration/the throughput forecast).
 >
-> **How to read this.** Decisions first, as ever. The one this milestone exists to settle is
-> decision 3 — *where new work attaches in a graph* — which `roadmap.md` lists as an open
+> **How to read this.** Decisions first, as ever. The one this work exists to settle is
+> decision 3 — *where new work attaches in a graph* — which `../roadmap.md` lists as an open
 > question and which has no obvious answer, only a defensible one.
 >
-> **Why this is not optional polish.** `roadmap.md` measured the shared team factor moving a
+> **Why this is not optional polish.** `../roadmap.md` measured the shared team factor moving a
 > true P90 from 209.4 to 222.2 on ten wide tasks: the closed form could not see it and neither
-> can M3a. `product-concept.md` says scope uncertainty is usually the *larger* of the two
+> can the simulation engine. `../product-concept.md` says scope uncertainty is usually the *larger* of the two
 > sources. An engine that ships without either produces a band that is too tight in two
-> directions at once, which is the failure mode this whole product was written to replace. M3a
-> ships with that stated on screen (its decision 12); **M3b is what deletes the statement by
+> directions at once, which is the failure mode this whole product was written to replace. The simulation engine
+> ships with that stated on screen (its decision 12); **The common-cause model is what deletes the statement by
 > removing its cause.**
 
 ---
@@ -25,14 +25,14 @@
 
 | Step | | Depends on |
 |---|---|---|
-| 1 | The team factor ✅ *done* | M3a |
-| 2 | Scope growth ✅ *done* | M3a |
+| 1 | The team factor ✅ *done* | the simulation engine |
+| 2 | Scope growth ✅ *done* | the simulation engine |
 | 3 | Both at once, and the engine version ✅ *done* | 1, 2 |
 | 4 | Stating the assumptions, and storing them ✅ *done* | 3 |
 | 5 | Asking the two questions ✅ *done* | 4 |
 | 6 | Close out ✅ *done* | 1–5 |
 
-Steps 1 and 2 are independent of each other and both are pure — the same seam M3a had.
+Steps 1 and 2 are independent of each other and both are pure — the same seam the simulation engine had.
 
 ---
 
@@ -47,19 +47,19 @@ Steps 1 and 2 are independent of each other and both are pure — the same seam 
 | 5 | How much new work | **A growth range in percent**, P10/P90, fitted and sampled per run, with stochastic rounding to a count. |
 | 6 | Whether the two double-count | **No, and the reason is capacity** — one makes items longer, the other makes more of them. |
 | 7 | Are the parameters required | **Yes, both**, like capacity. Zero is a claim, not an absence. |
-| 8 | What replaces the closed form | **Three narrower oracles**, of which degenerate equivalence with M3a is the strongest. |
+| 8 | What replaces the closed form | **Three narrower oracles**, of which degenerate equivalence with the first half is the strongest. |
 | 9 | What a version bump does to old runs | **The new engine must contain the old one as a special case**, or old runs stop being replayable. |
 | 10 | The factor and work already spent | **The factor applies only to what is still ahead.** The past is measured, not modelled. |
 
 ### Decision 1 — One multiplier per run, with its middle pinned
 
-`product-concept.md`: naive Monte Carlo samples each task independently, so good and bad luck
+`../product-concept.md`: naive Monte Carlo samples each task independently, so good and bad luck
 cancel and the band comes out implausibly tight. Reality has common causes — short staffing, a
 codebase that fights back, a quarter with three incidents in it — and they move everything
 together.
 
 **One factor `F` is drawn per run and multiplies every item's remaining duration.** One line
-inside the loop, and it is the difference `roadmap.md` measured at +6% on the P90 of ten wide
+inside the loop, and it is the difference `../roadmap.md` measured at +6% on the P90 of ten wide
 tasks.
 
 `F` is log-normal with **`mu = 0`**, so its median is exactly 1. That is the decision inside the
@@ -85,19 +85,19 @@ enough that only one run in ten is worse — and that, with the median pinned at
 s = ln(1 + N/100) / 1.2815515655446004
 ```
 
-which is **M3a's `LogNormalFit` with one end fixed**, not a second piece of distribution
+which is **The simulation engine's `LogNormalFit` with one end fixed**, not a second piece of distribution
 machinery. Three of the four fits in this engine now come from the same twenty lines, and the
 constant that appears here is the same one that fits an estimate — so getting it wrong breaks
-both, loudly, which is how decision 10 of M3a is paid off a second time.
+both, loudly, which is how decision 10 of the first half is paid off a second time.
 
-This is the surprise framing of M5 arriving early, and that is not an accident: it is the only
+This is the surprise framing of elicitation arriving early, and that is not an accident: it is the only
 form of the question a person can actually answer. **It is also the parameter most obviously
-derivable from history** — M8's calibration data and M9's throughput both bear on it — and the
+derivable from history** — calibration's calibration data and the throughput forecast's throughput both bear on it — and the
 plan is to ask now and propose from history later, never to invent a default in between.
 
 ### Decision 3 — New work is discovered *by* work, so it attaches to work
 
-This is the open question `roadmap.md` records and the reason M3b needed a plan of its own:
+This is the open question `../roadmap.md` records and the reason the common-cause model needed a plan of its own:
 *"when the model was a sum, unknown work was simply a multiplier. In a schedule, new work needs
 a position — does it attach to the critical path, spread across the graph, or append at the
 end? The choice materially changes the answer, and inflating the total is no longer a valid
@@ -125,7 +125,7 @@ to change.
 
 The obvious objection to shipping both is that they are the same effect wearing two hats: a plan
 that grows by 30% and a plan whose every task takes 30% longer both come out around 30% longer.
-Under M3a that objection would be **right**, and decision 3's first rejected row is exactly it.
+Under the simulation engine that objection would be **right**, and decision 3's first rejected row is exactly it.
 
 They separate the moment there is a capacity constraint. A multiplier makes each item longer and
 changes nothing about how many can run at once. New items **compete for slots**: they make the
@@ -141,17 +141,17 @@ effects on the same total.
 > two effects of different sizes.*
 
 That is the whole justification for modelling scope as items rather than as a number, and it is
-only available because M3a made the aggregator a scheduler.
+only available because the simulation engine made the aggregator a scheduler.
 
 **The other half of the double-count worry is human**, and it is answered rather than dismissed:
 estimators are asked for the effort of *this task as described*, and scope growth is by
 definition work nobody described, so in principle they do not overlap. In practice some
-estimators pad. M8 is what will eventually say by how much, per estimator — and until then this
+estimators pad. Calibration is what will eventually say by how much, per estimator — and until then this
 is a known softness rather than a hidden one.
 
 ### Decision 5 — A growth range, sampled, and rounded honestly
 
-`product-concept.md` already frames this: *"if the last five projects grew 40–90% in ticket
+`../product-concept.md` already frames this: *"if the last five projects grew 40–90% in ticket
 count, that is a distribution to sample from and multiply through."* So the input is a **range
 in percent** — P10 and P90 of how much the item count grows — fitted log-normal by the same
 machinery again, sampled per run, and multiplied by the number of items currently in the plan.
@@ -170,43 +170,43 @@ of the plan's estimated items uniformly and draw from its fitted distribution.**
 like existing work, stated as an assumption rather than assumed silently.
 
 Sampling one item's distribution rather than averaging across all of them matters for the same
-reason decision 3 of M3a matters: an average is a narrower thing than the population it came
+reason decision 3 of the simulation engine matters: an average is a narrower thing than the population it came
 from, and the point of generated work is that we do not know which kind it will be.
 
 `nothing_to_forecast` already guarantees at least one estimated item exists, so the reference
-class is never empty — a refusal in M3a doing load-bearing work here, which is worth noticing
+class is never empty — a refusal in the simulation engine doing load-bearing work here, which is worth noticing
 before somebody relaxes it.
 
 ### Decision 7 — Both parameters are required, because zero is a claim
 
-Capacity is required in M3a because every possible default is a claim about a team the server
+Capacity is required in the simulation engine because every possible default is a claim about a team the server
 has never met. These two are different in one way: they *have* a neutral value, and it is zero,
-and zero is precisely what M3a does.
+and zero is precisely what the simulation engine does.
 
 **They are still required**, and the reason is that zero is not neutral — it is the assertion
 that nothing in this team's world has a common cause and that no unlisted work will ever appear,
 and that assertion is false in every project either of us has seen. Defaulting to it would ship
-M3a's behaviour under M3b's name, with the limitation notices deleted and nothing put in their
+the simulation engine's behaviour under the common-cause model's name, with the limitation notices deleted and nothing put in their
 place. Somebody who genuinely wants to model a plan without either may say so by typing zero,
 and the run will report that they did — a refusal, or an assumption, is only honest when it is
 raised against something somebody chose.
 
-### Decision 8 — What replaces the oracle M3a had
+### Decision 8 — What replaces the oracle the simulation engine had
 
-M3a's argument for the split was that a schedule at capacity 1 is a sum of independent
+The simulation engine's argument for the split was that a schedule at capacity 1 is a sum of independent
 log-normals with an exact mean and variance, and that a shared factor destroys that check by
-construction — `roadmap.md` measured the closed form answering 214.0 against a true 222.2. That
+construction — `../roadmap.md` measured the closed form answering 214.0 against a true 222.2. That
 is still true, and it is why these two features are here and not there. **What it did not say,
-and should have, is that M3b has oracles of its own — they are just narrower.** Three of them:
+and should have, is that this half has oracles of its own — they are just narrower.** Three of them:
 
 - **Degenerate equivalence, which is the strongest.** With `s = 0` and growth `0–0`, this engine
-  must produce output **byte-identical to M3a's** for the same seed and inputs. That single test
-  covers the entire M3a surface as a regression, and it is what decision 9 rests on.
+  must produce output **byte-identical to the simulation engine's** for the same seed and inputs. That single test
+  covers the entire the simulation engine surface as a regression, and it is what decision 9 rests on.
 - **Exactness for one item.** If `X` is log-normal(`mu`, `sigma`) and `F` is log-normal(`0`, `s`)
   and they are independent, then `F · X` is log-normal(`mu`, `√(sigma² + s²)`) — exactly. So a
   one-item plan with a team factor has a closed form after all, and it pins the factor's
   implementation precisely even though a whole plan's does not.
-- **The published figure.** `roadmap.md` measured ten wide tasks (2–30d) at a true P90 of 209.4
+- **The published figure.** `../roadmap.md` measured ten wide tasks (2–30d) at a true P90 of 209.4
   independent and 222.2 with the shared factor. That is a number produced outside this codebase,
   which makes it the most valuable kind of test there is — reproduce the setup and converge to it.
   *(It does not say what factor produced 222.2, so the setup is one fact short of reproducible;
@@ -217,9 +217,9 @@ and leaves the median where it was; raising growth pushes every percentile out a
 scope and team factor converge on the same effect at capacity 1 and diverge above it (decision 6,
 asserted rather than argued).
 
-> **M3a is built, and the equivalence test now pins more than this plan knew about.**
-> "Byte-identical to M3a's" means byte-identical to what M3a *did*, not to what its bullets
-> said, and the two differ in places. **Read the `### As built` sections of `m3a-plan.md` before
+> **The simulation engine is built, and the equivalence test now pins more than this plan knew about.**
+> "Byte-identical to the simulation engine's" means byte-identical to what the simulation engine *did*, not to what its bullets
+> said, and the two differ in places. **Read the `### As built` sections of `simulation-engine.md` before
 > touching anything in the sampling loop or the scheduler**, because that is where the
 > difference is recorded and nothing else states it. The ones this test is silently holding:
 >
@@ -243,20 +243,20 @@ asserted rather than argued).
 >   record with an array component compares identities rather than contents, which is how a
 >   byte-identical assertion passes for the wrong reason.
 >
-> **What M3b is done by** is also sharper than these bullets: M3a emits `no_team_factor` and
+> **What this is done by** is also sharper than these bullets: the first half emits `no_team_factor` and
 > `no_scope_uncertainty` on every forecast it produces, and those two codes disappearing is the
 > finish line.
 
 ### Decision 9 — A version bump must keep the old engine inside the new one
 
-M3a stores `engine_version` on every run so that a stored forecast can be re-run and reproduce
-its numbers. M3b is the first bump, so it is where the rule that makes that promise survivable
+The simulation engine stores `engine_version` on every run so that a stored forecast can be re-run and reproduce
+its numbers. The common-cause model is the first bump, so it is where the rule that makes that promise survivable
 gets written down:
 
 **Either the new engine contains the old one as a special case, or every run made before the
 bump becomes a record that can be read and never replayed.**
 
-M3b takes the first route, and gets it almost free: M3a *is* M3b with `s = 0` and no growth. So
+The common-cause model takes the first route, and gets it almost free: the simulation engine *is* the common-cause model with `s = 0` and no growth. So
 the migration backfills those two values onto existing rows, and the backfill is **true** rather
 than merely convenient — it is exactly what those runs did. Replaying a version-1 run means
 running version 2 with the parameters version 1 implied, and the degenerate-equivalence test is
@@ -264,13 +264,13 @@ what proves that is the same thing.
 
 The rule has teeth for whoever bumps next. A future change that cannot be reduced to a parameter
 setting — a different fit, a different scheduler — does not get to pretend: it bumps the version,
-old runs become read-only history, and `roadmap.md` gets told, because M10's sliding-date
+old runs become read-only history, and `../roadmap.md` gets told, because the reporting work's sliding-date
 detector compares runs and comparing across an incomparable bump is how a tool reports movement
 that never happened.
 
 ### Decision 10 — The factor applies to the future, not the past
 
-M3a samples an in-progress item's remaining work as its estimate conditioned on the effort
+The simulation engine samples an in-progress item's remaining work as its estimate conditioned on the effort
 already spent. Multiplying *that* by a team factor is straightforward; multiplying the whole
 estimate before conditioning is not, because the conditioning would then be against a quantity
 that already has the factor in it, and the arithmetic stops meaning anything.
@@ -295,23 +295,23 @@ carries the bad quarter only across what it has left.
   step 2 exists.
 - `worseByPercent == 0` → the factor is exactly 1 every time, with no draw taken at all: the
   generator must not be consumed, or a zero factor would still shift every subsequent draw and
-  break decision 8's equivalence. **This is the subtlest thing in the milestone** and it is worth
+  break decision 8's equivalence. **This is the subtlest thing in the work** and it is worth
   its own test.
 
 **Tests.** The fit recovers its stated percentile. The median of many draws is 1, and the mean is
 above it — the asymmetry that makes a right-skewed multiplier what it is. **A one-item plan with
 a factor is log-normal(`mu`, `√(sigma² + s²)`)**, asserted against the analytic mean and variance
-— the exactness oracle of decision 8. Ten wide tasks reproduce `roadmap.md`'s 209.4 → 222.2.
+— the exactness oracle of decision 8. Ten wide tasks reproduce `../roadmap.md`'s 209.4 → 222.2.
 Raising the percentile widens the band and leaves the P50 within sampling error of where it was.
-A zero factor consumes no randomness: the same seed produces the same sequence as M3a.
+A zero factor consumes no randomness: the same seed produces the same sequence as the simulation engine.
 
-**Done when** the band widens for a reason, by an amount somebody measured before this code
+**Done when** The band widens for a reason, by an amount somebody measured before this code
 existed.
 
 ### As built — where it differs from the above
 
-- **The stretch this milestone was measured at is 30%, and nobody had written that down.**
-  `roadmap.md` reports 209.4 → 222.2 on ten wide tasks without saying what factor produced it,
+- **The stretch this work was measured at is 30%, and nobody had written that down.**
+  `../roadmap.md` reports 209.4 → 222.2 on ten wide tasks without saying what factor produced it,
   so the figure was not reproducible as stated — it is a target with a free parameter in it.
   Solving for the parameter gives `s = 0.205`, which is a P90 of **1.30**, and 30% is exactly
   the worked example decision 2 already uses. Both halves of that table are now a single test
@@ -323,8 +323,8 @@ existed.
   fit means a stretch is drawn by `LogNormalFit.at` — the same method an estimate is drawn
   through, so the two cannot drift about what a log-normal is. And decision 1 says a mean-1
   factor would move every forecast's centre *quietly*; a type that cannot hold a non-zero
-  middle turns the quietest failure in the milestone into a loud one. It is the precedent
-  `LogNormalFit.from`'s own refusals set in M3a step 1: unreachable through the API, coverable
+  middle turns the quietest failure in the work into a loud one. It is the precedent
+  `LogNormalFit.from`'s own refusals set in the simulation engine step 1: unreachable through the API, coverable
   by a test, and cheaper than a `NaN` surfacing four steps downstream.
 - **The middle is written as zero rather than read back from the fit.** `from` fits
   `1/worst` against `worst` — a reciprocal pair, which is what makes the median 1 and is why
@@ -334,9 +334,9 @@ existed.
   person sees, and not near enough for a constructor that refuses anything but zero — so the
   `sigma` is taken from the fit and the `mu` is stated.
 - **The degenerate-equivalence test is here, as the sequencing section asked, and it is a
-  golden-number test rather than a comparison against a second engine.** M3a's `Engine` is not
+  golden-number test rather than a comparison against a second engine.** the simulation engine's `Engine` is not
   a thing that still exists to be called, so what is asserted is the seven numbers it produced
-  — captured from the M3a build before this step changed a line — against what the same plan
+  — captured from the the simulation engine build before this step changed a line — against what the same plan
   and seed produce now with `TeamFactor.NONE`. Exact equality, not tolerance. The plan for it
   is deliberately awkward (work under way with hours against it, work nobody estimated, a fork
   and a lag), so the golden numbers pass through every branch of the sampler on the way out.
@@ -387,7 +387,7 @@ exactly one parent, drawn from the existing plan. At capacity 1, adding 20% scop
 total by about 20%; **at capacity 4 it lengthens it by more than a 20% duration multiplier
 does**, which is decision 6 as an assertion. A plan of one item still grows.
 
-**Done when** the larger of the two uncertainty sources is in the model, in the place `roadmap.md`
+**Done when** The larger of the two uncertainty sources is in the model, in the place `../roadmap.md`
 said it had to be given.
 
 ### As built — where it differs from the above
@@ -409,7 +409,7 @@ said it had to be given.
   of zero, because a log-normal never reaches it — and "usually it does not grow, but sometimes
   by 40%" is among the most honest answers anybody gives. Fitting `1 + p/100` accepts it, makes
   `from(0, 0)` come out as `NONE` with no special case anywhere, and is what
-  `product-concept.md`'s own "a distribution to sample from and **multiply through**" describes.
+  `../product-concept.md`'s own "a distribution to sample from and **multiply through**" describes.
   The price is that a range starting at zero puts a tenth of its draws below a multiplier of 1,
   which this model reads as no growth rather than as a plan that shrank — so **a stated P10 of
   0% means exactly one run in ten finds nothing, by construction.** That is a property worth
@@ -447,7 +447,7 @@ said it had to be given.
   gives finished work a weight of zero and does this for free.
 - **The engine refuses to grow a plan with nothing estimated in it**, since new work costs what
   this plan's work costs and such a plan has nothing to answer with. Unreachable through the
-  API — `nothing_to_forecast` is what makes it so, two milestones after it was written for
+  API — `nothing_to_forecast` is what makes it so, two features after it was written for
   another reason entirely — and reachable from a test, which is the same distinction
   `LogNormalFit.from` draws.
 - **The oracle for decision 4 came out exact.** One item and a plan certain to double is two
@@ -456,7 +456,7 @@ said it had to be given.
   A generator drawing from the plan's average, or from a fixed size, or from the item it
   attached to, misses both.
 - **The budget is still comfortable: about 560ms** for five hundred items and ten thousand runs
-  with *both* parameters on, against the two seconds decision 8 of `m3a-plan.md` allowed. It was
+  with *both* parameters on, against the two seconds decision 8 of `simulation-engine.md` allowed. It was
   300ms without them, and the difference is scheduling the two hundred extra items a 20–60%
   growth range discovers each run.
 
@@ -472,13 +472,13 @@ said it had to be given.
 - **The degenerate path is the compatibility layer**, not a branch beside it: version 1 is
   version 2 with `s = 0` and no growth, and there is no second code path to keep in step.
 
-**Tests.** The equivalence test of decision 8 — a stored M3a run, replayed at version 2 with zero
+**Tests.** The equivalence test of decision 8 — a stored the simulation engine run, replayed at version 2 with zero
 parameters, reproduces its percentiles byte for byte. Both effects together produce a wider band
 than either alone. Determinism holds with both switched on. The generator is consumed in a fixed
 order regardless of which parameters are zero, which is the invariant everything above rests on
 and the one a careless refactor breaks silently.
 
-**Done when** the engine models what it always should have, and can still answer for what it said
+**Done when** The engine models what it always should have, and can still answer for what it said
 before it did.
 
 ### As built — where it differs from the above
@@ -490,7 +490,7 @@ before it did.
   the way the two earlier steps had to be written, not a thing to do here.
 - **The equivalence test was written in step 1, as the sequencing section asked**, so what this
   step added was its name: `versionTwoWithNoAssumptionsForecastsExactlyWhatVersionOneDid`. It
-  still asserts the seven numbers captured from the M3a build before a line of M3b existed, and
+  still asserts the seven numbers captured from the the simulation engine build before a line of the common-cause model existed, and
   exact equality still holds now that both parameters are threaded through the loop — which is
   the whole of what version 2 promises about version 1.
 - **The draw-order invariant is pinned by a hand-rolled oracle rather than by a property.** The
@@ -514,7 +514,7 @@ before it did.
   engine produced, which proves nothing the golden test does not already prove better.
 - **Runs written between this step and step 4 carry a version and no parameters**, which sounds
   like a gap and is not: they are all zero, and step 4's backfill sets zero on every existing
-  row. The backfill is true for them for the same reason it is true for the M3a rows.
+  row. The backfill is true for them for the same reason it is true for the the simulation engine rows.
 - **The frontend's forecast fixture said version 1.** Nothing renders it, so nothing failed —
   but a double that describes a payload the server no longer sends is the same species of
   problem as one that answers every URL alike, and it was one line.
@@ -529,13 +529,13 @@ before it did.
   `scope_growth_p90_percent` on `forecast_runs`, **backfilled to zero** — which is not a default
   standing in for missing data but a true statement about what those runs did.
 - Real columns rather than the `inputs` document, for the reason capacity and `priority_rule` got
-  them: these are the assumptions M10 compares across runs, and a comparison is a query.
+  them: these are the assumptions the reporting work compares across runs, and a comparison is a query.
 - `POST /api/projects/{projectId}/forecasts` gains three required numbers, validated
   `@PositiveOrZero` with a sane ceiling, and `scopeGrowthP90 >= scopeGrowthP10` refused as a
   document-level code the way `estimate_out_of_order` is — it is a relationship between fields,
   not a fault in either.
 - **The limitation codes `no_team_factor` and `no_scope_uncertainty` are deleted** from the
-  engine's output. That is the concrete definition of M3b being done. `unestimated_items` and
+  engine's output. That is the concrete definition of the common-cause model being done. `unestimated_items` and
   `inconsistent_estimates` stay, because they are properties of a plan rather than of the model.
 - The response carries the three assumptions back, so what produced a number travels with it.
 
@@ -549,19 +549,19 @@ zeros still says so — the assumption is reported whether or not it is doing an
 ### As built — where it differs from the above
 
 - **The two limitation codes are retired, not deleted, and deleting them would have destroyed
-  the history this milestone is careful about everywhere else.** `ForecastOutputs` holds
-  `List<ForecastLimitation>` and every M3a run has `no_team_factor` and `no_scope_uncertainty`
+  the history this work is careful about everywhere else.** `ForecastOutputs` holds
+  `List<ForecastLimitation>` and every the simulation engine run has `no_team_factor` and `no_scope_uncertainty`
   sitting in its stored `outputs` document — so removing the constants would have made those
   runs fail to deserialise, taking the whole forecast history with them. The plan says
   "deleted from the engine's output", and that is exactly what happened: nothing writes them,
-  the constants stay, and their documentation says which milestone retired them. The rule that
+  the constants stay, and their documentation says which work retired them. The rule that
   made this necessary is `ForecastLimitation`'s own — limitations are stored rather than worked
-  out at read time — which was written as a precaution in M3a and became load-bearing here.
+  out at read time — which was written as a precaution in the simulation engine and became load-bearing here.
 - **The ceiling was measured rather than picked, and it is 200%.** "A sane ceiling" has two
   possible readings and only one of them bites: every percent of scope growth is items the
   scheduler runs. At the five hundred a plan may hold, ten thousand runs cost **413ms with no
   growth, 655ms at 100%, 915ms at 200%, 1.9s at 500% and 3.4s at 1000%** — so 200 is the last
-  value that leaves the two-second budget `m3a-plan.md` decision 8 measured with room in it,
+  value that leaves the two-second budget `simulation-engine.md` decision 8 measured with room in it,
   and that budget is the whole reason a forecast is answered inside its request. The team
   factor costs one multiplication and could go further; it shares the bound for want of a
   reason to differ.
@@ -569,13 +569,13 @@ zeros still says so — the assumption is reported whether or not it is doing an
   reach existing rows and must not survive as a rule for future ones: a default left in place
   would let an insert omit an assumption and be handed one by the database, which is precisely
   the "a server that picked would be making a claim about a team it has never met" the rest of
-  this milestone refuses. Old rows get a true zero; nothing after may leave the question
+  this work refuses. Old rows get a true zero; nothing after may leave the question
   unanswered.
 - **`@Digits(integer = 4, fraction = 2)` alongside the bounds**, matching `numeric(6, 2)` for
-  the reason M2 put it on an estimate. Without it a team factor of `0.004` passes
+  the reason the plan schema put it on an estimate. Without it a team factor of `0.004` passes
   `@PositiveOrZero`, is used by the engine, and is stored as `0.00` — leaving a run whose
   columns describe an assumption it did not make and whose replay disagrees with its own
-  percentiles. The same bug M2 found in the same shape.
+  percentiles. The same bug the plan schema found in the same shape.
 - **The replay test now reads the assumptions off the run instead of naming them**, and the run
   it replays is made with all three non-zero. That converts `aStoredRunReplaysToTheNumbersItReported`
   from a test that would pass with the columns missing entirely into one that fails if they are
@@ -613,17 +613,17 @@ change.
 - The result states all five assumptions beside the band: capacity, samples, the factor, and the
   growth range. Not behind a disclosure. A forecast whose assumptions are one click away is a
   forecast that gets screenshotted without them.
-- **The M3a limitation notice for these two disappears**, replaced by the stated values. What
+- **The the simulation engine limitation notice for these two disappears**, replaced by the stated values. What
   remains is coverage and estimate inconsistency.
 - The history list shows the assumptions per run, because two runs of the same plan with
-  different assumptions are not a movement and must not read as one — which is M10's whole
+  different assumptions are not a movement and must not read as one — which is the reporting work's whole
   problem arriving early enough to design around.
 
 **Tests.** Both questions are required and an empty box is refused before a request goes out. The
 assumptions render beside the result. A refusal on the growth range reads as a question about the
 two numbers rather than as an error. Every string comes from the catalogue.
 
-**Done when** the two hardest questions in the model are the two most visible things on the
+**Done when** The two hardest questions in the model are the two most visible things on the
 screen.
 
 ### As built — where it differs from the above
@@ -647,13 +647,13 @@ screen.
   made the panel describe somebody's own history as "something this version cannot describe
   yet". Their tense changed — "it treats every task as independent" became "it treated" — because
   they now only ever describe a run that has already happened.
-- **The fixture had to stop being an M3a forecast.** `FORECAST` in `render.tsx` carried the two
-  codes every M3a run had; it now carries an assumption pair that is *not* zero and a limitation
+- **The fixture had to stop being an the simulation engine forecast.** `FORECAST` in `render.tsx` carried the two
+  codes every the simulation engine run had; it now carries an assumption pair that is *not* zero and a limitation
   a plan can still earn. A fixture whose assumptions were both zero would let a screen that
   rendered them only when they were interesting pass, and one still carrying retired codes would
   have been describing a payload the server cannot produce.
 - **`npm run test` passed while `npm run build` did not**, which is worth recording because it
-  is the same lesson twice in one milestone. The interpolation helper first returned
+  is the same lesson twice in one work. The interpolation helper first returned
   `Record<string, string>`, which is assignable to anything and told i18next nothing: the
   catalogue's typed keys only bite when the object's shape is known. Vitest does not typecheck,
   so 337 tests were green against a panel that would not compile. The type checker is the test
@@ -673,24 +673,24 @@ screen.
 
 ## Step 6 — Close out ✅ *done*
 
-- `roadmap.md`: mark M3b done and, with it, **M3** — the product exists. Retire the "scope
+- `../roadmap.md`: mark the common-cause model done and, with it, **The simulation engine** — the product exists. Retire the "scope
   uncertainty has no agreed position in a graph" thin spot by recording the answer and the three
   positions rejected.
-- `roadmap.md`: record what M8, M9 and M5 inherit — each of these two parameters is asked of a
+- `../roadmap.md`: record what calibration, the throughput forecast and elicitation inherit — each of these two parameters is asked of a
   person now and derivable from history later, and that is a feature waiting on data rather than
   on a decision.
-- `roadmap.md` icebox: **correlation groups** ("items sharing a component, a person, or an unknown
+- `../roadmap.md` icebox: **correlation groups** ("items sharing a component, a person, or an unknown
   technology fail together") is now precisely one step beyond a thing that exists, so its entry
   should say so.
 - `CLAUDE.md`: the composition rule of decision 6 — one makes items longer, the other makes more
   of them, and merging them would be one effect counted twice; the median-1 pinning and why a
   mean-1 factor would silently move every forecast; and decision 9's rule about version bumps.
-- `product-concept.md`: its *Independence is a lie* and *Unknown unknowns dominate the error*
+- `../product-concept.md`: its *Independence is a lie* and *Unknown unknowns dominate the error*
   sections stop being design intent.
 
 ### As built — where it differs from the above
 
-- **One of these edits is a correction to `roadmap.md` rather than a status update.** Its
+- **One of these edits is a correction to `../roadmap.md` rather than a status update.** Its
   209.4 → 222.2 table never said which factor produced 222.2, so the figure it holds up as the
   most valuable kind of test — a number produced outside this codebase — was not reproducible
   as written. The parameter was recovered by solving for it (a P90 of 1.30), the table now
@@ -700,30 +700,30 @@ screen.
   review and neither would fail a test if broken. *A parameter set to none must consume no
   randomness* — a draw that changes no number still advances the generator and unreplays every
   stored forecast. And *retired is not deleted* — the two limitation codes stay in the enum and
-  in the frontend catalogue because runs made before M3b still carry them, and an enum missing
+  in the frontend catalogue because runs made before the common-cause model still carry them, and an enum missing
   a value present in stored JSON is a forecast that cannot be read at all. The step asked for
   the composition rule, the median-1 pinning and the version-bump rule; those are there too.
 - **The thin spot was already struck through before this step ran**, having been answered when
-  `m3b-plan.md` was written. What it needed was the difference between answered and built, plus
+  `common-cause-and-scope-growth.md` was written. What it needed was the difference between answered and built, plus
   the one thing the entry was missing: that the claim it settles on is the *weakest* of the four
   positions, and that the refinement which would sharpen it — weighting attachment by remaining
   effort — is named and deliberately not built.
-- **The reason M4 is next changed, rather than the ordering.** `roadmap.md` had M4 recorded as a
+- **The reason the calendar is next changed, rather than the ordering.** `../roadmap.md` had the calendar recorded as a
   *temptation to resist*: a date is what people ask for, the conversion looks like arithmetic,
   and the number being converted was knowingly too tight. That objection is spent, so the
-  paragraph now says why the same milestone is the right next thing — and keeps the part that
-  still holds, which is that the working-day assumption M4 imports must stay crude and visible
+  paragraph now says why the same work is the right next thing — and keeps the part that
+  still holds, which is that the working-day assumption the calendar imports must stay crude and visible
   rather than becoming the first number in this product a server picked.
 - **The icebox entry for correlation groups was made *less* encouraging, not more.** It read as
   "a modest step up from one shared factor", which is true of the sampling and false of the
   feature: the arithmetic is a few lines, and what it actually costs is a grouping somebody has
   to define — schema, a way to put an item in a group, a screen — plus one more question to ask
-  per group, which is the part M5 says is hard. Being one step from a thing that exists is a
+  per group, which is the part elicitation says is hard. Being one step from a thing that exists is a
   reason to describe the step accurately, not a reason to move it up.
 
 ### The review after the close-out
 
-A pass over everything M3b touched, after it was all in. No modelling error survived it, which
+A pass over everything the common-cause model touched, after it was all in. No modelling error survived it, which
 is the thing that mattered; what it did find was one efficiency regression, one caveat nobody
 had written down, and three pieces of sloppiness.
 
@@ -740,8 +740,8 @@ had written down, and three pieces of sloppiness.
   grown is told to expect the full percentage again, and finished work counts towards the base.
   Both are defensible — the question asked is how much a plan like this one turns out to hold —
   and neither was written down anywhere. Now recorded on `ScopeGrowth.sample`, alongside the
-  same answer decision 3 gives: it stops being a guess when M8 can read a plan's own history.
-- **`MAX_SAMPLE_COUNT`'s javadoc quoted a cost M3b had changed.** The worst case a caller can ask
+  same answer decision 3 gives: it stops being a guess when calibration can read a plan's own history.
+- **`MAX_SAMPLE_COUNT`'s javadoc quoted a cost this work had changed.** The worst case a caller can ask
   for went from roughly three seconds to roughly nine, because every run now schedules what it
   discovered as well. The bound stays — it was never what protects the server — but a comment
   stating a measured number that has moved is worse than no comment.
@@ -774,11 +774,11 @@ exist.
 
 ## Sequencing and risk
 
-**The risk here is different from M3a's, and worse.** M3a could be wrong and be caught by
-arithmetic. M3b's two features have no whole-plan closed form — that is why they are separate —
+**The risk here is different from the simulation engine's, and worse.** the simulation engine could be wrong and be caught by
+arithmetic. The common-cause model's two features have no whole-plan closed form — that is why they are separate —
 so the defence is three narrower oracles and a set of directional properties. **The single most
-valuable test in this milestone is the degenerate-equivalence one**, because it converts the
-entire M3a test suite into a regression suite for M3b at the cost of one assertion. Write it in
+valuable test in this work is the degenerate-equivalence one**, because it converts the
+entire the simulation engine test suite into a regression suite for the common-cause model at the cost of one assertion. Write it in
 step 1, not step 3.
 
 **Three things that will look like bugs and are not**, in the order somebody will report them:
@@ -786,7 +786,7 @@ step 1, not step 3.
 - **The band gets much wider and the middle barely moves.** That is the team factor working, and
   it is the entire point: the P50 was never the problem.
 - **Two forecasts of the same unchanged plan differ.** They will, by more than they did under
-  M3a, because scope growth is a count and counts are lumpy. Seeds are stored precisely so this
+  the simulation engine, because scope growth is a count and counts are lumpy. Seeds are stored precisely so this
   is investigable rather than arguable.
 - **A small plan sometimes grows and sometimes does not.** Stochastic rounding, working as
   designed — and the alternative is a plan of ten items that can never grow by 4%.
@@ -797,9 +797,9 @@ draws happening in a fixed order — including *not* happening when a parameter 
 invisible in review, it breaks nothing that a normal test would notice, and it silently
 invalidates every stored run. The test that guards it is cheap and belongs in step 3.
 
-**What this milestone must not absorb.** Correlation *groups* — per-component, per-person, per
+**What this work must not absorb.** Correlation *groups* — per-component, per-person, per
 unknown-technology factors — are the obvious next thought once one global factor exists, and they
 are in the icebox for a reason: they need a grouping somebody has to define, which is schema and
 UI, and one shared factor already captures most of the effect at a fraction of the cost.
-Proposing either parameter from history is M8/M9's data and M5's framing, and doing it here
+Proposing either parameter from history is calibration/the throughput forecast's data and elicitation's framing, and doing it here
 would mean inventing a default in the one place this plan refuses to.

@@ -12,8 +12,8 @@ package com.cvesters.aurevanta.forecast.model;
  * 1/2/3. A Fibonacci triple is very nearly geometric, which is exactly the shape a
  * log-normal fit expects, so the canonical garbage this product exists to stop is
  * <em>coherent</em> garbage: internally consistent, plausibly shaped, and invisible to
- * any test that can be run on three numbers in isolation. `m5-plan.md` opens with the
- * table.
+ * any test that can be run on three numbers in isolation. `docs/design/elicitation.md`
+ * opens with the table.
  *
  * <p>
  * What that leaves these two doing is real and smaller. They catch a middle pasted

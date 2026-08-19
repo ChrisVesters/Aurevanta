@@ -6,9 +6,10 @@ import org.springframework.http.HttpStatus;
  * Somebody else already has the handle this caller asked for.
  *
  * <p>
- * The refusal M0 got wrong, aimed at the right thing. "That organisation name is taken"
- * left a person nothing to do, because it was their name; a handle is an address, and
- * picking another costs nothing. It is only ever raised against a handle somebody typed.
+ * The refusal the original tenancy design got wrong, aimed at the right thing. "That
+ * organisation name is taken" left a person nothing to do, because it was their name; a
+ * handle is an address, and picking another costs nothing. It is only ever raised against
+ * a handle somebody typed.
  *
  * <p>
  * Carries a free alternative so the refusal arrives with its own remedy, which is the

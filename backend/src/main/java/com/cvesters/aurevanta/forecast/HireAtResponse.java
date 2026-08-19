@@ -8,9 +8,9 @@ import java.util.List;
  *
  * <p>
  * <strong>Three of these rather than one, because the control moves.</strong> Every
- * replay produces all five percentiles at once, so publishing the three M4's control
- * offers costs nothing — and asking again would mean paying for the simulations a second
- * time to answer a question the reader has already bought.
+ * replay produces all five percentiles at once, so publishing the three the calendar's
+ * control offers costs nothing — and asking again would mean paying for the simulations a
+ * second time to answer a question the reader has already bought.
  *
  * @param stands the date this run gives today, so the distance below can be checked
  * rather than believed.

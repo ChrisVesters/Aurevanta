@@ -82,7 +82,7 @@ export function EarlierRuns({
               {/*
                 Its own calendar, for the reason it carries its own assumptions:
                 two runs read under different working days are two readings rather
-                than a date moving, which is the mistake M10 exists to avoid.
+                than a date moving, which is the mistake the reporting layer exists to avoid.
               */}
               {readUnder && (
                 <> {t('projects.forecast.earlier.calendar', readUnder)}</>

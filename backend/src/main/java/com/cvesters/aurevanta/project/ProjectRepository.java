@@ -20,8 +20,8 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 	 * Both halves of the listing are this one query because they differ only in which
 	 * side of {@code archived_at is null} they want, and two methods would be two places
 	 * to forget the tenant. No pagination: a plan is 500 items and an organisation's
-	 * projects are fewer, which {@code m2-plan.md} fixes precisely so that this question
-	 * has an answer.
+	 * projects are fewer, which {@code docs/design/plans-and-estimates.md} fixes
+	 * precisely so that this question has an answer.
 	 *
 	 * <p>
 	 * Ordered by name, then by when it was made, then by identifier — a name is not

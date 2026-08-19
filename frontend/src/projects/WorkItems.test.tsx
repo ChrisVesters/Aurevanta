@@ -58,7 +58,7 @@ const THREE_ITEMS: WorkItem[] = [
  * The three questions, as somebody reads them — and in the order they are asked, which is
  * the whole of what makes this form different from the three boxes it replaced. They are
  * written out rather than looked up so that a change to the wording has to be made here
- * too, deliberately: these strings are the milestone.
+ * too, deliberately: these strings are the work.
  */
 const BAD_CASE =
   'Think of a version of this that goes badly — not a disaster, just a bad week. What number would make you genuinely surprised to have gone over?';
@@ -846,7 +846,7 @@ describe('WorkItems', () => {
   });
 
   /**
-   * <strong>The order is the milestone, and this is what holds it.</strong> The bad case
+   * <strong>The order is the work, and this is what holds it.</strong> The bad case
    * is asked first because it is the only one of the three with nothing above it; the
    * middle is asked last because the fit does not use it and it is the number people
    * answer fastest. A form that asked them in any other order would pass every other test
@@ -1175,7 +1175,7 @@ describe('WorkItems', () => {
             p50Hours: 5,
             p90Hours: 12,
             // The form that asks says how it asked, so the row can be partitioned by it
-            // later — which is the only way M8 can ever say whether this milestone
+            // later — which is the only way calibration can ever say whether this work
             // changed anything.
             method: 'surprise_framed'
           })

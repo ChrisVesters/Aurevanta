@@ -18,10 +18,10 @@ import com.cvesters.aurevanta.security.AuthenticatedUser;
  * <p>
  * <strong>Its own controller rather than a sixth method on
  * {@code ForecastController}</strong>, because the two are not the same kind of thing.
- * That one creates and reads runs of the engine — rows in {@code forecast_runs} that M10
- * walks as a history of somebody deliberately re-forecasting. This creates nothing and
- * reads no run: it counts what a team finished and projects what it has left, and the
- * only estimate involved is the absence of one.
+ * That one creates and reads runs of the engine — rows in {@code forecast_runs} that the
+ * reporting work walks as a history of somebody deliberately re-forecasting. This creates
+ * nothing and reads no run: it counts what a team finished and projects what it has left,
+ * and the only estimate involved is the absence of one.
  *
  * <p>
  * <strong>A {@code GET}, unlike every forecast endpoint before it.</strong> It writes

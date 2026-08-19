@@ -90,11 +90,10 @@ class TeamFactorTests {
 	}
 
 	/**
-	 * <strong>The subtlest thing in this milestone, asserted rather than
-	 * intended.</strong> A factor of none must not consume the generator, or every draw
-	 * after it shifts and a seed stops meaning what it meant — which would silently
-	 * unreplay every forecast stored before there was a factor at all, with no number
-	 * changing to say so.
+	 * <strong>The subtlest thing in this work, asserted rather than intended.</strong> A
+	 * factor of none must not consume the generator, or every draw after it shifts and a
+	 * seed stops meaning what it meant — which would silently unreplay every forecast
+	 * stored before there was a factor at all, with no number changing to say so.
 	 */
 	@Test
 	void aFactorOfNoneTakesNoDrawAtAll() {

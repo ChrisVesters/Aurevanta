@@ -17,7 +17,7 @@ import type {
  * Every sentence this panel says, and nothing that says it.
  *
  * **Prose is the feature here, which is why it is worth holding apart from the markup.**
- * M10's whole subject is saying a forecast to somebody who does not know what P90 means, and
+ * the whole subject of saying a forecast plainly is saying a forecast to somebody who does not know what P90 means, and
  * its sharpest rule — *one date, never a window* — is a rule about a string. A function that
  * builds one is testable, greppable and reviewable on its own; the same rule spread through
  * JSX is a rule nobody can check.
@@ -53,8 +53,8 @@ const LIMITATIONS: ForecastLimitation[] = [
  * The reading at one confidence, out of an answer that carries all three.
  *
  * **Shared by the drift and the decomposition because it is the same property**: both were
- * computed at every confidence M4's control offers, so moving the control changes what is on
- * screen and sends no request. That is the trade M4 built the control to make immediate,
+ * computed at every confidence the calendar's control offers, so moving the control changes what is on
+ * screen and sends no request. That is the trade the calendar built the control to make immediate,
  * inherited here rather than restated.
  */
 export function readingOf<T extends { confidence: number }>(
@@ -290,7 +290,7 @@ export function describeSource(t: TFunction, source: Contribution): string {
 }
 
 /**
- * The two assumptions M3b added, as a run reports them — written once because the band and
+ * The two assumptions the common-cause model added, as a run reports them — written once because the band and
  * the history below it have to describe a run the same way. A reader comparing two entries
  * is comparing exactly these numbers.
  */
@@ -339,7 +339,7 @@ export function decimal(
  * A code this version does not recognise still gets a line rather than being dropped. It
  * means the server is ahead of the browser, which is the direction this pair versions in,
  * and quietly showing nothing would be the one failure decision 12 exists to prevent
- * arriving through the back door. The two codes M3b retired go the other way and are still
+ * arriving through the back door. The two codes the common-cause model retired go the other way and are still
  * described here, because a run made before it is still a run this screen lists.
  */
 export function describeLimitation(

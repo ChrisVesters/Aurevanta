@@ -95,9 +95,9 @@ class ConfidenceByTests {
 	}
 
 	/**
-	 * Watching a forecast to count it changes no number in it, which is M6's property
-	 * arriving for a second observer — and the reason `Engine.VERSION` does not move for
-	 * this milestone either.
+	 * Watching a forecast to count it changes no number in it, which is the contribution
+	 * ranking's property arriving for a second observer — and the reason `Engine.VERSION`
+	 * does not move for this work either.
 	 */
 	@Test
 	void countingAForecastChangesNoNumberInIt() {

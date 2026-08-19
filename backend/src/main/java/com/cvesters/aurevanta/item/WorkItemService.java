@@ -29,15 +29,15 @@ import com.cvesters.aurevanta.user.User;
  * <p>
  * Any member may do all of it, as with projects: roles govern administration only.
  * Nothing here deletes anything either — an item archives, and from step 3 it carries
- * estimates that M8 reads years later.
+ * estimates that calibration reads years later.
  *
  * <p>
  * <strong>A progress report is written twice, and the two writes are not the same
  * thing.</strong> The four columns on {@link WorkItem} hold the latest state, which is
  * what a screen draws and what a forecast reads; {@link WorkItemProgress} holds every
- * claim ever made, which is what M8 measures an estimate's date against. Both happen in
- * one transaction here, so the item's state and the last line of its history cannot
- * disagree — and the second is the reason the first may be written over safely.
+ * claim ever made, which is what calibration measures an estimate's date against. Both
+ * happen in one transaction here, so the item's state and the last line of its history
+ * cannot disagree — and the second is the reason the first may be written over safely.
  *
  * <p>
  * Two ways in, and the difference is deliberate. <strong>Creating and listing go through
@@ -153,8 +153,8 @@ public class WorkItemService {
 	 * <p>
 	 * <strong>And the claim is appended as well as applied.</strong> Until {@code V16}
 	 * this wrote over the last report with nothing recording who had made it or that it
-	 * had ever said something else — so M8's exclusion rule, which asks whether an
-	 * estimate predates the start of the work, could be satisfied after the fact by
+	 * had ever said something else — so calibration's exclusion rule, which asks whether
+	 * an estimate predates the start of the work, could be satisfied after the fact by
 	 * editing the start.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws WorkItemNotFoundException if no item in it has that identifier
@@ -210,9 +210,9 @@ public class WorkItemService {
 	 * organisation.
 	 *
 	 * <p>
-	 * <strong>This is the boundary M8 scores against</strong>, and every part of it is
-	 * chosen to run in the unflattering direction. An estimate written after work began
-	 * is a report by somebody who could already see how the task was going, so the
+	 * <strong>This is the boundary calibration scores against</strong>, and every part of
+	 * it is chosen to run in the unflattering direction. An estimate written after work
+	 * began is a report by somebody who could already see how the task was going, so the
 	 * earlier the boundary, the fewer estimates count as forecasts — and the number that
 	 * comes out is the one nobody can improve by editing a date.
 	 *
@@ -329,9 +329,9 @@ public class WorkItemService {
 	 * <p>
 	 * An {@code int} rather than the {@code long} the count arrives as, and
 	 * {@link Math#toIntExact} rather than a cast: 500 items to a plan is the stated
-	 * ceiling this milestone's arithmetic assumes, so a number that could not fit is a
-	 * broken assumption and should say so rather than wrap silently into a backlog of
-	 * minus two billion.
+	 * ceiling this work's arithmetic assumes, so a number that could not fit is a broken
+	 * assumption and should say so rather than wrap silently into a backlog of minus two
+	 * billion.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 * @throws ProjectNotFoundException if no project in it has that identifier
 	 */

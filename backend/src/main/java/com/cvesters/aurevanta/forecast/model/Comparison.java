@@ -16,13 +16,13 @@ import java.util.Set;
  *
  * <p>
  * <strong>An engine version differing is a refusal and everything else is a
- * finding</strong>, and the two look contradictory until the question is put properly. M6
- * refuses to explain a run it cannot reproduce, because there is nothing to compare
- * *with*: a ranking from a different model is an exact ranking of a plan nobody forecast.
- * That is what an {@code Engine.VERSION} difference is. Everything else here is the
- * *question* changing, which is precisely the thing worth reporting — refusing a pair
- * because somebody adjusted the capacity would leave them staring at two dates a
- * fortnight apart with no account of either.
+ * finding</strong>, and the two look contradictory until the question is put properly.
+ * The contribution ranking refuses to explain a run it cannot reproduce, because there is
+ * nothing to compare *with*: a ranking from a different model is an exact ranking of a
+ * plan nobody forecast. That is what an {@code Engine.VERSION} difference is. Everything
+ * else here is the *question* changing, which is precisely the thing worth reporting —
+ * refusing a pair because somebody adjusted the capacity would leave them staring at two
+ * dates a fortnight apart with no account of either.
  *
  * <p>
  * <strong>Compared with {@code compareTo} and never {@code equals}</strong>, because
@@ -157,7 +157,8 @@ public record Comparison(Set<Difference> differences) {
 	 * When they are not, the two are still comparable — in <em>hours</em>, which is what
 	 * the engine produced and what no calendar has been laid over yet. A difference in
 	 * days between runs read under different working days is a difference in the divisor,
-	 * and reporting it as a plan moving is M4's own error arriving one level up.
+	 * and reporting it as a plan moving is the calendar's own error arriving one level
+	 * up.
 	 */
 	public boolean sameCalendar() {
 		return noneOf(CALENDAR);
