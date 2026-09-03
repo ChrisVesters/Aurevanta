@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 import type { UserRole } from '../auth/types';
 import { describeFailure } from '../i18n/problems';
 import { InviteForm } from '../members/InviteForm';
+import { Modal } from '../ui/Modal';
 import { MemberList } from '../members/MemberList';
 import { PendingInvitations } from '../members/PendingInvitations';
 import type { Invitation, Member } from '../members/types';
@@ -28,6 +29,15 @@ export function MembersPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
+  /**
+   * Whether somebody is writing an invitation.
+   *
+   * The form used to sit under the member list and the pending invitations, which put every
+   * colleague in the organisation between an owner and the way to add one. It is asked for
+   * now, from a control above the list — inviting somebody is what an owner opens this page
+   * to do, and reading down to the bottom to find out how is not part of the job.
+   */
+  const [inviting, setInviting] = useState(false);
 
   const canAdminister = account?.role === 'OWNER';
   const organisationId = account?.organisation.id;
@@ -149,6 +159,9 @@ export function MembersPage() {
     (email: string) => {
       setNotice(t('members.invite.sent', { email }));
       setFailure(null);
+      // Closed only once the server has taken it, so a refusal leaves the address on screen
+      // beside what was wrong with it rather than asking for it to be typed again.
+      setInviting(false);
       reload();
     },
     [reload, t]
@@ -176,6 +189,32 @@ export function MembersPage() {
         </p>
       )}
 
+      {/*
+        Above the people rather than under them, because inviting somebody is what an owner
+        opens this page to do — and a list of colleagues is exactly the thing that grows
+        until the control below it cannot be reached without scrolling past everybody.
+      */}
+      {canAdminister && (
+        <p className="add">
+          <button
+            type="button"
+            className="primary"
+            disabled={busy}
+            onClick={() => setInviting(true)}
+          >
+            {t('members.invite.open')}
+          </button>
+        </p>
+      )}
+
+      <Modal
+        title={t('members.invite.title')}
+        open={inviting}
+        onClose={() => setInviting(false)}
+      >
+        <InviteForm onInvited={invited} onCancel={() => setInviting(false)} />
+      </Modal>
+
       {members === null ? (
         <p className="loading" role="status">
           {t('members.loading')}
@@ -192,15 +231,12 @@ export function MembersPage() {
       )}
 
       {canAdminister && (
-        <>
-          <PendingInvitations
-            invitations={invitations}
-            busy={busy}
-            onResend={resend}
-            onRevoke={revoke}
-          />
-          <InviteForm onInvited={invited} />
-        </>
+        <PendingInvitations
+          invitations={invitations}
+          busy={busy}
+          onResend={resend}
+          onRevoke={revoke}
+        />
       )}
     </main>
   );

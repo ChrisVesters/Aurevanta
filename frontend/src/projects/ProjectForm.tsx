@@ -19,6 +19,11 @@ type ProjectFormProps = {
   banner: string | null;
   fieldErrors: Record<string, string>;
   onSubmit: (values: { name: string; description: string | null }) => void;
+  /**
+   * Present only where there is something to go back to — the form asked for in a dialog,
+   * not the one that sits under the plan it configures.
+   */
+  onCancel?: () => void;
   children?: ReactNode;
 };
 
@@ -42,6 +47,7 @@ export function ProjectForm({
   banner,
   fieldErrors,
   onSubmit,
+  onCancel,
   children
 }: ProjectFormProps) {
   const { t } = useTranslation();
@@ -98,9 +104,16 @@ export function ProjectForm({
         )}
       </p>
 
-      <button type="submit" className="primary" disabled={busy}>
-        {busy ? submitting : submit}
-      </button>
+      <p className="actions">
+        <button type="submit" className="primary" disabled={busy}>
+          {busy ? submitting : submit}
+        </button>
+        {onCancel && (
+          <button type="button" className="link" onClick={onCancel}>
+            {t('projects.new.cancel')}
+          </button>
+        )}
+      </p>
     </form>
   );
 }

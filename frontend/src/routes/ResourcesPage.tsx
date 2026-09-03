@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { ResourceForm } from '../resource/ResourceForm';
+import { Modal } from '../ui/Modal';
 import type { Resource } from '../resource/types';
 import type { Member } from '../members/types';
 
@@ -36,6 +37,15 @@ export function ResourcesPage() {
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
   const [editing, setEditing] = useState<string | null>(null);
+  /**
+   * Whether somebody is declaring a pool.
+   *
+   * The form used to sit under the list, which put every pool the organisation holds between
+   * somebody and the way to declare another. Asked for now, from a control above the list —
+   * and the form that *changes* a pool still opens in place on its row, because that one is
+   * about a thing the reader is looking at and this one is not.
+   */
+  const [adding, setAdding] = useState(false);
   const declaring = useFormFailure(FIELDS);
   const changing = useFormFailure(FIELDS);
 
@@ -64,6 +74,9 @@ export function ResourcesPage() {
       try {
         await request<Resource>('/resources', { method: 'POST', body: values });
         setArchived(false);
+        // Closed only once the server has taken it. A refusal leaves the form up holding
+        // what was typed, which is why this is the page's state and not the dialog's own.
+        setAdding(false);
         setReloads((count) => count + 1);
       } catch (error) {
         declaring.report(error);
@@ -126,6 +139,47 @@ export function ResourcesPage() {
           {failure ?? unreadable}
         </p>
       )}
+
+      {/*
+        Above the pools rather than under them, for the reason every other way in on this
+        product sits above its list: the list grows and the control must not move down with
+        it. Offered against the archived listing as well, which is the same decision
+        `declare` makes by switching back to the live one afterwards.
+      */}
+      <p className="add">
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            // Cleared on the way in, so a refusal from the last attempt is not the first
+            // thing on an empty form.
+            declaring.clear();
+            setAdding(true);
+          }}
+        >
+          {t('resources.new.open')}
+        </button>
+      </p>
+
+      <Modal
+        title={t('resources.new.title')}
+        open={adding}
+        onClose={() => setAdding(false)}
+      >
+        <ResourceForm
+          id="new-resource"
+          people={people}
+          busy={busy}
+          submit={t('resources.new.submit')}
+          submitting={t('resources.new.submitting')}
+          banner={declaring.message}
+          fieldErrors={declaring.fieldErrors}
+          onSubmit={(values) => void declare(values)}
+          onCancel={() => setAdding(false)}
+        >
+          <p className="lede">{t('resources.new.lede')}</p>
+        </ResourceForm>
+      </Modal>
 
       <p className="listing-switch">
         <button
@@ -210,24 +264,6 @@ export function ResourcesPage() {
           ))}
         </ul>
       )}
-
-      <ResourceForm
-        // Remounted once a pool has been declared, which is what empties the fields: the
-        // next one starts from nothing rather than from the last one's name. A refusal does
-        // not remount, so what somebody typed survives being told why it was refused.
-        key={reloads}
-        id="new-resource"
-        people={people}
-        busy={busy}
-        submit={t('resources.new.submit')}
-        submitting={t('resources.new.submitting')}
-        banner={declaring.message}
-        fieldErrors={declaring.fieldErrors}
-        onSubmit={(values) => void declare(values)}
-      >
-        <h2>{t('resources.new.title')}</h2>
-        <p className="lede">{t('resources.new.lede')}</p>
-      </ResourceForm>
     </main>
   );
 }

@@ -65,6 +65,10 @@ made readable.
 - **Nothing is deleted.** Plans and items are archived, and any member can bring one back. An
   estimate is evidence the track record reads years later, and deleting the item it hangs on
   would destroy that evidence.
+- **A plan is read in five parts** — the work, the forecast made of it, the questions asked of
+  that forecast, the forecasts before it, and what the plan is called. One page and one URL:
+  the part being read is a query parameter, so a link to it keeps it, and the plain plan
+  address still opens on the work.
 
 ## Estimates
 

@@ -384,6 +384,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   owners removing each other at the same moment would each count two and each conclude one
   remains. A conditional `UPDATE` cannot serve instead the way it can for spending a token:
   that makes a race on *one row* safe, and this is a race on a count across several.
+- **Inviting somebody is a button above the member list**, opening the form in a `ui/Modal`
+  — see *Forms that are asked for*. Under the list is where it was, and a list of colleagues
+  is exactly the thing that grows until the control below it cannot be reached without
+  scrolling past everybody. The button is owner-only like everything else that administers
+  somebody, and hidden rather than disabled, with the server refusing either way.
 - **Removal deletes the membership, never the identity.** Somebody removed keeps their
   account, their password and every other organisation they belong to.
 - **`MembershipService.requireOwner` is the one rule every owner-only endpoint shares**,
@@ -681,6 +686,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **A listing asks for one state or the other** — `?archived=true` — rather than returning
   both and leaving every caller to filter. The caller that forgot would show work somebody
   had deliberately put away as though it were live.
+- **Starting a plan is a button above the list**, opening `ProjectForm` in a `ui/Modal` —
+  see *Forms that are asked for*. Under the list is where it was, and an organisation's list
+  of plans only grows. The same form still sits *inline* under the plan it configures, on the
+  settings tab, which is why its cancel is optional: a form with nowhere to go back to must
+  not offer to.
 - **A project's name is not unique, and this time that is a decision.** Chosen handles spent a whole
   work removing an accidental uniqueness constraint on an organisation's name; two
   plans called "Q3 platform work" is ordinary, and the id is what addresses them. Listings
@@ -844,6 +854,35 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 
 ## The plan screens
 
+- **A plan is five parts of one page, not five pages** — work, forecast, explore, history,
+  settings, in that order, which is the order the whole product argues in: ranges go on the
+  work, the engine reads them, everything else is asked *of* what it answered, and the name
+  is a setting. It was one scroll until there was too much of it, and the strip is what made
+  the order readable rather than something to be discovered five sections down. `tabs.ts`
+  states the five names once, because the page, the strip and the URL all have to agree.
+- **The part being read is a query parameter and never a path segment.** A plan stays
+  `/app/projects/{id}` — no route anywhere carries part of one — and `?tab=` is what a link
+  and a reload keep. It **replaces** rather than pushes: a tab is a view of one page, and
+  pushing would make Back walk out through every tab somebody glanced at. The work carries no
+  parameter at all, so a link saved before the page had parts still opens on what it opened
+  on.
+- **Arrows move focus and pressing takes the tab** — the manual half of the ARIA pattern,
+  chosen because moving to the forecast *loads* it: selection that follows focus would fire
+  the requests of every part somebody arrowed past. Roving `tabindex` is the other half, so
+  the strip is one stop on the way through the page rather than five.
+- **The forecast's three parts are one mounted component**, which is why `ForecastPanel`
+  takes a `section` rather than being split into three. All three read one thing — the
+  forecasts made of this plan — and all three are read at a confidence somebody chose. Three
+  components would be three copies of that read and three places for the confidence to sit,
+  so moving from the date to what one more person would buy would ask again for a history
+  already held and quietly put the reading back to 80%. Crossing to the work does unmount it,
+  and that is right: a colleague may have estimated something since.
+- **A case that asserts an absence must be looking at the part that would hold it.** Splitting
+  the page made two existing tests pass vacuously — "asks nothing about hiring where there was
+  no team" was asserting that hiring is not on the forecast tab, which is true of every
+  forecast ever made. It also dropped a branch that was only ever covered incidentally, by a
+  case about the forecast's own resources line that used to render the hiring picker beside
+  it. The coverage gate caught the second; nothing but reading caught the first.
 - **`WorkItems` loads and writes on its own** rather than through `ProjectPage`, because a
   plan and its contents are separate resources on the server and answering for one another's
   failures would mean a plan that could not be renamed because its items would not load. It
@@ -851,6 +890,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   other — and reloads from the server after every action, since the order is the server's, so
   is what an item ends up called, and so is which estimate is current after a colleague
   recorded theirs a moment ago.
+- **Writing a task down is asked for, from a button above the list.** The form used to sit
+  under it, which put every row in the plan between somebody and the only way to add to one
+  and left an empty form on screen for everybody who was not filling one in. It is offered on
+  the archived listing too, which is the same decision `add` already made by switching back
+  to the live one afterwards. See *Forms that are asked for* below for the dialog itself.
 - **A row opens one of four small forms** — reword, estimate, report progress, order — and
   each has its own `useFormFailure` over the field names it *can* render. "Can" rather than
   "does" is load-bearing for the estimate form, which shows one question at a time: the
@@ -883,6 +927,50 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   finish before, and what it is waiting on — because either alone answers half the question
   somebody opened the plan with. An arrow pointing at work archived since is named as such
   rather than shown as a blank, since the archived listing is a different screen.
+## Forms that are asked for
+
+- **`ui/Modal` is a native `<dialog>`, never a `div` wearing `role="dialog"`.** Focus moved
+  in and trapped, the page behind made inert, Escape and the backdrop are each a thing a
+  hand-built modal gets subtly wrong, and each is wrong only for somebody using a keyboard or
+  a screen reader — which is to say invisible in review. **It lives in `ui` rather than in
+  whichever feature needed it first**: two use it, and a shared component inside one feature
+  is how `members` ends up importing from `projects` for a reason belonging to neither.
+- **Its contents render only while it is open**, which does two jobs: it empties the boxes
+  for the next one — the job the add form used to do by being keyed on a reload count, and
+  the invite form by calling `form.reset()` — and it keeps a shut dialog out of the
+  accessibility tree by not being there, rather than by a user-agent stylesheet jsdom does
+  not apply.
+- **It closes when the server has taken the thing, not when the button was pressed.** A
+  refusal leaves what was typed on screen beside what was wrong with it; shutting on submit
+  would ask somebody to type it all again in order to read the complaint. That is why
+  "open" is the caller's state and not the dialog's own — and why the caller listens to the
+  native `close` event, which Escape and `close()` both raise, so the two cannot drift.
+- **A press on the backdrop does not close it**, though the platform would allow it. What is
+  inside is something somebody typed, and losing it to a stray press is a worse failure than
+  the one the extra press costs. Escape and the form's own cancel are two ways out, and both
+  are ways somebody *meant*.
+- **jsdom 29 implements no `<dialog>` behaviour**, so `src/test/setup.ts` stubs `showModal`
+  and `close`. The stub raises the `close` event because that is the one this application
+  listens to, but **nothing in this suite proves the focus trap, the inert page, the backdrop
+  or Escape** — a test that appears to is testing the stub.
+- **A case that opens one goes through the button.** Each page's `startAdding` /
+  `startInviting` / `startCreating` presses what a person presses and hands back a `within`
+  scope; a case that reached into the dialog directly would be testing a form nobody can get
+  to.
+- **Four ways in and they are the same four**: a task, an invitation, a plan, a pool. Each is
+  a button above its list — never under it, because every one of those lists only grows —
+  carrying an `open` catalogue entry whose words are the dialog's title, so nobody has to
+  work out whether they pressed the right thing.
+- **Examined and deliberately left inline**, so the next reader does not "finish the job":
+  every form on a row (reword, estimate, progress, order, needs, and changing a pool) is
+  about something on screen and opens *in place*, which is the whole of the ordering panel's
+  design and of the estimate form's; the forecast's own question is the Forecast tab's
+  content rather than an action on a list, and hiding its assumptions behind a button is the
+  one thing that panel's design argues hardest against; and every whole-page form — signing
+  in, registering, resetting, accepting an invitation, organisation settings, a plan's
+  settings — *is* its page. **The rule is "a form that adds a new thing to a list and used to
+  sit permanently under it", and it is those four and no others.**
+
 ## The estimate form: one question at a time, and never the middle first
 
 - **`EstimateForm` asks three questions in a fixed order and shows one at a time.** Bad case,
@@ -1490,6 +1578,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   plan can possibly be delivered, with nothing on screen looking amiss. Left unwatched it was
   neither — an `IllegalArgumentException` nothing handles, so every forecast of that plan
   answered 500 with no `code` at all.
+- **Declaring a pool is a button above the list**, opening `ResourceForm` in a `ui/Modal` —
+  see *Forms that are asked for*. The form that *changes* a pool still opens in place on its
+  row, and the two are different for a reason worth keeping: a change is about a pool the
+  reader is looking at and the row is what says which one, where a new pool is about nothing
+  on screen. That is why its cancel is optional.
 - **The needs form renders a put-away pool the work already names.** It replaces the whole set,
   so a row the form does not render is a row pressing save deletes — silently, on a screen that
   never mentioned it. Only pools *in use* are offered for a new requirement, which is a different

@@ -1,22 +1,39 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { ForecastPanel } from '../projects/ForecastPanel';
 import { ProjectForm } from '../projects/ProjectForm';
+import { PlanTabs } from '../projects/PlanTabs';
 import { WorkItems } from '../projects/WorkItems';
+import {
+  FIRST_TAB,
+  isForecastTab,
+  PLAN_PANEL_ID,
+  TAB_PARAM,
+  tabFrom,
+  tabId
+} from '../projects/tabs';
+import type { PlanTab } from '../projects/tabs';
 import type { Project } from '../projects/types';
 
 /**
  * One plan: what it is called, what it covers, and whether it is still in use.
  *
- * The work, then the forecast it makes possible, then what the plan is called. That order
- * is the argument of the whole product in one page: ranges go on the work, the engine reads
- * them, and the name is a setting. Deliberately plain — the plan schema's position was that its output is
- * a schema and a way to fill it, and the simulation engine's that its output is an honest number rather
- * than a good-looking one.
+ * The work, then the forecast it makes possible, then the questions asked of that forecast,
+ * then the ones asked of the forecasts before it, then what the plan is called. **That order
+ * is the argument of the whole product and it did not change when the page stopped being one
+ * scroll**: ranges go on the work, the engine reads them, everything else is asked *of* what
+ * it answered, and the name is a setting. What changed is that the order is now readable —
+ * the strip states it in five words, where before it was five sections deep and somebody
+ * looking for the archive button scrolled past the entire forecast to reach it.
+ *
+ * **A tab is a view of this page and never a page of its own.** The plan stays
+ * `/app/projects/{id}`, the tab rides in a query parameter so a link and a reload keep it,
+ * and it replaces rather than stacks — otherwise leaving a plan takes as many presses of
+ * Back as tabs somebody happened to look at.
  *
  * An identifier belonging to another organisation is a 404 from the server and reads here
  * exactly as one that never existed, because that is the whole point of answering both the
@@ -30,6 +47,7 @@ export function ProjectPage() {
   const [failure, setFailure] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [params, setParams] = useSearchParams();
   const { message, fieldErrors, report, clear } = useFormFailure([
     'name',
     'description'
@@ -110,6 +128,28 @@ export function ProjectPage() {
     [request, projectId, clear, t]
   );
 
+  const tab = tabFrom(params.get(TAB_PARAM));
+
+  /**
+   * The tab, written where a link and a reload can both read it.
+   *
+   * Replacing rather than pushing, because a tab is a view of one page: pushing would make
+   * Back walk through every tab somebody glanced at before it left the plan. The work tab
+   * carries no parameter at all, so the URL people already hold stays the URL it was.
+   */
+  const show = useCallback(
+    (next: PlanTab) => {
+      const updated = new URLSearchParams(params);
+      if (next === FIRST_TAB) {
+        updated.delete(TAB_PARAM);
+      } else {
+        updated.set(TAB_PARAM, next);
+      }
+      setParams(updated, { replace: true });
+    },
+    [params, setParams]
+  );
+
   if (!account) {
     return null;
   }
@@ -144,49 +184,68 @@ export function ProjectPage() {
             <p className="empty">{t('projects.project.archivedNotice')}</p>
           )}
 
-          {/*
-            The work comes first, because it is what the page is for. What the plan is
-            called is a setting, and settings belong under the thing they configure.
-          */}
-          <WorkItems projectId={project.id} />
+          <PlanTabs tab={tab} onChange={show} />
 
           {/*
-            Under the work, because a forecast is a question asked *of* the plan and reads
-            as nonsense above the thing it is about — and because the ranges it simulates
-            are entered on the rows directly overhead.
+            One panel rather than five, so the forecast's three parts are one mounted
+            component: it loads a plan's forecasts once and holds which confidence is being
+            read, and moving between them costs no request and resets nothing. Crossing to
+            the work or back does unmount it, which is right — a colleague may have run a
+            forecast, or estimated the work the last one was made from, while this was open.
           */}
-          <ForecastPanel projectId={project.id} projectName={project.name} />
-
-          <ProjectForm
-            // Keyed on what the server last said, so the fields show the saved project
-            // rather than whatever was in them before somebody else's change arrived.
-            key={`${project.name}:${project.description ?? ''}`}
-            id="project"
-            name={project.name}
-            description={project.description}
-            busy={busy}
-            submit={t('projects.project.save')}
-            submitting={t('projects.project.saving')}
-            banner={message}
-            fieldErrors={fieldErrors}
-            onSubmit={(values) => void save(values)}
+          <div
+            className="plan-panel"
+            id={PLAN_PANEL_ID}
+            role="tabpanel"
+            aria-labelledby={tabId(tab)}
           >
-            <h2>{t('projects.project.details')}</h2>
-          </ProjectForm>
+            {tab === 'work' && <WorkItems projectId={project.id} />}
 
-          <p className="archive">
-            <button
-              type="button"
-              className={project.archivedAt ? 'secondary' : 'danger'}
-              disabled={busy}
-              onClick={() => void setArchived(!project.archivedAt)}
-            >
-              {project.archivedAt
-                ? t('projects.project.unarchive')
-                : t('projects.project.archive')}
-            </button>
-            <span className="hint">{t('projects.project.archiveHint')}</span>
-          </p>
+            {isForecastTab(tab) && (
+              <ForecastPanel
+                section={tab}
+                projectId={project.id}
+                projectName={project.name}
+              />
+            )}
+
+            {tab === 'settings' && (
+              <>
+                <ProjectForm
+                  // Keyed on what the server last said, so the fields show the saved project
+                  // rather than whatever was in them before somebody else's change arrived.
+                  key={`${project.name}:${project.description ?? ''}`}
+                  id="project"
+                  name={project.name}
+                  description={project.description}
+                  busy={busy}
+                  submit={t('projects.project.save')}
+                  submitting={t('projects.project.saving')}
+                  banner={message}
+                  fieldErrors={fieldErrors}
+                  onSubmit={(values) => void save(values)}
+                >
+                  <h2>{t('projects.project.details')}</h2>
+                </ProjectForm>
+
+                <p className="archive">
+                  <button
+                    type="button"
+                    className={project.archivedAt ? 'secondary' : 'danger'}
+                    disabled={busy}
+                    onClick={() => void setArchived(!project.archivedAt)}
+                  >
+                    {project.archivedAt
+                      ? t('projects.project.unarchive')
+                      : t('projects.project.archive')}
+                  </button>
+                  <span className="hint">
+                    {t('projects.project.archiveHint')}
+                  </span>
+                </p>
+              </>
+            )}
+          </div>
         </>
       )}
     </main>

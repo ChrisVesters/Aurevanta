@@ -5,6 +5,7 @@ import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { ProjectForm } from '../projects/ProjectForm';
+import { Modal } from '../ui/Modal';
 import type { Project } from '../projects/types';
 
 /**
@@ -23,6 +24,15 @@ export function ProjectsPage() {
   const { account, request } = useAuth();
   const [archived, setArchived] = useState(false);
   const [creating, setCreating] = useState(false);
+  /**
+   * Whether somebody is starting a plan.
+   *
+   * The form used to sit under the list, which put every plan the organisation holds between
+   * somebody and the way to start another. It is asked for now, from a control above the
+   * list — starting a plan is what somebody comes to this page to do, and nothing in the
+   * list below says anything about how to fill the form in.
+   */
+  const [starting, setStarting] = useState(false);
   const [reloads, setReloads] = useState(0);
   const { message, fieldErrors, report, clear } = useFormFailure([
     'name',
@@ -47,6 +57,9 @@ export function ProjectsPage() {
         // The server decides the order and what a project ends up called, so the list is
         // asked again rather than having the new one pushed onto it here.
         setArchived(false);
+        // Closed only once the server has taken it. A refusal leaves the form up holding
+        // what was typed, which is why this is the page's state and not the dialog's own.
+        setStarting(false);
         setReloads((count) => count + 1);
       } catch (error) {
         report(error);
@@ -72,6 +85,46 @@ export function ProjectsPage() {
           {failure}
         </p>
       )}
+
+      {/*
+        Above the plans rather than under them, because an organisation's list of them only
+        grows and the way to start another must not be a thing somebody scrolls to. Offered
+        against the archived listing as well, which is the same decision `create` makes by
+        switching back to the live one afterwards.
+      */}
+      <p className="add">
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            // Cleared on the way in, so a refusal from the last attempt is not the first
+            // thing on an empty form.
+            clear();
+            setStarting(true);
+          }}
+        >
+          {t('projects.new.open')}
+        </button>
+      </p>
+
+      <Modal
+        title={t('projects.new.title')}
+        open={starting}
+        onClose={() => setStarting(false)}
+      >
+        <ProjectForm
+          id="new-project"
+          busy={creating}
+          submit={t('projects.new.submit')}
+          submitting={t('projects.new.submitting')}
+          banner={message}
+          fieldErrors={fieldErrors}
+          onSubmit={(values) => void create(values)}
+          onCancel={() => setStarting(false)}
+        >
+          <p className="lede">{t('projects.new.lede')}</p>
+        </ProjectForm>
+      </Modal>
 
       <p className="listing-switch">
         <button
@@ -118,24 +171,6 @@ export function ProjectsPage() {
           ))}
         </ul>
       )}
-
-      <ProjectForm
-        // Remounted once a project has been made, which is what empties the fields: the
-        // next project starts from nothing rather than from the name of the last one. A
-        // refusal does not change this, so what somebody typed survives being told why it
-        // was refused.
-        key={reloads}
-        id="new-project"
-        busy={creating}
-        submit={t('projects.new.submit')}
-        submitting={t('projects.new.submitting')}
-        banner={message}
-        fieldErrors={fieldErrors}
-        onSubmit={(values) => void create(values)}
-      >
-        <h2>{t('projects.new.title')}</h2>
-        <p className="lede">{t('projects.new.lede')}</p>
-      </ProjectForm>
     </main>
   );
 }

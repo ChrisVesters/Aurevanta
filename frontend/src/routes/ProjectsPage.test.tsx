@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ProjectsPage } from './ProjectsPage';
 import {
@@ -33,6 +33,19 @@ describe('ProjectsPage', () => {
     await screen.findByRole('heading', { name: 'Projects' });
   }
 
+  /**
+   * Open the form that starts a plan, which is asked for now rather than always on screen.
+   * Every case that creates one goes through here, because the button is what a person
+   * presses and a case reaching into the dialog without it would be testing a form nobody
+   * can get to.
+   */
+  async function startCreating() {
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Start a project' })
+    );
+    return within(await screen.findByRole('dialog'));
+  }
+
   it('lists the plans the organisation is working from', async () => {
     await open();
 
@@ -55,14 +68,10 @@ describe('ProjectsPage', () => {
     await open();
     await screen.findByRole('link', { name: 'Q3 platform work' });
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4 platform');
-    await userEvent.type(
-      screen.getByLabelText('What it covers'),
-      'Next quarter'
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+    await userEvent.type(form.getByLabelText('What it covers'), 'Next quarter');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -85,10 +94,9 @@ describe('ProjectsPage', () => {
   it('sends no description rather than an empty one', async () => {
     await open();
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4 platform');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -100,18 +108,36 @@ describe('ProjectsPage', () => {
     );
   });
 
-  /** So the next project starts from nothing rather than from the name of the last one. */
-  it('empties the form once a project has been made', async () => {
+  /**
+   * <strong>It shuts once the server has it, and opens empty next time.</strong> The form
+   * used to sit under the list and be remounted to clear it; now it exists only while it is
+   * open, which is the same rule reached by not being there rather than by being replaced.
+   */
+  it('shuts once a project has been made, and reopens empty', async () => {
     await open();
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4 platform');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
-    await waitFor(() =>
-      expect(screen.getByLabelText('Project name')).toHaveValue('')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect((await startCreating()).getByLabelText('Project name')).toHaveValue(
+      ''
     );
+  });
+
+  /** Two ways out, and both are ways somebody meant: the form's own, and the platform's. */
+  it('takes a cancelled project off the screen', async () => {
+    await open();
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    ).toHaveLength(0);
   });
 
   /**
@@ -127,10 +153,9 @@ describe('ProjectsPage', () => {
       })
     );
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
     expect(
       await screen.findByText('Use no more than 200 characters.')
@@ -148,14 +173,16 @@ describe('ProjectsPage', () => {
       })
     );
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4 platform');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
     expect(
       await screen.findByText('This cannot be empty.')
     ).toBeInTheDocument();
+    // Still up, holding what was typed: shutting on submit would ask for the whole thing
+    // again in order to read the complaint about it.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByLabelText('Project name')).toHaveValue('Q4 platform');
   });
 
@@ -230,10 +257,9 @@ describe('ProjectsPage', () => {
     await open();
     fetchMock.mockResolvedValueOnce(jsonResponse(500, null));
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4 platform');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /Something went wrong/
@@ -249,10 +275,9 @@ describe('ProjectsPage', () => {
       })
     );
 
-    await userEvent.type(screen.getByLabelText('Project name'), 'Q4 platform');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Create project' })
-    );
+    const form = await startCreating();
+    await userEvent.type(form.getByLabelText('Project name'), 'Q4 platform');
+    await userEvent.click(form.getByRole('button', { name: 'Create project' }));
 
     expect(
       await screen.findByText('Use no more than 2000 characters.')

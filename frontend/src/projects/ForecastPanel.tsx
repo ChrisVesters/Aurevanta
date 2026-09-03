@@ -22,6 +22,7 @@ import { EarlierRuns } from './EarlierRuns';
 import { ForecastAsk } from './ForecastAsk';
 import { HiringPanel } from './HiringPanel';
 import { TargetDate } from './TargetDate';
+import type { ForecastSection } from './tabs';
 import type { ForecastHistory, Throughput } from './forecastTypes';
 
 /**
@@ -60,9 +61,21 @@ import type { ForecastHistory, Throughput } from './forecastTypes';
  * a fact.** An hours band advertises that it came out of a model; "14 November" does not.
  */
 export function ForecastPanel({
+  section,
   projectId,
   projectName
 }: {
+  /**
+   * Which of the three parts of a forecast is being read.
+   *
+   * **One component and not three, and the reason is the state rather than the markup.**
+   * All three read one thing — the forecasts made of this plan — and all three are read at
+   * a confidence somebody chose. Split into three components they would be three copies of
+   * that read and three places for the confidence to sit, so moving from the date to what
+   * one more person would buy would silently take the answer back to 80% and ask the server
+   * for a history it already had.
+   */
+  section: ForecastSection;
   projectId: string;
   /**
    * What the plan is called, and it is here for one line only.
@@ -157,8 +170,14 @@ export function ForecastPanel({
 
   return (
     <section className="forecast">
-      <h2>{t('projects.forecast.title')}</h2>
-      <p className="hint">{t('projects.forecast.lede')}</p>
+      {/*
+        Each part says what it is, even though the strip above already named it. The strip
+        is a control and this is the heading of what it selected — a screen reader walking
+        the headings of a plan should find the work, the forecast and the questions asked of
+        it, not one section called "Forecast" holding everything this product can say.
+      */}
+      <h2>{t(`projects.forecast.sections.${section}.title`)}</h2>
+      <p className="hint">{t(`projects.forecast.sections.${section}.lede`)}</p>
 
       {failure && (
         <p className="form-error" role="alert">
@@ -167,15 +186,19 @@ export function ForecastPanel({
       )}
 
       {/*
-        Both panels that read a run — the breakdown and the account of a movement — clear
-        themselves by being keyed on the run they are about, so a new forecast needs nothing
-        said to them here beyond reloading the history.
+        Asking is the forecast's own tab and nowhere else: the two panels beside it explain
+        a run that exists, and a form that made a new one from under them would answer a
+        question about a plan that is no longer the one on screen. Both of those panels
+        clear themselves by being keyed on the run they are about, so a new forecast needs
+        nothing said to them here beyond reloading the history.
       */}
-      <ForecastAsk
-        projectId={projectId}
-        pools={pools}
-        onForecast={() => setReloads((count) => count + 1)}
-      />
+      {section === 'forecast' && (
+        <ForecastAsk
+          projectId={projectId}
+          pools={pools}
+          onForecast={() => setReloads((count) => count + 1)}
+        />
+      )}
 
       {runs === null ? (
         !failure && (
@@ -184,18 +207,21 @@ export function ForecastPanel({
           </p>
         )
       ) : latest === undefined ? (
-        <p className="empty">{t('projects.forecast.none')}</p>
+        /*
+          Every part says how to get a forecast, and only one of them can say "below" —
+          which is why the sentence is per section rather than one line reused three times.
+          A panel that reads "answer the questions below" beside no questions is a screen
+          telling somebody to do something they cannot do from where they are standing.
+        */
+        <p className="empty">{t(`projects.forecast.none.${section}`)}</p>
       ) : (
         <>
           {/*
-            The number people actually asked for, and the control that makes the trade
-            visible: lower confidence, earlier date, same plan, no request. Two dates that
-            come out the same are short plans rounding to one day rather than a control
-            that has stopped working — the band is in hours and the calendar is in days.
-
-            It is absent, rather than disabled, on a run that has no dates to choose
-            between: three buttons that visibly change nothing read as a broken screen,
-            where the line beneath says exactly what is missing and why.
+            Above all three parts and held by all three, because it is one reading of one
+            forecast: what the date is at 50%, what dropping something buys at 50%, what the
+            forecast before this one said at 50%. Somebody who moved it to 95% to look at a
+            date and found it back at 80% on the next tab would be reading two answers and
+            told they were one.
           */}
           {chosenDate !== null && (
             <fieldset className="confidence">
@@ -217,199 +243,246 @@ export function ForecastPanel({
             </fieldset>
           )}
 
-          <p className="date">
-            {describeDate(t, latest, projectName, confidence, i18n.language)}
-          </p>
+          {section === 'forecast' && (
+            <>
+              <p className="date">
+                {describeDate(
+                  t,
+                  latest,
+                  projectName,
+                  confidence,
+                  i18n.language
+                )}
+              </p>
 
-          <p className="band">
-            {t('projects.forecast.band', {
-              low: hours(latest.p10Hours, i18n.language),
-              high: hours(latest.p90Hours, i18n.language)
-            })}
-          </p>
+              <p className="band">
+                {t('projects.forecast.band', {
+                  low: hours(latest.p10Hours, i18n.language),
+                  high: hours(latest.p90Hours, i18n.language)
+                })}
+              </p>
 
-          <p className="coverage">
-            {t('projects.coverage', {
-              estimated: latest.estimatedItemCount,
-              total: latest.itemCount
-            })}
-          </p>
+              <p className="coverage">
+                {t('projects.coverage', {
+                  estimated: latest.estimatedItemCount,
+                  total: latest.itemCount
+                })}
+              </p>
 
-          {/*
-            Beside the date rather than down beside the history it was measured from, because
-            it is a caveat about *this* number: a plan whose date keeps moving out is one
-            whose latest date is worth less than it looks. Absent unless the server says it is
-            worth saying — a plan that is merely churning hears nothing, which is the whole of
-            decision 5 and the reason it is not a line that reads "no drift" the rest of the
-            time.
-          */}
-          {drifting !== null && drifting.movingOut && (
-            <p className="caveat">
-              {t('projects.forecast.drift', {
-                confidence,
-                from: formatDay(drifting.fromDate, i18n.language),
-                to: formatDay(drifting.toDate, i18n.language),
-                out: t('projects.forecast.driftOut', {
-                  count: drifting.days
-                }),
-                band: t('projects.forecast.driftBand', {
-                  count: drifting.bandDays
-                })
-              })}
-            </p>
+              {/*
+                Beside the date rather than down beside the history it was measured from,
+                because it is a caveat about *this* number: a plan whose date keeps moving
+                out is one whose latest date is worth less than it looks. Absent unless
+                the server says it is worth saying — a plan that is merely churning hears
+                nothing, which is the whole of decision 5 and the reason it is not a line
+                that reads "no drift" the rest of the time.
+              */}
+              {drifting !== null && drifting.movingOut && (
+                <p className="caveat">
+                  {t('projects.forecast.drift', {
+                    confidence,
+                    from: formatDay(drifting.fromDate, i18n.language),
+                    to: formatDay(drifting.toDate, i18n.language),
+                    out: t('projects.forecast.driftOut', {
+                      count: drifting.days
+                    }),
+                    band: t('projects.forecast.driftBand', {
+                      count: drifting.bandDays
+                    })
+                  })}
+                </p>
+              )}
+
+              {/*
+                The gap, which is the whole of what the throughput forecast is for — and
+                deliberately not a number called "the gap". Two of the four differences
+                named underneath make the engine look slow and two make it look fast, so a
+                subtraction of the two dates is not interpretable on its own. Nothing here
+                averages them or picks one: two forecasts that disagree are the output,
+                because "six weeks against eleven" starts a conversation and one number in
+                the middle ends it.
+              */}
+              {(throughput !== null || throughputFailure !== null) && (
+                <ThroughputComparison
+                  history={throughput}
+                  failure={throughputFailure}
+                  run={latest}
+                  confidence={confidence}
+                />
+              )}
+
+              <table className="percentiles">
+                <tbody>
+                  {(['p10', 'p50', 'p80', 'p90', 'p95'] as const).map(
+                    (point) => (
+                      <tr key={point}>
+                        <th scope="row">
+                          {t(`projects.forecast.percentiles.${point}`)}
+                        </th>
+                        <td>
+                          {t('projects.forecast.hours', {
+                            value: hours(latest[`${point}Hours`], i18n.language)
+                          })}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+
+              <p className="assumptions">
+                {t('projects.forecast.assumptions', {
+                  capacity: latest.capacity,
+                  samples: latest.sampleCount,
+                  ...stretchAndGrowth(latest, i18n.language)
+                })}
+              </p>
+
+              {/*
+                **The team it was scheduled against, which is the run's own and not
+                today's.** A pool that has grown since did not grow this forecast, so what
+                is printed is what the run stored — and only the name comes off the
+                organisation's list, because a rename is not a thing that moved. A pool
+                put away since is marked rather than shown as ordinary, and one this
+                organisation no longer holds at all says so rather than rendering as a
+                blank.
+              */}
+              {latest.resources.length > 0 && (
+                <p className="assumptions">
+                  {t('projects.forecast.resources.scheduledAgainst', {
+                    team: latest.resources
+                      .map((pool) => describePool(t, pool))
+                      .join(', ')
+                  })}
+                </p>
+              )}
+
+              {/*
+                The sixth assumption, in its own sentence rather than woven into the five
+                above — because a run that has none would otherwise need the whole
+                paragraph written twice, and a duplicated sentence is two wordings waiting
+                to disagree. It sits beside the date it produced and never behind a
+                disclosure, which is the rule the other five already follow.
+              */}
+              {calendar && (
+                <p className="assumptions">
+                  {t('projects.forecast.calendar', calendar)}
+                </p>
+              )}
+
+              {/*
+                Beside the number, never behind a link. Every one of these is a property
+                of the plan rather than of the engine — the two that described the engine
+                were retired by the common-cause model, which removed their cause rather
+                than their wording — and a band reported without them is narrower than the
+                truth by an amount nobody on this screen could guess.
+              */}
+              {/*
+                Beside the band for the reason the limitations are beside it: a band's own
+                track record is the most useful thing that can sit next to it, and a
+                number pasted into a plan without it is this product's failure mode with a
+                chart on. Absent when nothing has been scored, because "no estimate here
+                has ever been checked" on every forecast anybody runs is noise rather than
+                a caveat — the track record page is where that belongs, and it says it
+                properly.
+              */}
+              {track?.forecasts.rate != null && (
+                <p className="caveat">
+                  {t('projects.forecast.trackRecord.line', {
+                    rate: Math.round(track.forecasts.rate.value * 100),
+                    scored: track.forecasts.scored
+                  })}{' '}
+                  <Link to="/app/calibration">
+                    {t('projects.forecast.trackRecord.link')}
+                  </Link>
+                </p>
+              )}
+
+              <div className="limitations">
+                <h3>{t('projects.forecast.limitations.title')}</h3>
+                <ul>
+                  {latest.limitations.map((limitation) => (
+                    <li key={limitation}>
+                      {describeLimitation(t, limitation)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
           )}
 
           {/*
-            The gap, which is the whole of what the throughput forecast is for — and deliberately not a number
-            called "the gap". Two of the four differences named underneath make the engine
-            look slow and two make it look fast, so a subtraction of the two dates is not
-            interpretable on its own. Nothing here averages them or picks one: two forecasts
-            that disagree are the output, because "six weeks against eleven" starts a
-            conversation and one number in the middle ends it.
-          */}
-          {(throughput !== null || throughputFailure !== null) && (
-            <ThroughputComparison
-              history={throughput}
-              failure={throughputFailure}
-              run={latest}
-              confidence={confidence}
-            />
-          )}
+            The three questions asked *of* a forecast rather than answered by it, and
+            they are one tab because they are one kind of thing: what made the band this
+            wide, what dropping something would buy, and what one more person would. Each
+            costs whole simulations, and none of them is loaded until somebody is here.
 
-          <table className="percentiles">
-            <tbody>
-              {(['p10', 'p50', 'p80', 'p90', 'p95'] as const).map((point) => (
-                <tr key={point}>
-                  <th scope="row">
-                    {t(`projects.forecast.percentiles.${point}`)}
-                  </th>
-                  <td>
-                    {t('projects.forecast.hours', {
-                      value: hours(latest[`${point}Hours`], i18n.language)
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <p className="assumptions">
-            {t('projects.forecast.assumptions', {
-              capacity: latest.capacity,
-              samples: latest.sampleCount,
-              ...stretchAndGrowth(latest, i18n.language)
-            })}
-          </p>
-
-          {/*
-            **The team it was scheduled against, which is the run's own and not today's.**
-            A pool that has grown since did not grow this forecast, so what is printed is
-            what the run stored — and only the name comes off the organisation's list,
-            because a rename is not a thing that moved. A pool put away since is marked
-            rather than shown as ordinary, and one this organisation no longer holds at all
-            says so rather than rendering as a blank.
-          */}
-          {latest.resources.length > 0 && (
-            <p className="assumptions">
-              {t('projects.forecast.resources.scheduledAgainst', {
-                team: latest.resources
-                  .map((pool) => describePool(t, pool))
-                  .join(', ')
-              })}
-            </p>
-          )}
-
-          {/*
-            The sixth assumption, in its own sentence rather than woven into the five above
-            — because a run that has none would otherwise need the whole paragraph written
-            twice, and a duplicated sentence is two wordings waiting to disagree. It sits
-            beside the date it produced and never behind a disclosure, which is the rule
-            the other five already follow.
-          */}
-          {calendar && (
-            <p className="assumptions">
-              {t('projects.forecast.calendar', calendar)}
-            </p>
-          )}
-
-          {/*
-            What the band is made of, and the only thing on this panel that is not loaded
-            with it: working it out replays the whole run, about half a second at the five
-            hundred items a plan may hold. That is cheap for somebody who asked and rude to
-            charge everybody who opened the page.
-          */}
-          <SpreadPanel key={latest.id} runId={latest.id} />
-
-          {/*
-            Beside the number, never behind a link. Every one of these is a property of the
-            plan rather than of the engine — the two that described the engine were retired
-            by the common-cause model, which removed their cause rather than their wording — and a band
-            reported without them is narrower than the truth by an amount nobody on this
-            screen could guess.
-          */}
-          {/*
-            Beside the band for the reason the limitations are beside it: a band's own track
-            record is the most useful thing that can sit next to it, and a number pasted into
-            a plan without it is this product's failure mode with a chart on. Absent when
-            nothing has been scored, because "no estimate here has ever been checked" on
-            every forecast anybody runs is noise rather than a caveat — the track record page
-            is where that belongs, and it says it properly.
-          */}
-          {track?.forecasts.rate != null && (
-            <p className="caveat">
-              {t('projects.forecast.trackRecord.line', {
-                rate: Math.round(track.forecasts.rate.value * 100),
-                scored: track.forecasts.scored
-              })}{' '}
-              <Link to="/app/calibration">
-                {t('projects.forecast.trackRecord.link')}
-              </Link>
-            </p>
-          )}
-
-          <div className="limitations">
-            <h3>{t('projects.forecast.limitations.title')}</h3>
-            <ul>
-              {latest.limitations.map((limitation) => (
-                <li key={limitation}>{describeLimitation(t, limitation)}</li>
-              ))}
-            </ul>
-          </div>
-
-          {/*
-            The other question somebody opens this screen with, and the only one on it that
-            proposes an action. It sits *after* the limitations rather than beside the
-            spread, because everything it says is derived from the band above and inherits
-            every caveat printed there — a list of work to drop is the most quotable thing
+            Behind the forecast rather than beside it, because every one of them inherits
+            the caveats printed there — a list of work to drop is the most quotable thing
             this product emits, and the caveats have to have been passed on the way down.
-
-            Keyed on the run, so asking for a new forecast starts the question again rather
-            than leaving a list of work to drop that was measured against the previous one.
-            That is the same rule the breakdown above keeps by clearing itself, arrived at
-            the other way: here the whole panel — the date, the ticks and the answer — was
-            about a run that is no longer on screen.
           */}
-          <TargetDate key={latest.id} run={latest} />
+          {section === 'explore' && (
+            <>
+              {/*
+                What the band is made of, and the first of the three things here that is not
+                loaded with the panel: working it out replays the whole run, about half a
+                second at the five hundred items a plan may hold. That is cheap for somebody
+                who asked and rude to charge everybody who opened the page — which is the
+                argument this whole part is now made of, since none of it loads until
+                somebody has come here for it.
+              */}
+              <SpreadPanel key={latest.id} runId={latest.id} />
 
-          {/*
-            The other question a team asks about a date, and the one the resource model makes answerable:
-            not *what do we drop* but *what if there were more of us*. Keyed on the run for
-            `TargetDate`'s reason — an answer measured against a forecast that is no longer
-            on screen is an answer about a plan nobody is looking at.
-          */}
-          <HiringPanel
-            key={`hiring-${latest.id}`}
-            run={latest}
-            confidence={confidence}
-          />
+              {/*
+                The question somebody opens this screen with, and the only one on it that
+                proposes an action. It sits behind the forecast rather than beside it,
+                because everything it says is derived from the band there and inherits every
+                caveat printed with it — a list of work to drop is the most quotable thing
+                this product emits, and the caveats have to have been passed on the way down.
 
-          {earlier.length > 0 && (
-            <EarlierRuns
-              latestId={latest.id}
-              latestHasDate={chosenDate !== null}
-              earlier={earlier}
-              confidence={confidence}
-            />
+                Keyed on the run, so asking for a new forecast starts the question again
+                rather than leaving a list of work to drop that was measured against the
+                previous one. That is the same rule the breakdown above keeps by clearing
+                itself, arrived at the other way: here the whole thing — the date, the ticks
+                and the answer — was about a run that is no longer on screen.
+              */}
+              <TargetDate key={latest.id} run={latest} />
+
+              {/*
+                The other question a team asks about a date, and the one the resource model
+                makes answerable: not *what do we drop* but *what if there were more of us*.
+                Keyed on the run for `TargetDate`'s reason — an answer measured against a
+                forecast that is no longer on screen is an answer about a plan nobody is
+                looking at.
+              */}
+              <HiringPanel
+                key={`hiring-${latest.id}`}
+                run={latest}
+                confidence={confidence}
+              />
+            </>
+          )}
+
+          {section === 'history' && (
+            <>
+              {earlier.length > 0 && (
+                <EarlierRuns
+                  latestId={latest.id}
+                  latestHasDate={chosenDate !== null}
+                  earlier={earlier}
+                  confidence={confidence}
+                />
+              )}
+              {/*
+                A first forecast has nothing to have moved from, and this part says so
+                rather than rendering as an empty frame. It was nothing at all when it
+                sat at the bottom of one long page — there, an absence reads as the page
+                ending; here it is the whole of what somebody just asked for.
+              */}
+              {earlier.length === 0 && (
+                <p className="empty">{t('projects.forecast.earlier.only')}</p>
+              )}
+            </>
           )}
         </>
       )}

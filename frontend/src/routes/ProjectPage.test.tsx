@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Route, Routes } from 'react-router';
+import { Route, Routes, useLocation } from 'react-router';
 import { ProjectPage } from './ProjectPage';
 import {
   ACCOUNT,
@@ -14,6 +14,7 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
+import type { PlanTab } from '../projects/tabs';
 import type { Project } from '../projects/types';
 
 describe('ProjectPage', () => {
@@ -63,18 +64,45 @@ describe('ProjectPage', () => {
       : jsonResponse(404, { code: 'project_not_found' });
   }
 
-  /** Rendered through a route, since the project is named by a path parameter. */
-  async function open(project: Project | null = PROJECTS[0]) {
+  /**
+   * Rendered through a route, since the project is named by a path parameter — and opened
+   * on whichever part is asked for, which is the same thing a link somebody was sent does.
+   * No `tab` is the plain plan URL, and it must keep opening on the work.
+   */
+  async function open(project: Project | null = PROJECTS[0], tab?: PlanTab) {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(reads(url, project))
     );
     renderRouted(
-      <Routes>
-        <Route path="/app/projects/:projectId" element={<ProjectPage />} />
-      </Routes>,
-      { route: `/app/projects/${project?.id ?? PROJECTS[0].id}` }
+      <>
+        <Where />
+        <Routes>
+          <Route path="/app/projects/:projectId" element={<ProjectPage />} />
+        </Routes>
+      </>,
+      {
+        route: `/app/projects/${project?.id ?? PROJECTS[0].id}${
+          tab === undefined ? '' : `?tab=${tab}`
+        }`
+      }
     );
+  }
+
+  /** What this page is called on each of its five parts. */
+  const TABS = ['Work', 'Forecast', 'Explore', 'History', 'Settings'];
+
+  /** The query string, on screen, so a case can say what a link somebody copies holds. */
+  function Where() {
+    return <span data-testid="url">{useLocation().search}</span>;
+  }
+
+  function url() {
+    return screen.getByTestId('url').textContent;
+  }
+
+  function tab(name: string) {
+    return screen.getByRole('tab', { name });
   }
 
   /**
@@ -108,7 +136,7 @@ describe('ProjectPage', () => {
   }
 
   it('shows what the project is called and what it covers', async () => {
-    await open();
+    await open(PROJECTS[0], 'settings');
 
     expect(
       await screen.findByRole('heading', { name: 'Q3 platform work' })
@@ -119,7 +147,7 @@ describe('ProjectPage', () => {
   });
 
   it('renames it and takes what the server said back', async () => {
-    await open();
+    await open(PROJECTS[0], 'settings');
     await screen.findByRole('heading', { name: 'Q3 platform work' });
     answerWrites(
       jsonResponse(200, { ...PROJECTS[0], name: 'Q4 platform work' })
@@ -145,7 +173,7 @@ describe('ProjectPage', () => {
 
   /** The only way to take back something somebody wrote. */
   it('clears a description by sending nothing rather than an empty string', async () => {
-    await open();
+    await open(PROJECTS[0], 'settings');
     await screen.findByRole('heading', { name: 'Q3 platform work' });
     answerWrites(jsonResponse(200, { ...PROJECTS[0], description: null }));
 
@@ -166,7 +194,7 @@ describe('ProjectPage', () => {
   });
 
   it('puts a project away without losing it', async () => {
-    await open();
+    await open(PROJECTS[0], 'settings');
     await screen.findByRole('heading', { name: 'Q3 platform work' });
     answerWrites(
       jsonResponse(200, { ...PROJECTS[0], archivedAt: '2026-08-13T10:00:00Z' })
@@ -191,7 +219,7 @@ describe('ProjectPage', () => {
   });
 
   it('brings an archived one back', async () => {
-    await open(ARCHIVED_PROJECT);
+    await open(ARCHIVED_PROJECT, 'settings');
     await screen.findByRole('heading', { name: 'Last year' });
     expect(screen.getByText(/This project is archived/)).toBeInTheDocument();
     answerWrites(
@@ -215,7 +243,7 @@ describe('ProjectPage', () => {
   });
 
   it('says so when a change is refused', async () => {
-    await open();
+    await open(PROJECTS[0], 'settings');
     await screen.findByRole('heading', { name: 'Q3 platform work' });
     refuseWrites({
       code: 'validation_failed',
@@ -231,7 +259,7 @@ describe('ProjectPage', () => {
   });
 
   it('says so when archiving is refused', async () => {
-    await open();
+    await open(PROJECTS[0], 'settings');
     await screen.findByRole('heading', { name: 'Q3 platform work' });
     refuseWrites({ code: 'project_not_found' }, 404);
 
@@ -255,6 +283,131 @@ describe('ProjectPage', () => {
       'That project is no longer in this organisation.'
     );
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+  });
+
+  // The five parts of a plan ------------------------------------------------
+
+  /**
+   * <strong>The plan URL people already hold opens on what it always opened on.</strong>
+   * The work is what the page is for and what everything else on it reads, so it is the
+   * part with no query parameter — a link saved before this page had parts is not a link
+   * to somewhere that no longer exists.
+   */
+  it('opens on the work, and names every part of the plan', async () => {
+    await open();
+    await screen.findByRole('heading', { name: 'Q3 platform work' });
+
+    expect(screen.getAllByRole('tab').map((each) => each.textContent)).toEqual(
+      TABS
+    );
+    expect(tab('Work')).toHaveAttribute('aria-selected', 'true');
+    expect(
+      await screen.findByRole('heading', { name: 'Work' })
+    ).toBeInTheDocument();
+    expect(url()).toBe('');
+  });
+
+  /**
+   * <strong>The part being read is in the URL, so a link and a reload both keep it.</strong>
+   * A tab held only in memory sends everybody who follows a link back to the work list,
+   * which is the thing this page was split up to stop happening.
+   */
+  it('says in the URL which part is being read', async () => {
+    await open();
+    await screen.findByRole('heading', { name: 'Q3 platform work' });
+
+    await userEvent.click(tab('Forecast'));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Forecast' })
+    ).toBeInTheDocument();
+    expect(tab('Forecast')).toHaveAttribute('aria-selected', 'true');
+    expect(url()).toBe('?tab=forecast');
+    // And back to the work is back to the plain plan URL, not `?tab=work`.
+    await userEvent.click(tab('Work'));
+    expect(url()).toBe('');
+  });
+
+  /** Which is the other half of the same rule: a link names its part and opens on it. */
+  it('opens on the part a link names', async () => {
+    await open(PROJECTS[0], 'history');
+
+    expect(
+      await screen.findByRole('heading', { name: 'History' })
+    ).toBeInTheDocument();
+    expect(tab('History')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  /**
+   * <strong>A parameter this version does not have shows the work.</strong> A hand-edited
+   * or stale URL is somebody asking for a plan; answering with an empty frame complaining
+   * about a query string would be answering a question nobody asked.
+   */
+  it('shows the work when the URL names a part that does not exist', async () => {
+    await open(PROJECTS[0], 'sideways' as PlanTab);
+
+    expect(
+      await screen.findByRole('heading', { name: 'Work' })
+    ).toBeInTheDocument();
+    expect(tab('Work')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  /**
+   * <strong>Arrows move focus and pressing takes the tab.</strong> The manual half of the
+   * pattern, and it is manual because moving to the forecast loads it: arrowing past a part
+   * must not fire the requests that part would make.
+   */
+  it('moves focus along the strip without changing what is on screen', async () => {
+    await open();
+    await screen.findByRole('heading', { name: 'Q3 platform work' });
+    tab('Work').focus();
+
+    await userEvent.keyboard('{ArrowRight}');
+
+    expect(tab('Forecast')).toHaveFocus();
+    expect(tab('Work')).toHaveAttribute('aria-selected', 'true');
+    expect(url()).toBe('');
+
+    await userEvent.keyboard('{Enter}');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Forecast' })
+    ).toBeInTheDocument();
+    expect(url()).toBe('?tab=forecast');
+  });
+
+  /** Home, End, and round the ends — a strip somebody can get to the far side of. */
+  it('takes the arrows to either end of the strip and round it', async () => {
+    await open();
+    await screen.findByRole('heading', { name: 'Q3 platform work' });
+    tab('Work').focus();
+
+    await userEvent.keyboard('{End}');
+    expect(tab('Settings')).toHaveFocus();
+
+    await userEvent.keyboard('{ArrowRight}');
+    expect(tab('Work')).toHaveFocus();
+
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(tab('Settings')).toHaveFocus();
+
+    await userEvent.keyboard('{Home}');
+    expect(tab('Work')).toHaveFocus();
+  });
+
+  /**
+   * <strong>One strip stop on the way through the page, not five.</strong> Roving
+   * `tabindex` is what says so, and it is the half of the pattern that is invisible until
+   * somebody reaches this page with a keyboard.
+   */
+  it('is one stop for the tab key however many parts there are', async () => {
+    await open(PROJECTS[0], 'explore');
+    await screen.findByRole('heading', { name: 'Explore' });
+
+    expect(tab('Explore')).toHaveAttribute('tabindex', '0');
+    for (const name of TABS.filter((each) => each !== 'Explore')) {
+      expect(tab(name)).toHaveAttribute('tabindex', '-1');
+    }
   });
 
   it('offers a way back to the list', async () => {

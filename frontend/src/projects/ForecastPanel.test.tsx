@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ForecastPanel } from './ForecastPanel';
+import { FORECAST_TABS } from './tabs';
+import type { ForecastSection } from './tabs';
 import {
   ACCOUNT,
   CONTRIBUTIONS,
@@ -191,6 +194,49 @@ describe('ForecastPanel', () => {
     };
   }
 
+  /** What each part of a forecast calls itself, which is what a case waits for. */
+  const HEADING: Record<ForecastSection, string> = {
+    forecast: 'Forecast',
+    explore: 'Explore',
+    history: 'History'
+  };
+
+  /**
+   * The panel with something above it that changes which part is on screen.
+   *
+   * **The page's own strip in miniature, and it is here rather than mocked away because
+   * one case genuinely crosses between two parts**: a list of work to drop is cleared by a
+   * new forecast, and the form that asks for one is on a different part from the list. A
+   * case that re-rendered the panel from scratch to cross that seam would prove nothing —
+   * a fresh mount clears everything, which is exactly what is being asserted has *not*
+   * happened by accident.
+   */
+  function Sections({ initial }: { initial: ForecastSection }) {
+    const [section, setSection] = useState(initial);
+    return (
+      <>
+        {FORECAST_TABS.map((name) => (
+          <button key={name} type="button" onClick={() => setSection(name)}>
+            {`Read ${name}`}
+          </button>
+        ))}
+        <ForecastPanel
+          section={section}
+          projectId={PROJECT_ID}
+          projectName={PROJECT_NAME}
+        />
+      </>
+    );
+  }
+
+  /** Move to another part of the same forecast, the way the strip on the page does. */
+  async function read(section: ForecastSection) {
+    await userEvent.click(
+      screen.getByRole('button', { name: `Read ${section}` })
+    );
+    await screen.findByRole('heading', { name: HEADING[section] });
+  }
+
   /**
    * Everything else one of these panels asks for, answered by URL rather than in bulk.
    * The plan's forecasts arrive wrapped in an account of the history and its work arrives
@@ -204,7 +250,10 @@ describe('ForecastPanel', () => {
   }
 
   /** The panel over an organisation that has described its team. */
-  async function openWithResources(pools: unknown[]) {
+  async function openWithResources(
+    pools: unknown[],
+    section: ForecastSection = 'forecast'
+  ) {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
@@ -219,10 +268,8 @@ describe('ForecastPanel', () => {
                 : otherReads(url)
       )
     );
-    const rendered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const rendered = renderRouted(<Sections initial={section} />);
+    await screen.findByRole('heading', { name: HEADING[section] });
     return rendered;
   }
 
@@ -258,7 +305,11 @@ describe('ForecastPanel', () => {
   }
 
   /** The plan, with a history behind it — answered by URL like everything else here. */
-  async function openWithHistory(history: unknown, run: Forecast = FORECAST) {
+  async function openWithHistory(
+    history: unknown,
+    run: Forecast = FORECAST,
+    section: ForecastSection = 'forecast'
+  ) {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
@@ -271,10 +322,8 @@ describe('ForecastPanel', () => {
               : otherReads(url, [run])
       )
     );
-    const rendered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const rendered = renderRouted(<Sections initial={section} />);
+    await screen.findByRole('heading', { name: HEADING[section] });
     return rendered;
   }
 
@@ -282,7 +331,11 @@ describe('ForecastPanel', () => {
    * The panel over a history the server has already made up its mind about — the drift
    * verdict rides on the listing, so a case about it is a case about that payload.
    */
-  async function openHistory(history: unknown, account: unknown = MOVEMENT) {
+  async function openHistory(
+    history: unknown,
+    account: unknown = MOVEMENT,
+    section: ForecastSection = 'history'
+  ) {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
@@ -299,10 +352,8 @@ describe('ForecastPanel', () => {
                   : jsonResponse(200, [])
       )
     );
-    const rendered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const rendered = renderRouted(<Sections initial={section} />);
+    await screen.findByRole('heading', { name: HEADING[section] });
     return rendered;
   }
 
@@ -373,7 +424,10 @@ describe('ForecastPanel', () => {
    * The panel over a run with a team behind it. A null answer means the server refuses the
    * question, which is what a pool declared since the run gets.
    */
-  async function openWithResourcedRun(hires: unknown = HIRES) {
+  async function openWithResourcedRun(
+    hires: unknown = HIRES,
+    section: ForecastSection = 'explore'
+  ) {
     storeAccessToken();
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
@@ -390,9 +444,7 @@ describe('ForecastPanel', () => {
                 : otherReads(url, [RESOURCED])
       )
     );
-    renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
-    );
+    renderRouted(<Sections initial={section} />);
     await screen.findByRole('heading', { name: 'What if we had one more?' });
   }
 
@@ -416,13 +468,15 @@ describe('ForecastPanel', () => {
       .filter((point) => point !== '');
   }
 
-  async function open(runs: Forecast[] = [], spread: unknown = CONTRIBUTIONS) {
+  async function open(
+    runs: Forecast[] = [],
+    spread: unknown = CONTRIBUTIONS,
+    section: ForecastSection = 'forecast'
+  ) {
     storeAccessToken();
     answer(runs, spread);
-    renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    renderRouted(<Sections initial={section} />);
+    await screen.findByRole('heading', { name: HEADING[section] });
   }
 
   /** Whatever the next request for a forecast is refused with. */
@@ -540,6 +594,7 @@ describe('ForecastPanel', () => {
     answer([FORECAST]);
     renderRouted(
       <ForecastPanel
+        section="forecast"
         projectId={PROJECT_ID}
         projectName="Everything the board asked for"
       />
@@ -963,7 +1018,11 @@ describe('ForecastPanel', () => {
       )
     );
     renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
 
     expect(
@@ -1231,7 +1290,11 @@ describe('ForecastPanel', () => {
       )
     );
     renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
 
     await screen.findByRole('heading', { name: 'Forecast' });
@@ -1258,14 +1321,22 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(jsonResponse(200, DELIVERING));
 
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
@@ -1306,7 +1377,11 @@ describe('ForecastPanel', () => {
       )
     );
     renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
 
     expect(
@@ -1340,7 +1415,11 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
@@ -1359,7 +1438,11 @@ describe('ForecastPanel', () => {
     // And the same on the way out through the failure path, which is the one that would
     // otherwise clear a track record belonging to a panel that is now on screen.
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
@@ -1398,7 +1481,11 @@ describe('ForecastPanel', () => {
       )
     );
     renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
 
     await screen.findByRole('heading', { name: 'Forecast' });
@@ -1846,14 +1933,22 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(jsonResponse(200, listing([FORECAST])));
 
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
@@ -1885,7 +1980,7 @@ describe('ForecastPanel', () => {
       startsOn: '2026-08-03',
       workingHoursPerDay: 8
     };
-    await open([FORECAST, earlier]);
+    await open([FORECAST, earlier], CONTRIBUTIONS, 'history');
 
     const history = within(
       screen.getByRole('heading', { name: 'Earlier forecasts' })
@@ -1905,16 +2000,20 @@ describe('ForecastPanel', () => {
 
   /** A run with none says nothing rather than inventing one from the newest. */
   it('leaves the calendar off an earlier forecast that had none', async () => {
-    await open([
-      FORECAST,
-      {
-        ...FORECAST,
-        id: '70707070-7070-7070-7070-707070707070',
-        startsOn: null,
-        workingHoursPerDay: null,
-        calendarRule: null
-      }
-    ]);
+    await open(
+      [
+        FORECAST,
+        {
+          ...FORECAST,
+          id: '70707070-7070-7070-7070-707070707070',
+          startsOn: null,
+          workingHoursPerDay: null,
+          calendarRule: null
+        }
+      ],
+      CONTRIBUTIONS,
+      'history'
+    );
 
     const history = within(
       screen.getByRole('heading', { name: 'Earlier forecasts' })
@@ -1933,7 +2032,7 @@ describe('ForecastPanel', () => {
    * the question again.
    */
   it('starts the target question again when a new forecast lands', async () => {
-    await open([FORECAST]);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.type(
       screen.getByLabelText('We want it done by'),
       '2026-09-30'
@@ -1950,11 +2049,16 @@ describe('ForecastPanel', () => {
       await screen.findByRole('heading', { name: 'What it would take' })
     ).toBeInTheDocument();
 
+    // Asked for from the part that asks for forecasts, which is where somebody would be
+    // standing: the panel stays mounted across the two, so what is being asserted is that
+    // the answer was cleared rather than that a fresh mount had nothing in it.
     answer([{ ...FORECAST, id: '60606060-6060-6060-6060-606060606060' }]);
+    await read('forecast');
     await answerTheAssumptions('2', '30', '20', '60');
     await userEvent.click(
       screen.getByRole('button', { name: 'Forecast this plan' })
     );
+    await read('explore');
 
     await waitFor(() =>
       expect(
@@ -1972,8 +2076,10 @@ describe('ForecastPanel', () => {
    * cheap for a reader who wants it and rude to charge everybody who opened the page.
    */
   it('does not ask what the spread is made of until somebody does', async () => {
-    await open([FORECAST]);
-    await screen.findByText(/80% chance that Q3 platform work/);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
+    // Settled on the question rather than on the answer: the point is that opening the
+    // part that offers the breakdown has not already asked for one.
+    await screen.findByRole('button', { name: 'What is widening this?' });
 
     expect(
       fetchMock.mock.calls.filter(([url]) => url === CONTRIBUTIONS_URL)
@@ -1996,7 +2102,7 @@ describe('ForecastPanel', () => {
    * the plan holds would pass nothing here.
    */
   it('ranks the sources by how much the finish moves with them', async () => {
-    await open([FORECAST]);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2025,7 +2131,7 @@ describe('ForecastPanel', () => {
    * is the problem, which a ranking of tasks alone would have hidden.
    */
   it('names the two sources that are not work', async () => {
-    await open([FORECAST]);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2044,7 +2150,7 @@ describe('ForecastPanel', () => {
    * wrong number this product exists to replace.
    */
   it('states that the shares overlap, and shows no percentage at all', async () => {
-    await open([FORECAST]);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2067,7 +2173,8 @@ describe('ForecastPanel', () => {
   it('describes a source kind this version has never heard of', async () => {
     await open(
       [FORECAST],
-      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }]
+      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }],
+      'explore'
     );
 
     await userEvent.click(
@@ -2089,7 +2196,8 @@ describe('ForecastPanel', () => {
       [
         { ...CONTRIBUTIONS[1], archived: true },
         { ...CONTRIBUTIONS[3], title: null }
-      ]
+      ],
+      'explore'
     );
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -2108,7 +2216,7 @@ describe('ForecastPanel', () => {
    * why the server refuses and this renders the refusal instead of a list.
    */
   it('says why a run that cannot be replayed has no breakdown', async () => {
-    await open([FORECAST]);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     // Refused by URL rather than by turn: the panel below asks for the plan's work as
     // well, so a double answering "the next request, whatever it is" would refuse
     // whichever of the two happened to go out first.
@@ -2168,9 +2276,13 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="explore"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    await screen.findByRole('heading', { name: 'Explore' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2178,9 +2290,13 @@ describe('ForecastPanel', () => {
     settle(jsonResponse(200, CONTRIBUTIONS));
 
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="explore"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    await screen.findByRole('heading', { name: 'Explore' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2316,14 +2432,22 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(jsonResponse(200, listing([FORECAST])));
 
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
@@ -2356,14 +2480,22 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     answered.unmount();
     settle(jsonResponse(200, []));
 
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
     await screen.findByRole('heading', { name: 'Forecast' });
     refused.unmount();
@@ -2378,12 +2510,40 @@ describe('ForecastPanel', () => {
 
   /** A run scheduled against a capacity has no pool to add to, so nothing is offered. */
   it('asks nothing about hiring where there was no team', async () => {
-    await openWithHistory(DELIVERING);
+    // Opened where the question would be asked, or the absence proves only that this is a
+    // different part of the panel — which is true of every forecast ever made.
+    await openWithHistory(DELIVERING, FORECAST, 'explore');
 
-    await screen.findByText(/An 80% chance/);
+    await screen.findByRole('button', { name: 'What is widening this?' });
     expect(
       screen.queryByRole('heading', { name: 'What if we had one more?' })
     ).toBeNull();
+  });
+
+  /**
+   * A pool the run named and this organisation no longer holds still has to be choosable —
+   * it is in the team the forecast was scheduled against, so "one more of it" is a question
+   * somebody can ask even though there is nothing left to read a name off.
+   */
+  it('names a pool that is gone in the list of what to hire', async () => {
+    await open(
+      [
+        {
+          ...FORECAST,
+          resources: [
+            { resourceId: 'r2', name: null, archived: false, units: 1 }
+          ]
+        }
+      ],
+      CONTRIBUTIONS,
+      'explore'
+    );
+
+    expect(
+      await screen.findByRole('option', {
+        name: 'A resource that is no longer here'
+      })
+    ).toBeInTheDocument();
   });
 
   /**
@@ -2511,7 +2671,7 @@ describe('ForecastPanel', () => {
    * it looks, and that is a caveat about *this* number.
    */
   it('warns when the date keeps moving out', async () => {
-    await openHistory(drifting({ movingOut: true }));
+    await openHistory(drifting({ movingOut: true }), MOVEMENT, 'forecast');
 
     expect(
       await screen.findByText(
@@ -2526,7 +2686,9 @@ describe('ForecastPanel', () => {
    */
   it('says a single day in the singular', async () => {
     await openHistory(
-      drifting({ movingOut: true, days: 1, bandDays: 1, toDate: '2026-08-18' })
+      drifting({ movingOut: true, days: 1, bandDays: 1, toDate: '2026-08-18' }),
+      MOVEMENT,
+      'forecast'
     );
 
     expect(
@@ -2543,7 +2705,7 @@ describe('ForecastPanel', () => {
    * are not worth interrupting anybody about. Whether they are is the server's to decide.
    */
   it('says nothing about a plan that is merely churning', async () => {
-    await openHistory(drifting({ movingOut: false }));
+    await openHistory(drifting({ movingOut: false }), MOVEMENT, 'forecast');
 
     await screen.findByText(/An 80% chance/);
     expect(screen.queryByText(/has been drifting/)).toBeNull();
@@ -2757,9 +2919,13 @@ describe('ForecastPanel', () => {
     );
 
     const answered = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="history"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    await screen.findByRole('heading', { name: 'History' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'Why did the date move?' })
     );
@@ -2767,9 +2933,13 @@ describe('ForecastPanel', () => {
     settle(jsonResponse(200, MOVEMENT));
 
     const refused = renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="history"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    await screen.findByRole('heading', { name: 'History' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'Why did the date move?' })
     );
@@ -2805,10 +2975,18 @@ describe('ForecastPanel', () => {
     expect(screen.queryByText(/this plan moved out/)).toBeNull();
   });
 
-  it('says nothing about earlier forecasts when this is the only one', async () => {
-    await open([FORECAST]);
+  /**
+   * <strong>And says so where somebody went looking for them.</strong> An absence at the
+   * bottom of a long page reads as the page ending; an absence in a part somebody just
+   * asked for reads as a screen that is broken. Same fact, and it has to be said in one
+   * place and not the other.
+   */
+  it('says a first forecast has nothing to have moved from', async () => {
+    await open([FORECAST], CONTRIBUTIONS, 'history');
 
-    await screen.findByText(/An 80% chance/);
+    expect(
+      await screen.findByText(/This is the only forecast of this plan so far/)
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Earlier forecasts' })
     ).not.toBeInTheDocument();
@@ -2831,7 +3009,11 @@ describe('ForecastPanel', () => {
       )
     );
     renderRouted(
-      <ForecastPanel projectId={PROJECT_ID} projectName={PROJECT_NAME} />
+      <ForecastPanel
+        section="forecast"
+        projectId={PROJECT_ID}
+        projectName={PROJECT_NAME}
+      />
     );
 
     expect(

@@ -22,6 +22,11 @@ type ResourceFormProps = {
     units: number | null;
     personId: string | null;
   }) => void;
+  /**
+   * Present only where there is something to go back to — the form asked for in a dialog,
+   * not the one that opens in place on a row.
+   */
+  onCancel?: () => void;
   children?: ReactNode;
 };
 
@@ -46,6 +51,7 @@ export function ResourceForm({
   banner,
   fieldErrors,
   onSubmit,
+  onCancel,
   children
 }: ResourceFormProps) {
   const { t } = useTranslation();
@@ -115,6 +121,11 @@ export function ResourceForm({
         <button type="submit" className="primary" disabled={busy}>
           {busy ? submitting : submit}
         </button>
+        {onCancel && (
+          <button type="button" className="link" onClick={onCancel}>
+            {t('resources.new.cancel')}
+          </button>
+        )}
       </p>
     </form>
   );

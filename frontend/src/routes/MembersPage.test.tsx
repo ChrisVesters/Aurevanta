@@ -31,6 +31,19 @@ describe('MembersPage', () => {
     await screen.findByText('Ada');
   }
 
+  /**
+   * Open the form that invites somebody, which is asked for now rather than always on
+   * screen. Every case that sends one goes through here, because the button is what an
+   * owner presses and a case reaching into the dialog without it would be testing a form
+   * nobody can get to.
+   */
+  async function startInviting() {
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Invite someone' })
+    );
+    return within(await screen.findByRole('dialog'));
+  }
+
   it('lists everybody in the organisation', async () => {
     await open();
 
@@ -145,10 +158,11 @@ describe('MembersPage', () => {
       .mockResolvedValueOnce(jsonResponse(200, MEMBERS))
       .mockResolvedValueOnce(jsonResponse(200, [INVITATION]));
 
-    await userEvent.type(screen.getByLabelText('Email'), 'dave@elsewhere.test');
-    await userEvent.selectOptions(screen.getByLabelText('Role'), 'OWNER');
+    const form = await startInviting();
+    await userEvent.type(form.getByLabelText('Email'), 'dave@elsewhere.test');
+    await userEvent.selectOptions(form.getByLabelText('Role'), 'OWNER');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Send invitation' })
+      form.getByRole('button', { name: 'Send invitation' })
     );
 
     await waitFor(() =>
@@ -166,6 +180,52 @@ describe('MembersPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'An invitation is on its way to dave@elsewhere.test.'
     );
+    // And the form is gone: it closes when the server has taken it, not when the button
+    // was pressed.
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  /**
+   * <strong>A refused invitation leaves the form up holding the address.</strong> Shutting
+   * on submit would ask an owner to type it again in order to read what was wrong with it,
+   * which is why whether the dialog is open is the page's state and not the dialog's own.
+   */
+  it('keeps the form up with the address when the invitation is refused', async () => {
+    await open();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, { code: 'already_a_member' })
+    );
+
+    const form = await startInviting();
+    await userEvent.type(form.getByLabelText('Email'), 'bob@acme.test');
+    await userEvent.click(
+      form.getByRole('button', { name: 'Send invitation' })
+    );
+
+    await screen.findByRole('alert');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Email')).toHaveValue('bob@acme.test');
+  });
+
+  /** Two ways out, and both are ways somebody meant: the form's own, and the platform's. */
+  it('takes a cancelled invitation off the screen', async () => {
+    await open();
+    const form = await startInviting();
+    await userEvent.type(form.getByLabelText('Email'), 'dave@elsewhere.test');
+
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    ).toHaveLength(0);
+  });
+
+  /** A member may see who their colleagues are and may not invite anybody. */
+  it('offers no way in to somebody who cannot administer', async () => {
+    await open({ ...ACCOUNT, role: 'MEMBER' });
+
+    expect(screen.queryByRole('button', { name: 'Invite someone' })).toBeNull();
   });
 
   it('reports a refused invitation against the address it was for', async () => {
@@ -174,9 +234,10 @@ describe('MembersPage', () => {
       jsonResponse(409, { code: 'already_a_member' })
     );
 
-    await userEvent.type(screen.getByLabelText('Email'), 'bob@acme.test');
+    const form = await startInviting();
+    await userEvent.type(form.getByLabelText('Email'), 'bob@acme.test');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Send invitation' })
+      form.getByRole('button', { name: 'Send invitation' })
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -194,9 +255,10 @@ describe('MembersPage', () => {
       })
     );
 
-    await userEvent.type(screen.getByLabelText('Email'), 'dave@elsewhere.test');
+    const form = await startInviting();
+    await userEvent.type(form.getByLabelText('Email'), 'dave@elsewhere.test');
     await userEvent.click(
-      screen.getByRole('button', { name: 'Send invitation' })
+      form.getByRole('button', { name: 'Send invitation' })
     );
 
     expect(await screen.findByText('This is required.')).toBeInTheDocument();

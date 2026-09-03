@@ -219,9 +219,29 @@ export const en = {
   },
   projects: {
     title: 'Projects',
+    // The five parts of one plan. Plain nouns, and the same words the headings inside use:
+    // a strip whose labels paraphrase what they select makes somebody check whether they
+    // landed where they pressed.
+    tabs: {
+      // Names a strip whose buttons are already labelled, so it says what they are of
+      // rather than repeating one of them.
+      label: 'This plan',
+      work: 'Work',
+      forecast: 'Forecast',
+      // Not "What if". Two of the three things here weigh something somebody might do and
+      // one of them only explains a number, and a label that promised an action for all
+      // three would be wrong about the one that reads.
+      explore: 'Explore',
+      history: 'History',
+      // What the plan is called and whether it is still in use. "Settings" and not
+      // "Details", because archiving lives here too and that is not a detail.
+      settings: 'Settings'
+    },
     lede: 'The plans {{organisation}} is working from.',
     loading: 'Loading projects…',
-    none: 'No projects yet. Start one below and you can put work in it.',
+    // "Above" and not "below": the way in moved to the top of the page, and an empty state
+    // that points the wrong way is worse than one that points nowhere.
+    none: 'No projects yet. Start one above and you can put work in it.',
     noneArchived: 'Nothing has been put away.',
     // Two states of one list rather than a filter, because the endpoint answers one or the
     // other: a row saying which it was would be a row somebody has to read to know whether
@@ -238,14 +258,44 @@ export const en = {
     // here and printed back beside every date it produced. A date is the first thing this
     // product emits that looks like a fact, and the hours are what stop it reading as one.
     forecast: {
-      title: 'Forecast',
-      lede: 'Simulated from the ranges on the work above, then read onto a calendar you state.',
+      // One heading per part of a forecast. The strip above names them too, and this says
+      // it again because a control is not a heading: somebody moving through a plan by its
+      // headings should find each part where the strip promised it.
+      sections: {
+        forecast: {
+          title: 'Forecast',
+          // "In this plan" and not "above": the work is a tab away rather than up the page,
+          // and a lede that points somewhere nothing is is worse than one that points
+          // nowhere.
+          lede: 'Simulated from the ranges on the work in this plan, then read onto a calendar you state.'
+        },
+        explore: {
+          title: 'Explore',
+          lede: 'What made the band this wide, what dropping something would buy, and what one more person would.'
+        },
+        history: {
+          title: 'History',
+          lede: 'Every forecast made of this plan before the newest, and why the date moved between two of them.'
+        }
+      },
       loading: 'Loading forecasts…',
       // Every box but one is a claim about this team that nobody here can make for them.
       // The exception is the start date, which is filled in because what day it is is a
       // fact rather than a claim — so this says "almost none" rather than "not one", which
       // it used to and which the calendar made untrue.
-      none: 'No forecast yet. Answer the questions below and ask for one — almost none of them has an answer this application can give for you.',
+      //
+      // One sentence per part, because only the first of them has the questions on it and
+      // the other two have to say where they are. A shared line reading "answer the
+      // questions below" beside no questions tells somebody to do something they cannot do
+      // from where they are standing.
+      none: {
+        forecast:
+          'No forecast yet. Answer the questions below and ask for one — almost none of them has an answer this application can give for you.',
+        explore:
+          'No forecast yet. Ask for one under Forecast, and what it is made of can be taken apart here.',
+        history:
+          'No forecast yet. Ask for one under Forecast, and every one after it is listed here beside the reason the date moved.'
+      },
       submit: 'Forecast this plan',
       submitting: 'Simulating…',
       more: 'Advanced',
@@ -701,6 +751,10 @@ export const en = {
       },
       earlier: {
         title: 'Earlier forecasts',
+        // A first forecast has nothing to have moved from. Said plainly rather than left as
+        // an empty panel, and said without suggesting anybody hurry: a plan forecast once is
+        // exactly what a plan forecast for the first time looks like.
+        only: 'This is the only forecast of this plan so far. Once there is another, what moved between them is explained here.',
         // Carries its assumptions, because two runs of one plan made under different ones
         // are not a date moving — and a list that showed only the numbers would read as
         // though they were. That is the whole problem of saying a forecast plainly, arriving early enough to design
@@ -723,17 +777,23 @@ export const en = {
       }
     },
     new: {
+      // The control that asks for the form, and the form's own title: the same words, so
+      // nobody has to work out whether they pressed the right thing.
+      open: 'Start a project',
       title: 'Start a project',
       lede: 'A container for one plan. Nothing is estimated yet — that comes once there is work in it.',
       submit: 'Create project',
-      submitting: 'Creating…'
+      submitting: 'Creating…',
+      cancel: 'Cancel'
     },
     // The work inside one plan. No numbers on any of it yet: estimates are the next step,
     // and how they are *asked for* is a subject of its own.
     items: {
       title: 'Work',
       loading: 'Loading work…',
-      none: 'Nothing written down yet. Add the first task below.',
+      // "Above" and not "below": the way in moved to the top of the section, and an empty
+      // state that points the wrong way is worse than one that points nowhere.
+      none: 'Nothing written down yet. Add the first task above.',
       noneArchived: 'Nothing here has been put away.',
       showArchived: 'Show archived work',
       showCurrent: 'Show current work',
@@ -742,6 +802,11 @@ export const en = {
         description: { label: 'Notes' }
       },
       add: {
+        // The button that asks for the form, and the form's own heading. The same words
+        // deliberately: a dialog that opens under a different name than the control that
+        // opened it asks somebody to work out whether they pressed the right thing.
+        open: 'Add a task',
+        title: 'Add a task',
         submit: 'Add task',
         submitting: 'Adding…'
       },
@@ -1004,10 +1069,14 @@ export const en = {
       }
     },
     new: {
+      // The control that asks for the form, and the form's own title: the same words, so
+      // nobody has to work out whether they pressed the right thing.
+      open: 'Add a resource',
       title: 'Add a resource',
       lede: 'A pool of people, an environment, a licence — anything a task has to have before it can start.',
       submit: 'Add it',
-      submitting: 'Adding…'
+      submitting: 'Adding…',
+      cancel: 'Cancel'
     }
   },
   calibration: {
@@ -1139,11 +1208,18 @@ export const en = {
     removed:
       '{{name}} is no longer in this organisation. Their account is untouched.',
     invite: {
+      // The control that asks for the form, and the form's own title: the same words, so
+      // nobody has to work out whether they pressed the right thing.
+      open: 'Invite someone',
       title: 'Invite someone',
       lede: 'They will get a link by email. It works once and lasts a week.',
       roleLabel: 'Role',
       submit: 'Send invitation',
       submitting: 'Sending…',
+      // Its own entry rather than a shared "Cancel": what a word beside a button means
+      // depends on the button, and one catalogue entry shared by every form is how they
+      // stop being able to differ when one of them needs to.
+      cancel: 'Cancel',
       sent: 'An invitation is on its way to {{email}}.'
     },
     pending: {

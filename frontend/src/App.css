@@ -207,10 +207,16 @@ a.button-link,
   line-height: 150%;
 }
 
+/*
+  A box is sized by what goes into it, not by the shell around it — one line of text does
+  not want the width of a monitor. A maximum rather than a width, so a field sharing a row
+  with others is left exactly as its own layout put it.
+*/
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 640px;
 
   label {
     font-size: 15px;
@@ -425,10 +431,9 @@ button.link {
 }
 
 .home {
-  margin: auto;
+  margin-inline: auto;
   width: 100%;
-  max-width: 560px;
-  padding: 48px 24px;
+  padding: 32px 24px 64px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -436,6 +441,11 @@ button.link {
 
   h1 {
     margin: 0;
+  }
+
+  /* Prose keeps a measure whatever the shell is set to; a line this long is unreadable. */
+  .lede {
+    max-width: 68ch;
   }
 }
 
@@ -501,14 +511,18 @@ button.link {
   }
 }
 
+/*
+  These fill the shell rather than setting a width of their own — see `#root`. The
+  horizontal padding matches the header's, so the wordmark and the page's own heading sit
+  on one line down the left edge.
+*/
 .members,
 .projects,
 .resources,
 .calibration {
-  margin: auto;
+  margin-inline: auto;
   width: 100%;
-  max-width: 720px;
-  padding: 48px 24px;
+  padding: 32px 24px 64px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -548,6 +562,53 @@ button.link {
   }
 }
 
+/*
+  The five parts of one plan. A strip of buttons rather than links, and the selected one is
+  marked by a rule under it *and* by its colour — a tab told apart by colour alone is a tab
+  half of the people reading it cannot find.
+*/
+.plan-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+
+  button {
+    font: inherit;
+    font-size: 15px;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: inherit;
+    background: none;
+    border: none;
+    /* Sits on the container's own rule rather than beside it, so nothing shifts on select. */
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    border-radius: 6px 6px 0 0;
+
+    &:hover {
+      color: var(--text-h);
+      background: var(--accent-bg);
+    }
+
+    &[aria-selected='true'] {
+      color: var(--text-h);
+      border-bottom-color: var(--accent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+    }
+  }
+}
+
+.plan-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .project-form {
   display: flex;
   flex-direction: column;
@@ -555,9 +616,22 @@ button.link {
   padding-top: 8px;
   border-top: 1px solid var(--border);
 
-  button.primary {
-    align-self: flex-start;
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
   }
+}
+
+/*
+  The rule above this form separates it from the plan it configures. Inside a dialog there
+  is nothing above it to be separated from, and a line across the top of a panel reads as
+  something having been cut off.
+*/
+.modal .project-form {
+  padding-top: 0;
+  border-top: none;
 }
 
 .project-list,
@@ -914,6 +988,48 @@ button.link {
   gap: 12px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
+}
+
+/*
+  A form asked for, over the page it was asked from. The element is a native `<dialog>`, so
+  the backdrop, the focus trap and Escape are the browser's — what is here is only what it
+  looks like, plus the two things a user-agent stylesheet gets wrong for a form: it is
+  centred rather than pinned to the top, and it may not grow past the window.
+*/
+.modal {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 24px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
+
+  h3 {
+    font-family: var(--heading);
+    font-size: 19px;
+    font-weight: 500;
+    margin: 0 0 16px;
+    color: var(--text-h);
+  }
+
+  /* A field in here has the dialog's width to work with and nothing to line up against. */
+  .field {
+    max-width: none;
+  }
+}
+
+/* Where a whole form used to be, so it keeps the space the form's own button stood in. */
+.add {
+  margin: 0;
+  padding-top: 8px;
 }
 
 .work-item-form {

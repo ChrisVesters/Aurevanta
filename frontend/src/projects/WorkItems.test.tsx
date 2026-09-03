@@ -456,6 +456,17 @@ describe('WorkItems', () => {
     );
   }
 
+  /**
+   * Open the form that writes a task down, which is asked for now rather than always on
+   * screen. Every case that adds something goes through here, because the button is what a
+   * person presses and a case that reached into the dialog without it would be testing a
+   * form nobody can get to.
+   */
+  async function startAdding() {
+    await userEvent.click(screen.getByRole('button', { name: 'Add a task' }));
+    return within(await screen.findByRole('dialog'));
+  }
+
   it('lists the work in the plan', async () => {
     await open();
 
@@ -478,8 +489,9 @@ describe('WorkItems', () => {
     await open();
     await screen.findByText('Write the runbook');
 
-    await userEvent.type(screen.getByLabelText('Task'), 'Cut the release');
-    await userEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+    await userEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -492,14 +504,54 @@ describe('WorkItems', () => {
     );
   });
 
-  /** So the next task starts from an empty box rather than the last one's title. */
-  it('empties the add form once something has been written down', async () => {
+  /**
+   * <strong>It shuts once the server has it, and opens empty next time.</strong> The form
+   * used to sit under the list and be remounted to clear it; now it exists only while it is
+   * open, which is the same rule reached by not being there rather than by being replaced.
+   */
+  it('shuts once something has been written down, and reopens empty', async () => {
     await open();
 
-    await userEvent.type(screen.getByLabelText('Task'), 'Cut the release');
-    await userEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+    await userEvent.click(form.getByRole('button', { name: 'Add task' }));
 
-    await waitFor(() => expect(screen.getByLabelText('Task')).toHaveValue(''));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect((await startAdding()).getByLabelText('Task')).toHaveValue('');
+  });
+
+  /**
+   * <strong>And stays up holding what was typed when the server refuses.</strong> Shutting
+   * on submit would ask somebody to type the whole thing again in order to read what was
+   * wrong with it — which is why whether it is open is this component's state and not the
+   * dialog's own.
+   */
+  it('stays open with what was typed when the write is refused', async () => {
+    await open();
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, null));
+
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+    await userEvent.click(form.getByRole('button', { name: 'Add task' }));
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText('Task')).toHaveValue('Cut the release');
+  });
+
+  /** Two ways out, and both are ways somebody meant: the form's own, and the platform's. */
+  it('takes a cancelled form off the screen', async () => {
+    await open();
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    // And nothing was written: cancelling is not a quiet way to save.
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    ).toHaveLength(0);
   });
 
   it('rewords an item in place', async () => {
@@ -664,8 +716,9 @@ describe('WorkItems', () => {
     );
     await screen.findByText('Something we dropped');
 
-    await userEvent.type(screen.getByLabelText('Task'), 'Cut the release');
-    await userEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+    await userEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     expect(await screen.findByText('Write the runbook')).toBeInTheDocument();
   });
@@ -679,8 +732,9 @@ describe('WorkItems', () => {
       })
     );
 
-    await userEvent.type(screen.getByLabelText('Task'), 'Cut the release');
-    await userEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+    await userEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     expect(
       await screen.findByText('Use no more than 2000 characters.')
@@ -692,8 +746,9 @@ describe('WorkItems', () => {
     await open();
     fetchMock.mockResolvedValueOnce(jsonResponse(500, null));
 
-    await userEvent.type(screen.getByLabelText('Task'), 'Cut the release');
-    await userEvent.click(screen.getByRole('button', { name: 'Add task' }));
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('Task'), 'Cut the release');
+    await userEvent.click(form.getByRole('button', { name: 'Add task' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       /Something went wrong/

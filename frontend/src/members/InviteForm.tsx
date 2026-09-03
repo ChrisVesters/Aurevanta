@@ -19,9 +19,12 @@ const ROLES: readonly UserRole[] = ['MEMBER', 'OWNER'];
  * remove the person who filled it in.
  */
 export function InviteForm({
-  onInvited
+  onInvited,
+  onCancel
 }: {
   onInvited: (email: string) => void;
+  /** The way out that is not sending anything, since this is asked for rather than always on screen. */
+  onCancel: () => void;
 }) {
   const { t } = useTranslation();
   const { request } = useAuth();
@@ -43,9 +46,9 @@ export function InviteForm({
         method: 'POST',
         body: { email, role: textField(values, 'role') }
       });
-      // Reset before the parent reloads, so the next invitation starts from an empty
-      // field rather than the address that has just been sent one.
-      form.reset();
+      // Nothing is reset here any more: the dialog holding this form renders its contents
+      // only while it is open, so the next invitation starts from a form that has just been
+      // built rather than from one somebody emptied.
       onInvited(email);
     } catch (error) {
       report(error);
@@ -55,7 +58,11 @@ export function InviteForm({
 
   return (
     <form className="invite-form" onSubmit={invite} noValidate>
-      <h2>{t('members.invite.title')}</h2>
+      {/*
+        No heading of its own: the dialog around it carries the title, and the control that
+        opened it says the same words. What stays is the line about what an invitation
+        actually does, which is the part somebody needs while filling the form in.
+      */}
       <p className="lede">{t('members.invite.lede')}</p>
 
       {message && (
@@ -89,9 +96,16 @@ export function InviteForm({
         )}
       </p>
 
-      <button type="submit" className="primary" disabled={sending}>
-        {sending ? t('members.invite.submitting') : t('members.invite.submit')}
-      </button>
+      <p className="actions">
+        <button type="submit" className="primary" disabled={sending}>
+          {sending
+            ? t('members.invite.submitting')
+            : t('members.invite.submit')}
+        </button>
+        <button type="button" className="link" onClick={onCancel}>
+          {t('members.invite.cancel')}
+        </button>
+      </p>
     </form>
   );
 }

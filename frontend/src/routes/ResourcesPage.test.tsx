@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ResourcesPage } from './ResourcesPage';
 import {
@@ -106,6 +106,19 @@ describe('ResourcesPage', () => {
    * The empty state is the screen every organisation sees until it describes a team, and it
    * says what happens meanwhile rather than only that there is nothing here.
    */
+  /**
+   * Open the form that declares a pool, which is asked for now rather than always on
+   * screen. Every case that declares one goes through here, because the button is what a
+   * person presses and a case reaching into the dialog without it would be testing a form
+   * nobody can get to.
+   */
+  async function startAdding() {
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Add a resource' })
+    );
+    return within(await screen.findByRole('dialog'));
+  }
+
   it('says what a forecast does while there is nothing here', async () => {
     await open([]);
 
@@ -118,13 +131,14 @@ describe('ResourcesPage', () => {
 
   it('declares a pool and asks the server what the list looks like now', async () => {
     await open([]);
+    const form = await startAdding();
     await userEvent.type(
-      screen.getByLabelText('What is it called?'),
+      form.getByLabelText('What is it called?'),
       'Designers'
     );
-    await userEvent.type(screen.getByLabelText('How many are there?'), '2');
+    await userEvent.type(form.getByLabelText('How many are there?'), '2');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add it' }));
+    await userEvent.click(form.getByRole('button', { name: 'Add it' }));
 
     const sent = fetchMock.mock.calls.find(
       (call) => (call[1] as RequestInit | undefined)?.method === 'POST'
@@ -143,12 +157,10 @@ describe('ResourcesPage', () => {
    */
   it('sends no units at all when the box is untouched', async () => {
     await open([]);
-    await userEvent.type(
-      screen.getByLabelText('What is it called?'),
-      'Anybody'
-    );
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('What is it called?'), 'Anybody');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add it' }));
+    await userEvent.click(form.getByRole('button', { name: 'Add it' }));
 
     const sent = fetchMock.mock.calls.find(
       (call) => (call[1] as RequestInit | undefined)?.method === 'POST'
@@ -161,12 +173,13 @@ describe('ResourcesPage', () => {
   /** A pool may only name a colleague, so the list is offered rather than typed into. */
   it('offers colleagues rather than asking for an identifier', async () => {
     await open([]);
+    const form = await startAdding();
 
     expect(
-      screen.getByRole('option', { name: 'Ada Lovelace' })
+      form.getByRole('option', { name: 'Ada Lovelace' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('option', { name: 'Not a particular person' })
+      form.getByRole('option', { name: 'Not a particular person' })
     ).toBeInTheDocument();
   });
 
@@ -192,7 +205,9 @@ describe('ResourcesPage', () => {
       await screen.findByText('Backend engineers — 3 units')
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('option', { name: 'Not a particular person' })
+      (await startAdding()).getByRole('option', {
+        name: 'Not a particular person'
+      })
     ).toBeInTheDocument();
   });
 
@@ -286,15 +301,19 @@ describe('ResourcesPage', () => {
     ).toBeInTheDocument();
   });
 
-  /** The change form is a toggle, so the same button closes what it opened. */
+  /**
+   * The change form is a toggle, so the same button closes what it opened — and it opens in
+   * place on the row rather than in a dialog, because it is about a pool the reader is
+   * looking at and the row is what says which one.
+   */
   it('closes the change form when it is asked to again', async () => {
     await open([BACKEND]);
     await userEvent.click(screen.getByRole('button', { name: 'Change' }));
-    expect(screen.getAllByLabelText('What is it called?')).toHaveLength(2);
+    expect(screen.getByLabelText('What is it called?')).toBeInTheDocument();
 
     await userEvent.click(screen.getAllByRole('button', { name: 'Change' })[0]);
 
-    expect(screen.getAllByLabelText('What is it called?')).toHaveLength(1);
+    expect(screen.queryByLabelText('What is it called?')).toBeNull();
   });
 
   /** A refused change is said in the banner of the form it was refused from. */
@@ -391,13 +410,55 @@ describe('ResourcesPage', () => {
               : jsonResponse(200, [])
       )
     );
-    await userEvent.type(screen.getByLabelText('What is it called?'), 'Nobody');
-    await userEvent.type(screen.getByLabelText('How many are there?'), '0');
+    const form = await startAdding();
+    await userEvent.type(form.getByLabelText('What is it called?'), 'Nobody');
+    await userEvent.type(form.getByLabelText('How many are there?'), '0');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add it' }));
+    await userEvent.click(form.getByRole('button', { name: 'Add it' }));
 
     expect(
       await screen.findByText('Use a number greater than zero.')
     ).toBeInTheDocument();
+    // Still up, holding what was typed: shutting on submit would ask for the whole thing
+    // again in order to read the complaint about it.
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  /** Two ways out, and both are ways somebody meant: the form's own, and the platform's. */
+  it('takes a cancelled pool off the screen', async () => {
+    await open([]);
+    const form = await startAdding();
+    await userEvent.type(
+      form.getByLabelText('What is it called?'),
+      'Designers'
+    );
+
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')
+    ).toHaveLength(0);
+  });
+
+  /**
+   * <strong>It shuts once the server has it, and opens empty next time.</strong> The form
+   * used to sit under the list and be remounted to clear it; now it exists only while it is
+   * open, which is the same rule reached by not being there rather than by being replaced.
+   */
+  it('shuts once a pool has been declared, and reopens empty', async () => {
+    await open([]);
+
+    const form = await startAdding();
+    await userEvent.type(
+      form.getByLabelText('What is it called?'),
+      'Designers'
+    );
+    await userEvent.click(form.getByRole('button', { name: 'Add it' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      (await startAdding()).getByLabelText('What is it called?')
+    ).toHaveValue('');
   });
 });

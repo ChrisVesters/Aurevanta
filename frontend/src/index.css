@@ -50,11 +50,15 @@
   }
 }
 
+/*
+  The shell is what decides how wide this application is, and it is the only thing that
+  decides it: the screens inside fill it rather than each carrying a width of their own,
+  so there is one number to change and no second frame of dead space inside the first.
+*/
 #root {
-  width: 1126px;
+  width: 1440px;
   max-width: 100%;
   margin: 0 auto;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;

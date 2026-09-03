@@ -8,6 +8,7 @@ import { DependencyForm } from './DependencyForm';
 import type { DependencyValues } from './DependencyForm';
 import { EstimateForm } from './EstimateForm';
 import type { EstimateValues } from './EstimateForm';
+import { Modal } from '../ui/Modal';
 import { ProgressForm } from './ProgressForm';
 import { RequirementForm } from './RequirementForm';
 import type { ProgressValues } from './ProgressForm';
@@ -65,6 +66,16 @@ export function WorkItems({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   const [reloads, setReloads] = useState(0);
   const [open, setOpen] = useState<OpenRow | null>(null);
+  /**
+   * Whether somebody is writing a task down.
+   *
+   * The form used to sit under the list, which put every row in the plan between somebody
+   * and the only way to add to it, and left an empty form on screen for everybody who was
+   * not filling one in. It is asked for now — and asked for *over* the list rather than in
+   * it, because a new task is not compared with anything: what it needs is two boxes, and
+   * the rows underneath say nothing about how to fill them.
+   */
+  const [writing, setWriting] = useState(false);
   const adding = useFormFailure(['title', 'description']);
   const rewording = useFormFailure(['title', 'description']);
   const estimating = useFormFailure(ESTIMATE_FIELDS);
@@ -190,6 +201,11 @@ export function WorkItems({ projectId }: { projectId: string }) {
         // Written down while looking at what was put away, which is a plausible thing to
         // do and a confusing thing to be shown nothing for.
         setArchived(false);
+        // Closed only once the server has taken it. A refusal leaves the form up holding
+        // what was typed, which is the whole reason this is state and not the dialog's own
+        // idea of whether it is open: shutting on submit would ask somebody to type it all
+        // again to read what was wrong with it.
+        setWriting(false);
         reload();
       } catch (error) {
         adding.report(error);
@@ -394,6 +410,46 @@ export function WorkItems({ projectId }: { projectId: string }) {
         </p>
       )}
 
+      {/*
+        Above the work rather than under it, because a plan holds five hundred items and the
+        only way to add to one must not be a thing somebody scrolls to. Offered against the
+        archived listing as well as the live one, which is the same decision `add` makes by
+        switching back afterwards: writing something down while looking at what was put away
+        is a plausible thing to do, and the way to serve it is to show the reader where their
+        task went rather than to take the button away.
+      */}
+      <p className="add">
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            // Cleared on the way in, so a refusal from the last attempt is not the first
+            // thing on an empty form.
+            adding.clear();
+            setWriting(true);
+          }}
+        >
+          {t('projects.items.add.open')}
+        </button>
+      </p>
+
+      <Modal
+        title={t('projects.items.add.title')}
+        open={writing}
+        onClose={() => setWriting(false)}
+      >
+        <WorkItemForm
+          id="new-item"
+          busy={busy}
+          submit={t('projects.items.add.submit')}
+          submitting={t('projects.items.add.submitting')}
+          banner={adding.message}
+          fieldErrors={adding.fieldErrors}
+          onSubmit={(values) => void add(values)}
+          onCancel={() => setWriting(false)}
+        />
+      </Modal>
+
       <p className="listing-switch">
         <button
           type="button"
@@ -563,9 +619,11 @@ export function WorkItems({ projectId }: { projectId: string }) {
               {open?.itemId === item.id && open.mode === 'blocks' && (
                 <DependencyForm
                   // Remounted once an arrow has landed, which is what empties the boxes
-                  // for the next one — the same trick the add form uses, and it works
-                  // here for the same reason: a refusal does not reload, so it leaves
-                  // what was typed exactly where it is.
+                  // for the next one. The add form used to do this and now empties by
+                  // being unmounted with its dialog; this panel deliberately stays open
+                  // once an arrow lands, so it has nothing to be unmounted by and the
+                  // remount is still what clears it. A refusal does not reload, so it
+                  // leaves what was typed exactly where it is.
                   key={reloads}
                   id={`blocks-${item.id}`}
                   item={item}
@@ -609,19 +667,6 @@ export function WorkItems({ projectId }: { projectId: string }) {
           ))}
         </ul>
       )}
-
-      <WorkItemForm
-        // Remounted once something has been written down, which is what empties the boxes
-        // for the next one. A refusal leaves them alone.
-        key={reloads}
-        id="new-item"
-        busy={busy}
-        submit={t('projects.items.add.submit')}
-        submitting={t('projects.items.add.submitting')}
-        banner={adding.message}
-        fieldErrors={adding.fieldErrors}
-        onSubmit={(values) => void add(values)}
-      />
     </section>
   );
 
