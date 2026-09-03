@@ -63,6 +63,28 @@ class WorkItemController {
 			.toList();
 	}
 
+	/**
+	 * One item, addressed on its own.
+	 *
+	 * <p>
+	 * The missing member of this family rather than a new idea: an item is created,
+	 * listed, reworded, reported on and archived, and until a task had a page of its own
+	 * nothing ever needed to read exactly one. The page that does is reached by
+	 * {@code /app/items/{id}} and holds no plan in its address, so this is what tells it
+	 * which plan the task is in — which is the same reason the {@code PATCH} beneath it
+	 * names no project either.
+	 *
+	 * <p>
+	 * It answers for an archived item exactly as for a live one. The listing splits the
+	 * two because a screen showing a plan has to show one or the other; a caller holding
+	 * an identifier is asking about that item, and refusing because somebody put it away
+	 * would make the page a link that stops working the moment it is tidied up.
+	 */
+	@GetMapping("/api/items/{itemId}")
+	WorkItemResponse get(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID itemId) {
+		return WorkItemResponse.of(this.items.get(caller.userId(), caller.tenantId(), itemId));
+	}
+
 	@PatchMapping("/api/items/{itemId}")
 	WorkItemResponse update(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID itemId,
 			@Valid @RequestBody UpdateWorkItemRequest request) {

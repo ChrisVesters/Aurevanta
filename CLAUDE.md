@@ -63,6 +63,11 @@ being helpful.
   heuristic everything warned loudest about is worth 0–9%, and a team being typed rather than
   pooled — listed as an ordinary bullet — is worth 14–59% and always optimistic. Decision 5 is
   the one most likely to be undone by somebody being helpful.
+- **`design/a-page-for-one-task.md`** — where a task is changed. **Read its decision 5
+  before putting a colleague's numbers anywhere near the estimate form**: a page has room to
+  show what everybody said, and that is exactly the anchoring the question order exists to
+  prevent. Its decision 1 is the one most likely to be undone by somebody being helpful —
+  leaving the forms on the plan's list *as well* costs nothing and breaks no test.
 - **`design/plans-and-estimates.md`**, **`design/teams-and-invitations.md`** and
   **`design/organisation-handles.md`** cover the schema, the team model and the handle change.
   The last is worth reading precisely because it records work that did something other than
@@ -209,9 +214,12 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **Routing is React Router** (`react-router` v8, `BrowserRouter` in `main.tsx`).
   `/` is a public landing page, `/register` and `/login` sit behind `RedirectWhenSignedIn`,
   and everything under `/app` sits behind `RequireAuth`, inside a shared `AppLayout` that
-  owns the header and the organisation switcher. **A plan is `/app/projects/{id}`, and no
-  route anywhere carries an organisation handle** — the organisation comes from the access
-  token as it does on every request. The plan schema was expected to be what first put a handle in a URL
+  owns the header and the organisation switcher. **A plan is `/app/projects/{id}` and a task
+  is `/app/items/{id}`, and no route anywhere carries an organisation handle** — the
+  organisation comes from the access token as it does on every request. **A task's address
+  carries no plan either**, which is `WorkItemController`'s own rule reaching the browser: a
+  URL naming both would be a second identifier nothing checks against the first, and which
+  plan a task belongs to comes back on the row. The plan schema was expected to be what first put a handle in a URL
   and deliberately was not, so the handle change's two deferrals (reserved handles, redirects for retired
   ones) are still deferred and still recorded in `roadmap.md`. `/app/settings` is owner-only: the nav
   entry is hidden and the page says so, with the server refusing either way — what is on
@@ -699,7 +707,11 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **`WorkItemController` has no class-level path**, because its endpoints sit at two. An
   item is created and listed *within* a project (`/api/projects/{id}/items`), which is the
   only moment its plan has to be named; once it exists it is addressed at `/api/items/{id}`,
-  and so are its estimates and its dependencies. A path that repeated the project would be a
+  and so are its estimates and its dependencies. **`GET /api/items/{id}` answers for an
+  archived item exactly as for a live one** — the *listing* splits the two because a screen
+  showing a plan has to show one or the other, and a caller holding an identifier is asking
+  about that item; refusing would make a task's page a link that stops working the moment
+  somebody tidies up. A path that repeated the project would be a
   second identifier the server had to check agreed with the first, and a disagreement
   between them is a refusal nobody could act on.
 - **Asking for the work in a plan that is not there is `project_not_found`, not an empty
@@ -886,24 +898,29 @@ Both Docker and a JDK 25+ are required for the backend test suite.
 - **`WorkItems` loads and writes on its own** rather than through `ProjectPage`, because a
   plan and its contents are separate resources on the server and answering for one another's
   failures would mean a plan that could not be renamed because its items would not load. It
-  asks for the work and its estimates with one `Promise.all` — neither answer depends on the
-  other — and reloads from the server after every action, since the order is the server's, so
-  is what an item ends up called, and so is which estimate is current after a colleague
-  recorded theirs a moment ago.
+  asks for the work, its estimates and its arrows with one `Promise.all` — no answer depends
+  on another — and reloads from the server after every action, since the order is the
+  server's, so is what an item ends up called, and so is which estimate is current after a
+  colleague recorded theirs a moment ago.
+- **The work list is a list, and the two controls on it are about the list.** Writing a task
+  down, and putting one away. Every way of *changing* a task moved to the task's own page —
+  see *One task, on the page that is only about it* below — because a plan holds five hundred
+  rows and six buttons on each of them was most of the screen. **The row's title is the
+  link**, rather than an "Open" button: a row is about one task and its name is what somebody
+  is scanning for, where a column of identical labels needs an `aria-label` each to say what
+  it opens. That is what the four `openNamed` catalogue entries were, and they are deleted
+  rather than left unused — the test setup fails a render with no translation, so a deleted
+  key is what stops one coming back.
 - **Writing a task down is asked for, from a button above the list.** The form used to sit
   under it, which put every row in the plan between somebody and the only way to add to one
   and left an empty form on screen for everybody who was not filling one in. It is offered on
   the archived listing too, which is the same decision `add` already made by switching back
   to the live one afterwards. See *Forms that are asked for* below for the dialog itself.
-- **A row opens one of four small forms** — reword, estimate, report progress, order — and
-  each has its own `useFormFailure` over the field names it *can* render. "Can" rather than
-  "does" is load-bearing for the estimate form, which shows one question at a time: the
-  banner stays quiet for a complaint about a field on another screen, which is only safe
-  because the form navigates to it. `ProjectForm` and
-  `WorkItemForm` are two components rather than one parameterised by a field name, because
-  the field names are the server's and are what a per-field complaint is keyed by. What they
-  share is `optionalField` — "an empty box means nothing, not `''`" — stated once because the
-  version of that bug which gets written is the second copy.
+- **A fact about a piece of work that two screens state lives in `projects/work.ts`.** The
+  list and the task's page both say how far along something is and where it sits among the
+  others, so `describeProgress`, `byEnd` and `describeShape` are stated once beside
+  `describeWork`, which is there for exactly the same reason. Two copies of a rule about a
+  reported day is how one of them comes to read `new Date(iso)`.
 - **`numberField` exists because `Number('')` is zero.** The obvious version sends an
   untouched box as an estimate of no hours, and the visitor is told their estimate must be
   more than zero about a field they never filled in. **`numberFrom` is the same rule for a box
@@ -927,6 +944,48 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   finish before, and what it is waiting on — because either alone answers half the question
   somebody opened the plan with. An arrow pointing at work archived since is named as such
   rather than shown as a blank, since the archived listing is a different screen.
+
+### One task, on the page that is only about it
+
+`docs/design/a-page-for-one-task.md` is the record. **Read its decision 5 before putting a
+colleague's numbers anywhere near the estimate form.**
+
+- **`/app/items/{id}` is where a task is changed, and it is the only place.** All five forms
+  — reword, estimate, report progress, say what it needs, say what it must finish before —
+  live here. Leaving them on the row as well was the cheaper option and is the one this
+  codebase argues against everywhere else: two ways to do one thing become one that is told
+  about a new field and one that is not, and the progress form's rule about which boxes a
+  status has room for is exactly the sort of thing a second copy gets wrong.
+- **Each form has its own `useFormFailure` over the field names it *can* render.** "Can"
+  rather than "does" is load-bearing for the estimate form, which shows one question at a
+  time: the banner stays quiet for a complaint about a field on another screen, which is only
+  safe because the form navigates to it. `ProjectForm` and `WorkItemForm` are two components
+  rather than one parameterised by a field name, because the field names are the server's and
+  are what a per-field complaint is keyed by. What they share is `optionalField` — "an empty
+  box means nothing, not `''`" — stated once because the version of that bug which gets
+  written is the second copy.
+- **One form at a time, in place of the summary it changes.** Each part of the task says what
+  it carries today and offers one control; opening it clears whatever the last one was told,
+  so a complaint about a date is not the first thing on a form about hours. Five forms
+  permanently on screen would be the list's problem moved to a smaller page.
+- **The estimate part renders every current range *or* the form, never both.** A row had one
+  line and could only name a colleague; a page has room for what they said, and two people
+  who disagree about a task are saying something that is invisible while only their names are
+  on screen. **But a colleague's numbers must never be beside somebody who is answering** —
+  two people who anchored on each other are not two estimates — so they leave the screen the
+  moment the form opens, and the test asserts it at each of the three questions. The reader's
+  own goes first whatever order the server listed them in, because somebody comes here to
+  revise theirs.
+- **The read happens in two waves, and both have to be dropped when the page has gone.** The
+  task answers first, and only then can its plan be asked — which is the cost of an address
+  that carries one identifier. A cancellation check on only the second wave would let the
+  first go on to ask a plan about a task nobody is looking at. The double in the test holds
+  its pending resolvers **by URL**: an earlier version kept one variable, resolved the last
+  request rather than the first, and left that branch uncovered while appearing to test it.
+- **A put-away task offers nothing a forecast reads**, and says why. Archived work is out of
+  every forecast and the estimates endpoint says nothing about it, so estimating, reporting,
+  needs and ordering are all absent; rewording it and bringing it back are not. The rule is
+  stated once here rather than four times on a row.
 ## Forms that are asked for
 
 - **`ui/Modal` is a native `<dialog>`, never a `div` wearing `role="dialog"`.** Focus moved
@@ -962,8 +1021,8 @@ Both Docker and a JDK 25+ are required for the backend test suite.
   carrying an `open` catalogue entry whose words are the dialog's title, so nobody has to
   work out whether they pressed the right thing.
 - **Examined and deliberately left inline**, so the next reader does not "finish the job":
-  every form on a row (reword, estimate, progress, order, needs, and changing a pool) is
-  about something on screen and opens *in place*, which is the whole of the ordering panel's
+  every form that changes something already on screen opens *in place* — the five on a task's
+  own page, and changing a pool on its row — which is the whole of the ordering panel's
   design and of the estimate form's; the forecast's own question is the Forecast tab's
   content rather than an action on a list, and hiding its assumptions behind a button is the
   one thing that panel's design argues hardest against; and every whole-page form — signing

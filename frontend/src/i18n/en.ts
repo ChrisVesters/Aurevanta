@@ -812,9 +812,6 @@ export const en = {
       },
       edit: {
         open: 'Edit',
-        // What the button is called for anybody reading through a screen reader, where a
-        // column of identical "Edit" buttons says nothing about what each one edits.
-        openNamed: 'Edit {{title}}',
         submit: 'Save',
         submitting: 'Saving…',
         cancel: 'Cancel'
@@ -825,7 +822,6 @@ export const en = {
       unarchiveNamed: 'Bring {{title}} back',
       estimate: {
         open: 'Estimate',
-        openNamed: 'Estimate {{title}}',
         // Hours of effort, never a date and never a duration: what a day is worth is a
         // question about calendars and who is available, and that is a later work's
         // to answer rather than something to bake into what somebody types here.
@@ -909,7 +905,6 @@ export const en = {
       // an omission, which is why the form says so where somebody is deciding.
       needs: {
         open: 'Needs',
-        openNamed: 'Say what {{title}} needs',
         lede: 'How many of each does this tie up while it is being done?',
         available: '{{units}} available',
         // A pool the team has put away that this work still names. Shown rather than
@@ -929,7 +924,6 @@ export const en = {
       },
       blocks: {
         open: 'Order',
-        openNamed: 'Order work around {{title}}',
         hint: 'Pick what cannot start until this is finished. Everything else about the plan follows from these.',
         fields: {
           successorItemId: 'Must finish before',
@@ -964,7 +958,6 @@ export const en = {
       // what a forecast needs to know is only whether an item is still ahead of it.
       progress: {
         open: 'Progress',
-        openNamed: 'Record progress for {{title}}',
         statusLabel: 'Status',
         status: {
           NOT_STARTED: 'Not started',
@@ -1003,6 +996,47 @@ export const en = {
           doneWithEffort: 'Done {{completed}} · took {{hours}} hours'
         }
       }
+    },
+    // One task, on the page that is only about it. Every way of changing a piece of work
+    // is here rather than on a row of the plan's list — so the words a *control* uses are
+    // still `items.*`, shared with the row that used to carry it, and what is new here is
+    // only what a page has room to say that a row did not.
+    item: {
+      loading: 'Loading task…',
+      // Names the plan rather than saying "back": somebody arriving from a link has not
+      // been anywhere to go back to, and the plan is what they would want next either way.
+      back: '← {{project}}',
+      archivedNotice:
+        'This task has been put away. It is in no forecast, so there is nothing here to estimate or report against — bring it back and there will be.',
+      estimate: {
+        title: 'Estimate',
+        // What a colleague actually said, rather than only that they said something. A row
+        // in a plan of five hundred has one line for this and can name them; a page has the
+        // room for the numbers, and two people who disagree about a task are saying
+        // something that is invisible while only their names are on screen.
+        theirs: '{{name}}: {{p10}} / {{p50}} / {{p90}} hours'
+      },
+      progress: {
+        title: 'Progress'
+      },
+      needs: {
+        title: 'Needs',
+        summary: '{{name}} × {{units}}',
+        // Said rather than dropped, because a forecast leaves such a requirement out and
+        // reports that it did — and this is one of the two places anybody can act on it.
+        summaryPutAway: '{{name}} × {{units}} — put away',
+        // An empty set is a claim rather than an omission, so it is said in the words the
+        // form uses to ask for it.
+        none: 'Anybody can pick this up — it will take one of whoever is free.'
+      },
+      order: {
+        title: 'Order',
+        none: 'Nothing waits on this, and it waits on nothing.'
+      },
+      // Nothing in this product is deleted, so this says what putting one away means rather
+      // than asking somebody to be sure.
+      archiveHint:
+        'Put-away work stays exactly where it is, out of the plan and out of every forecast. Anybody can bring it back.'
     },
     project: {
       loading: 'Loading project…',

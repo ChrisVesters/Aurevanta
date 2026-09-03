@@ -15,6 +15,7 @@ import { NotFoundPage } from './routes/NotFoundPage';
 import { ProjectPage } from './routes/ProjectPage';
 import { ProjectsPage } from './routes/ProjectsPage';
 import { RegisterPage } from './routes/RegisterPage';
+import { WorkItemPage } from './routes/WorkItemPage';
 import { ResetPasswordPage } from './routes/ResetPasswordPage';
 import { VerifyEmailPage } from './routes/VerifyEmailPage';
 import './App.css';
@@ -57,6 +58,14 @@ function App() {
           */}
           <Route path="/app/projects" element={<ProjectsPage />} />
           <Route path="/app/projects/:projectId" element={<ProjectPage />} />
+          {/*
+            One task, carrying no plan in its address. That is `WorkItemController`'s own
+            rule reaching the browser: an item is created and listed within a plan, and once
+            it exists it is addressed on its own — a URL naming both would be a second
+            identifier nothing checks against the first. Which plan it belongs to comes back
+            on the row, which is what the back link is built from.
+          */}
+          <Route path="/app/items/:itemId" element={<WorkItemPage />} />
           <Route path="/app/members" element={<MembersPage />} />
           {/*
             Organisation-wide, for the reason the calibration record is: a team is the

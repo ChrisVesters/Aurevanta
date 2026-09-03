@@ -69,6 +69,11 @@ made readable.
   that forecast, the forecasts before it, and what the plan is called. One page and one URL:
   the part being read is a query parameter, so a link to it keeps it, and the plain plan
   address still opens on the work.
+- **A task has a page of its own**, and it is the only place a task is changed — rewording
+  it, estimating it, reporting on it, saying what it needs and saying what it must finish
+  before. The plan's work list is a list: what each piece of work is, what it is expected to
+  take, how far along it is and where it sits, with the title as the way in. Five forms on
+  every one of five hundred rows is what that replaced.
 
 ## Estimates
 
@@ -238,6 +243,7 @@ months ago.
 | The throughput cross-check | `design/throughput.md` |
 | Saying a forecast plainly | `design/communicating-a-forecast.md` |
 | Resources and people | `design/resources-and-people.md` |
+| Where a task is changed | `design/a-page-for-one-task.md` |
 | Plans, work items and estimates | `design/plans-and-estimates.md` |
 | Teams, invitations and accounts | `design/teams-and-invitations.md` |
 | Organisation handles | `design/organisation-handles.md` |

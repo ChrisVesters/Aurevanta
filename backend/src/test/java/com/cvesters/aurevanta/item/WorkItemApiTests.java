@@ -291,6 +291,68 @@ class WorkItemApiTests {
 		assertThat(this.items.findAll()).isEmpty();
 	}
 
+	// Reading one -------------------------------------------------------------
+
+	/**
+	 * The endpoint a task's own page is drawn from. It names no plan, so the plan comes
+	 * back on the row — which is what lets {@code /app/items/{id}} carry one identifier
+	 * rather than two that could disagree.
+	 */
+	@Test
+	void aMemberCanReadOneItem() throws Exception {
+		WorkItem item = item("Migrate the auth service", CREATED_AT);
+
+		read(this.bob, item).andExpect(status().isOk())
+			.andExpect(jsonPath("$.id").value(item.getId().toString()))
+			.andExpect(jsonPath("$.projectId").value(this.acmePlan.getId().toString()))
+			.andExpect(jsonPath("$.title").value("Migrate the auth service"))
+			.andExpect(jsonPath("$.status").value("NOT_STARTED"));
+	}
+
+	/**
+	 * The listing splits live work from put-away work because a screen showing a plan has
+	 * to show one or the other. A caller holding an identifier is asking about that item,
+	 * so refusing here would turn a task's page into a link that stops working the moment
+	 * somebody tidies up.
+	 */
+	@Test
+	void oneItemIsReadableAfterItHasBeenPutAway() throws Exception {
+		WorkItem item = item("Something we dropped", CREATED_AT);
+		archive(this.ada, item, "archive").andExpect(status().isOk());
+
+		read(this.ada, item).andExpect(status().isOk()).andExpect(jsonPath("$.archivedAt").isNotEmpty());
+	}
+
+	@Test
+	void cannotReadAnItemInAnotherOrganisation() throws Exception {
+		WorkItem theirs = this.items.save(new WorkItem(this.umbrellaPlan, "Their work", null, CREATED_AT));
+
+		read(this.ada, theirs).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("work_item_not_found"));
+	}
+
+	@Test
+	void readingAnIdentifierNothingHasIsTheSameAnswer() throws Exception {
+		this.mvc.perform(get("/api/items/" + UUID.randomUUID()).header(HttpHeaders.AUTHORIZATION, bearer(this.ada)))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("work_item_not_found"));
+	}
+
+	/**
+	 * Reading one item re-reads the membership like every other endpoint that names no
+	 * project, rather than trusting a role pinned into a token up to twelve hours ago.
+	 */
+	@Test
+	void refusesReadingAnItemToSomebodyRemovedSinceTheirTokenWasIssued() throws Exception {
+		WorkItem item = item("Migrate auth", CREATED_AT);
+		String stale = bearer(this.bob);
+		this.memberships.delete(this.bob);
+
+		this.mvc.perform(get("/api/items/" + item.getId()).header(HttpHeaders.AUTHORIZATION, stale))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("not_a_member"));
+	}
+
 	// Changing one ------------------------------------------------------------
 
 	@Test
@@ -462,6 +524,10 @@ class WorkItemApiTests {
 	private ResultActions listArchived(Membership caller, Project project) throws Exception {
 		return this.mvc.perform(get("/api/projects/" + project.getId() + "/items").param("archived", "true")
 			.header(HttpHeaders.AUTHORIZATION, bearer(caller)));
+	}
+
+	private ResultActions read(Membership caller, WorkItem item) throws Exception {
+		return this.mvc.perform(get("/api/items/" + item.getId()).header(HttpHeaders.AUTHORIZATION, bearer(caller)));
 	}
 
 	private ResultActions update(Membership caller, WorkItem item, String title, String description) throws Exception {

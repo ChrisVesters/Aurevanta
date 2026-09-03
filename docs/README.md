@@ -24,6 +24,7 @@ are the documents to read before changing behaviour rather than after.
 | [`design/throughput.md`](design/throughput.md) | A second forecast, with no estimate in it. |
 | [`design/communicating-a-forecast.md`](design/communicating-a-forecast.md) | Saying it to somebody who does not know what P90 means. |
 | [`design/resources-and-people.md`](design/resources-and-people.md) | A team is pools of units, and work ties them up. |
+| [`design/a-page-for-one-task.md`](design/a-page-for-one-task.md) | Where a task is changed, and why it is not the plan's list. |
 | [`design/plans-and-estimates.md`](design/plans-and-estimates.md) | The schema everything else reads. |
 | [`design/teams-and-invitations.md`](design/teams-and-invitations.md) | Accounts, organisations, invitations and the verification gate. |
 | [`design/organisation-handles.md`](design/organisation-handles.md) | Why an organisation's name is not unique. |
