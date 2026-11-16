@@ -981,6 +981,17 @@ export const en = {
         // what was in them is still there.
         clears:
           'Saving this discards the dates and effort already recorded against this task.',
+        // The other thing pressing save makes true, and the reason it is said here rather
+        // than left to the refusal: an estimate is what somebody said before they found
+        // out, so starting the work closes it. Only on the way out of not-started —
+        // repeating it on work already under way would be noise about a decision nobody
+        // is taking.
+        closesEstimating:
+          'Once this is started it can no longer be estimated or re-estimated.',
+        // And the half that only applies where there is nothing to close over. A forecast
+        // carries unestimated work at no effort and says that it did.
+        closesUnestimated:
+          'Nothing has estimated this yet, so every forecast will carry it at no effort and say so.',
         // Who last said something about this task, from a log that keeps every claim
         // rather than only the newest. One line rather than a history screen: what it is
         // for is that somebody can tell whether the state in front of them is theirs — and
@@ -1010,6 +1021,13 @@ export const en = {
         'This task has been put away. It is in no forecast, so there is nothing here to estimate or report against — bring it back and there will be.',
       estimate: {
         title: 'Estimate',
+        // Said in place of the control rather than behind a refusal: a server refusing
+        // something a screen has just invited somebody to type is a trap rather than a
+        // check. It states the rule and not the way around it — progress can be reported
+        // back to not-started, which is the remedy for a mis-click and not an instruction
+        // to publish beside every started task.
+        closed:
+          'Started work is no longer estimated. An estimate is what somebody said before they found out, which is the only thing a track record can ask about.',
         // What a colleague actually said, rather than only that they said something. A row
         // in a plan of five hundred has one line for this and can name them; a page has the
         // room for the numbers, and two people who disagree about a task are saying
@@ -1339,6 +1357,12 @@ export const en = {
       // number, and what is wrong is the order they are in.
       estimate_out_of_order:
         'The three numbers must go up: P10 no more than P50, and P50 no more than P90.',
+      // Reached by a client other than this one, or by a colleague marking the work
+      // started while somebody was part-way through answering the three questions. It
+      // says what changed rather than what the visitor did wrong, because in the case
+      // that actually happens they did nothing wrong.
+      work_already_started:
+        'This work has been started, so it can no longer be estimated — an estimate is what somebody said before they found out.',
       // Both numbers are perfectly good percentages and what is wrong is which way round
       // they are, so this names the pair rather than picking one of the two boxes to
       // blame — the same reason `estimate_out_of_order` is worded as it is.

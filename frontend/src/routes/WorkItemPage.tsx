@@ -467,16 +467,29 @@ export function WorkItemPage() {
                         ))}
                       </ul>
                     )}
-                    <p className="actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={busy}
-                        onClick={() => show('estimate')}
-                      >
-                        {t('projects.items.estimate.open')}
-                      </button>
-                    </p>
+                    {item.status === 'NOT_STARTED' ? (
+                      <p className="actions">
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={busy}
+                          onClick={() => show('estimate')}
+                        >
+                          {t('projects.items.estimate.open')}
+                        </button>
+                      </p>
+                    ) : (
+                      /*
+                        Said in place of the control rather than left to the refusal. The
+                        server refuses an estimate on work that has begun, and a screen
+                        that still offered the form would be inviting somebody through
+                        four questions to be turned away at the end — which is
+                        `progress_not_applicable`'s rule seen from the same side.
+                      */
+                      <p className="hint">
+                        {t('projects.item.estimate.closed')}
+                      </p>
+                    )}
                   </>
                 )}
               </section>
@@ -490,6 +503,9 @@ export function WorkItemPage() {
                   <ProgressForm
                     id="progress"
                     item={item}
+                    // Whether starting it is about to close something or about to close
+                    // nothing, which is what the warning has to tell the two cases apart.
+                    estimated={ranges.length > 0}
                     busy={busy}
                     banner={reporting.message}
                     fieldErrors={reporting.fieldErrors}

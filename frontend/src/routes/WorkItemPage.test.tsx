@@ -934,6 +934,63 @@ describe('WorkItemPage', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  /**
+   * **An estimate is what somebody said before they found out.** The server refuses one on
+   * work that has begun, and a screen that still offered the form would walk somebody
+   * through four questions to turn them away at the end — which is `progress_not_applicable`
+   * seen from the same side.
+   */
+  it('offers no estimate on work that has been started', async () => {
+    await open({ item: WORK_ITEMS[1] });
+
+    expect(screen.queryByRole('button', { name: 'Estimate' })).toBeNull();
+    expect(
+      screen.getByText(/Started work is no longer estimated/)
+    ).toBeInTheDocument();
+  });
+
+  it('offers no estimate on work that is finished either', async () => {
+    await open({
+      item: { ...ITEM, status: 'DONE', completedOn: '2026-08-14' }
+    });
+
+    expect(screen.queryByRole('button', { name: 'Estimate' })).toBeNull();
+  });
+
+  /**
+   * What was said before the work began still stands, and is still worth reading: the rule
+   * closes estimating, it does not hide the estimate. Nothing rewrites one of these rows,
+   * which is what a track record is built from.
+   */
+  it('still shows what was estimated before the work began', async () => {
+    await open({ item: WORK_ITEMS[1], estimates: [COLLEAGUES_ESTIMATE] });
+
+    expect(screen.getByText('Bob: 1 / 2 / 4 hours')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Estimate' })).toBeNull();
+  });
+
+  /**
+   * Reachable even though the form is not offered on started work: a colleague can mark it
+   * started while somebody is part-way through the three questions. The wording says what
+   * changed rather than what the visitor did wrong, because they did nothing wrong.
+   */
+  it('says so when a colleague starts the work mid-answer', async () => {
+    await open();
+    await openEstimate();
+
+    await answerTheThree('12', '3', '5');
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(409, { code: 'work_already_started' })
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /This work has been started, so it can no longer be estimated/
+    );
+  });
+
   it('closes the estimate form when it is cancelled', async () => {
     await open();
     await openEstimate();
@@ -1147,6 +1204,63 @@ describe('WorkItemPage', () => {
     await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
 
     expect(screen.queryByText(/Saving this discards/)).toBeNull();
+  });
+
+  /**
+   * **Said before saving rather than discovered afterwards**, which is the rule the discard
+   * warning follows too. Starting the work is what closes estimating, and the person about
+   * to make that true is standing in front of this form.
+   */
+  it('warns that starting the work closes estimating', async () => {
+    await open();
+    await openProgress();
+    expect(screen.queryByText(/no longer be estimated/)).toBeNull();
+
+    await userEvent.selectOptions(
+      screen.getByLabelText('Status'),
+      'IN_PROGRESS'
+    );
+
+    expect(
+      screen.getByText(/Once this is started it can no longer be estimated/)
+    ).toBeInTheDocument();
+  });
+
+  /** And the sharper half, where there is nothing to close over. */
+  it('says what starting unestimated work costs a forecast', async () => {
+    await open();
+    await openProgress();
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
+
+    expect(
+      screen.getByText(/every forecast will carry it at no effort and say so/)
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about a forecast where somebody has already estimated it', async () => {
+    await open({ estimates: ESTIMATES });
+    await openProgress();
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
+
+    expect(
+      screen.getByText(/Once this is started it can no longer be estimated/)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/at no effort and say so/)).toBeNull();
+  });
+
+  /**
+   * Only on the way *out* of not-started. Work already under way has already closed, and
+   * repeating it on every save would be noise about a decision nobody is taking.
+   */
+  it('says nothing about closing estimating on work already under way', async () => {
+    await open({ item: WORK_ITEMS[1] });
+    await openProgress();
+
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'DONE');
+
+    expect(screen.queryByText(/no longer be estimated/)).toBeNull();
   });
 
   it('says so when work would finish before it began', async () => {

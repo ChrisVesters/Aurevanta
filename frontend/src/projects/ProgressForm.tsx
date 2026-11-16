@@ -53,6 +53,7 @@ const RECORDS = {
 export function ProgressForm({
   id,
   item,
+  estimated,
   busy,
   banner,
   fieldErrors,
@@ -61,6 +62,15 @@ export function ProgressForm({
 }: {
   id: string;
   item: WorkItem;
+  /**
+   * Whether anybody currently holds a range on this work.
+   *
+   * Passed in rather than read here, because whose estimates exist is a question about the
+   * plan and this form is about one task. What it is for is the warning below: work that
+   * is started can no longer be estimated, and the moment that stops being reversible for
+   * free is the moment somebody presses save on this form.
+   */
+  estimated: boolean;
   busy: boolean;
   banner: string | null;
   fieldErrors: Record<string, string>;
@@ -99,6 +109,19 @@ export function ProgressForm({
       [records.effort, item.actualEffortHours]
     ] as const
   ).some(([keeps, recorded]) => !keeps && recorded !== null);
+
+  /**
+   * Whether saving this is what closes estimating on the task.
+   *
+   * **Said before saving rather than discovered afterwards**, which is the rule the
+   * discard warning above already follows. An estimate is what somebody said before they
+   * found out, so the server refuses one on work that has begun — and the person who is
+   * about to make that true is standing in front of this form. Only on the way *out* of
+   * not-started: work that is already under way has already closed, and repeating it on
+   * every save would be noise about a decision nobody is taking.
+   */
+  const closesEstimating =
+    item.status === 'NOT_STARTED' && status !== 'NOT_STARTED';
 
   function handle(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -157,6 +180,19 @@ export function ProgressForm({
 
       {discards && (
         <p className="hint">{t('projects.items.progress.clears')}</p>
+      )}
+
+      {closesEstimating && (
+        <p className="hint">
+          {t('projects.items.progress.closesEstimating')}
+          {/*
+            And the sharper half, only where there is nothing to close over. A plan carries
+            unestimated work at no effort and reports that it did — which is a limitation
+            printed beside a forecast rather than anything wrong on this screen, and is
+            exactly the thing somebody would want to know one press earlier.
+          */}
+          {!estimated && ` ${t('projects.items.progress.closesUnestimated')}`}
+        </p>
       )}
 
       <span className="points">

@@ -18,6 +18,7 @@ import com.cvesters.aurevanta.problem.EstimateOutOfOrderException;
 import com.cvesters.aurevanta.problem.NotAMemberException;
 import com.cvesters.aurevanta.problem.ProjectNotFoundException;
 import com.cvesters.aurevanta.problem.UnknownElicitationMethodException;
+import com.cvesters.aurevanta.problem.WorkAlreadyStartedException;
 import com.cvesters.aurevanta.problem.WorkItemNotFoundException;
 import com.cvesters.aurevanta.project.ProjectService;
 import com.cvesters.aurevanta.user.User;
@@ -74,6 +75,7 @@ public class EstimateService {
 	 * @throws EstimateOutOfOrderException if the three points do not ascend
 	 * @throws UnknownElicitationMethodException if the method names nothing this server
 	 * records
+	 * @throws WorkAlreadyStartedException if the item is no longer waiting to be started
 	 */
 	@Transactional
 	public Estimate record(UUID callerId, UUID tenantId, UUID itemId, BigDecimal p10Hours, BigDecimal p50Hours,
@@ -90,6 +92,11 @@ public class EstimateService {
 		// method cannot actually have — a membership is what says the account exists.
 		User estimator = this.memberships.requireMember(callerId, tenantId).getUser();
 		WorkItem item = this.items.get(callerId, tenantId, itemId);
+		// Last, because it is the only check here that needs the row. The two above are
+		// facts about the request alone and are answered before anything is looked up, so
+		// a caller who sent nonsense learns nothing about which items exist; this one is
+		// about the item, so it can only be asked of somebody who may already reach it.
+		requireNotStarted(item);
 		return this.estimates
 			.save(new Estimate(item, estimator, p10Hours, p50Hours, p90Hours, method, Instant.now(this.clock)));
 	}
@@ -170,6 +177,29 @@ public class EstimateService {
 	public EstimateQuality quality(BigDecimal p10Hours, BigDecimal p50Hours, BigDecimal p90Hours) {
 		requireAscending(p10Hours, p50Hours, p90Hours);
 		return EstimateQuality.of(p10Hours.doubleValue(), p50Hours.doubleValue(), p90Hours.doubleValue());
+	}
+
+	/**
+	 * Refuses an estimate of work somebody has already begun.
+	 *
+	 * <p>
+	 * <strong>The rule the immutability of an estimate was already half of.</strong>
+	 * Nothing rewrites a row here because calibration asks what somebody said at the
+	 * time; this says that <em>the time</em> ends when the work starts. A range written
+	 * by somebody who has spent two days on a task is not a worse estimate, it is a
+	 * different kind of claim — and one that would quietly improve every hit rate it
+	 * touched.
+	 *
+	 * <p>
+	 * Written as a comparison rather than a {@code switch} over the enum, for
+	 * {@code WorkItemService.requireConsistent}'s reason: a switch covering every
+	 * constant still compiles to a default nothing can reach, and an unreachable branch
+	 * is a hole in the coverage gate no test can close.
+	 */
+	private static void requireNotStarted(WorkItem item) {
+		if (item.getStatus() != WorkItemStatus.NOT_STARTED) {
+			throw new WorkAlreadyStartedException();
+		}
 	}
 
 	/**

@@ -2,6 +2,7 @@ package com.cvesters.aurevanta.estimate;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import com.cvesters.aurevanta.TestcontainersConfiguration;
 import com.cvesters.aurevanta.item.WorkItem;
 import com.cvesters.aurevanta.item.WorkItemRepository;
+import com.cvesters.aurevanta.item.WorkItemStatus;
 import com.cvesters.aurevanta.membership.Membership;
 import com.cvesters.aurevanta.membership.MembershipRepository;
 import com.cvesters.aurevanta.project.Project;
@@ -453,6 +455,94 @@ class EstimateApiTests {
 			.andExpect(jsonPath("$.code").value("estimate_out_of_order"));
 	}
 
+	// Only while it is still ahead of you ------------------------------------
+
+	/**
+	 * <strong>An estimate is what somebody said before they found out.</strong> Somebody
+	 * two days into a task knows things nobody knew when it was a line in a plan, and a
+	 * range written from that is hindsight — which would quietly improve every hit rate
+	 * calibration reads.
+	 */
+	@Test
+	void cannotEstimateWorkThatHasBeenStarted() throws Exception {
+		started(this.migration);
+
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("work_already_started"));
+
+		assertThat(this.estimates.findAll()).isEmpty();
+	}
+
+	@Test
+	void cannotEstimateWorkThatIsFinished() throws Exception {
+		this.migration.recordProgress(WorkItemStatus.DONE, null, LocalDate.parse("2026-08-14"), null);
+		this.items.save(this.migration);
+
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("work_already_started"));
+
+		assertThat(this.estimates.findAll()).isEmpty();
+	}
+
+	/**
+	 * Revising is refused by the same rule, and this is the case worth having: nothing
+	 * else in this file distinguishes "no estimate yet" from "no further estimates", and
+	 * a check that only guarded the first would let anybody rewrite their range from
+	 * inside the task.
+	 */
+	@Test
+	void cannotReviseAnEstimateOnceTheWorkHasBegun() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isCreated());
+		started(this.migration);
+
+		estimate(this.ada, this.migration, "8", "13", "30").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("work_already_started"));
+
+		// The first one stands exactly as it was said, which is the whole reason nothing
+		// here updates a row.
+		assertThat(this.estimates.findAll()).singleElement()
+			.satisfies((estimate) -> assertThat(estimate.getP50Hours()).isEqualByComparingTo("5"));
+	}
+
+	/**
+	 * And it is not a colleague's estimate that is being protected: the rule is about the
+	 * work, so it refuses everybody rather than only whoever wrote the first range.
+	 */
+	@Test
+	void refusesAColleagueEstimatingStartedWorkTheyHaveNotTouched() throws Exception {
+		started(this.migration);
+
+		estimate(this.bob, this.migration, "3", "5", "12").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("work_already_started"));
+	}
+
+	/**
+	 * Reporting progress back to not-started reopens it, deliberately: a task marked
+	 * started by mistake would otherwise be stuck with whatever range it had. What stops
+	 * that being a way to launder hindsight is not this check but
+	 * {@code work_item_progress}, which keeps the earliest start ever reported.
+	 */
+	@Test
+	void estimatingIsPossibleAgainOnceWorkIsReportedNotStarted() throws Exception {
+		started(this.migration);
+		this.migration.recordProgress(WorkItemStatus.NOT_STARTED, null, null, null);
+		this.items.save(this.migration);
+
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isCreated());
+	}
+
+	/**
+	 * The question about three numbers nobody has committed to yet reads no row at all,
+	 * so it cannot know whether the work has started — and must not start refusing on a
+	 * ground it cannot see.
+	 */
+	@Test
+	void askingWhatIsWorthQuestioningIsNotAboutAnyItem() throws Exception {
+		started(this.migration);
+
+		quality("3", "5", "12").andExpect(status().isOk());
+	}
+
 	// Whose work it is --------------------------------------------------------
 
 	@Test
@@ -595,6 +685,12 @@ class EstimateApiTests {
 	private ResultActions project() throws Exception {
 		return this.mvc
 			.perform(get("/api/projects/" + this.acmePlan.getId()).header(HttpHeaders.AUTHORIZATION, bearer(this.ada)));
+	}
+
+	/** Work somebody has begun, which is what closes estimating on it. */
+	private void started(WorkItem item) {
+		item.recordProgress(WorkItemStatus.IN_PROGRESS, LocalDate.parse("2026-08-10"), null, null);
+		this.items.save(item);
 	}
 
 	private String bearer(Membership caller) {
