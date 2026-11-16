@@ -8,7 +8,7 @@ services:
       - 'POSTGRES_USER=aurevanta'
       - 'POSTGRES_PASSWORD=aurevanta'
     ports:
-      - '5432:5432'
+      - '10130:5432'
     volumes:
       - 'aurevanta-postgres:/var/lib/postgresql'
     healthcheck:
@@ -30,8 +30,8 @@ services:
       # same setup appears to work from one language and not another. 2525 is a recognised
       # alternative submission port and far less crowded. Override with AUREVANTA_SMTP_PORT
       # if it clashes too; spring.mail.port reads the same variable.
-      - '${AUREVANTA_SMTP_PORT:-2525}:1025' # SMTP, where spring.mail.* points
-      - '8025:8025' # web UI
+      - '${AUREVANTA_SMTP_PORT:-10140}:1025' # SMTP, where spring.mail.* points
+      - '10141:8025' # web UI
     environment:
       - 'MP_SMTP_AUTH_ACCEPT_ANY=1'
       - 'MP_SMTP_AUTH_ALLOW_INSECURE=1'

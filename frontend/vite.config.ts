@@ -6,11 +6,11 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: 10110,
     proxy: {
       // Backend runs on 8080; keeps the browser same-origin so there is no CORS setup in dev.
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:10120',
         changeOrigin: true
       }
     }

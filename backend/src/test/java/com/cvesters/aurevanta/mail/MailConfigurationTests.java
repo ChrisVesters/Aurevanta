@@ -81,7 +81,7 @@ class MailConfigurationTests {
 	 */
 	@Test
 	void saysSoWhenMailIsStillPointedAtADeveloperMachine() {
-		MailConfiguration.warnAboutDevelopmentDefaults("localhost", "http://localhost:5173");
+		MailConfiguration.warnAboutDevelopmentDefaults("localhost", "http://localhost:10110");
 
 		assertThat(warnings()).hasSize(2);
 		assertThat(warnings().getFirst().getFormattedMessage()).contains("spring.mail.host");

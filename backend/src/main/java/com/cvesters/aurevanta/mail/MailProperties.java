@@ -21,7 +21,7 @@ public record MailProperties(String from, String baseUrl) {
 			from = "no-reply@localhost";
 		}
 		if (baseUrl == null || baseUrl.isBlank()) {
-			baseUrl = "http://localhost:5173";
+			baseUrl = "http://localhost:10110";
 		}
 	}
 
