@@ -271,7 +271,7 @@ public class ForecastService {
 		Forecast answer = Engine.run(inputs.toModels(), inputs.toPrecedences(), inputs.toResourcing(concurrency),
 				teamFactor, scopeGrowth, runCount, seed);
 		ForecastOutputs outputs = new ForecastOutputs(answer.histogram(),
-				limitations(planned, kept.size() < arrows.size(), inputs, droppedNeeds));
+				limitations(planned, kept.size() < arrows.size(), inputs, droppedNeeds, teamFactor, scopeGrowth));
 		// The calendar is written down and not used: nothing about a working day reaches
 		// the engine, which is what keeps a calendar change from being a model change.
 		// The
@@ -362,21 +362,34 @@ public class ForecastService {
 	 * What this forecast did not do.
 	 *
 	 * <p>
-	 * <strong>Two of these used to be on every run and are on none of them now.</strong>
-	 * {@code no_team_factor} and {@code no_scope_uncertainty} described the engine rather
-	 * than the plan — it sampled every item independently and forecast only the work
-	 * somebody had written down — and the common-cause model is the change that removed
-	 * their cause rather than their wording. What is left describes the plan being
-	 * forecast, which is why those two could be retired and these cannot.
+	 * <strong>Two of these used to be on every run, then on none, and are now on the runs
+	 * that assumed zero.</strong> {@code no_team_factor} and {@code no_scope_uncertainty}
+	 * described an engine that sampled every item independently and forecast only the
+	 * work somebody had written down. The common-cause model removed that cause; a run
+	 * that answers its two questions with zero puts it back, and says so with the same
+	 * codes.
 	 *
 	 * <p>
-	 * A run made before that is still carrying them, which is the whole reason
-	 * limitations are stored rather than worked out at read time. They are gone from what
-	 * this writes and not from what it can read.
+	 * A run made before the common-cause model carries them too, which is the whole
+	 * reason limitations are stored rather than worked out at read time.
 	 */
 	private static List<ForecastLimitation> limitations(List<PlannedItem> planned, boolean droppedArrows,
-			ForecastInputs inputs, boolean droppedNeeds) {
+			ForecastInputs inputs, boolean droppedNeeds, TeamFactor teamFactor, ScopeGrowth scopeGrowth) {
 		Set<ForecastLimitation> found = EnumSet.noneOf(ForecastLimitation.class);
+		// **Zero is a claim, and these two are what say it was made.** The screen lets
+		// the
+		// two common-cause questions be left empty, and sends zero for them; a run that
+		// assumed nothing goes wrong for everybody at once, or that no unlisted work will
+		// turn up, models neither — exactly what these two codes said of every run before
+		// the common-cause model. So they are written again, on any run that answered
+		// zero,
+		// whoever typed it.
+		if (TeamFactor.NONE.equals(teamFactor)) {
+			found.add(ForecastLimitation.NO_TEAM_FACTOR);
+		}
+		if (ScopeGrowth.NONE.equals(scopeGrowth)) {
+			found.add(ForecastLimitation.NO_SCOPE_UNCERTAINTY);
+		}
 		if (droppedArrows) {
 			found.add(ForecastLimitation.DEPENDENCIES_ON_ARCHIVED_WORK);
 		}

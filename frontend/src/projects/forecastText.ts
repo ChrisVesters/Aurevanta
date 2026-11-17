@@ -5,6 +5,7 @@ import { formatDay } from './dates';
 import { describeWork } from './work';
 import type {
   Contribution,
+  DriftAt,
   Forecast,
   ForecastLimitation,
   ForecastResource,
@@ -64,6 +65,26 @@ export function readingOf<T extends { confidence: number }>(
   return (
     answer?.at.find((reading) => reading.confidence === confidence) ?? null
   );
+}
+
+/**
+ * That the date keeps moving out, at one confidence: from where, to where, and against how
+ * wide a band. Only for a reading that is moving out — the type is what guarantees the days
+ * and the band are there to say.
+ */
+export function describeDrift(
+  t: TFunction,
+  drifting: Extract<DriftAt, { movingOut: true }>,
+  confidence: Confidence,
+  locale: string
+): string {
+  return t('projects.forecast.drift', {
+    confidence,
+    from: formatDay(drifting.fromDate, locale),
+    to: formatDay(drifting.toDate, locale),
+    out: t('projects.forecast.driftOut', { count: drifting.days }),
+    band: t('projects.forecast.driftBand', { count: drifting.bandDays })
+  });
 }
 
 /**

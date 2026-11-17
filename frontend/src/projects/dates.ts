@@ -45,10 +45,18 @@ export function formatMoment(instant: string, locale: string): string {
  * question in its own timezone.
  */
 export function todayHere(): string {
-  const now = new Date();
+  return dayHere(new Date().toISOString());
+}
+
+/**
+ * The day a moment from the API fell on *here*, as `yyyy-mm-dd` — {@link todayHere} for a
+ * moment other than now. Built from local parts for the same reason.
+ */
+export function dayHere(instant: string): string {
+  const moment = new Date(instant);
   return [
-    String(now.getFullYear()).padStart(4, '0'),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0')
+    String(moment.getFullYear()).padStart(4, '0'),
+    String(moment.getMonth() + 1).padStart(2, '0'),
+    String(moment.getDate()).padStart(2, '0')
   ].join('-');
 }

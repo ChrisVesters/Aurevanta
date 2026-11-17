@@ -4,13 +4,12 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
-import { ForecastPanel } from '../projects/ForecastPanel';
+import { ForecastList } from '../projects/ForecastList';
 import { ProjectForm } from '../projects/ProjectForm';
 import { PlanTabs } from '../projects/PlanTabs';
 import { WorkItems } from '../projects/WorkItems';
 import {
   FIRST_TAB,
-  isForecastTab,
   PLAN_PANEL_ID,
   TAB_PARAM,
   tabFrom,
@@ -22,13 +21,11 @@ import type { Project } from '../projects/types';
 /**
  * One plan: what it is called, what it covers, and whether it is still in use.
  *
- * The work, then the forecast it makes possible, then the questions asked of that forecast,
- * then the ones asked of the forecasts before it, then what the plan is called. **That order
- * is the argument of the whole product and it did not change when the page stopped being one
- * scroll**: ranges go on the work, the engine reads them, everything else is asked *of* what
- * it answered, and the name is a setting. What changed is that the order is now readable —
- * the strip states it in five words, where before it was five sections deep and somebody
- * looking for the archive button scrolled past the entire forecast to reach it.
+ * The work, then the forecasts made of it, then what the plan is called. **That order is the
+ * argument of the whole product**: ranges go on the work, the engine reads them, and the name
+ * is a setting. Each forecast opens on a page of its own, which is where the questions asked
+ * *of* it live — they were two more tabs here until November 2026, about the newest forecast
+ * only.
  *
  * **A tab is a view of this page and never a page of its own.** The plan stays
  * `/app/projects/{id}`, the tab rides in a query parameter so a link and a reload keep it,
@@ -186,13 +183,6 @@ export function ProjectPage() {
 
           <PlanTabs tab={tab} onChange={show} />
 
-          {/*
-            One panel rather than five, so the forecast's three parts are one mounted
-            component: it loads a plan's forecasts once and holds which confidence is being
-            read, and moving between them costs no request and resets nothing. Crossing to
-            the work or back does unmount it, which is right — a colleague may have run a
-            forecast, or estimated the work the last one was made from, while this was open.
-          */}
           <div
             className="plan-panel"
             id={PLAN_PANEL_ID}
@@ -201,13 +191,7 @@ export function ProjectPage() {
           >
             {tab === 'work' && <WorkItems projectId={project.id} />}
 
-            {isForecastTab(tab) && (
-              <ForecastPanel
-                section={tab}
-                projectId={project.id}
-                projectName={project.name}
-              />
-            )}
+            {tab === 'forecasts' && <ForecastList projectId={project.id} />}
 
             {tab === 'settings' && (
               <>

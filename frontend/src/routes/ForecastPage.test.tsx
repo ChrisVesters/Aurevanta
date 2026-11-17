@@ -1,10 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
-import { useState } from 'react';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
+import { Route, Routes } from 'react-router';
 import userEvent from '@testing-library/user-event';
-import { ForecastPanel } from './ForecastPanel';
-import { FORECAST_TABS } from './tabs';
-import type { ForecastSection } from './tabs';
+import { ForecastPage } from './ForecastPage';
 import {
   ACCOUNT,
   CONTRIBUTIONS,
@@ -20,10 +18,11 @@ import {
   renderRouted,
   storeAccessToken
 } from '../test/render';
-import type { Forecast } from './forecastTypes';
+import type { Forecast } from '../projects/forecastTypes';
+import type { Project } from '../projects/types';
 
 const PROJECT_ID = PROJECTS[0].id;
-const PROJECT_NAME = PROJECTS[0].name;
+const PROJECT_URL = `/api/projects/${PROJECT_ID}`;
 const FORECASTS_URL = `/api/projects/${PROJECT_ID}/forecasts`;
 const CONTRIBUTIONS_URL = `/api/forecasts/${FORECAST.id}/contributions`;
 const CALIBRATION_URL = '/api/calibration';
@@ -164,15 +163,61 @@ const MOVEMENT_URL = `/api/forecasts/${FORECAST.id}/movement`;
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
 const CUTS_URL = `/api/forecasts/${FORECAST.id}/cuts`;
 
-describe('ForecastPanel', () => {
+describe('ForecastPage', () => {
   const fetchMock = mockFetch();
 
   /**
-   * The listing's own shape: the runs, and what the sequence of them says. Written out
-   * here rather than left to each case, because a double that answered a bare array would
-   * be answering a shape this endpoint stopped having — and the panel would read `runs`
-   * off it as undefined with nothing saying why.
+   * The forecasts this page may be asked to read, by the URL that reads one, and the plan
+   * they belong to. Cleared before each case, so a run one case showed cannot answer for
+   * another.
    */
+  const known = new Map<string, Forecast>();
+  let plan: Project = PROJECTS[0];
+
+  beforeEach(() => {
+    known.clear();
+    plan = PROJECTS[0];
+  });
+
+  /**
+   * Answers the page's own two reads — the forecast and its plan — and hands every other
+   * request to `rest`. By URL, like every double here: the page reads the forecast first and
+   * only then its plan and history, so a double answering in order would hand the plan to
+   * whichever request happened to go out first.
+   */
+  function serve(
+    rest: (url: string, init?: RequestInit) => Response | Promise<Response>
+  ) {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
+      const run = known.get(url);
+      if (run) {
+        return Promise.resolve(jsonResponse(200, run));
+      }
+      if (url === PROJECT_URL) {
+        return Promise.resolve(jsonResponse(200, plan));
+      }
+      return Promise.resolve(rest(url, init));
+    });
+  }
+
+  /** The page, on one forecast, rendered at its own address as a link would open it. */
+  function renderPage(run: Forecast = FORECAST) {
+    known.set(`/api/forecasts/${run.id}`, run);
+    return renderRouted(
+      <Routes>
+        <Route path="/app/forecasts/:runId" element={<ForecastPage />} />
+      </Routes>,
+      { route: `/app/forecasts/${run.id}` }
+    );
+  }
+
+  /** What the page is called once the forecast has arrived: the day it was made. */
+  const TITLE = 'Forecast of Aug 14, 2026';
+
+  async function settled() {
+    await screen.findByRole('heading', { level: 1, name: TITLE });
+  }
+
   function listing(runs: Forecast[]) {
     return {
       runs,
@@ -194,170 +239,73 @@ describe('ForecastPanel', () => {
     };
   }
 
-  /** What each part of a forecast calls itself, which is what a case waits for. */
-  const HEADING: Record<ForecastSection, string> = {
-    forecast: 'Forecast',
-    explore: 'Explore',
-    history: 'History'
-  };
-
-  /**
-   * The panel with something above it that changes which part is on screen.
-   *
-   * **The page's own strip in miniature, and it is here rather than mocked away because
-   * one case genuinely crosses between two parts**: a list of work to drop is cleared by a
-   * new forecast, and the form that asks for one is on a different part from the list. A
-   * case that re-rendered the panel from scratch to cross that seam would prove nothing —
-   * a fresh mount clears everything, which is exactly what is being asserted has *not*
-   * happened by accident.
-   */
-  function Sections({ initial }: { initial: ForecastSection }) {
-    const [section, setSection] = useState(initial);
-    return (
-      <>
-        {FORECAST_TABS.map((name) => (
-          <button key={name} type="button" onClick={() => setSection(name)}>
-            {`Read ${name}`}
-          </button>
-        ))}
-        <ForecastPanel
-          section={section}
-          projectId={PROJECT_ID}
-          projectName={PROJECT_NAME}
-        />
-      </>
-    );
-  }
-
-  /** Move to another part of the same forecast, the way the strip on the page does. */
-  async function read(section: ForecastSection) {
-    await userEvent.click(
-      screen.getByRole('button', { name: `Read ${section}` })
-    );
-    await screen.findByRole('heading', { name: HEADING[section] });
-  }
-
-  /**
-   * Everything else one of these panels asks for, answered by URL rather than in bulk.
-   * The plan's forecasts arrive wrapped in an account of the history and its work arrives
-   * as a list, so a double answering both alike hands one of them the other's shape — the
-   * rule this file already keeps for the session and the switcher.
-   */
   function otherReads(url: string, runs: Forecast[] = [FORECAST]) {
     return url.endsWith('/forecasts')
       ? jsonResponse(200, listing(runs))
       : jsonResponse(200, []);
   }
 
-  /** The panel over an organisation that has described its team. */
-  async function openWithResources(
-    pools: unknown[],
-    section: ForecastSection = 'forecast'
-  ) {
-    storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : url === '/api/resources'
-                ? jsonResponse(200, pools)
-                : otherReads(url)
-      )
-    );
-    const rendered = renderRouted(<Sections initial={section} />);
-    await screen.findByRole('heading', { name: HEADING[section] });
-    return rendered;
-  }
-
-  /**
-   * The session and the plan's forecasts, answered separately. A double that answered both
-   * alike would hand the panel an account where it expected a list, and every assertion
-   * about what is on screen would be testing the wrong thing.
-   */
   function answer(runs: Forecast[], spread: unknown = CONTRIBUTIONS) {
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : url === FORECASTS_URL
-                ? jsonResponse(200, listing(runs))
-                : url === CONTRIBUTIONS_URL
-                  ? jsonResponse(200, spread)
-                  : // The work a target date could be asked to drop, which the panel below
-                    // loads for itself. Answered by URL like everything else here: a double
-                    // that answered in *order* would hand this list to whichever request
-                    // happened to go out first.
-                    url === ITEMS_URL
-                    ? jsonResponse(200, WORK_ITEMS)
-                    : url === CUTS_URL
-                      ? jsonResponse(200, CUT_OPTIONS)
-                      : jsonResponse(404)
-      )
+    serve((url: string) =>
+      url.startsWith(THROUGHPUT_URL)
+        ? jsonResponse(200, NO_HISTORY)
+        : url === CALIBRATION_URL
+          ? jsonResponse(200, NOTHING_SCORED)
+          : url === '/api/auth/me'
+            ? jsonResponse(200, ACCOUNT)
+            : url === FORECASTS_URL
+              ? jsonResponse(200, listing(runs))
+              : url === CONTRIBUTIONS_URL
+                ? jsonResponse(200, spread)
+                : // The work a target date could be asked to drop, which the panel below
+                  // loads for itself. Answered by URL like everything else here.
+                  url === ITEMS_URL
+                  ? jsonResponse(200, WORK_ITEMS)
+                  : url === CUTS_URL
+                    ? jsonResponse(200, CUT_OPTIONS)
+                    : jsonResponse(404)
     );
   }
 
-  /** The plan, with a history behind it — answered by URL like everything else here. */
-  async function openWithHistory(
-    history: unknown,
-    run: Forecast = FORECAST,
-    section: ForecastSection = 'forecast'
-  ) {
+  async function openWithHistory(history: unknown, run: Forecast = FORECAST) {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, history)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : otherReads(url, [run])
-      )
+    serve((url: string) =>
+      url.startsWith(THROUGHPUT_URL)
+        ? jsonResponse(200, history)
+        : url === CALIBRATION_URL
+          ? jsonResponse(200, NOTHING_SCORED)
+          : url === '/api/auth/me'
+            ? jsonResponse(200, ACCOUNT)
+            : otherReads(url, [run])
     );
-    const rendered = renderRouted(<Sections initial={section} />);
-    await screen.findByRole('heading', { name: HEADING[section] });
+    const rendered = renderPage(run);
+    await settled();
     return rendered;
   }
 
-  /**
-   * The panel over a history the server has already made up its mind about — the drift
-   * verdict rides on the listing, so a case about it is a case about that payload.
-   */
   async function openHistory(
-    history: unknown,
-    account: unknown = MOVEMENT,
-    section: ForecastSection = 'history'
+    history: { runs: Forecast[]; drift?: unknown },
+    account: unknown = MOVEMENT
   ) {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : url === FORECASTS_URL
-                ? jsonResponse(200, history)
-                : url.startsWith(MOVEMENT_URL)
-                  ? jsonResponse(200, account)
-                  : jsonResponse(200, [])
-      )
+    serve((url: string) =>
+      url.startsWith(THROUGHPUT_URL)
+        ? jsonResponse(200, NO_HISTORY)
+        : url === CALIBRATION_URL
+          ? jsonResponse(200, NOTHING_SCORED)
+          : url === '/api/auth/me'
+            ? jsonResponse(200, ACCOUNT)
+            : url === FORECASTS_URL
+              ? jsonResponse(200, history)
+              : url.startsWith(MOVEMENT_URL)
+                ? jsonResponse(200, account)
+                : jsonResponse(200, [])
     );
-    const rendered = renderRouted(<Sections initial={section} />);
-    await screen.findByRole('heading', { name: HEADING[section] });
+    const rendered = renderPage(history.runs[0]);
+    await settled();
     return rendered;
   }
 
-  /** A history of two runs, with whatever the server has concluded about the drift. */
   function drifting(at: Record<string, unknown>) {
     return {
       runs: [FORECAST, OLDER],
@@ -377,7 +325,6 @@ describe('ForecastPanel', () => {
     };
   }
 
-  /** A run scheduled against a team, which is what makes the hiring question askable. */
   const RESOURCED: Forecast = {
     ...FORECAST,
     resources: [
@@ -385,10 +332,6 @@ describe('ForecastPanel', () => {
     ]
   };
 
-  /**
-   * What the server says one and two more would buy: nine days and then three more, which
-   * is the diminishing return the rows exist to show.
-   */
   const HIRES = {
     resourceId: 'r1',
     simulations: 3,
@@ -420,39 +363,25 @@ describe('ForecastPanel', () => {
     ]
   };
 
-  /**
-   * The panel over a run with a team behind it. A null answer means the server refuses the
-   * question, which is what a pool declared since the run gets.
-   */
-  async function openWithResourcedRun(
-    hires: unknown = HIRES,
-    section: ForecastSection = 'explore'
-  ) {
+  async function openWithResourcedRun(hires: unknown = HIRES) {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.includes('/hires')
-          ? hires === null
-            ? jsonResponse(400, { code: 'resource_not_in_forecast' })
-            : jsonResponse(200, hires)
-          : url.startsWith(THROUGHPUT_URL)
-            ? jsonResponse(200, NO_HISTORY)
-            : url === CALIBRATION_URL
-              ? jsonResponse(200, NOTHING_SCORED)
-              : url === '/api/auth/me'
-                ? jsonResponse(200, ACCOUNT)
-                : otherReads(url, [RESOURCED])
-      )
+    serve((url: string) =>
+      url.includes('/hires')
+        ? hires === null
+          ? jsonResponse(400, { code: 'resource_not_in_forecast' })
+          : jsonResponse(200, hires)
+        : url.startsWith(THROUGHPUT_URL)
+          ? jsonResponse(200, NO_HISTORY)
+          : url === CALIBRATION_URL
+            ? jsonResponse(200, NOTHING_SCORED)
+            : url === '/api/auth/me'
+              ? jsonResponse(200, ACCOUNT)
+              : otherReads(url, [RESOURCED])
     );
-    renderRouted(<Sections initial={section} />);
+    renderPage(RESOURCED);
     await screen.findByRole('heading', { name: 'What if we had one more?' });
   }
 
-  /**
-   * The burn-up's table, found the way a reader finds it — by its caption. The panel holds
-   * another table and this is what tells the two apart, which is also the assertion that the
-   * caption is doing its job as a label.
-   */
   function burnUpTable() {
     return screen.getByRole('table', { name: /weeks delivered/ });
   }
@@ -461,7 +390,6 @@ describe('ForecastPanel', () => {
     return screen.findByRole('table', { name: /weeks delivered/ });
   }
 
-  /** Where one shape in the drawing actually sits, read back off what was rendered. */
   function pointsOf(container: HTMLElement, selector: string) {
     return (container.querySelector(selector)?.getAttribute('points') ?? '')
       .split(' ')
@@ -469,79 +397,14 @@ describe('ForecastPanel', () => {
   }
 
   async function open(
-    runs: Forecast[] = [],
-    spread: unknown = CONTRIBUTIONS,
-    section: ForecastSection = 'forecast'
+    runs: Forecast[] = [FORECAST],
+    spread: unknown = CONTRIBUTIONS
   ) {
     storeAccessToken();
     answer(runs, spread);
-    renderRouted(<Sections initial={section} />);
-    await screen.findByRole('heading', { name: HEADING[section] });
+    renderPage(runs[0]);
+    await settled();
   }
-
-  /** Whatever the next request for a forecast is refused with. */
-  function refuse(problem: Record<string, unknown>) {
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(400, problem)
-                : jsonResponse(200, listing([]))
-      )
-    );
-  }
-
-  /**
-   * Filling in the four boxes a forecast cannot be asked for without. Written out here
-   * because it is what somebody has to do every time, which is the point of them being
-   * required rather than filled in for them.
-   */
-  async function answerTheAssumptions(
-    capacity: string,
-    worseBy: string,
-    growthLow: string,
-    growthHigh: string,
-    workingDay = '6'
-  ) {
-    await userEvent.type(
-      screen.getByLabelText('Things that can be under way at once'),
-      capacity
-    );
-    await userEvent.type(
-      screen.getByLabelText(
-        'In a bad stretch, how much longer does everything take?'
-      ),
-      worseBy
-    );
-    await userEvent.type(screen.getByLabelText('Usually at least'), growthLow);
-    await userEvent.type(screen.getByLabelText('And as much as'), growthHigh);
-    await userEvent.type(
-      screen.getByLabelText('Hours in a working day'),
-      workingDay
-    );
-  }
-
-  /** Replacing the date the browser filled in, so a body assertion can be exact. */
-  async function startWorkOn(day: string) {
-    const box = screen.getByLabelText('Work starts on');
-    await userEvent.clear(box);
-    await userEvent.type(box, day);
-  }
-
-  it('says there is nothing yet before anybody has asked', async () => {
-    await open();
-
-    expect(
-      await screen.findByText(
-        'No forecast yet. Answer the questions below and ask for one — almost none of them has an answer this application can give for you.'
-      )
-    ).toBeInTheDocument();
-  });
 
   /**
    * <strong>The whole work, in one test.</strong> Three confidences, three dates, one
@@ -592,19 +455,101 @@ describe('ForecastPanel', () => {
   it('names the plan, so the line means something away from this screen', async () => {
     storeAccessToken();
     answer([FORECAST]);
-    renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName="Everything the board asked for"
-      />
-    );
+    // A different plan from the fixture, so a hard-coded name could not pass.
+    plan = { ...PROJECTS[0], name: 'Everything the board asked for' };
+    renderPage();
 
     expect(
       await screen.findByText(
         'There is a 80% chance that Everything the board asked for will be finished by Aug 25, 2026.'
       )
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The page carries one identifier, so the plan comes back on the run — and the way back is
+   * to that plan's list of forecasts, named, because somebody arriving from a link has not
+   * been anywhere to go back to.
+   */
+  it('names the plan it belongs to and links back to its forecasts', async () => {
+    await open([FORECAST]);
+
+    expect(
+      await screen.findByRole('link', { name: '← Q3 platform work' })
+    ).toHaveAttribute('href', `/app/projects/${PROJECT_ID}?tab=forecasts`);
+    expect(
+      screen.getByText(
+        'Asked for by Ada. This is the newest forecast of this plan.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * An older forecast is read exactly as the newest is, says that a newer one exists, and
+   * carries no drift warning: whether the date keeps moving out is about where the sequence
+   * ends, which is the newest.
+   */
+  it('reads an older forecast, says a newer one exists, and warns of no drift', async () => {
+    const older = { ...OLDER, createdAt: '2026-08-14T09:00:00Z' };
+    await openHistory({
+      ...drifting({ movingOut: true, bandDays: 5 }),
+      runs: [FORECAST, older]
+    });
+    // `openHistory` opened the newest; this case is about the other one.
+    renderPage(older);
+
+    expect(
+      await screen.findByText(/A newer forecast of this plan exists\./)
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/has been drifting/)).toHaveLength(1);
+    expect(
+      screen.getByText(
+        'This is the first forecast of this plan, so there is nothing for its date to have moved from.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('says so when the forecast is not there', async () => {
+    storeAccessToken();
+    serve((url: string) =>
+      url === '/api/auth/me'
+        ? jsonResponse(200, ACCOUNT)
+        : jsonResponse(404, { code: 'forecast_not_found' })
+    );
+    renderRouted(
+      <Routes>
+        <Route path="/app/forecasts/:runId" element={<ForecastPage />} />
+      </Routes>,
+      { route: '/app/forecasts/unknown' }
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That forecast is no longer in this project.'
+    );
+  });
+
+  /** A forecast with nothing to report says so, rather than showing an empty heading. */
+  it('says when a forecast leaves nothing out', async () => {
+    await open([{ ...FORECAST, limitations: [] }]);
+
+    expect(
+      screen.getByText('Nothing beyond what it assumed above.')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The second opinion is the history as of the day this forecast was made, not today — an
+   * old forecast is compared with what was known when it was made.
+   */
+  it('reads the history as of the day the forecast was made', async () => {
+    await openWithHistory(DELIVERING);
+
+    await screen.findByText(/Its own history says/);
+    expect(
+      fetchMock.mock.calls.some(
+        ([url]) => url === `${THROUGHPUT_URL}?asOf=2026-08-14`
+      )
+    ).toBe(true);
   });
 
   /**
@@ -631,19 +576,41 @@ describe('ForecastPanel', () => {
    * the hours away and nothing on this screen came out of the model, which is how an
    * assumption stops being visible and starts being mistaken for a result.
    */
-  it('keeps the hours on screen at every confidence', async () => {
+  it('keeps the hours on screen, read at the chosen confidence', async () => {
     await open([FORECAST]);
     await screen.findByText(/80% chance that Q3 platform work/);
+    expect(
+      screen.getByText('At 80%, it takes up to 41.8 hours of effort.')
+    ).toBeInTheDocument();
 
-    for (const level of ['50%', '95%']) {
-      await userEvent.click(screen.getByRole('radio', { name: level }));
-      expect(
-        screen.getByText(
-          'An 80% chance of taking between 14.2 and 52.6 hours of effort.'
-        )
-      ).toBeInTheDocument();
-      expect(screen.getByText('61.9 hours')).toBeInTheDocument();
-    }
+    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
+    expect(
+      screen.getByText('At 50%, it takes up to 29.5 hours of effort.')
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('radio', { name: '95%' }));
+    expect(
+      screen.getByText('At 95%, it takes up to 61.9 hours of effort.')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The five readings stay on screen whatever is chosen, and the one the control is on is
+   * marked — so moving the control visibly moves something in the table too.
+   */
+  it('marks the reading the confidence control is on', async () => {
+    await open([FORECAST]);
+    await screen.findByText(/80% chance that Q3 platform work/);
+    const row = (label: string) =>
+      screen.getByRole('rowheader', { name: label }).closest('tr');
+
+    expect(row('Comfortable')).toHaveAttribute('aria-current', 'true');
+    expect(row('Cautious')).not.toHaveAttribute('aria-current');
+
+    await userEvent.click(screen.getByRole('radio', { name: '95%' }));
+
+    expect(row('Very cautious')).toHaveAttribute('aria-current', 'true');
+    expect(row('Comfortable')).not.toHaveAttribute('aria-current');
   });
 
   /**
@@ -688,9 +655,7 @@ describe('ForecastPanel', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'An 80% chance of taking between 14.2 and 52.6 hours of effort.'
-      )
+      screen.getByText('At 80%, it takes up to 41.8 hours of effort.')
     ).toBeInTheDocument();
     expect(screen.queryByText(/Dates assume/)).toBeNull();
     // And no control, because there is nothing for it to choose between. Three buttons
@@ -734,9 +699,7 @@ describe('ForecastPanel', () => {
     await open([FORECAST]);
 
     expect(
-      await screen.findByText(
-        'An 80% chance of taking between 14.2 and 52.6 hours of effort.'
-      )
+      await screen.findByText('At 80%, it takes up to 41.8 hours of effort.')
     ).toBeInTheDocument();
     expect(screen.getByText('29.5 hours')).toBeInTheDocument();
     expect(screen.getByText('61.9 hours')).toBeInTheDocument();
@@ -786,8 +749,8 @@ describe('ForecastPanel', () => {
     await open([FORECAST]);
 
     const caveats = within(
-      screen.getByRole('heading', { name: 'What this forecast does not do' })
-        .parentElement as HTMLElement
+      screen.getByRole('heading', { name: 'What it leaves out' })
+        .nextElementSibling as HTMLElement
     );
     expect(
       caveats.getByText(/middle number sits a long way from their own two ends/)
@@ -1006,7 +969,7 @@ describe('ForecastPanel', () => {
    */
   it('says why the history could not be read rather than vanishing', async () => {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       Promise.resolve(
         url.startsWith(THROUGHPUT_URL)
           ? jsonResponse(400, { code: 'throughput_out_of_order' })
@@ -1017,13 +980,7 @@ describe('ForecastPanel', () => {
               : otherReads(url)
       )
     );
-    renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
+    renderPage();
 
     expect(
       await screen.findByText(
@@ -1037,7 +994,7 @@ describe('ForecastPanel', () => {
     ).toBeInTheDocument();
     // And the band it sits under is untouched.
     expect(
-      screen.getByText(/An 80% chance of taking between 14.2 and 52.6 hours/)
+      screen.getByText('At 80%, it takes up to 41.8 hours of effort.')
     ).toBeInTheDocument();
   });
 
@@ -1278,7 +1235,7 @@ describe('ForecastPanel', () => {
    */
   it('still shows the band when the history cannot be read', async () => {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       Promise.resolve(
         url.startsWith(THROUGHPUT_URL)
           ? jsonResponse(500, null)
@@ -1289,15 +1246,9 @@ describe('ForecastPanel', () => {
               : otherReads(url)
       )
     );
-    renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
+    renderPage();
 
-    await screen.findByRole('heading', { name: 'Forecast' });
+    await settled();
     expect(screen.queryByText(/Its own history says/)).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -1307,7 +1258,7 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       url.startsWith(THROUGHPUT_URL)
         ? new Promise<Response>((resolve, reject) => {
             settle = resolve;
@@ -1320,25 +1271,13 @@ describe('ForecastPanel', () => {
             : Promise.resolve(otherReads(url))
     );
 
-    const answered = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const answered = renderPage();
+    await settled();
     answered.unmount();
     settle(jsonResponse(200, DELIVERING));
 
-    const refused = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const refused = renderPage();
+    await settled();
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
 
@@ -1357,7 +1296,7 @@ describe('ForecastPanel', () => {
    */
   it('says what this organisation’s estimates have historically been worth', async () => {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       Promise.resolve(
         url.startsWith(THROUGHPUT_URL)
           ? jsonResponse(200, NO_HISTORY)
@@ -1376,13 +1315,7 @@ describe('ForecastPanel', () => {
               : otherReads(url)
       )
     );
-    renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
+    renderPage();
 
     expect(
       // A regex because the sentence shares its paragraph with the link out to the page
@@ -1401,7 +1334,7 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       url.startsWith(THROUGHPUT_URL)
         ? Promise.resolve(jsonResponse(200, NO_HISTORY))
         : url === CALIBRATION_URL
@@ -1414,14 +1347,8 @@ describe('ForecastPanel', () => {
             : Promise.resolve(otherReads(url))
     );
 
-    const answered = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const answered = renderPage();
+    await settled();
     answered.unmount();
     settle(
       jsonResponse(200, {
@@ -1437,14 +1364,8 @@ describe('ForecastPanel', () => {
 
     // And the same on the way out through the failure path, which is the one that would
     // otherwise clear a track record belonging to a panel that is now on screen.
-    const refused = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const refused = renderPage();
+    await settled();
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
 
@@ -1469,7 +1390,7 @@ describe('ForecastPanel', () => {
    */
   it('still shows the band when the track record cannot be read', async () => {
     storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       Promise.resolve(
         url.startsWith(THROUGHPUT_URL)
           ? jsonResponse(200, NO_HISTORY)
@@ -1480,15 +1401,9 @@ describe('ForecastPanel', () => {
               : otherReads(url)
       )
     );
-    renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
+    renderPage();
 
-    await screen.findByRole('heading', { name: 'Forecast' });
+    await settled();
     expect(screen.queryByText(/have contained the outcome/)).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -1499,9 +1414,9 @@ describe('ForecastPanel', () => {
     ]);
 
     const heading = await screen.findByRole('heading', {
-      name: 'What this forecast does not do'
+      name: 'What it leaves out'
     });
-    const caveats = within(heading.parentElement as HTMLElement);
+    const caveats = within(heading.nextElementSibling as HTMLElement);
     expect(
       caveats.getByText(/treated every task as independent/)
     ).toBeInTheDocument();
@@ -1525,547 +1440,18 @@ describe('ForecastPanel', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks for a forecast and shows the one that comes back', async () => {
-    await open();
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(201, FORECAST)
-                : otherReads(url)
-      )
-    );
-
-    await answerTheAssumptions('2', '30', '20', '60');
-    await startWorkOn('2026-08-17');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
+  /** The warnings that zero brings with it, in words, and saying where to answer them. */
+  it('says what a forecast of the listed work alone leaves out', async () => {
+    await open([
+      { ...FORECAST, limitations: ['no_team_factor', 'no_scope_uncertainty'] }
+    ]);
 
     expect(
-      await screen.findByText(
-        'An 80% chance of taking between 14.2 and 52.6 hours of effort.'
-      )
-    ).toBeInTheDocument();
-    const posted = fetchMock.mock.calls.filter(
-      ([, init]) => init?.method === 'POST'
-    );
-    expect(JSON.parse(posted[0][1].body)).toEqual({
-      capacity: 2,
-      teamFactorWorseByPercent: 30,
-      scopeGrowthP10Percent: 20,
-      scopeGrowthP90Percent: 60,
-      workingHoursPerDay: 6,
-      startsOn: '2026-08-17',
-      sampleCount: null
-    });
-  });
-
-  /**
-   * <strong>The one box that arrives answered, and the one that must not.</strong> What day
-   * it is is a fact this browser holds and the server cannot reach; a working day is a claim
-   * about a team, and a box already answered is a box nobody reads.
-   *
-   * The instant is ten at night in New York on the last day of August, which is already
-   * September in UTC — so a pre-fill through `toISOString()` would offer the wrong month,
-   * silently, to everybody west of the meridian.
-   */
-  it('starts the working day empty and the start date on today, here', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-09-01T02:00:00Z'));
-    try {
-      await open([FORECAST]);
-
-      expect(screen.getByLabelText('Work starts on')).toHaveValue('2026-08-31');
-      expect(screen.getByLabelText('Hours in a working day')).toHaveValue(null);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  /**
-   * Both in the open, like every other required question here: a required box inside the
-   * collapsed section is a refusal about a field the visitor cannot see. The sample count
-   * is asserted alongside to show the check has teeth.
-   */
-  it('asks for the calendar outside the disclosure', async () => {
-    await open([FORECAST]);
-
-    expect(screen.getByLabelText('Work starts on')).toBeVisible();
-    expect(screen.getByLabelText('Hours in a working day')).toBeVisible();
-    expect(screen.getByLabelText('Simulated runs')).not.toBeVisible();
-  });
-
-  /**
-   * Against its own box, and the hint above it is most of what stops the mistake this
-   * work is really about: answering with the team's daily total makes every date too
-   * early by exactly the number of people on the plan.
-   */
-  it('shows a refused working day against the working day box', async () => {
-    await open();
-    refuse({
-      code: 'validation_failed',
-      detail: 'invalid',
-      errors: { workingHoursPerDay: { code: 'max', value: 24 } }
-    });
-
-    await answerTheAssumptions('2', '30', '20', '60', '25');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    expect(await screen.findByText('Use no more than 24.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Hours in a working day')).toHaveAttribute(
-      'aria-invalid',
-      'true'
-    );
-    expect(screen.queryByText('Some fields need attention.')).toBeNull();
-  });
-
-  /** The start date is required too, and its complaint belongs to its own box. */
-  it('shows a refused start date against the start date box', async () => {
-    await open();
-    refuse({
-      code: 'validation_failed',
-      detail: 'invalid',
-      errors: { startsOn: { code: 'not_null' } }
-    });
-
-    await userEvent.clear(screen.getByLabelText('Work starts on'));
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    expect(await screen.findByText('This is required.')).toBeInTheDocument();
-    expect(screen.getByLabelText('Work starts on')).toHaveAttribute(
-      'aria-invalid',
-      'true'
-    );
-  });
-
-  /** An empty box is null, never today — the server has no reading for a missing one. */
-  it('sends no start date at all when the box has been emptied', async () => {
-    await open();
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(201, FORECAST)
-                : otherReads(url)
-      )
-    );
-
-    await answerTheAssumptions('1', '0', '0', '0');
-    await userEvent.clear(screen.getByLabelText('Work starts on'));
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    await waitFor(() => {
-      const posted = fetchMock.mock.calls.filter(
-        ([, init]) => init?.method === 'POST'
-      );
-      expect(JSON.parse(posted[0][1].body).startsOn).toBeNull();
-    });
-  });
-
-  /**
-   * <strong>Not pre-filled, any of them.</strong> Zero is a claim — that nothing goes
-   * wrong for everybody at once, and that nobody will discover anything nobody listed —
-   * and a box arriving already answered is a claim inherited rather than made. It is the
-   * argument capacity already had, and `useProposedSlug` before it.
-   */
-  it('starts with every assumption unanswered', async () => {
-    await open([FORECAST]);
-
+      screen.getByText(/treated every task as independent/)
+    ).toHaveTextContent(/Answer the bad-stretch question under Advanced/);
     expect(
-      screen.getByLabelText('Things that can be under way at once')
-    ).toHaveValue(null);
-    expect(
-      screen.getByLabelText(
-        'In a bad stretch, how much longer does everything take?'
-      )
-    ).toHaveValue(null);
-    expect(screen.getByLabelText('Usually at least')).toHaveValue(null);
-    expect(screen.getByLabelText('And as much as')).toHaveValue(null);
-  });
-
-  /**
-   * The two questions this work exists to ask, on screen and not behind the
-   * disclosure the sample count sits in — a required box inside a collapsed section is a
-   * refusal about a field the visitor cannot see.
-   */
-  it('asks both of the hard questions in the open', async () => {
-    await open([FORECAST]);
-
-    const growth = screen.getByRole('group', {
-      name: 'How much does a plan like this usually grow?'
-    });
-    expect(growth).toBeInTheDocument();
-    expect(within(growth).getByLabelText('Usually at least')).toBeVisible();
-    expect(
-      screen.getByLabelText(
-        'In a bad stretch, how much longer does everything take?'
-      )
-    ).toBeVisible();
-  });
-
-  it('shows the refusal when nobody has estimated anything', async () => {
-    await open();
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(422, {
-                    code: 'nothing_to_forecast',
-                    detail: 'nothing'
-                  })
-                : jsonResponse(200, listing([]))
-      )
-    );
-
-    await userEvent.type(
-      screen.getByLabelText('Things that can be under way at once'),
-      '1'
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    // Reads as a thing to go and do, on the screen where it can be done.
-    expect(
-      await screen.findByText(
-        'Nothing in this plan has been estimated yet, so there is nothing to forecast. Add a range to some of the work above.'
-      )
-    ).toBeInTheDocument();
-  });
-
-  it('shows a refused capacity against the capacity box', async () => {
-    await open();
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(400, {
-                    code: 'validation_failed',
-                    detail: 'invalid',
-                    errors: { capacity: { code: 'not_null' } }
-                  })
-                : jsonResponse(200, listing([]))
-      )
-    );
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    expect(await screen.findByText('This is required.')).toBeInTheDocument();
-  });
-
-  /**
-   * Each box answers for itself. Two complaints arrive together and neither goes to the
-   * banner, because the visitor can see both of the fields they belong to — which is the
-   * rule `useFormFailure` exists to keep, and the reason none of these questions may hide
-   * behind the disclosure the sample count sits in.
-   */
-  it('shows each refused assumption against its own box', async () => {
-    await open();
-    refuse({
-      code: 'validation_failed',
-      detail: 'invalid',
-      errors: {
-        teamFactorWorseByPercent: { code: 'not_null' },
-        scopeGrowthP10Percent: { code: 'positive_or_zero' }
-      }
-    });
-
-    await userEvent.type(
-      screen.getByLabelText('Things that can be under way at once'),
-      '2'
-    );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    expect(await screen.findByText('This is required.')).toBeInTheDocument();
-    expect(
-      screen.getByText('Use zero or a number greater than it.')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(
-        'In a bad stretch, how much longer does everything take?'
-      )
-    ).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByLabelText('Usually at least')).toHaveAttribute(
-      'aria-invalid',
-      'true'
-    );
-    expect(screen.queryByText('Some fields need attention.')).toBeNull();
-  });
-
-  it('shows a refused growth number against the box it belongs to', async () => {
-    await open();
-    refuse({
-      code: 'validation_failed',
-      detail: 'invalid',
-      errors: { scopeGrowthP90Percent: { code: 'max', value: 200 } }
-    });
-
-    await answerTheAssumptions('2', '30', '20', '900');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    const high = screen.getByLabelText('And as much as');
-    expect(
-      await screen.findByText('Use no more than 200.')
-    ).toBeInTheDocument();
-    expect(high).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByLabelText('Usually at least')).not.toHaveAttribute(
-      'aria-invalid'
-    );
-  });
-
-  /**
-   * <strong>A question about the two numbers, not a complaint about one of them.</strong>
-   * Each is a perfectly good percentage and what is wrong is which way round they are, so
-   * the server names no field and this reads as a sentence about the pair — the same shape
-   * `estimate_out_of_order` takes on the estimate form.
-   */
-  it('reads a growth range the wrong way round as a question about both numbers', async () => {
-    await open();
-    refuse({ code: 'scope_growth_out_of_order', detail: 'backwards' });
-
-    await answerTheAssumptions('2', '30', '60', '20');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    expect(
-      await screen.findByText(
-        'The two growth numbers are the wrong way round: the most a plan grows cannot be less than the usual amount.'
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Usually at least')).not.toHaveAttribute(
-      'aria-invalid'
-    );
-    expect(screen.getByLabelText('And as much as')).not.toHaveAttribute(
-      'aria-invalid'
-    );
-  });
-
-  /** The one bound the server puts on how much work a caller may ask it to do. */
-  it('shows a refused sample count against the sample count box', async () => {
-    await open();
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(400, {
-                    code: 'validation_failed',
-                    detail: 'invalid',
-                    errors: { sampleCount: { code: 'max', value: 100000 } }
-                  })
-                : jsonResponse(200, listing([]))
-      )
-    );
-
-    await userEvent.type(
-      screen.getByLabelText('Things that can be under way at once'),
-      '2'
-    );
-    await userEvent.type(screen.getByLabelText('Simulated runs'), '100001');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    expect(
-      await screen.findByText('Use no more than 100000.')
-    ).toBeInTheDocument();
-  });
-
-  /**
-   * A forecast can take a moment, and a visitor can leave in the middle of one. Nothing
-   * arriving after the panel has gone may touch it — React warns about it, and the more
-   * practical cost is a stale answer painted over a page somebody has already moved on
-   * from.
-   */
-  it('ignores an answer that arrives after the panel has gone', async () => {
-    storeAccessToken();
-    let settle: (value: Response) => void = () => {};
-    let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
-      url.startsWith(THROUGHPUT_URL)
-        ? Promise.resolve(jsonResponse(200, NO_HISTORY))
-        : url === CALIBRATION_URL
-          ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
-          : url === '/api/auth/me'
-            ? Promise.resolve(jsonResponse(200, ACCOUNT))
-            : new Promise<Response>((resolve, reject) => {
-                settle = resolve;
-                fail = reject;
-              })
-    );
-
-    const answered = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
-    answered.unmount();
-    settle(jsonResponse(200, listing([FORECAST])));
-
-    const refused = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
-    refused.unmount();
-    fail(new TypeError('Failed to fetch'));
-
-    await waitFor(() =>
-      expect(screen.queryByText(/An 80% chance/)).not.toBeInTheDocument()
-    );
-  });
-
-  /**
-   * <strong>Each entry carries its own assumptions, and that is the problem of saying a forecast plainly arriving
-   * early enough to design around.</strong> Bob asked the same plan a different question —
-   * fewer people, no common cause, no unlisted work — so his shorter answer is not this
-   * plan having got better. A history that showed only the numbers would read exactly as
-   * though it were.
-   */
-  it('lists the forecasts made before this one, with what each of them assumed', async () => {
-    const earlier: Forecast = {
-      ...FORECAST,
-      id: '60606060-6060-6060-6060-606060606060',
-      capacity: 1,
-      teamFactorWorseByPercent: 0,
-      scopeGrowthP10Percent: 0,
-      scopeGrowthP90Percent: 0,
-      p50Hours: 44.0,
-      p90Hours: 71.5,
-      requestedByName: 'Bob',
-      startsOn: '2026-08-03',
-      workingHoursPerDay: 8
-    };
-    await open([FORECAST, earlier], CONTRIBUTIONS, 'history');
-
-    const history = within(
-      screen.getByRole('heading', { name: 'Earlier forecasts' })
-        .parentElement as HTMLElement
-    );
-    expect(
-      history.getByText(
-        /44 h as likely as not, 71.5 h at the cautious end — 1 at a time, up to 0% longer in a bad stretch, 0–0% more work, asked for by Bob\./
-      )
-    ).toBeInTheDocument();
-    // And its own calendar, because a run read under eight-hour days from a different
-    // Monday is a different reading rather than this plan having moved.
-    expect(
-      history.getByText(/8-hour days from Aug 3, 2026\./)
-    ).toBeInTheDocument();
-  });
-
-  /** A run with none says nothing rather than inventing one from the newest. */
-  it('leaves the calendar off an earlier forecast that had none', async () => {
-    await open(
-      [
-        FORECAST,
-        {
-          ...FORECAST,
-          id: '70707070-7070-7070-7070-707070707070',
-          startsOn: null,
-          workingHoursPerDay: null,
-          calendarRule: null
-        }
-      ],
-      CONTRIBUTIONS,
-      'history'
-    );
-
-    const history = within(
-      screen.getByRole('heading', { name: 'Earlier forecasts' })
-        .parentElement as HTMLElement
-    );
-    expect(history.queryByText(/-hour days from/)).toBeNull();
-  });
-
-  // What it would take to hit a date ---------------------------------------
-
-  /**
-   * <strong>A list of work to drop belongs to the run it was measured against.</strong>
-   * Asking for a new forecast leaves the previous answer describing a run that is no longer
-   * on screen — the same staleness the breakdown clears itself for, arriving through the
-   * whole panel rather than one section of it. It is keyed on the run, so a new one starts
-   * the question again.
-   */
-  it('starts the target question again when a new forecast lands', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'explore');
-    await userEvent.type(
-      screen.getByLabelText('We want it done by'),
-      '2026-09-30'
-    );
-    await userEvent.type(
-      screen.getByLabelText('How sure do you need to be?'),
-      '85'
-    );
-    await userEvent.click(await screen.findByLabelText(WORK_ITEMS[0].title));
-    await userEvent.click(
-      screen.getByRole('button', { name: 'What would it take?' })
-    );
-    expect(
-      await screen.findByRole('heading', { name: 'What it would take' })
-    ).toBeInTheDocument();
-
-    // Asked for from the part that asks for forecasts, which is where somebody would be
-    // standing: the panel stays mounted across the two, so what is being asserted is that
-    // the answer was cleared rather than that a fresh mount had nothing in it.
-    answer([{ ...FORECAST, id: '60606060-6060-6060-6060-606060606060' }]);
-    await read('forecast');
-    await answerTheAssumptions('2', '30', '20', '60');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-    await read('explore');
-
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('heading', { name: 'What it would take' })
-      ).toBeNull()
-    );
-    expect(screen.getByLabelText('We want it done by')).toHaveValue('');
+      screen.getByText(/forecast only the work already written down/)
+    ).toHaveTextContent(/Answer the growth question under Advanced/);
   });
 
   // What the spread is made of ---------------------------------------------
@@ -2076,7 +1462,7 @@ describe('ForecastPanel', () => {
    * cheap for a reader who wants it and rude to charge everybody who opened the page.
    */
   it('does not ask what the spread is made of until somebody does', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'explore');
+    await open([FORECAST], CONTRIBUTIONS);
     // Settled on the question rather than on the answer: the point is that opening the
     // part that offers the breakdown has not already asked for one.
     await screen.findByRole('button', { name: 'What is widening this?' });
@@ -2102,7 +1488,7 @@ describe('ForecastPanel', () => {
    * the plan holds would pass nothing here.
    */
   it('ranks the sources by how much the finish moves with them', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'explore');
+    await open([FORECAST], CONTRIBUTIONS);
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2131,7 +1517,7 @@ describe('ForecastPanel', () => {
    * is the problem, which a ranking of tasks alone would have hidden.
    */
   it('names the two sources that are not work', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'explore');
+    await open([FORECAST], CONTRIBUTIONS);
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2150,7 +1536,7 @@ describe('ForecastPanel', () => {
    * wrong number this product exists to replace.
    */
   it('states that the shares overlap, and shows no percentage at all', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'explore');
+    await open([FORECAST], CONTRIBUTIONS);
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -2173,8 +1559,7 @@ describe('ForecastPanel', () => {
   it('describes a source kind this version has never heard of', async () => {
     await open(
       [FORECAST],
-      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }],
-      'explore'
+      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }]
     );
 
     await userEvent.click(
@@ -2196,8 +1581,7 @@ describe('ForecastPanel', () => {
       [
         { ...CONTRIBUTIONS[1], archived: true },
         { ...CONTRIBUTIONS[3], title: null }
-      ],
-      'explore'
+      ]
     );
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -2216,11 +1600,11 @@ describe('ForecastPanel', () => {
    * why the server refuses and this renders the refusal instead of a list.
    */
   it('says why a run that cannot be replayed has no breakdown', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'explore');
+    await open([FORECAST], CONTRIBUTIONS);
     // Refused by URL rather than by turn: the panel below asks for the plan's work as
     // well, so a double answering "the next request, whatever it is" would refuse
     // whichever of the two happened to go out first.
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       Promise.resolve(
         url === CONTRIBUTIONS_URL
           ? jsonResponse(409, {
@@ -2260,7 +1644,7 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       url.startsWith(THROUGHPUT_URL)
         ? Promise.resolve(jsonResponse(200, NO_HISTORY))
         : url === CALIBRATION_URL
@@ -2275,13 +1659,7 @@ describe('ForecastPanel', () => {
               : Promise.resolve(otherReads(url))
     );
 
-    const answered = renderRouted(
-      <ForecastPanel
-        section="explore"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
+    const answered = renderPage();
     await screen.findByRole('heading', { name: 'Explore' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -2289,13 +1667,7 @@ describe('ForecastPanel', () => {
     answered.unmount();
     settle(jsonResponse(200, CONTRIBUTIONS));
 
-    const refused = renderRouted(
-      <ForecastPanel
-        section="explore"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
+    const refused = renderPage();
     await screen.findByRole('heading', { name: 'Explore' });
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -2306,45 +1678,6 @@ describe('ForecastPanel', () => {
     await waitFor(() =>
       expect(screen.queryByText('What the spread is made of')).toBeNull()
     );
-  });
-
-  // The team a forecast was scheduled against -------------------------------
-
-  /**
-   * <strong>Absent rather than disabled</strong>, which is the rule the confidence control
-   * already follows on a run with no dates: a box that visibly does nothing reads as a
-   * broken screen, where a sentence saying what answers the question says what is true.
-   */
-  it('takes the capacity box away once a team has been described', async () => {
-    await openWithResources([
-      {
-        id: 'r1',
-        name: 'Backend engineers',
-        units: 3,
-        personId: null,
-        personName: null,
-        createdAt: '2026-08-01',
-        archivedAt: null
-      }
-    ]);
-
-    expect(
-      screen.queryByLabelText('Things that can be under way at once')
-    ).toBeNull();
-    expect(
-      screen.getByText(
-        'Your one resource says how much can be under way at once, so there is nothing to answer here.'
-      )
-    ).toBeInTheDocument();
-  });
-
-  /** And it is there for an organisation that has described none, which is most of them. */
-  it('asks for a capacity when no team has been described', async () => {
-    await openWithResources([]);
-
-    expect(
-      screen.getByLabelText('Things that can be under way at once')
-    ).toBeInTheDocument();
   });
 
   /**
@@ -2403,7 +1736,7 @@ describe('ForecastPanel', () => {
   it('says nothing about a team where there was none', async () => {
     await openWithHistory(DELIVERING);
 
-    await screen.findByText(/An 80% chance/);
+    await screen.findByText(/At 80%, it takes up to/);
     expect(screen.queryByText(/Scheduled against/)).toBeNull();
   });
 
@@ -2416,7 +1749,7 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       url.endsWith('/forecasts')
         ? new Promise<Response>((resolve, reject) => {
             settle = resolve;
@@ -2431,79 +1764,17 @@ describe('ForecastPanel', () => {
               : Promise.resolve(jsonResponse(200, []))
     );
 
-    const answered = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const answered = renderPage();
+    await settled();
     answered.unmount();
     settle(jsonResponse(200, listing([FORECAST])));
 
-    const refused = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
+    const refused = renderPage();
+    await settled();
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
 
     await waitFor(() => expect(screen.queryByText(/An 80% chance/)).toBeNull());
-  });
-
-  /**
-   * The team is its own read, and one that must not touch a panel that has gone — the guard
-   * every request here keeps.
-   */
-  it('drops a team that arrives after the panel has gone', async () => {
-    storeAccessToken();
-    let settle: (value: Response) => void = () => {};
-    let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
-      url === '/api/resources'
-        ? new Promise<Response>((resolve, reject) => {
-            settle = resolve;
-            fail = reject;
-          })
-        : url.startsWith(THROUGHPUT_URL)
-          ? Promise.resolve(jsonResponse(200, NO_HISTORY))
-          : url === CALIBRATION_URL
-            ? Promise.resolve(jsonResponse(200, NOTHING_SCORED))
-            : url === '/api/auth/me'
-              ? Promise.resolve(jsonResponse(200, ACCOUNT))
-              : Promise.resolve(otherReads(url))
-    );
-
-    const answered = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
-    answered.unmount();
-    settle(jsonResponse(200, []));
-
-    const refused = renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'Forecast' });
-    refused.unmount();
-    fail(new TypeError('Failed to fetch'));
-
-    await waitFor(() =>
-      expect(screen.queryByRole('heading', { name: 'Forecast' })).toBeNull()
-    );
   });
 
   // What if we had one more? --------------------------------------------------
@@ -2512,7 +1783,7 @@ describe('ForecastPanel', () => {
   it('asks nothing about hiring where there was no team', async () => {
     // Opened where the question would be asked, or the absence proves only that this is a
     // different part of the panel — which is true of every forecast ever made.
-    await openWithHistory(DELIVERING, FORECAST, 'explore');
+    await openWithHistory(DELIVERING, FORECAST);
 
     await screen.findByRole('button', { name: 'What is widening this?' });
     expect(
@@ -2535,8 +1806,7 @@ describe('ForecastPanel', () => {
           ]
         }
       ],
-      CONTRIBUTIONS,
-      'explore'
+      CONTRIBUTIONS
     );
 
     expect(
@@ -2671,7 +1941,7 @@ describe('ForecastPanel', () => {
    * it looks, and that is a caveat about *this* number.
    */
   it('warns when the date keeps moving out', async () => {
-    await openHistory(drifting({ movingOut: true }), MOVEMENT, 'forecast');
+    await openHistory(drifting({ movingOut: true }), MOVEMENT);
 
     expect(
       await screen.findByText(
@@ -2687,8 +1957,7 @@ describe('ForecastPanel', () => {
   it('says a single day in the singular', async () => {
     await openHistory(
       drifting({ movingOut: true, days: 1, bandDays: 1, toDate: '2026-08-18' }),
-      MOVEMENT,
-      'forecast'
+      MOVEMENT
     );
 
     expect(
@@ -2705,9 +1974,9 @@ describe('ForecastPanel', () => {
    * are not worth interrupting anybody about. Whether they are is the server's to decide.
    */
   it('says nothing about a plan that is merely churning', async () => {
-    await openHistory(drifting({ movingOut: false }), MOVEMENT, 'forecast');
+    await openHistory(drifting({ movingOut: false }), MOVEMENT);
 
-    await screen.findByText(/An 80% chance/);
+    await screen.findByText(/At 80%, it takes up to/);
     expect(screen.queryByText(/has been drifting/)).toBeNull();
   });
 
@@ -2782,7 +2051,7 @@ describe('ForecastPanel', () => {
    */
   it('passes on a refusal to compare two forecasts', async () => {
     await openHistory(drifting({ movingOut: false }), null);
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       Promise.resolve(
         url.startsWith(MOVEMENT_URL)
           ? jsonResponse(400, {
@@ -2836,7 +2105,11 @@ describe('ForecastPanel', () => {
       drift: null
     });
 
-    await screen.findByRole('heading', { name: 'Earlier forecasts' });
+    expect(
+      await screen.findByText(
+        'One of the two forecasts has no date at this confidence, so there is no date to have moved.'
+      )
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Why did the date move?' })
     ).toBeNull();
@@ -2899,7 +2172,7 @@ describe('ForecastPanel', () => {
     storeAccessToken();
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
-    fetchMock.mockImplementation((url: string) =>
+    serve((url: string) =>
       url.startsWith(MOVEMENT_URL)
         ? new Promise<Response>((resolve, reject) => {
             settle = resolve;
@@ -2918,28 +2191,16 @@ describe('ForecastPanel', () => {
                 : Promise.resolve(jsonResponse(200, []))
     );
 
-    const answered = renderRouted(
-      <ForecastPanel
-        section="history"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'History' });
+    const answered = renderPage();
+    await settled();
     await userEvent.click(
       await screen.findByRole('button', { name: 'Why did the date move?' })
     );
     answered.unmount();
     settle(jsonResponse(200, MOVEMENT));
 
-    const refused = renderRouted(
-      <ForecastPanel
-        section="history"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-    await screen.findByRole('heading', { name: 'History' });
+    const refused = renderPage();
+    await settled();
     await userEvent.click(
       await screen.findByRole('button', { name: 'Why did the date move?' })
     );
@@ -2982,81 +2243,15 @@ describe('ForecastPanel', () => {
    * place and not the other.
    */
   it('says a first forecast has nothing to have moved from', async () => {
-    await open([FORECAST], CONTRIBUTIONS, 'history');
+    await open([FORECAST], CONTRIBUTIONS);
 
     expect(
-      await screen.findByText(/This is the only forecast of this plan so far/)
+      await screen.findByText(
+        'This is the first forecast of this plan, so there is nothing for its date to have moved from.'
+      )
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Earlier forecasts' })
-    ).not.toBeInTheDocument();
-  });
-
-  it('reports a plan whose forecasts could not be loaded', async () => {
-    storeAccessToken();
-    fetchMock.mockImplementation((url: string) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : jsonResponse(404, {
-                  code: 'project_not_found',
-                  detail: 'gone'
-                })
-      )
-    );
-    renderRouted(
-      <ForecastPanel
-        section="forecast"
-        projectId={PROJECT_ID}
-        projectName={PROJECT_NAME}
-      />
-    );
-
-    expect(
-      await screen.findByText('That project is no longer in this organisation.')
-    ).toBeInTheDocument();
-  });
-
-  it('sends a sample count when somebody opens the disclosure and gives one', async () => {
-    await open();
-    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
-      Promise.resolve(
-        url.startsWith(THROUGHPUT_URL)
-          ? jsonResponse(200, NO_HISTORY)
-          : url === CALIBRATION_URL
-            ? jsonResponse(200, NOTHING_SCORED)
-            : url === '/api/auth/me'
-              ? jsonResponse(200, ACCOUNT)
-              : init?.method === 'POST'
-                ? jsonResponse(201, FORECAST)
-                : otherReads(url)
-      )
-    );
-
-    await answerTheAssumptions('3', '0', '0', '0', '7.5');
-    await startWorkOn('2026-08-17');
-    await userEvent.type(screen.getByLabelText('Simulated runs'), '2000');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Forecast this plan' })
-    );
-
-    await waitFor(() => {
-      const posted = fetchMock.mock.calls.filter(
-        ([, init]) => init?.method === 'POST'
-      );
-      expect(JSON.parse(posted[0][1].body)).toEqual({
-        capacity: 3,
-        teamFactorWorseByPercent: 0,
-        scopeGrowthP10Percent: 0,
-        scopeGrowthP90Percent: 0,
-        workingHoursPerDay: 7.5,
-        startsOn: '2026-08-17',
-        sampleCount: 2000
-      });
-    });
+      screen.queryByRole('button', { name: 'Why did the date move?' })
+    ).toBeNull();
   });
 });

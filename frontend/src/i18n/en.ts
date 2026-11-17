@@ -227,12 +227,9 @@ export const en = {
       // rather than repeating one of them.
       label: 'This plan',
       work: 'Work',
-      forecast: 'Forecast',
-      // Not "What if". Two of the three things here weigh something somebody might do and
-      // one of them only explains a number, and a label that promised an action for all
-      // three would be wrong about the one that reads.
-      explore: 'Explore',
-      history: 'History',
+      // Every forecast made of the plan, each opening on a page of its own — which is where
+      // the questions asked of a forecast now live, rather than in two more tabs here.
+      forecasts: 'Forecasts',
       // What the plan is called and whether it is still in use. "Settings" and not
       // "Details", because archiving lives here too and that is not a detail.
       settings: 'Settings'
@@ -258,43 +255,64 @@ export const en = {
     // here and printed back beside every date it produced. A date is the first thing this
     // product emits that looks like a fact, and the hours are what stop it reading as one.
     forecast: {
-      // One heading per part of a forecast. The strip above names them too, and this says
-      // it again because a control is not a heading: somebody moving through a plan by its
-      // headings should find each part where the strip promised it.
-      sections: {
-        forecast: {
-          title: 'Forecast',
-          // "In this plan" and not "above": the work is a tab away rather than up the page,
-          // and a lede that points somewhere nothing is is worse than one that points
-          // nowhere.
-          lede: 'Simulated from the ranges on the work in this plan, then read onto a calendar you state.'
-        },
+      // The Forecasts tab: every forecast made of this plan, newest first.
+      list: {
+        title: 'Forecasts',
+        lede: 'Every forecast made of this plan, newest first. Open one to read it and to ask questions of it.',
+        loading: 'Loading forecasts…',
+        none: 'No forecasts yet. Press “New forecast” to make the first one.',
+        // A row's link, and the page's own title: the day it was made is what tells two
+        // forecasts of one plan apart.
+        entry: 'Forecast of {{day}}',
+        newest: 'Newest',
+        by: 'Asked for by {{who}}',
+        // Read at 80%, the usual confidence, since a list has no control to choose another —
+        // and said with its percentage, so it is never mistaken for a promise.
+        at: '{{confidence}}% likely by {{date}}',
+        atHours: '{{hours}} hours of effort at {{confidence}}%',
+        assumed:
+          '{{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work.'
+      },
+      // The pop-up that asks for one. The button's words and the dialog's title are the
+      // same, like every other form that adds to a list.
+      new: {
+        open: 'New forecast',
+        title: 'New forecast',
+        lede: 'Filled in with what the newest forecast assumed, where there is one. Change anything that is no longer true.',
+        cancel: 'Cancel'
+      },
+      // One forecast, on the page that is only about it.
+      page: {
+        loading: 'Loading forecast…',
+        // Names the plan rather than saying "back", for the task page's reason.
+        back: '← {{project}}',
+        by: 'Asked for by {{who}}.',
+        newest: 'This is the newest forecast of this plan.',
+        olderThan: 'A newer forecast of this plan exists.',
+        // What changes with the confidence control: the date above it and these hours.
+        hoursAt:
+          'At {{confidence}}%, it takes up to {{hours}} hours of effort.',
+        assumed: 'What it assumed',
+        leavesOut: 'What it leaves out',
+        nothingLeftOut: 'Nothing beyond what it assumed above.',
+        secondOpinion: 'A second opinion',
+        secondOpinionLede:
+          'What the plan’s own delivery history said on the day this forecast was made, with no estimate in it.',
         explore: {
           title: 'Explore',
-          lede: 'What made the band this wide, what dropping something would buy, and what one more person would.'
+          lede: 'What made the band this wide, what dropping something would buy, and what one more person would. Nothing here changes the plan.'
         },
-        history: {
-          title: 'History',
-          lede: 'Every forecast made of this plan before the newest, and why the date moved between two of them.'
+        moved: {
+          title: 'Why the date moved',
+          since: 'Since the forecast of {{day}}, asked for by {{who}}.',
+          // A first forecast has nothing to have moved from, and says so without suggesting
+          // anybody hurry.
+          first:
+            'This is the first forecast of this plan, so there is nothing for its date to have moved from.',
+          // One of the two was made before a working day was something anybody stated.
+          noDate:
+            'One of the two forecasts has no date at this confidence, so there is no date to have moved.'
         }
-      },
-      loading: 'Loading forecasts…',
-      // Every box but one is a claim about this team that nobody here can make for them.
-      // The exception is the start date, which is filled in because what day it is is a
-      // fact rather than a claim — so this says "almost none" rather than "not one", which
-      // it used to and which the calendar made untrue.
-      //
-      // One sentence per part, because only the first of them has the questions on it and
-      // the other two have to say where they are. A shared line reading "answer the
-      // questions below" beside no questions tells somebody to do something they cannot do
-      // from where they are standing.
-      none: {
-        forecast:
-          'No forecast yet. Answer the questions below and ask for one — almost none of them has an answer this application can give for you.',
-        explore:
-          'No forecast yet. Ask for one under Forecast, and what it is made of can be taken apart here.',
-        history:
-          'No forecast yet. Ask for one under Forecast, and every one after it is listed here beside the reason the date moved.'
       },
       submit: 'Forecast this plan',
       submitting: 'Simulating…',
@@ -307,10 +325,12 @@ export const en = {
           hint: 'Required. The same plan finishes in half the time with twice the people, so nobody can guess this for you.',
           // Absent rather than disabled once a team exists, so the sentence has to say what
           // answers the question instead.
+          // Shown under the question's own name, in place of its box. Says where the answer
+          // comes from, in words nobody has to decode, and where to change it.
           declared_one:
-            'Your one resource says how much can be under way at once, so there is nothing to answer here.',
+            'Answered by your team: the forecast schedules the work against the resource on the <resources>Resources page</resources>, so you do not need to fill this in. Change it there if it is not right.',
           declared_other:
-            'Your {{count}} resources say how much can be under way at once, so there is nothing to answer here.'
+            'Answered by your team: the forecast schedules the work against the {{count}} resources on the <resources>Resources page</resources>, so you do not need to fill this in. Change them there if they are not right.'
         },
         // The two hardest questions in the model, asked as percentages because nobody has
         // an opinion about a log-standard-deviation. Neither is pre-filled, for the reason
@@ -319,11 +339,14 @@ export const en = {
         // this application has never seen.
         teamFactor: {
           label: 'In a bad stretch, how much longer does everything take?',
-          hint: 'Required, as a percentage. Answer for a stretch bad enough that only one quarter in ten is worse. Zero says nothing ever goes wrong for everybody at once.'
+          // What the "?" beside each Advanced question is called to a screen reader.
+          help: 'What does the bad-stretch question mean?',
+          hint: 'Optional, as a percentage. Answer for a stretch bad enough that only one quarter in ten is worse. Left empty it counts as zero — nothing ever goes wrong for everybody at once — and the forecast says so beside the date.'
         },
         scopeGrowth: {
           legend: 'How much does a plan like this usually grow?',
-          hint: 'Required, as percentages of the work already listed. Two numbers, because the answer is a range: a usual amount and a bad one. Zero and zero says nothing will be discovered that nobody has thought of.',
+          help: 'What does the growth question mean?',
+          hint: 'Optional, as percentages of the work already listed. Two numbers, because the answer is a range: a usual amount and a bad one. Left empty they count as zero — nothing will turn up that nobody has listed — and the forecast says so beside the date.',
           low: 'Usually at least',
           high: 'And as much as'
         },
@@ -346,6 +369,7 @@ export const en = {
         },
         sampleCount: {
           label: 'Simulated runs',
+          help: 'What are simulated runs?',
           hint: 'Ten thousand unless you say otherwise, which is accurate to well under a percent.'
         }
       },
@@ -355,7 +379,9 @@ export const en = {
       // faster?" stops being a capitulation and becomes "we can commit at lower
       // confidence", visible in one control while everybody watches.
       confidence: {
-        legend: 'How confident do you need to be?',
+        // A way of reading a forecast that already exists, so it says so: nothing is asked
+        // again when it moves.
+        legend: 'Read this forecast at',
         option: '{{value}}%',
         // **The line this work exists for, and the test of it is whether it can be
         // pasted into an email unedited.** It could not: it named a confidence and a day and
@@ -385,9 +411,6 @@ export const en = {
       // assumption behind it left in the browser.
       calendar:
         "Dates assume work starts {{start}}, one person's working day holds {{day}} hours, and nobody works weekends.",
-      // P10 to P90 is eight tenths of the probability, which is what makes this sentence
-      // true rather than merely reassuring.
-      band: 'An 80% chance of taking between {{low}} and {{high}} hours of effort.',
       hours: '{{value}} hours',
       percentiles: {
         p10: 'Everything goes well',
@@ -505,11 +528,10 @@ export const en = {
         }
       },
       limitations: {
-        title: 'What this forecast does not do',
         no_team_factor:
-          'It treated every task as independent. Real projects have bad weeks where everything runs long together, so the true range was wider than this one.',
+          'It treated every task as independent. Real projects have bad weeks where everything runs long together, so the true range is wider than this one. Answer the bad-stretch question under Advanced to include it.',
         no_scope_uncertainty:
-          'It forecast only the work already written down. Projects overrun because of work nobody listed more often than because a listed task ran long.',
+          'It forecast only the work already written down. Projects overrun because of work nobody listed more often than because a listed task ran long. Answer the growth question under Advanced to include it.',
         unestimated_items:
           'Some work in this plan carries no estimate. It kept its place in the order and counted as no effort, so the answer is short by whatever it holds.',
         inconsistent_estimates:
@@ -748,23 +770,6 @@ export const en = {
         // Decision 6 and its price, in one line: the terms add up *because* each was measured
         // with the ones above it already applied, and that is what the simulations bought.
         cost: 'Each of these was measured with the ones above it already applied, which is why they add up to the whole move. It cost {{simulations}} simulations.'
-      },
-      earlier: {
-        title: 'Earlier forecasts',
-        // A first forecast has nothing to have moved from. Said plainly rather than left as
-        // an empty panel, and said without suggesting anybody hurry: a plan forecast once is
-        // exactly what a plan forecast for the first time looks like.
-        only: 'This is the only forecast of this plan so far. Once there is another, what moved between them is explained here.',
-        // Carries its assumptions, because two runs of one plan made under different ones
-        // are not a date moving — and a list that showed only the numbers would read as
-        // though they were. That is the whole problem of saying a forecast plainly, arriving early enough to design
-        // around rather than to discover.
-        entry:
-          '{{middle}} h as likely as not, {{high}} h at the cautious end — {{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work, asked for by {{who}}.',
-        // The calendar belongs here for the same reason the other five assumptions do:
-        // two runs read under different working days are two readings, not a date moving.
-        // Absent on a run that had none, which is what the history is for saying.
-        calendar: '{{day}}-hour days from {{start}}.'
       }
     },
     // Shared by the form that starts a project and the form that changes one, because they

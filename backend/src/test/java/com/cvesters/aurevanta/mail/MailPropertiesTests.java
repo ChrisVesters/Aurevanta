@@ -32,8 +32,7 @@ class MailPropertiesTests {
 
 	/**
 	 * Both spellings of the origin, and both of the path, are natural to write in
-	 * configuration — and a doubled slash in an emailed link looks broken to a
-	 * recipient
+	 * configuration — and a doubled slash in an emailed link looks broken to a recipient
 	 * even where it still resolves.
 	 */
 	@Test
@@ -41,13 +40,13 @@ class MailPropertiesTests {
 		String expected = "https://app.acme.test/verify-email?token=abc";
 
 		assertThat(new MailProperties(null, "https://app.acme.test").link("/verify-email?token=abc"))
-				.isEqualTo(expected);
+			.isEqualTo(expected);
 		assertThat(new MailProperties(null, "https://app.acme.test/").link("/verify-email?token=abc"))
-				.isEqualTo(expected);
+			.isEqualTo(expected);
 		assertThat(new MailProperties(null, "https://app.acme.test").link("verify-email?token=abc"))
-				.isEqualTo(expected);
+			.isEqualTo(expected);
 		assertThat(new MailProperties(null, "https://app.acme.test/").link("verify-email?token=abc"))
-				.isEqualTo(expected);
+			.isEqualTo(expected);
 	}
 
 }

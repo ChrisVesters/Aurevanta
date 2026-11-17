@@ -15,14 +15,10 @@ import static org.assertj.core.api.Assertions.withinPercentage;
  * What several people's ranges on one piece of work say together.
  *
  * <p>
- * Two oracles, and neither is this class. With one estimator the mixture is
- * that
- * estimator's own fit, so it must hand back the ends they gave. With several,
- * its
- * cumulative probability is defined as the mean of theirs — so whatever
- * percentile it
- * returns, reading that mean back at the answer must give the percentile that
- * was asked
+ * Two oracles, and neither is this class. With one estimator the mixture is that
+ * estimator's own fit, so it must hand back the ends they gave. With several, its
+ * cumulative probability is defined as the mean of theirs — so whatever percentile it
+ * returns, reading that mean back at the answer must give the percentile that was asked
  * for.
  */
 class EstimatorMixtureTests {
@@ -53,10 +49,8 @@ class EstimatorMixtureTests {
 	}
 
 	/**
-	 * The worked example: 2 to 8 hours against 10 to 40. Checked against the
-	 * definition
-	 * rather than against numbers this class produced, and then against the figures
-	 * a
+	 * The worked example: 2 to 8 hours against 10 to 40. Checked against the definition
+	 * rather than against numbers this class produced, and then against the figures a
 	 * separate calculation gave for the same pair.
 	 */
 	@ParameterizedTest
@@ -92,10 +86,8 @@ class EstimatorMixtureTests {
 	}
 
 	/**
-	 * Three identical numbers is somebody saying they are certain, and the schema
-	 * accepts
-	 * it. Alone it is its own value at every percentile; beside a range it is a
-	 * step the
+	 * Three identical numbers is somebody saying they are certain, and the schema accepts
+	 * it. Alone it is its own value at every percentile; beside a range it is a step the
 	 * mixture has to climb rather than a division by zero.
 	 */
 	@Test

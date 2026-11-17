@@ -338,13 +338,15 @@ class ForecastApiTests {
 	}
 
 	/**
-	 * And the two retired codes are gone whatever was assumed. A run made with both
-	 * parameters at zero models the same thing the simulation engine did, and still does
-	 * not say so this way: what it assumed is on the run itself now, where a reader can
-	 * see the number rather than a note about its absence.
+	 * <strong>Zero is a claim, and a run that made it says so.</strong> The screen sends
+	 * zero for the two common-cause questions when they are left empty, so somebody can
+	 * forecast the listed work without answering them — and a run that assumed nothing
+	 * goes wrong for everybody at once, and that nothing unlisted turns up, is the run
+	 * these two codes always described. They come back on it, beside whatever else the
+	 * plan has to report.
 	 */
 	@Test
-	void noForecastStillReportsTheTwoLimitationsM3bRemoved() throws Exception {
+	void aForecastAssumingNoCommonCauseSaysSo() throws Exception {
 		this.items.save(new WorkItem(this.acmePlan, "Nobody has costed this", null, CREATED_AT.plusSeconds(2)));
 
 		this.mvc
@@ -354,8 +356,31 @@ class ForecastApiTests {
 				.content(assuming(1, 0, 0, 0)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.limitations").value(hasItem("unestimated_items")))
-			.andExpect(jsonPath("$.limitations").value(not(hasItem("no_team_factor"))))
-			.andExpect(jsonPath("$.limitations").value(not(hasItem("no_scope_uncertainty"))));
+			.andExpect(jsonPath("$.limitations").value(hasItem("no_team_factor")))
+			.andExpect(jsonPath("$.limitations").value(hasItem("no_scope_uncertainty")));
+	}
+
+	/**
+	 * Each is about its own question: a bad stretch answered leaves only the growth one.
+	 */
+	@Test
+	void aForecastWithABadStretchButNoGrowthReportsOnlyTheGrowth() throws Exception {
+		ForecastRun run = forecast(assuming(1, 30, 0, 0));
+
+		assertThat(this.forecasts.outputsOf(run).limitations())
+			.containsExactly(ForecastLimitation.NO_SCOPE_UNCERTAINTY);
+	}
+
+	/**
+	 * And growth answered leaves only the bad-stretch one. A usual growth of zero with a
+	 * bad one above it is still growth: only zero and zero is the claim that nothing
+	 * turns up.
+	 */
+	@Test
+	void aForecastWithGrowthButNoBadStretchReportsOnlyTheBadStretch() throws Exception {
+		ForecastRun run = forecast(assuming(1, 0, 0, 40));
+
+		assertThat(this.forecasts.outputsOf(run).limitations()).containsExactly(ForecastLimitation.NO_TEAM_FACTOR);
 	}
 
 	@Test

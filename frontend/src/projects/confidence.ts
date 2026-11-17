@@ -44,3 +44,13 @@ export const DATE_AT: Record<Confidence, 'p50Date' | 'p80Date' | 'p95Date'> = {
  * — unlike the assumptions above, which have no right answer and so are left empty.
  */
 export const USUAL_CONFIDENCE: Confidence = 80;
+
+/** The hours each confidence reads, beside the date it reads — the two move together. */
+export const HOURS_AT: Record<
+  Confidence,
+  'p50Hours' | 'p80Hours' | 'p95Hours'
+> = {
+  50: 'p50Hours',
+  80: 'p80Hours',
+  95: 'p95Hours'
+};

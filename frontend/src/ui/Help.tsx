@@ -1,9 +1,21 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState
+} from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
 /** The space kept between the panel and the edge of the window, matching the page gutter. */
 const GUTTER = 16;
+
+/** The space between the "?" and the panel it opens. */
+const GAP = 6;
+
+type Place = { top: number; left: number };
 
 /**
  * An explanation kept behind a "?" beside the thing it explains, shown on a press as a small
@@ -11,8 +23,15 @@ const GUTTER = 16;
  *
  * **Floating rather than inline**, so opening it moves nothing: an explanation that pushed
  * the boxes beneath it down the page would move the thing somebody was about to type into.
- * It is positioned under the "?" and nudged left where it would otherwise run off the edge
- * of a narrow window.
+ *
+ * **Placed against the window, never against whatever it sits in.** It is `position: fixed`,
+ * at coordinates measured from the "?": under it where there is room and above it where there
+ * is not, and kept inside the window's gutters. An absolutely placed panel was the first
+ * version, and inside a dialog — which scrolls — any part of it past the dialog's edge widened
+ * what the dialog had to scroll, and a horizontal scrollbar appeared under a form. A fixed
+ * element is not part of any ancestor's scrollable area, so that cannot happen wherever this
+ * is put. The price is following the "?" when anything scrolls or the window resizes, which
+ * is what the listeners below do.
  *
  * **A press and not a hover**, because a hover has no equivalent on a touch screen and is
  * easy to get wrong from a keyboard: this is the disclosure pattern — a real button whose
@@ -39,24 +58,44 @@ export function Help({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [shift, setShift] = useState(0);
+  const [place, setPlace] = useState<Place | null>(null);
   const text = useId();
   const root = useRef<HTMLSpanElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLSpanElement>(null);
 
-  // Measured once it is showing, before the browser paints it: the panel opens leftwards
-  // only by as much as it would otherwise run past the window's right edge, and never so
-  // far that it runs past the left one instead.
-  useLayoutEffect(() => {
-    if (!open) {
-      setShift(0);
-      return;
-    }
+  /**
+   * Where the panel goes, from where the "?" is now and how big the panel is: under the "?"
+   * unless that runs past the bottom of the window, then above it; and as far left as the
+   * "?" unless that runs past the right edge, then pulled back inside it. Never past the top
+   * or the left gutter either way.
+   */
+  const position = useCallback(() => {
+    const anchor = (
+      toggle.current as HTMLButtonElement
+    ).getBoundingClientRect();
     const box = (panel.current as HTMLSpanElement).getBoundingClientRect();
-    const over = box.right - (window.innerWidth - GUTTER);
-    setShift(over > 0 ? Math.min(over, box.left - GUTTER) : 0);
-  }, [open]);
+    const below = anchor.bottom + GAP;
+    const top =
+      below + box.height > window.innerHeight - GUTTER
+        ? Math.max(GUTTER, anchor.top - GAP - box.height)
+        : below;
+    const left = Math.max(
+      GUTTER,
+      Math.min(anchor.left, window.innerWidth - GUTTER - box.width)
+    );
+    setPlace({ top, left });
+  }, []);
+
+  // Measured once it is showing, before the browser paints it, so it never flashes in the
+  // wrong place.
+  useLayoutEffect(() => {
+    if (open) {
+      position();
+    } else {
+      setPlace(null);
+    }
+  }, [open, position]);
 
   useEffect(() => {
     if (!open) {
@@ -75,11 +114,17 @@ export function Help({
     }
     document.addEventListener('pointerdown', away);
     document.addEventListener('keydown', escape);
+    // Captured, so a scroll inside a dialog or any other container is heard as well as the
+    // page's own.
+    document.addEventListener('scroll', position, true);
+    window.addEventListener('resize', position);
     return () => {
       document.removeEventListener('pointerdown', away);
       document.removeEventListener('keydown', escape);
+      document.removeEventListener('scroll', position, true);
+      window.removeEventListener('resize', position);
     };
-  }, [open]);
+  }, [open, position]);
 
   return (
     <span className="help" ref={root}>
@@ -99,7 +144,7 @@ export function Help({
         id={text}
         className="help-text"
         hidden={!open}
-        style={shift > 0 ? { left: -shift } : undefined}
+        style={place ?? undefined}
       >
         {children}
       </span>

@@ -374,17 +374,15 @@ button.secondary {
 
 /*
   The explanation, floating under its "?" over whatever is below — so opening it moves
-  nothing on the page. As wide as its text up to a comfortable line, and never wider than
-  the window less its gutters; Help nudges it left where it would run off the right edge.
+  nothing on the page. Fixed to the window rather than placed inside whatever holds it, so it
+  can never widen a scrolling container; Help works out where, and keeps it in the window.
 */
 .help {
   position: relative;
 }
 
 .help-text {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
+  position: fixed;
   z-index: 10;
   display: block;
   width: max-content;
@@ -706,7 +704,8 @@ button.link {
 
 .project-list,
 .work-item-list,
-.resource-list {
+.resource-list,
+.forecast-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -1511,10 +1510,25 @@ button.danger {
   border-top: 1px solid var(--border);
 }
 
-.forecast form {
+/*
+  The questions a forecast is asked, in the pop-up on the Forecasts tab. Laid out like every
+  other form in a dialog: one column, the same gaps, and the save and cancel side by side.
+*/
+.forecast-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+
+  > .hint {
+    margin: 0;
+  }
 }
 
 /*
@@ -1598,32 +1612,91 @@ button.danger {
   warning: these are not errors, they are what the model does not do — and a band read
   without them is narrower than the truth.
 */
-.forecast .limitations h3,
-.forecast .earlier h3 {
-  margin: 0 0 4px;
-  font-size: 14px;
-}
-
-.forecast .limitations ul,
-.forecast .earlier ul {
+.forecast ul.limitations {
   margin: 0;
   padding-left: 20px;
   font-size: 14px;
   color: var(--muted);
 }
 
-.forecast .limitations li,
-.forecast .earlier li {
+.forecast ul.limitations li {
   margin-bottom: 4px;
 }
 
 /*
-  Why the date moved, under the forecast it moved from. **The terms are never re-sorted and
+  The reading the confidence control is on, marked in the table of all five, so moving the
+  control visibly moves something here as well as the date above.
+*/
+.forecast .percentiles tr.chosen th,
+.forecast .percentiles tr.chosen td {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+/*
+  One forecast on its own page. It is the page rather than a part of one, so it has no rule
+  above it, and its parts — what it assumed, what it leaves out, the second opinion, the
+  questions asked of it, why the date moved — are headings of their own with room above.
+*/
+.forecast-page {
+  border-top: none;
+  padding-top: 0;
+
+  h1 {
+    margin: 0;
+  }
+
+  h2 {
+    margin: 16px 0 0;
+    font-size: 17px;
+  }
+
+  > .back,
+  > .hint,
+  > .empty {
+    margin: 0;
+    font-size: 14px;
+  }
+}
+
+/*
+  Every forecast of a plan, under the plan it forecasts. A list like the work and the
+  resources beside it: the day it was made is the way in, and the reading, who asked and
+  what they assumed sit beneath it.
+*/
+.forecasts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+
+  > p {
+    margin: 0;
+  }
+
+  .reading {
+    font-size: 14px;
+    color: var(--accent);
+  }
+
+  .tag {
+    margin-left: 8px;
+    padding: 1px 8px;
+    font-size: 12px;
+    border-radius: 999px;
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+}
+
+/*
+  Why the date moved, at the foot of a forecast's page. **The terms are never re-sorted and
   are never a chart**: the order is the rule they were attributed in, and a bar per term
   would invite the reading the contribution ranking's caveat spends a paragraph preventing — these ones do add up,
   which is exactly why they are shown as an account rather than as shares.
 */
-.forecast .earlier .movement {
+.forecast-page .movement {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1635,7 +1708,6 @@ button.danger {
     color: var(--text-h);
   }
 
-  /* Its own list rather than the bulleted one it sits inside. */
   .terms {
     display: flex;
     flex-direction: column;
@@ -1662,9 +1734,9 @@ button.danger {
   }
 }
 
-.forecast .earlier .actions {
+.forecast-page > .actions {
   display: flex;
-  margin: 4px 0 0;
+  margin: 0;
 }
 
 /*
@@ -1672,7 +1744,7 @@ button.danger {
   only the ends of the range, so the pair reads as one thing to answer rather than as two
   unrelated numbers that happen to sit together.
 */
-.forecast .range {
+.forecast-form .range {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1681,19 +1753,45 @@ button.danger {
   border: 0;
 }
 
-.forecast .range > legend {
-  padding: 0;
-  font-size: 14px;
-  font-weight: 600;
+/*
+  The question the two boxes answer, styled exactly like every other question on this form —
+  it is one — so it reads as theirs. Its two boxes are parts of one answer, so their labels
+  step down a size and a shade beneath it instead of competing with it.
+*/
+/*
+  A question answered elsewhere: its name, styled as the label it would have been, and the
+  sentence saying where the answer comes from in place of the box.
+*/
+.forecast-form .answered {
+  .label {
+    font-size: 15px;
+    color: var(--text-h);
+  }
+
+  .hint {
+    margin: 0;
+  }
 }
 
-.forecast .range .pair {
+.forecast-form .range > legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.forecast-form .range .pair .field label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.forecast-form .range .pair {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.forecast .range .pair .field {
+.forecast-form .range .pair .field {
   flex: 1 1 140px;
 }
 
@@ -2065,10 +2163,16 @@ button.danger {
   }
 }
 
-.forecast .advanced > summary {
+.forecast-form .advanced > summary {
   font-size: 14px;
   cursor: pointer;
   color: var(--muted);
+}
+
+/* The questions under Advanced, spaced as the ones above it are. */
+.forecast-form .advanced > .field,
+.forecast-form .advanced > .range {
+  margin-top: 12px;
 }
 
 /*

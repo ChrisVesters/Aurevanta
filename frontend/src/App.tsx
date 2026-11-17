@@ -15,6 +15,7 @@ import { NotFoundPage } from './routes/NotFoundPage';
 import { ProjectPage } from './routes/ProjectPage';
 import { ProjectsPage } from './routes/ProjectsPage';
 import { RegisterPage } from './routes/RegisterPage';
+import { ForecastPage } from './routes/ForecastPage';
 import { WorkItemPage } from './routes/WorkItemPage';
 import { ResetPasswordPage } from './routes/ResetPasswordPage';
 import { VerifyEmailPage } from './routes/VerifyEmailPage';
@@ -66,6 +67,11 @@ function App() {
             on the row, which is what the back link is built from.
           */}
           <Route path="/app/items/:itemId" element={<WorkItemPage />} />
+          {/*
+            One forecast, carrying no plan in its address for the task's reason: the plan
+            comes back on the run, and that is what the back link is built from.
+          */}
+          <Route path="/app/forecasts/:runId" element={<ForecastPage />} />
           <Route path="/app/members" element={<MembersPage />} />
           {/*
             Organisation-wide, for the reason the calibration record is: a team is the

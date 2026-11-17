@@ -89,8 +89,8 @@ describe('ProjectPage', () => {
     );
   }
 
-  /** What this page is called on each of its five parts. */
-  const TABS = ['Work', 'Forecast', 'Explore', 'History', 'Settings'];
+  /** What this page is called on each of its three parts. */
+  const TABS = ['Work', 'Forecasts', 'Settings'];
 
   /** The query string, on screen, so a case can say what a link somebody copies holds. */
   function Where() {
@@ -316,13 +316,13 @@ describe('ProjectPage', () => {
     await open();
     await screen.findByRole('heading', { name: 'Q3 platform work' });
 
-    await userEvent.click(tab('Forecast'));
+    await userEvent.click(tab('Forecasts'));
 
     expect(
-      await screen.findByRole('heading', { name: 'Forecast' })
+      await screen.findByRole('heading', { name: 'Forecasts' })
     ).toBeInTheDocument();
-    expect(tab('Forecast')).toHaveAttribute('aria-selected', 'true');
-    expect(url()).toBe('?tab=forecast');
+    expect(tab('Forecasts')).toHaveAttribute('aria-selected', 'true');
+    expect(url()).toBe('?tab=forecasts');
     // And back to the work is back to the plain plan URL, not `?tab=work`.
     await userEvent.click(tab('Work'));
     expect(url()).toBe('');
@@ -330,13 +330,29 @@ describe('ProjectPage', () => {
 
   /** Which is the other half of the same rule: a link names its part and opens on it. */
   it('opens on the part a link names', async () => {
-    await open(PROJECTS[0], 'history');
+    await open(PROJECTS[0], 'forecasts');
 
     expect(
-      await screen.findByRole('heading', { name: 'History' })
+      await screen.findByRole('heading', { name: 'Forecasts' })
     ).toBeInTheDocument();
-    expect(tab('History')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Forecasts')).toHaveAttribute('aria-selected', 'true');
   });
+
+  /**
+   * The forecast was three tabs until November 2026 — forecast, explore, history — and a
+   * link saved then is a link to the plan's forecasts, which is where all three went.
+   */
+  it.each(['forecast', 'explore', 'history'])(
+    'opens a link to the retired %s tab on the forecasts',
+    async (retired) => {
+      await open(PROJECTS[0], retired as PlanTab);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Forecasts' })
+      ).toBeInTheDocument();
+      expect(tab('Forecasts')).toHaveAttribute('aria-selected', 'true');
+    }
+  );
 
   /**
    * <strong>A parameter this version does not have shows the work.</strong> A hand-edited
@@ -364,16 +380,16 @@ describe('ProjectPage', () => {
 
     await userEvent.keyboard('{ArrowRight}');
 
-    expect(tab('Forecast')).toHaveFocus();
+    expect(tab('Forecasts')).toHaveFocus();
     expect(tab('Work')).toHaveAttribute('aria-selected', 'true');
     expect(url()).toBe('');
 
     await userEvent.keyboard('{Enter}');
 
     expect(
-      await screen.findByRole('heading', { name: 'Forecast' })
+      await screen.findByRole('heading', { name: 'Forecasts' })
     ).toBeInTheDocument();
-    expect(url()).toBe('?tab=forecast');
+    expect(url()).toBe('?tab=forecasts');
   });
 
   /** Home, End, and round the ends — a strip somebody can get to the far side of. */
@@ -401,11 +417,11 @@ describe('ProjectPage', () => {
    * somebody reaches this page with a keyboard.
    */
   it('is one stop for the tab key however many parts there are', async () => {
-    await open(PROJECTS[0], 'explore');
-    await screen.findByRole('heading', { name: 'Explore' });
+    await open(PROJECTS[0], 'forecasts');
+    await screen.findByRole('heading', { name: 'Forecasts' });
 
-    expect(tab('Explore')).toHaveAttribute('tabindex', '0');
-    for (const name of TABS.filter((each) => each !== 'Explore')) {
+    expect(tab('Forecasts')).toHaveAttribute('tabindex', '0');
+    for (const name of TABS.filter((each) => each !== 'Forecasts')) {
       expect(tab(name)).toHaveAttribute('tabindex', '-1');
     }
   });

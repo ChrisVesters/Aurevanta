@@ -22,11 +22,11 @@ import com.fasterxml.jackson.annotation.JsonValue;
  * model it never had.
  *
  * <p>
- * <strong>Retired is not the same as deleted, and the difference is the history.</strong>
- * Nothing writes the first two any more; the constants stay because runs that carry them
- * are still read, and an enum missing a value that exists in stored JSON is a run that
- * cannot be deserialised at all. The plan for this work said "deleted", and deleting them
- * would have taken every forecast made before it with them.
+ * <strong>The first two were retired, kept, and brought back.</strong> The common-cause
+ * model stopped writing them; the constants stayed because runs carrying them are still
+ * read, and an enum missing a value that exists in stored JSON is a run that cannot be
+ * deserialised at all. They are written again now on runs that assume zero for the
+ * common-cause questions — see {@code ForecastService.limitations}.
  *
  * <p>
  * Codes rather than sentences, translated by the frontend like every other code this API
@@ -35,19 +35,20 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum ForecastLimitation {
 
 	/**
-	 * <strong>Retired by the common-cause model: written by no run made under engine
-	 * version 2.</strong> Nothing correlated. Every item was sampled independently, so
-	 * good and bad luck cancelled out and the band was narrower than any real project's.
-	 * Runs made before that go on saying so, which is the point of storing it.
+	 * Nothing correlated. Every item was sampled independently, so good and bad luck
+	 * cancelled out and the band was narrower than any real project's. Written on every
+	 * run made before the common-cause model, and on any run since that answered the
+	 * bad-stretch question with zero — which the screen sends for an empty box.
 	 */
 	NO_TEAM_FACTOR("no_team_factor"),
 
 	/**
-	 * <strong>Retired by the common-cause model: written by no run made under engine
-	 * version 2.</strong> Only the work somebody had already written down was forecast.
-	 * Projects overrun because of work nobody listed far more often than because a listed
-	 * task exceeded its P90, and `product-concept.md` calls this usually the larger of
-	 * the two uncertainties.
+	 * Only the work somebody had already written down was forecast. Written on every run
+	 * made before the common-cause model, and on any run since that answered both growth
+	 * questions with zero — which the screen sends for empty boxes. Projects overrun
+	 * because of work nobody listed far more often than because a listed task exceeded
+	 * its P90, and `product-concept.md` calls this usually the larger of the two
+	 * uncertainties.
 	 */
 	NO_SCOPE_UNCERTAINTY("no_scope_uncertainty"),
 
