@@ -521,17 +521,41 @@ describe('WorkItemPage', () => {
     fetchMock.mock.calls.filter(([url]) => url === COMBINED_URL);
 
   /**
-   * Beside the ranges and never instead of them, with a line saying it is not an average.
-   * The numbers are the server's: the browser holds no part of the model.
+   * Beside the ranges and never instead of them. The numbers are the server's: the browser
+   * holds no part of the model.
    */
   it('says what several ranges come to together', async () => {
     await open({ estimates: ESTIMATES, combined: TOGETHER });
 
     expect(
-      await screen.findByText('Taken together: 4.1 / 11.62 / 33.8 hours')
+      await screen.findByText(/^Taken together: 4\.1 \/ 11\.62 \/ 33\.8 hours/)
     ).toBeInTheDocument();
-    expect(screen.getByText(/It is not an average/)).toBeInTheDocument();
     expect(screen.getByText('Bob: 10 / 20 / 40 hours')).toBeInTheDocument();
+  });
+
+  /**
+   * What "taken together" means is kept behind a "?" until somebody asks — a press rather
+   * than a hover, so it works by touch and from a keyboard, and the button says whether
+   * its text is showing.
+   */
+  it('explains the combination behind a question mark', async () => {
+    await open({ estimates: ESTIMATES, combined: TOGETHER });
+    const toggle = await screen.findByRole('button', {
+      name: 'What does “taken together” mean?'
+    });
+    const explanation = screen.getByText(/It is not an average/);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAttribute('aria-controls', explanation.id);
+    expect(explanation).not.toBeVisible();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(explanation).toBeVisible();
+
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(explanation).not.toBeVisible();
   });
 
   /** One person's range is already everything a combination of it would say. */

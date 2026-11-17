@@ -14,6 +14,7 @@ import { ProgressForm } from '../projects/ProgressForm';
 import type { ProgressValues } from '../projects/ProgressForm';
 import { RequirementForm } from '../projects/RequirementForm';
 import { WorkItemForm } from '../projects/WorkItemForm';
+import { Help } from '../ui/Help';
 import { byEnd, describeProgress, describeShape } from '../projects/work';
 import type {
   CombinedEstimate,
@@ -496,10 +497,12 @@ export function WorkItemPage() {
                             p10: combined.range.p10Hours,
                             p50: combined.range.p50Hours,
                             p90: combined.range.p90Hours
-                          })}
-                        </p>
-                        <p className="hint">
-                          {t('projects.item.estimate.combinedHint')}
+                          })}{' '}
+                          <Help
+                            label={t('projects.item.estimate.combinedHelp')}
+                          >
+                            {t('projects.item.estimate.combinedHint')}
+                          </Help>
                         </p>
                       </div>
                     )}

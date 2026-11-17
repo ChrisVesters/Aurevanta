@@ -335,6 +335,55 @@ button.secondary {
   }
 }
 
+/*
+  The "?" that keeps an explanation out of the way until somebody asks for it. A small
+  outlined circle sitting on the line it explains, and accented while its text is showing
+  so it is clear which "?" opened what.
+*/
+.help-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+
+  &:hover,
+  &[aria-expanded='true'] {
+    color: var(--accent);
+    border-color: var(--accent-border);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+.help-text {
+  display: block;
+  margin-top: 6px;
+  max-width: 62ch;
+  font-size: 14px;
+  color: var(--text);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
 button.link {
   font: inherit;
   font-size: inherit;

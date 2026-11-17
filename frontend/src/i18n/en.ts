@@ -1046,6 +1046,8 @@ export const en = {
         // and the hint says so — an average of two people who disagree is a narrow band
         // neither of them gave.
         combined: 'Taken together: {{p10}} / {{p50}} / {{p90}} hours',
+        // What the "?" beside it is called to a screen reader, which hears no glyph.
+        combinedHelp: 'What does “taken together” mean?',
         combinedHint:
           'How the forecast reads these ranges: each is as likely to be right as the others, so the more they disagree, the wider this is. It is not an average, and it is nobody’s estimate.'
       },
@@ -1341,6 +1343,14 @@ export const en = {
     title: 'You’re set up',
     body: '{{organisation}} is ready. Everything you plan from here belongs to this organisation and is visible only to its members.',
     next: 'Estimating comes next.'
+  },
+  // Shared controls, belonging to no one screen.
+  ui: {
+    help: {
+      // Hidden from screen readers, which hear the button's own label instead — but still
+      // a character somebody reads, so it lives here like every other one.
+      icon: '?'
+    }
   },
   notFound: {
     title: 'Page not found',
