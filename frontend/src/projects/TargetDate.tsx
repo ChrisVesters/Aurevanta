@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Help } from '../ui/Help';
 import type { SubmitEvent } from 'react';
 import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
@@ -79,7 +80,7 @@ export function TargetDate({ run }: { run: Forecast }) {
   if (run.workingHoursPerDay === null) {
     return (
       <div className="target">
-        <h3>{t('projects.forecast.target.title')}</h3>
+        <h2>{t('projects.forecast.target.title')}</h2>
         <p className="empty">{t('projects.forecast.target.noCalendar')}</p>
       </div>
     );
@@ -87,7 +88,7 @@ export function TargetDate({ run }: { run: Forecast }) {
   if (run.p50Date === null) {
     return (
       <div className="target">
-        <h3>{t('projects.forecast.target.title')}</h3>
+        <h2>{t('projects.forecast.target.title')}</h2>
         <p className="empty">
           {t('projects.forecast.target.unreadableCalendar')}
         </p>
@@ -137,8 +138,12 @@ export function TargetDate({ run }: { run: Forecast }) {
 
   return (
     <div className="target">
-      <h3>{t('projects.forecast.target.title')}</h3>
-      <p className="hint">{t('projects.forecast.target.lede')}</p>
+      <div className="titled">
+        <h2>{t('projects.forecast.target.title')}</h2>
+        <Help label={t('projects.forecast.target.help')}>
+          {t('projects.forecast.target.lede')}
+        </Help>
+      </div>
 
       <form onSubmit={(event) => void ask(event)} noValidate>
         {asking.message && (
@@ -299,9 +304,9 @@ function Answer({ answer }: { answer: CutOptions }) {
 
       {!answer.meets && (
         <>
-          <h4 id="target-together">
+          <h3 id="target-together">
             {t('projects.forecast.target.together.title')}
-          </h4>
+          </h3>
           <p className="hint">{t('projects.forecast.target.together.lede')}</p>
           {answer.together.steps.length > 0 && (
             <ol className="steps" aria-labelledby="target-together">
@@ -329,9 +334,9 @@ function Answer({ answer }: { answer: CutOptions }) {
 
       {answer.cuts.length > 0 && (
         <>
-          <h4 id="target-singles">
+          <h3 id="target-singles">
             {t('projects.forecast.target.singles.title')}
-          </h4>
+          </h3>
           {/*
             Beside the list and not behind a disclosure, for the reason the band's caveats
             are: these are what each buys *alone*, they overlap, and two of them added

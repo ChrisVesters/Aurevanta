@@ -24,7 +24,7 @@ export function BurnUpFigure({ burnUp }: { burnUp: BurnUp }) {
 
   return (
     <div className="burnup">
-      <h4>{t('projects.forecast.throughput.burnUp.title')}</h4>
+      <h3>{t('projects.forecast.throughput.burnUp.title')}</h3>
       {/*
         **One sentence, and it does not name a second date.** The plan for this step proposed
         "the last is done between 12 October and 30 November", which is the two-sided form

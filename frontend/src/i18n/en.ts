@@ -281,34 +281,41 @@ export const en = {
         lede: 'Filled in with what the newest forecast assumed, where there is one. Change anything that is no longer true.',
         cancel: 'Cancel'
       },
-      // One forecast, on the page that is only about it.
+      // One forecast, on the page that is only about it: a summary, then three tabs.
       page: {
         loading: 'Loading forecast…',
         // Names the plan rather than saying "back", for the task page's reason.
         back: '← {{project}}',
-        by: 'Asked for by {{who}}.',
-        newest: 'This is the newest forecast of this plan.',
-        olderThan: 'A newer forecast of this plan exists.',
-        // What changes with the confidence control: the date above it and these hours.
-        hoursAt:
-          'At {{confidence}}%, it takes up to {{hours}} hours of effort.',
-        assumed: 'What it assumed',
-        leavesOut: 'What it leaves out',
-        nothingLeftOut: 'Nothing beyond what it assumed above.',
-        secondOpinion: 'A second opinion',
-        secondOpinionLede:
-          'What the plan’s own delivery history said on the day this forecast was made, with no estimate in it.',
-        explore: {
-          title: 'Explore',
-          lede: 'What made the band this wide, what dropping something would buy, and what one more person would. Nothing here changes the plan.'
+        by: 'Asked for by {{who}}',
+        newest: 'Newest',
+        olderThan: 'A newer forecast exists',
+        // Beside the choice of reading, which is also the row of the three dates.
+        readingsHelp: 'What are these readings?',
+        readingsExplain:
+          'The same forecast read at three confidences, each with the day it finishes by and the hours of effort behind that day. 50%: as likely over as under. 80%: comfortable, a sensible commitment. 95%: very cautious, for commitments that are expensive to miss. Choosing one reads the whole page at it.',
+        tabs: {
+          label: 'Parts of this forecast',
+          details: 'Details',
+          compare: 'Compare',
+          explore: 'Explore'
         },
+        assumed: 'What it assumed',
+        assume: {
+          capacity: '{{capacity}} things under way at once',
+          team: 'Scheduled against {{team}}',
+          stretch: 'Up to {{worseBy}}% longer in a bad stretch',
+          growth: '{{growthLow}}–{{growthHigh}}% more work than listed',
+          calendar: 'Starts {{start}}, {{day}}-hour working days, no weekends',
+          samples: '{{samples}} simulated runs'
+        },
+        leavesOut: 'What it leaves out',
+        nothingLeftOut: 'Nothing beyond what it assumed.',
         moved: {
           title: 'Why the date moved',
-          since: 'Since the forecast of {{day}}, asked for by {{who}}.',
+          since: 'Compared with the forecast of {{day}}, asked for by {{who}}.',
           // A first forecast has nothing to have moved from, and says so without suggesting
           // anybody hurry.
-          first:
-            'This is the first forecast of this plan, so there is nothing for its date to have moved from.',
+          first: 'This is the first forecast of this plan.',
           // One of the two was made before a working day was something anybody stated.
           noDate:
             'One of the two forecasts has no date at this confidence, so there is no date to have moved.'
@@ -383,17 +390,10 @@ export const en = {
         // again when it moves.
         legend: 'Read this forecast at',
         option: '{{value}}%',
-        // **The line this work exists for, and the test of it is whether it can be
-        // pasted into an email unedited.** It could not: it named a confidence and a day and
-        // never what was being forecast, so it only made sense on the screen it was already
-        // on. It also opened with a bare percentage, which reads as a statistic before it
-        // reads as a sentence.
-        //
-        // One-sided, and that corrects `roadmap.md`'s own example: "between 12 October and
-        // 20 November" is a two-sided interval, and it invites "so not before the 12th?" —
-        // a question about the end of the distribution the model is worst at and nobody
-        // manages against. What somebody commits to is a day they will not be past.
-        date: 'There is a {{confidence}}% chance that {{plan}} will be finished by {{date}}.',
+        // There used to be a sentence here naming the plan, the confidence and the day, for
+        // pasting into an email. It went in November 2026: the chosen card already shows the
+        // day, and the product owner found the sentence a redundant header. The list of
+        // forecasts still says each reading one-sided ("80% likely by …").
         // A run made before a working day was something anybody stated. Its hours are
         // still true; backfilling a calendar onto it would have invented a claim nobody
         // made, so it says so in a line instead.
@@ -405,28 +405,7 @@ export const en = {
         unreadableCalendar:
           'No date for this one: it was made under a calendar this version of the app cannot read.'
       },
-      // Beside the assumptions sentence and never behind a disclosure, because a date is
-      // the first thing this product emits that looks like a fact — "14 November" does not
-      // advertise that it came out of a model, and it gets pasted into a plan with the
-      // assumption behind it left in the browser.
-      calendar:
-        "Dates assume work starts {{start}}, one person's working day holds {{day}} hours, and nobody works weekends.",
       hours: '{{value}} hours',
-      percentiles: {
-        p10: 'Everything goes well',
-        p50: 'As likely over as under',
-        p80: 'Comfortable',
-        p90: 'Cautious',
-        p95: 'Very cautious'
-      },
-      // Five of the six, beside the band and never behind a disclosure: a forecast whose
-      // assumptions are one click away is a forecast that gets screenshotted without them.
-      // The sixth is the calendar, in its own sentence below because a run made before the calendar
-      // has none and this paragraph would otherwise need writing twice.
-      // Zeros read a little flatly here, and that is the honest reading — somebody who
-      // assumed no common cause and no unlisted work said so, and the number says they did.
-      assumptions:
-        'Assuming {{capacity}} things under way at once, up to {{worseBy}}% longer in a bad stretch, and {{growthLow}}–{{growthHigh}}% more work than has been listed — over {{samples}} simulated runs.',
       // Beside the number rather than behind a link. The first two below are retired:
       // the common-cause model models what they name, so nothing writes them any more — and the wording stays
       // because the runs a plan made before it are still on this screen.
@@ -447,12 +426,14 @@ export const en = {
       // "six weeks against eleven" starts a conversation and a number in the middle ends it.
       throughput: {
         title: 'What this plan has actually been delivering',
+        help: 'Where does this come from?',
+        lede: 'The plan’s own delivery history on the day this forecast was made, projected forward with no estimate in it.',
         // Read at whichever confidence the control above is set to, so the two move together.
         date: 'Its own history says {{confidence}}% likely by {{date}}.',
         against: 'The estimates above say {{date}}.',
         // Named rather than computed into a figure, for the reason above.
         differenceLater:
-          'The history is {{days}} days later than the estimates — which is the ordinary result, and the reason to look at both.',
+          'The history is {{days}} days later than the estimates.',
         differenceEarlier:
           'The history is {{days}} days earlier than the estimates.',
         differenceSame: 'The two land on the same day.',
@@ -462,7 +443,7 @@ export const en = {
         // team in four has not yet seen its own. Whether it fires is the server's to decide
         // — the browser holds no threshold, which is `EstimateQuality`'s rule.
         short:
-          'This is a short history. It can never produce a week worse than the worst one above, so if your team loses a week now and then and none is in that window, this date is optimistic.',
+          'A short history: it cannot show a week worse than its worst one, so this date may be optimistic.',
         // The window, because a reader who knows their team is the only one who can tell
         // whether it contains the bad week they are worried about.
         window:
@@ -500,7 +481,7 @@ export const en = {
         // Decision 7's table. The first two carry this run's own numbers; the last two are
         // properties of the two methods and are the same on every plan.
         differences: {
-          title: 'What the two are not agreeing about',
+          help: 'Why do the two differ?',
           unlistedGrowth:
             'This forecast assumed the plan will grow by {{low}}–{{high}}%. The history does not model growth at all, so it is short by however much work nobody has written down yet.',
           unlistedNone:
@@ -527,6 +508,20 @@ export const en = {
             'This version of the app cannot say why there is no second opinion.'
         }
       },
+      // What a run leaves out, named in a few words. The full sentence is behind a "?" beside
+      // each — the caveat stays on screen, and only why it matters is a press away.
+      limitationLabels: {
+        no_team_factor: 'No bad stretches',
+        no_scope_uncertainty: 'No unlisted work',
+        unestimated_items: 'Unestimated work counted as none',
+        inconsistent_estimates: 'An estimate worth a second look',
+        unassigned_work: 'Work with no resource named',
+        requirements_on_archived_resources:
+          'Needs on put-away resources ignored',
+        dependencies_on_archived_work: 'Arrows to put-away work ignored',
+        unknown: 'Something this version cannot describe yet'
+      },
+      limitationHelp: 'What does “{{label}}” mean?',
       limitations: {
         no_team_factor:
           'It treated every task as independent. Real projects have bad weeks where everything runs long together, so the true range is wider than this one. Answer the bad-stretch question under Advanced to include it.',
@@ -562,7 +557,7 @@ export const en = {
         // bad for everything at once, so adding them up gives more than the whole — which
         // is exactly the precise-looking wrong number this product exists to replace.
         caveat:
-          'These overlap and do not add up to a whole: when a quarter goes badly it goes badly for everything at once, so more than one of these moves at the same time.',
+          'These overlap, so they do not add up to a whole: a bad stretch moves several at once.',
         // The two rows that are not tasks. When either tops the list, the honest reading is
         // that no estimate below it is the problem.
         discoveredWork: 'Work nobody has listed yet',
@@ -593,6 +588,7 @@ export const en = {
       // read as an instruction: it weighs, and somebody else decides.
       target: {
         title: 'Can we hit a date?',
+        help: 'How does this work?',
         lede: 'Name the day, say how sure you need to be, and tick the work you would be willing to drop. Nothing here changes the plan.',
         // A run made before a working day was something anybody stated cannot be asked
         // about a date at all — the same two absences the band above tells apart, said in
@@ -672,6 +668,7 @@ export const en = {
       // judgements this application holds none of.
       hiring: {
         title: 'What if we had one more?',
+        help: 'How is this worked out?',
         lede: 'Each of these is the plan simulated again with that many added — measured, not multiplied.',
         which: 'More of which resource?',
         unnamed: 'A resource that is no longer here',
@@ -692,15 +689,13 @@ export const en = {
         buysLater_other: '{{count}} days later — {{date}}',
         // The one place this product's own model is optimistic in a way the number cannot
         // show, said beside the number rather than behind a disclosure.
-        rampUp:
-          'Nobody here ramps up: a resource added is at full rate from the first hour, which no new joiner is. Read these as the best case.',
+        rampUp: 'Best case: anyone added works at full speed from day one.',
         cost: 'It cost {{simulations}} simulations, and changed nothing.'
       },
       // What a run was scheduled against, printed with the other assumptions because that is
       // what it is. The run's own team and not today's: hiring somebody does not rewrite what
       // last month's forecast assumed.
       resources: {
-        scheduledAgainst: 'Scheduled against {{team}}.',
         pool_one: '{{name}} (1)',
         pool_other: '{{name}} ({{count}})',
         // Put away since, which is said rather than hidden — the plan still assumed it.

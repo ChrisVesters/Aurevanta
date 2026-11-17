@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { Help } from '../ui/Help';
 import { BurnUpFigure } from './BurnUp';
 import { DATE_AT } from './confidence';
 import type { Confidence } from './confidence';
@@ -35,10 +36,21 @@ export function ThroughputComparison({
 }) {
   const { t, i18n } = useTranslation();
 
+  // Where the second date comes from, behind a "?" beside the heading rather than as a
+  // paragraph under it.
+  const heading = (
+    <div className="titled">
+      <h2>{t('projects.forecast.throughput.title')}</h2>
+      <Help label={t('projects.forecast.throughput.help')}>
+        {t('projects.forecast.throughput.lede')}
+      </Help>
+    </div>
+  );
+
   if (history === null) {
     return (
       <div className="throughput">
-        <h3>{t('projects.forecast.throughput.title')}</h3>
+        {heading}
         <p className="empty">{failure}</p>
       </div>
     );
@@ -49,19 +61,16 @@ export function ThroughputComparison({
 
   return (
     <div className="throughput">
-      <h3>{t('projects.forecast.throughput.title')}</h3>
+      {heading}
 
-      {history.window !== null && (
-        <p className="hint">
-          {t('projects.forecast.throughput.window', {
+      <p className="hint">
+        {history.window !== null &&
+          `${t('projects.forecast.throughput.window', {
             weeks: history.window.weeks,
             completed: history.window.completed,
             best: history.window.best,
             worst: history.window.worst
-          })}
-        </p>
-      )}
-      <p className="hint">
+          })} `}
         {t('projects.forecast.throughput.remaining', {
           count: history.remaining
         })}
@@ -76,6 +85,24 @@ export function ThroughputComparison({
               confidence,
               date: formatDay(theirs, i18n.language)
             })}
+            {/*
+              Named rather than subtracted into a figure. Two of these make the forecast look
+              slow and two make it look fast, and the first two carry this run's own numbers
+              because those are the ones somebody can act on. Behind a "?" because they
+              explain the gap rather than qualify either date.
+            */}
+            <Help label={t('projects.forecast.throughput.differences.help')}>
+              <span className="line">
+                {describeGrowth(t, run, i18n.language)}
+              </span>
+              <span className="line">{describeEstimated(t, run)}</span>
+              <span className="line">
+                {t('projects.forecast.throughput.differences.calendar')}
+              </span>
+              <span className="line">
+                {t('projects.forecast.throughput.differences.interruptions')}
+              </span>
+            </Help>
           </p>
           {/*
             The one limitation that qualifies an answer rather than replacing it, and the
@@ -106,19 +133,6 @@ export function ThroughputComparison({
         because a cone that has to be seen to be understood is one this product cannot ship.
       */}
       {history.burnUp !== null && <BurnUpFigure burnUp={history.burnUp} />}
-
-      {/*
-        Named rather than subtracted into a figure. Two of these make the forecast look slow
-        and two make it look fast, and the first two carry this run's own numbers because
-        those are the ones somebody can act on.
-      */}
-      <h4>{t('projects.forecast.throughput.differences.title')}</h4>
-      <ul>
-        <li>{describeGrowth(t, run, i18n.language)}</li>
-        <li>{describeEstimated(t, run)}</li>
-        <li>{t('projects.forecast.throughput.differences.calendar')}</li>
-        <li>{t('projects.forecast.throughput.differences.interruptions')}</li>
-      </ul>
     </div>
   );
 }

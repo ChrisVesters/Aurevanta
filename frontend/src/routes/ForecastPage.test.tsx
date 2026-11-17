@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
-import { Route, Routes } from 'react-router';
+import { Route, Routes, useLocation } from 'react-router';
 import userEvent from '@testing-library/user-event';
 import { ForecastPage } from './ForecastPage';
 import {
@@ -158,6 +158,9 @@ const MOVEMENT = {
   }))
 };
 
+/** The three parts under a forecast's summary, as `?view=` names them. */
+type Part = 'details' | 'compare' | 'explore';
+
 const MOVEMENT_URL = `/api/forecasts/${FORECAST.id}/movement`;
 
 const ITEMS_URL = `/api/projects/${PROJECT_ID}/items`;
@@ -200,14 +203,19 @@ describe('ForecastPage', () => {
     });
   }
 
-  /** The page, on one forecast, rendered at its own address as a link would open it. */
-  function renderPage(run: Forecast = FORECAST) {
+  /**
+   * The page, on one forecast, rendered at its own address as a link would open it — on the
+   * part named, the way a link carrying `?view=` opens it. Details when none is.
+   */
+  function renderPage(run: Forecast = FORECAST, view?: Part) {
     known.set(`/api/forecasts/${run.id}`, run);
     return renderRouted(
       <Routes>
         <Route path="/app/forecasts/:runId" element={<ForecastPage />} />
       </Routes>,
-      { route: `/app/forecasts/${run.id}` }
+      {
+        route: `/app/forecasts/${run.id}${view ? `?view=${view}` : ''}`
+      }
     );
   }
 
@@ -267,7 +275,11 @@ describe('ForecastPage', () => {
     );
   }
 
-  async function openWithHistory(history: unknown, run: Forecast = FORECAST) {
+  async function openWithHistory(
+    history: unknown,
+    run: Forecast = FORECAST,
+    view: Part = 'compare'
+  ) {
     storeAccessToken();
     serve((url: string) =>
       url.startsWith(THROUGHPUT_URL)
@@ -278,14 +290,15 @@ describe('ForecastPage', () => {
             ? jsonResponse(200, ACCOUNT)
             : otherReads(url, [run])
     );
-    const rendered = renderPage(run);
+    const rendered = renderPage(run, view);
     await settled();
     return rendered;
   }
 
   async function openHistory(
     history: { runs: Forecast[]; drift?: unknown },
-    account: unknown = MOVEMENT
+    account: unknown = MOVEMENT,
+    view: Part = 'compare'
   ) {
     storeAccessToken();
     serve((url: string) =>
@@ -301,7 +314,7 @@ describe('ForecastPage', () => {
                 ? jsonResponse(200, account)
                 : jsonResponse(200, [])
     );
-    const rendered = renderPage(history.runs[0]);
+    const rendered = renderPage(history.runs[0], view);
     await settled();
     return rendered;
   }
@@ -378,8 +391,18 @@ describe('ForecastPage', () => {
               ? jsonResponse(200, ACCOUNT)
               : otherReads(url, [RESOURCED])
     );
-    renderPage(RESOURCED);
+    renderPage(RESOURCED, 'explore');
     await screen.findByRole('heading', { name: 'What if we had one more?' });
+  }
+
+  /**
+   * Opens what the two forecasts are not agreeing about, which sits behind a "?" beside the
+   * history's date: it explains the gap rather than qualifying either date.
+   */
+  async function whyTheyDiffer() {
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Why do the two differ?' })
+    );
   }
 
   function burnUpTable() {
@@ -398,49 +421,35 @@ describe('ForecastPage', () => {
 
   async function open(
     runs: Forecast[] = [FORECAST],
-    spread: unknown = CONTRIBUTIONS
+    spread: unknown = CONTRIBUTIONS,
+    view?: Part
   ) {
     storeAccessToken();
     answer(runs, spread);
-    renderPage(runs[0]);
+    renderPage(runs[0], view);
     await settled();
   }
 
   /**
-   * <strong>The whole work, in one test.</strong> Three confidences, three dates, one
-   * forecast and **no second request** — which is not an optimisation but the feature: "can
-   * we go faster?" is answered by a control moving from 95 to 80 and a date moving with it
-   * while everybody watches, rather than by a capitulation.
+   * <strong>Three readings of one forecast, and no second request.</strong> "Can we go
+   * faster?" is answered by moving from 95 to 80 while everybody watches, not by asking again.
    *
-   * It is also the timezone regression. `p95Date` is `2026-08-31`, and the suite runs in
-   * New York: `new Date('2026-08-31')` is UTC midnight there, which is the 30th. A date
-   * built through `formatDay` says the 31st, and one built the obvious way says August 30
-   * for most of the planet with nothing else on screen looking wrong.
+   * It is also the timezone regression. `p95Date` is `2026-08-31`, and the suite runs in New
+   * York: `new Date('2026-08-31')` is UTC midnight there, which is the 30th. A date built
+   * through `formatDay` says the 31st.
    */
-  it('leads with a date and moves it between confidences without asking again', async () => {
+  it('shows every reading and moves between them without asking again', async () => {
     await open([FORECAST]);
-    await screen.findByText(/80% chance that Q3 platform work/);
     const asked = fetchMock.mock.calls.length;
 
-    expect(
-      screen.getByText(
-        'There is a 80% chance that Q3 platform work will be finished by Aug 25, 2026.'
-      )
-    ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
-    expect(
-      screen.getByText(
-        'There is a 50% chance that Q3 platform work will be finished by Aug 21, 2026.'
-      )
-    ).toBeInTheDocument();
+    expect(reading('50%')).toHaveTextContent('Aug 21, 2026');
+    expect(reading('80%')).toHaveTextContent('Aug 25, 2026');
+    expect(reading('95%')).toHaveTextContent('Aug 31, 2026');
 
     await userEvent.click(screen.getByRole('radio', { name: '95%' }));
-    expect(
-      screen.getByText(
-        'There is a 95% chance that Q3 platform work will be finished by Aug 31, 2026.'
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '95%' })).toBeChecked();
+    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
+    expect(screen.getByRole('radio', { name: '50%' })).toBeChecked();
 
     expect(fetchMock.mock.calls).toHaveLength(asked);
   });
@@ -452,18 +461,79 @@ describe('ForecastPage', () => {
    * component fetches. A different plan is used here for that reason: a hard-coded name would
    * pass against the fixture above.
    */
-  it('names the plan, so the line means something away from this screen', async () => {
+  /** One reading's date and hours, as its card shows them. */
+  function reading(level: string) {
+    const radio = screen.getByRole('radio', { name: level });
+    return document.getElementById(
+      radio.getAttribute('aria-describedby') as string
+    ) as HTMLElement;
+  }
+
+  /** Where the page's address says it is, so a case can see a tab write it. */
+  function Address() {
+    return <span data-testid="address">{useLocation().search}</span>;
+  }
+
+  /**
+   * <strong>A summary, then one part at a time.</strong> The page opens on its details, and
+   * a tab moves to another part — keeping it in the address, so a link and a reload open
+   * where somebody was, and dropping it again for the part a plain link already means.
+   */
+  it('opens on its details and keeps the part it is on in the address', async () => {
     storeAccessToken();
     answer([FORECAST]);
-    // A different plan from the fixture, so a hard-coded name could not pass.
-    plan = { ...PROJECTS[0], name: 'Everything the board asked for' };
-    renderPage();
+    known.set(`/api/forecasts/${FORECAST.id}`, FORECAST);
+    renderRouted(
+      <Routes>
+        <Route
+          path="/app/forecasts/:runId"
+          element={
+            <>
+              <ForecastPage />
+              <Address />
+            </>
+          }
+        />
+      </Routes>,
+      { route: `/app/forecasts/${FORECAST.id}` }
+    );
+    await settled();
+    const tab = (name: string) => screen.getByRole('tab', { name });
 
+    expect(tab('Details')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: 'Details' })).toHaveTextContent(
+      'What it assumed'
+    );
+
+    await userEvent.click(tab('Explore'));
+    expect(screen.getByTestId('address')).toHaveTextContent('?view=explore');
     expect(
-      await screen.findByText(
-        'There is a 80% chance that Everything the board asked for will be finished by Aug 25, 2026.'
-      )
+      await screen.findByRole('button', { name: 'What is widening this?' })
     ).toBeInTheDocument();
+    expect(screen.queryByText('What it assumed')).toBeNull();
+
+    await userEvent.click(tab('Details'));
+    expect(screen.getByTestId('address')).toBeEmptyDOMElement();
+    expect(screen.getByText('What it assumed')).toBeInTheDocument();
+  });
+
+  /** A part this page does not have opens on the details rather than on nothing. */
+  it('opens on its details for a part it does not have', async () => {
+    storeAccessToken();
+    answer([FORECAST]);
+    known.set(`/api/forecasts/${FORECAST.id}`, FORECAST);
+    renderRouted(
+      <Routes>
+        <Route path="/app/forecasts/:runId" element={<ForecastPage />} />
+      </Routes>,
+      { route: `/app/forecasts/${FORECAST.id}?view=history` }
+    );
+    await settled();
+
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
   });
 
   /**
@@ -477,11 +547,8 @@ describe('ForecastPage', () => {
     expect(
       await screen.findByRole('link', { name: '← Q3 platform work' })
     ).toHaveAttribute('href', `/app/projects/${PROJECT_ID}?tab=forecasts`);
-    expect(
-      screen.getByText(
-        'Asked for by Ada. This is the newest forecast of this plan.'
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText('Asked for by Ada')).toBeInTheDocument();
+    expect(screen.getByText('Newest')).toBeInTheDocument();
   });
 
   /**
@@ -496,16 +563,14 @@ describe('ForecastPage', () => {
       runs: [FORECAST, older]
     });
     // `openHistory` opened the newest; this case is about the other one.
-    renderPage(older);
+    renderPage(older, 'compare');
 
     expect(
-      await screen.findByText(/A newer forecast of this plan exists\./)
+      await screen.findByText('A newer forecast exists')
     ).toBeInTheDocument();
     expect(screen.getAllByText(/has been drifting/)).toHaveLength(1);
     expect(
-      screen.getByText(
-        'This is the first forecast of this plan, so there is nothing for its date to have moved from.'
-      )
+      screen.getByText('This is the first forecast of this plan.')
     ).toBeInTheDocument();
   });
 
@@ -533,7 +598,7 @@ describe('ForecastPage', () => {
     await open([{ ...FORECAST, limitations: [] }]);
 
     expect(
-      screen.getByText('Nothing beyond what it assumed above.')
+      screen.getByText('Nothing beyond what it assumed.')
     ).toBeInTheDocument();
   });
 
@@ -553,64 +618,56 @@ describe('ForecastPage', () => {
   });
 
   /**
-   * <strong>One-sided, and `roadmap.md`'s own example is not.</strong> "Between 12 October and
-   * 20 November" is a two-sided interval, and it invites a question about the early end that
-   * nobody manages against and that the model is worst at. The sentence names one day: the one
-   * somebody would commit to.
-   */
-  it('says one date and never a window', async () => {
-    await open([FORECAST]);
-    await screen.findByText(/80% chance that Q3 platform work/);
-
-    for (const level of ['50%', '95%']) {
-      await userEvent.click(screen.getByRole('radio', { name: level }));
-      const sentence = screen.getByText(/chance that Q3 platform work/);
-      expect(sentence.textContent).not.toMatch(/between/i);
-      // One day named, not two: the band's own two numbers are hours and live elsewhere.
-      expect(sentence.textContent?.match(/\d{4}/g)).toHaveLength(1);
-    }
-  });
-
-  /**
    * The band is what the engine produced; the date is that with a working day on top. Take
    * the hours away and nothing on this screen came out of the model, which is how an
    * assumption stops being visible and starts being mistaken for a result.
    */
-  it('keeps the hours on screen, read at the chosen confidence', async () => {
+  it('keeps the hours on screen, beside every date', async () => {
     await open([FORECAST]);
-    await screen.findByText(/80% chance that Q3 platform work/);
-    expect(
-      screen.getByText('At 80%, it takes up to 41.8 hours of effort.')
-    ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('radio', { name: '50%' }));
-    expect(
-      screen.getByText('At 50%, it takes up to 29.5 hours of effort.')
-    ).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('radio', { name: '95%' }));
-    expect(
-      screen.getByText('At 95%, it takes up to 61.9 hours of effort.')
-    ).toBeInTheDocument();
+    expect(reading('50%')).toHaveTextContent('Aug 21, 202629.5 hours');
+    expect(reading('80%')).toHaveTextContent('Aug 25, 202641.8 hours');
+    expect(reading('95%')).toHaveTextContent('Aug 31, 202661.9 hours');
   });
 
   /**
-   * The five readings stay on screen whatever is chosen, and the one the control is on is
-   * marked — so moving the control visibly moves something in the table too.
+   * The five readings stay on screen in one row whatever is chosen, and the one the control
+   * is on is marked — so moving the control visibly moves something in the row too.
    */
-  it('marks the reading the confidence control is on', async () => {
+  /**
+   * The readings and the way of choosing one are the same three cards, so there is no second
+   * row saying what the first already said. Choosing one marks it.
+   */
+  it('makes each reading the way to choose it', async () => {
     await open([FORECAST]);
-    await screen.findByText(/80% chance that Q3 platform work/);
-    const row = (label: string) =>
-      screen.getByRole('rowheader', { name: label }).closest('tr');
 
-    expect(row('Comfortable')).toHaveAttribute('aria-current', 'true');
-    expect(row('Cautious')).not.toHaveAttribute('aria-current');
+    expect(
+      screen
+        .getAllByRole('radio')
+        .map((radio) => radio.getAttribute('aria-label'))
+    ).toEqual(['50%', '80%', '95%']);
+    expect(screen.getByRole('radio', { name: '80%' })).toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: '80%' })
+    ).toHaveAccessibleDescription('Aug 25, 202641.8 hours');
+    expect(reading('80%').closest('label')).toHaveClass('chosen');
 
-    await userEvent.click(screen.getByRole('radio', { name: '95%' }));
+    await userEvent.click(screen.getByText('Aug 31, 2026'));
 
-    expect(row('Very cautious')).toHaveAttribute('aria-current', 'true');
-    expect(row('Comfortable')).not.toHaveAttribute('aria-current');
+    expect(screen.getByRole('radio', { name: '95%' })).toBeChecked();
+    expect(reading('95%').closest('label')).toHaveClass('chosen');
+    expect(reading('80%').closest('label')).not.toHaveClass('chosen');
+  });
+
+  /** What the five readings are, behind a "?" beside them rather than a name on each. */
+  it('says what the readings are when somebody asks', async () => {
+    await open([FORECAST]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'What are these readings?' })
+    );
+
+    expect(screen.getByText(/80%: comfortable/)).toBeVisible();
   });
 
   /**
@@ -624,7 +681,7 @@ describe('ForecastPage', () => {
 
     expect(
       await screen.findByText(
-        "Dates assume work starts Aug 17, 2026, one person's working day holds 6 hours, and nobody works weekends."
+        'Starts Aug 17, 2026, 6-hour working days, no weekends'
       )
     ).toBeInTheDocument();
   });
@@ -654,13 +711,10 @@ describe('ForecastPage', () => {
         'No date for this one: it was made before anybody stated a working day, so hours are all it can say.'
       )
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('At 80%, it takes up to 41.8 hours of effort.')
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Dates assume/)).toBeNull();
-    // And no control, because there is nothing for it to choose between. Three buttons
-    // that visibly change nothing read as a broken screen.
-    expect(screen.queryByRole('radio', { name: '95%' })).toBeNull();
+    // Every reading in hours alone, since there are no days to give — and the choice still
+    // moves something, so it is still offered.
+    expect(reading('95%')).toHaveTextContent(/^61.9 hours$/);
+    expect(screen.queryByText(/working days/)).toBeNull();
   });
 
   /**
@@ -687,22 +741,16 @@ describe('ForecastPage', () => {
         'No date for this one: it was made under a calendar this version of the app cannot read.'
       )
     ).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: '95%' })).toBeNull();
+    expect(reading('95%')).toHaveTextContent(/^61.9 hours$/);
     // Its calendar is still stated, unlike the case above: the run *has* one, and what is
     // missing is this version's ability to resolve it rather than the assumption itself.
-    expect(
-      screen.getByText(/Dates assume work starts Aug 17, 2026/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Starts Aug 17, 2026/)).toBeInTheDocument();
   });
 
   it('draws the band once a forecast has been made', async () => {
     await open([FORECAST]);
 
-    expect(
-      await screen.findByText('At 80%, it takes up to 41.8 hours of effort.')
-    ).toBeInTheDocument();
-    expect(screen.getByText('29.5 hours')).toBeInTheDocument();
-    expect(screen.getByText('61.9 hours')).toBeInTheDocument();
+    expect(await screen.findByText('41.8 hours')).toBeInTheDocument();
   });
 
   /**
@@ -714,12 +762,20 @@ describe('ForecastPage', () => {
   it('states what it assumed and how much of the plan it covered', async () => {
     await open([FORECAST]);
 
+    const assumed = within(
+      (await screen.findByRole('heading', { name: 'What it assumed' }))
+        .nextElementSibling as HTMLElement
+    );
     expect(
-      await screen.findByText(
-        'Assuming 2 things under way at once, up to 30% longer in a bad stretch, and 20–60% more work than has been listed — over 10000 simulated runs.'
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByText('2 of 2 items estimated')).toBeInTheDocument();
+      assumed.getAllByRole('listitem').map((claim) => claim.textContent)
+    ).toEqual([
+      '2 of 2 items estimated',
+      '2 things under way at once',
+      'Up to 30% longer in a bad stretch',
+      '20–60% more work than listed',
+      'Starts Aug 17, 2026, 6-hour working days, no weekends',
+      '10000 simulated runs'
+    ]);
   });
 
   /** Zero is a claim somebody made, so it is reported like any other answer. */
@@ -734,10 +790,9 @@ describe('ForecastPage', () => {
     ]);
 
     expect(
-      await screen.findByText(
-        'Assuming 2 things under way at once, up to 0% longer in a bad stretch, and 0–0% more work than has been listed — over 10000 simulated runs.'
-      )
+      await screen.findByText('Up to 0% longer in a bad stretch')
     ).toBeInTheDocument();
+    expect(screen.getByText('0–0% more work than listed')).toBeInTheDocument();
   });
 
   /**
@@ -752,9 +807,20 @@ describe('ForecastPage', () => {
       screen.getByRole('heading', { name: 'What it leaves out' })
         .nextElementSibling as HTMLElement
     );
-    expect(
-      caveats.getByText(/middle number sits a long way from their own two ends/)
-    ).toBeInTheDocument();
+    // The caveat itself is on screen in a few words; why it matters is one press away.
+    expect(caveats.getByText('An estimate worth a second look')).toBeVisible();
+    const why = caveats.getByText(
+      /middle number sits a long way from their own two ends/
+    );
+    expect(why).not.toBeVisible();
+
+    await userEvent.click(
+      caveats.getByRole('button', {
+        name: 'What does “An estimate worth a second look” mean?'
+      })
+    );
+
+    expect(why).toBeVisible();
   });
 
   /**
@@ -786,7 +852,7 @@ describe('ForecastPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        '26 weeks of history, 104 delivered — best week 7, worst week 0.'
+        '26 weeks of history, 104 delivered — best week 7, worst week 0. 40 items left to deliver.'
       )
     ).toBeInTheDocument();
   });
@@ -807,9 +873,7 @@ describe('ForecastPage', () => {
     });
 
     expect(
-      await screen.findByText(
-        /It can never produce a week worse than the worst one above/
-      )
+      await screen.findByText(/it cannot show a week worse than its worst one/)
     ).toBeInTheDocument();
   });
 
@@ -818,7 +882,7 @@ describe('ForecastPage', () => {
     await openWithHistory(DELIVERING);
 
     await screen.findByText('Its own history says 80% likely by Nov 2, 2026.');
-    expect(screen.queryByText(/It can never produce a week worse/)).toBeNull();
+    expect(screen.queryByText(/cannot show a week worse/)).toBeNull();
   });
 
   /**
@@ -854,7 +918,7 @@ describe('ForecastPage', () => {
       itemCount: 4,
       estimatedItemCount: 2
     });
-    await screen.findByText('What the two are not agreeing about');
+    await whyTheyDiffer();
 
     expect(
       screen.getByText(/This forecast assumed the plan will grow by 20–60%/)
@@ -918,9 +982,7 @@ describe('ForecastPage', () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        '26 weeks of history, 104 delivered — best week 7, worst week 0.'
-      )
+      screen.getByText(/26 weeks of history, 104 delivered/)
     ).toBeInTheDocument();
     expect(screen.queryByText(/Its own history says/)).toBeNull();
   });
@@ -951,7 +1013,7 @@ describe('ForecastPage', () => {
       scopeGrowthP10Percent: 0,
       scopeGrowthP90Percent: 0
     });
-    await screen.findByText('What the two are not agreeing about');
+    await whyTheyDiffer();
 
     expect(
       screen.getByText(/This forecast assumed no growth at all/)
@@ -980,7 +1042,7 @@ describe('ForecastPage', () => {
               : otherReads(url)
       )
     );
-    renderPage();
+    renderPage(FORECAST, 'compare');
 
     expect(
       await screen.findByText(
@@ -993,9 +1055,7 @@ describe('ForecastPage', () => {
       })
     ).toBeInTheDocument();
     // And the band it sits under is untouched.
-    expect(
-      screen.getByText('At 80%, it takes up to 41.8 hours of effort.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('41.8 hours')).toBeInTheDocument();
   });
 
   // The burn-up, which is a table first and a picture second ------------------
@@ -1417,6 +1477,8 @@ describe('ForecastPage', () => {
       name: 'What it leaves out'
     });
     const caveats = within(heading.nextElementSibling as HTMLElement);
+    expect(caveats.getByText('No bad stretches')).toBeVisible();
+    expect(caveats.getByText('No unlisted work')).toBeVisible();
     expect(
       caveats.getByText(/treated every task as independent/)
     ).toBeInTheDocument();
@@ -1434,7 +1496,10 @@ describe('ForecastPage', () => {
     ]);
 
     expect(
-      await screen.findByText(
+      await screen.findByText('Something this version cannot describe yet')
+    ).toBeVisible();
+    expect(
+      screen.getByText(
         'This forecast reported something this version of the app cannot describe yet.'
       )
     ).toBeInTheDocument();
@@ -1462,7 +1527,7 @@ describe('ForecastPage', () => {
    * cheap for a reader who wants it and rude to charge everybody who opened the page.
    */
   it('does not ask what the spread is made of until somebody does', async () => {
-    await open([FORECAST], CONTRIBUTIONS);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     // Settled on the question rather than on the answer: the point is that opening the
     // part that offers the breakdown has not already asked for one.
     await screen.findByRole('button', { name: 'What is widening this?' });
@@ -1488,7 +1553,7 @@ describe('ForecastPage', () => {
    * the plan holds would pass nothing here.
    */
   it('ranks the sources by how much the finish moves with them', async () => {
-    await open([FORECAST], CONTRIBUTIONS);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -1517,7 +1582,7 @@ describe('ForecastPage', () => {
    * is the problem, which a ranking of tasks alone would have hidden.
    */
   it('names the two sources that are not work', async () => {
-    await open([FORECAST], CONTRIBUTIONS);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -1536,14 +1601,14 @@ describe('ForecastPage', () => {
    * wrong number this product exists to replace.
    */
   it('states that the shares overlap, and shows no percentage at all', async () => {
-    await open([FORECAST], CONTRIBUTIONS);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
 
     expect(
       await screen.findByText(
-        'These overlap and do not add up to a whole: when a quarter goes badly it goes badly for everything at once, so more than one of these moves at the same time.'
+        'These overlap, so they do not add up to a whole: a bad stretch moves several at once.'
       )
     ).toBeInTheDocument();
     const ranking = document.querySelector('.ranking');
@@ -1559,7 +1624,8 @@ describe('ForecastPage', () => {
   it('describes a source kind this version has never heard of', async () => {
     await open(
       [FORECAST],
-      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }]
+      [{ ...CONTRIBUTIONS[0], kind: 'something_later' as never }],
+      'explore'
     );
 
     await userEvent.click(
@@ -1581,7 +1647,8 @@ describe('ForecastPage', () => {
       [
         { ...CONTRIBUTIONS[1], archived: true },
         { ...CONTRIBUTIONS[3], title: null }
-      ]
+      ],
+      'explore'
     );
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
@@ -1600,7 +1667,7 @@ describe('ForecastPage', () => {
    * why the server refuses and this renders the refusal instead of a list.
    */
   it('says why a run that cannot be replayed has no breakdown', async () => {
-    await open([FORECAST], CONTRIBUTIONS);
+    await open([FORECAST], CONTRIBUTIONS, 'explore');
     // Refused by URL rather than by turn: the panel below asks for the plan's work as
     // well, so a double answering "the next request, whatever it is" would refuse
     // whichever of the two happened to go out first.
@@ -1659,16 +1726,14 @@ describe('ForecastPage', () => {
               : Promise.resolve(otherReads(url))
     );
 
-    const answered = renderPage();
-    await screen.findByRole('heading', { name: 'Explore' });
+    const answered = renderPage(FORECAST, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
     answered.unmount();
     settle(jsonResponse(200, CONTRIBUTIONS));
 
-    const refused = renderPage();
-    await screen.findByRole('heading', { name: 'Explore' });
+    const refused = renderPage(FORECAST, 'explore');
     await userEvent.click(
       await screen.findByRole('button', { name: 'What is widening this?' })
     );
@@ -1686,27 +1751,31 @@ describe('ForecastPage', () => {
    * since did not grow this forecast.
    */
   it('says which team the forecast was scheduled against', async () => {
-    await openWithHistory(DELIVERING, {
-      ...FORECAST,
-      resources: [
-        {
-          resourceId: 'r1',
-          name: 'Backend engineers',
-          archived: false,
-          units: 3
-        },
-        {
-          resourceId: 'r2',
-          name: 'Staging environment',
-          archived: false,
-          units: 1
-        }
-      ]
-    });
+    await openWithHistory(
+      DELIVERING,
+      {
+        ...FORECAST,
+        resources: [
+          {
+            resourceId: 'r1',
+            name: 'Backend engineers',
+            archived: false,
+            units: 3
+          },
+          {
+            resourceId: 'r2',
+            name: 'Staging environment',
+            archived: false,
+            units: 1
+          }
+        ]
+      },
+      'details'
+    );
 
     expect(
       await screen.findByText(
-        'Scheduled against Backend engineers (3), Staging environment (1).'
+        'Scheduled against Backend engineers (3), Staging environment (1)'
       )
     ).toBeInTheDocument();
   });
@@ -1717,26 +1786,32 @@ describe('ForecastPage', () => {
    * three-way rule a contribution ranking keeps for the work it names.
    */
   it('marks a resource put away since, and one that is gone altogether', async () => {
-    await openWithHistory(DELIVERING, {
-      ...FORECAST,
-      resources: [
-        { resourceId: 'r1', name: 'Contractors', archived: true, units: 2 },
-        { resourceId: 'r2', name: null, archived: false, units: 1 }
-      ]
-    });
+    await openWithHistory(
+      DELIVERING,
+      {
+        ...FORECAST,
+        resources: [
+          { resourceId: 'r1', name: 'Contractors', archived: true, units: 2 },
+          { resourceId: 'r2', name: null, archived: false, units: 1 }
+        ]
+      },
+      'details'
+    );
 
     expect(
       await screen.findByText(
-        'Scheduled against Contractors (2, since put away), a resource that is no longer here (1).'
+        'Scheduled against Contractors (2, since put away), a resource that is no longer here (1)'
       )
     ).toBeInTheDocument();
   });
 
   /** A run against no declared team says nothing, rather than saying it had none. */
   it('says nothing about a team where there was none', async () => {
-    await openWithHistory(DELIVERING);
+    await openWithHistory(DELIVERING, FORECAST, 'details');
 
-    await screen.findByText(/At 80%, it takes up to/);
+    expect(
+      await screen.findByText('2 things under way at once')
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Scheduled against/)).toBeNull();
   });
 
@@ -1783,7 +1858,7 @@ describe('ForecastPage', () => {
   it('asks nothing about hiring where there was no team', async () => {
     // Opened where the question would be asked, or the absence proves only that this is a
     // different part of the panel — which is true of every forecast ever made.
-    await openWithHistory(DELIVERING, FORECAST);
+    await openWithHistory(DELIVERING, FORECAST, 'explore');
 
     await screen.findByRole('button', { name: 'What is widening this?' });
     expect(
@@ -1806,7 +1881,8 @@ describe('ForecastPage', () => {
           ]
         }
       ],
-      CONTRIBUTIONS
+      CONTRIBUTIONS,
+      'explore'
     );
 
     expect(
@@ -1901,7 +1977,9 @@ describe('ForecastPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Weigh it' }));
 
-    expect(await screen.findByText(/Nobody here ramps up/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/anyone added works at full speed from day one/)
+    ).toBeInTheDocument();
     expect(
       screen.getByText('It cost 3 simulations, and changed nothing.')
     ).toBeInTheDocument();
@@ -1976,7 +2054,7 @@ describe('ForecastPage', () => {
   it('says nothing about a plan that is merely churning', async () => {
     await openHistory(drifting({ movingOut: false }), MOVEMENT);
 
-    await screen.findByText(/At 80%, it takes up to/);
+    await screen.findByText(/hours of effort/);
     expect(screen.queryByText(/has been drifting/)).toBeNull();
   });
 
@@ -2191,7 +2269,7 @@ describe('ForecastPage', () => {
                 : Promise.resolve(jsonResponse(200, []))
     );
 
-    const answered = renderPage();
+    const answered = renderPage(FORECAST, 'compare');
     await settled();
     await userEvent.click(
       await screen.findByRole('button', { name: 'Why did the date move?' })
@@ -2199,7 +2277,7 @@ describe('ForecastPage', () => {
     answered.unmount();
     settle(jsonResponse(200, MOVEMENT));
 
-    const refused = renderPage();
+    const refused = renderPage(FORECAST, 'compare');
     await settled();
     await userEvent.click(
       await screen.findByRole('button', { name: 'Why did the date move?' })
@@ -2243,12 +2321,10 @@ describe('ForecastPage', () => {
    * place and not the other.
    */
   it('says a first forecast has nothing to have moved from', async () => {
-    await open([FORECAST], CONTRIBUTIONS);
+    await open([FORECAST], CONTRIBUTIONS, 'compare');
 
     expect(
-      await screen.findByText(
-        'This is the first forecast of this plan, so there is nothing for its date to have moved from.'
-      )
+      await screen.findByText('This is the first forecast of this plan.')
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Why did the date move?' })

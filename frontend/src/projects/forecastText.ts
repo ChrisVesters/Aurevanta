@@ -1,5 +1,4 @@
 import type { TFunction } from 'i18next';
-import { DATE_AT } from './confidence';
 import type { Confidence } from './confidence';
 import { formatDay } from './dates';
 import { describeWork } from './work';
@@ -231,36 +230,6 @@ export function describeEstimated(t: TFunction, run: Forecast): string {
 }
 
 /**
- * The date somebody would commit to at one confidence, or why there is not one.
- *
- * **Which of the two absences it is matters, and the server is what versions ahead.** A run
- * with no working day was made before a calendar was something anybody stated, and saying
- * so is the point of not having backfilled one. A run that *has* a working day and still no
- * date was read under a calendar this browser has never heard of — the same direction
- * {@link describeLimitation} handles, and the same answer: say what is true rather than
- * show a blank or, far worse, a date worked out under the wrong rule.
- */
-export function describeDate(
-  t: TFunction,
-  run: Forecast,
-  plan: string,
-  confidence: Confidence,
-  locale: string
-): string {
-  const day = run[DATE_AT[confidence]];
-  if (day !== null) {
-    return t('projects.forecast.confidence.date', {
-      plan,
-      confidence,
-      date: formatDay(day, locale)
-    });
-  }
-  return run.workingHoursPerDay === null
-    ? t('projects.forecast.confidence.noCalendar')
-    : t('projects.forecast.confidence.unreadableCalendar');
-}
-
-/**
  * What a run's dates were read through, or nothing where it has none.
  *
  * Both halves or neither: they are stored together and cleared together, and a sentence
@@ -370,4 +339,19 @@ export function describeLimitation(
   return LIMITATIONS.includes(limitation)
     ? t(`projects.forecast.limitations.${limitation}`)
     : t('projects.forecast.limitations.unknown');
+}
+
+/**
+ * A limitation in a few words, for the list on a forecast's page. The sentence
+ * {@link describeLimitation} returns sits behind a "?" beside it: the caveat itself stays on
+ * screen, which is the rule, and only why it matters is a press away. An unknown code gets a
+ * label too, for the same reason it gets a sentence.
+ */
+export function labelLimitation(
+  t: TFunction,
+  limitation: ForecastLimitation
+): string {
+  return LIMITATIONS.includes(limitation)
+    ? t(`projects.forecast.limitationLabels.${limitation}`)
+    : t('projects.forecast.limitationLabels.unknown');
 }

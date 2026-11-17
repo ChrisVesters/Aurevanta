@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Help } from '../ui/Help';
 import type { SubmitEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { describeFailure } from '../i18n/problems';
@@ -78,8 +79,12 @@ export function HiringPanel({
 
   return (
     <div className="hiring">
-      <h3>{t('projects.forecast.hiring.title')}</h3>
-      <p className="hint">{t('projects.forecast.hiring.lede')}</p>
+      <div className="titled">
+        <h2>{t('projects.forecast.hiring.title')}</h2>
+        <Help label={t('projects.forecast.hiring.help')}>
+          {t('projects.forecast.hiring.lede')}
+        </Help>
+      </div>
 
       <form onSubmit={(event) => void weigh(event)} noValidate>
         <p className="field">

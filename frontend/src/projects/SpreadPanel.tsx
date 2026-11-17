@@ -59,7 +59,7 @@ export function SpreadPanel({ runId }: { runId: string }) {
         <p className="empty">{spreadFailure}</p>
       ) : (
         <>
-          <h3>{t('projects.forecast.contributions.title')}</h3>
+          <h2>{t('projects.forecast.contributions.title')}</h2>
           <p className="hint">{t('projects.forecast.contributions.lede')}</p>
           <ul className="ranking">
             {spread?.map((source) => (
