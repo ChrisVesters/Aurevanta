@@ -372,12 +372,33 @@ button.secondary {
   }
 }
 
+/*
+  The explanation, floating under its "?" over whatever is below — so opening it moves
+  nothing on the page. As wide as its text up to a comfortable line, and never wider than
+  the window less its gutters; Help nudges it left where it would run off the right edge.
+*/
+.help {
+  position: relative;
+}
+
 .help-text {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
   display: block;
-  margin-top: 6px;
-  max-width: 62ch;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 12px;
   font-size: 14px;
-  color: var(--text);
+  font-weight: normal;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
 
   &[hidden] {
     display: none;
@@ -759,10 +780,9 @@ button.link {
 }
 
 /*
-  One question at a time, opened in place under the task it is about. Still plain — how
-  everything looks is its own piece of work — but no longer three boxes: what this form
-  asks is the work, and the answer to the previous question is deliberately not on
-  screen while the next one is being answered.
+  Three boxes on one screen, opened in place under the task it is about: the bad case, the
+  good case and what somebody expects, side by side where there is room and stacked where
+  there is not. Each label carries a "?" with what goes in that box.
 */
 .estimate-form {
   display: flex;
@@ -772,44 +792,24 @@ button.link {
   padding-top: 10px;
   border-top: 1px dashed var(--border);
 
+  .points {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
   .field {
     flex: 1;
-    min-width: 96px;
+    min-width: 140px;
   }
 
-  /*
-    Where somebody is, since there is only ever one question in front of them. It sits
-    with the buttons rather than above the question, so that nothing between the question
-    and the box competes with it.
-  */
-  .progress {
-    margin-right: auto;
-    font-size: 13px;
-    color: var(--muted);
+  /* The label and its "?" on one line; the explanation opens underneath them. */
+  .label {
+    font-size: 15px;
+    color: var(--text-h);
   }
 
-  /*
-    The three answers together, for the first and only time. Plain prose rather than a
-    table: what is being read here is whether a bad week is barely worse than an ordinary
-    one, and three numbers in a row is exactly the shape that makes that hard to see.
-  */
-  .review {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    h3 {
-      margin: 0;
-      font-size: 14px;
-    }
-
-    ul {
-      margin: 0;
-      padding-left: 20px;
-    }
-  }
-
-  /* The bet, and the way out of it, on one line — it is a question, not a control. */
+  /* The bet: a question, not a control, so it is prose. */
   .bet {
     margin: 0;
     font-size: 14px;

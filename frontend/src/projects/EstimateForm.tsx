@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { Help } from '../ui/Help';
 import { numberFrom } from './fields';
 import type { Estimate, EstimateQuality } from './types';
 
@@ -16,58 +17,39 @@ export type EstimateValues = {
  * How this form asks, said by the form that asks it.
  *
  * The server cannot observe how a browser put a question, so it has to be told — and it is
- * told by the component that knows, rather than by the caller that merely posts. That is
- * what makes the answer true: the name changed here in the same edit as the questions it
- * describes.
+ * told by the component that knows, rather than by the caller that merely posts. Three boxes
+ * on one screen is `three_point`, which is also what the form before August 2026 was; the
+ * track record's split by method is what can say whether either costs accuracy against the
+ * one-question-at-a-time form that sat between them.
  */
-const METHOD = 'surprise_framed';
+const METHOD = 'three_point';
 
 /**
- * The three questions, in the order that stops them anchoring, and the field each answers.
+ * The three boxes, top to bottom, and the field each fills.
  *
  * **The bad case first, because it is the only one of the three that is unbounded.** The
- * good case has a floor — the work obviously takes something, and nobody's optimistic
- * answer is zero — so an anchor above it compresses it far less than an anchor below the
- * bad case compresses that. The bad case has nothing above it: it can always be worse,
- * which is the property this product chose a log-normal for, and it is the number every
- * team gets wrong in the same direction. Asking it before any number exists on screen is
- * the only moment it can be answered cold.
+ * good case has a floor — the work obviously takes something — so an anchor above it
+ * compresses it far less than an anchor below the bad case compresses that. With all three
+ * on one screen nothing *forces* the order any more, which is the price of the screen; the
+ * order is what is left of the defence, so the box somebody reaches first is the one with
+ * nothing above it, and the middle — which the fit does not use — comes last.
  *
- * **The middle last, because the fit does not use it.** It is the consistency signal, and a
- * signal arrived at by arithmetic on the two ends in somebody's head is not a signal. Asked
- * last, it is the one number that may be anchored and the one that can afford to be.
- *
- * Reordering this array is not a cosmetic change. It is the whole of what separates this
- * form from three boxes that produce 3/5/8.
+ * Reordering this array is not a cosmetic change: 10 / 50 / 90 top to bottom invites the
+ * middle first, which is what 3/5/8 is.
  */
-const STEPS = [
+const FIELDS = [
   { field: 'p90Hours', wording: 'bad' },
   { field: 'p10Hours', wording: 'good' },
   { field: 'p50Hours', wording: 'typical' }
 ] as const;
 
-type Field = (typeof STEPS)[number]['field'];
+type Field = (typeof FIELDS)[number]['field'];
 
 /**
- * The screen after the last question, and the first moment the three are seen together.
- *
- * That is deliberate rather than incidental. Seeing them together while any of them is
- * still being answered is the anchoring the order exists to prevent; seeing them together
- * once all three exist is the only way to notice that the bad week is barely worse than the
- * ordinary one. It is also where the bet is asked and where the warnings arrive, both of
- * which need a number that has been given.
+ * How long the answers sit still before the server is asked what is worth questioning about
+ * them, so typing "12" is one question rather than two.
  */
-const REVIEW = STEPS.length;
-
-/**
- * The one refusal this form has an *action* for rather than only a message.
- *
- * A range the wrong way round belongs to no single box, so it arrives in the banner — and
- * the banner is useless here, because the numbers it is about are each on a screen the
- * visitor is not looking at. So it sends them back to the first question to read their own
- * answers in order. `useFormFailure` hands back the code for exactly this case.
- */
-const OUT_OF_ORDER = 'estimate_out_of_order';
+const SETTLE_MS = 300;
 
 type EstimateFormProps = {
   id: string;
@@ -75,52 +57,42 @@ type EstimateFormProps = {
   estimate?: Estimate;
   busy: boolean;
   banner: string | null;
-  code?: string;
   fieldErrors: Record<string, string>;
   onSubmit: (values: EstimateValues) => void;
   onCancel: () => void;
 };
 
 /**
- * One question at a time, and never the middle one first.
+ * Three boxes on one screen — the bad case, the good case and what somebody expects — each
+ * with a "?" saying what goes in it.
  *
- * **This form used to be three boxes labelled P10, P50 and P90, and replacing it is the
- * work.** `product-concept.md` is blunt that those produce 3/5/8 without anybody
- * thinking, and the measurement in `docs/design/elicitation.md` says why no check can catch it: every
- * Fibonacci triple agrees with itself to within a few percent and clears the overconfidence
- * rule. The garbage is *coherent*. The fault is not in the numbers, it is that they were
- * never separately thought about — which is a property of how they were asked for, and
- * leaves no trace in what is stored.
+ * **This replaced one question at a time, by the product owner's decision, because four
+ * screens per estimate was too many presses.** What it gave up is recorded in
+ * `docs/design/elicitation.md`: three boxes side by side invite the middle first, and the
+ * result — a Fibonacci-shaped triple — is coherent enough that neither warning catches it.
+ * What it keeps:
  *
- * **So one question is on screen at a time and no earlier answer is visible while the next
- * is asked.** The order buys nothing if the first answer can be seen while the second is
- * typed, because the anchor is *seeing* it rather than typing it. All three appear together
- * at the review, which is where they are meant to be seen together.
- *
- * **Nothing on screen says P90 while a question is being answered.** The percentile names
- * are what invite somebody to reason about tail probability, which nobody can do; surprise
- * is a thing people recognise. The labels are the questions.
- *
- * **There is no fast path back to three boxes**, deliberately. It would be used by
- * everybody, because it is quicker and because the people most confident they do not need
- * the framing are the people it is for. Revising is the case that objection is strongest
- * for, and it is answered by pre-filling every step from the current estimate: changing 8
- * to 10 is three confirmations, and revising is exactly when the tails are worth another
- * look.
+ * - **The order**, bad case first. See {@link FIELDS}.
+ * - **The plain words.** Each label names the case before its percentage, and the "?" holds
+ *   the question the one-at-a-time form used to ask, so the surprise framing is one press away
+ *   rather than gone.
+ * - **The bet**, which arrives as soon as there is a bad case to bet about, and gates nothing.
+ * - **The warnings**, asked of the server as the answers settle and rendered from what it
+ *   says, so a threshold moves there and nowhere else.
+ * - **A colleague's numbers are never on screen while somebody answers** — that rule lives on
+ *   the task's page, which renders this form in place of the ranges.
  */
 export function EstimateForm({
   id,
   estimate,
   busy,
   banner,
-  code,
   fieldErrors,
   onSubmit,
   onCancel
 }: EstimateFormProps) {
   const { t } = useTranslation();
   const { request } = useAuth();
-  const [at, setAt] = useState(0);
   const [quality, setQuality] = useState<EstimateQuality | null>(null);
   const [answers, setAnswers] = useState<Record<Field, string>>(() => ({
     p10Hours: typed(estimate?.p10Hours),
@@ -128,75 +100,55 @@ export function EstimateForm({
     p90Hours: typed(estimate?.p90Hours)
   }));
 
-  // A refusal has to arrive somewhere the visitor can act on it, and on this form the box
-  // it belongs to is usually not the one they are looking at. So a complaint about a field
-  // brings its own question back; a range the wrong way round belongs to all three and
-  // starts again from the first, since reading them in order is the only way to see it.
-  useEffect(() => {
-    const refused = STEPS.findIndex(
-      (step) => fieldErrors[step.field] !== undefined
-    );
-    if (refused >= 0) {
-      setAt(refused);
-    } else if (code === OUT_OF_ORDER) {
-      setAt(0);
-    }
-  }, [code, fieldErrors]);
+  const complete = FIELDS.every(({ field }) => answers[field] !== '');
 
-  // Asked of the server rather than worked out here, and asked afresh whenever the answers
-  // change, so that stepping back to widen a band and returning shows what that band now
-  // says rather than what the old one did. A refusal — a range the wrong way round, a
-  // question left blank — leaves the review with no warnings on it and the server to say so
-  // on submit, which is better than a browser inventing a second opinion.
+  // Asked of the server rather than worked out here, once all three are given and have sat
+  // still for a moment, and asked afresh whenever they change — so widening a band shows
+  // what that band now says rather than what the old one did. A refusal (a range the wrong
+  // way round) or a server that cannot be reached leaves no warning on screen and the save
+  // to say what is wrong, which is better than a browser inventing a second opinion.
   useEffect(() => {
-    if (at !== REVIEW) {
-      setQuality(null);
+    setQuality(null);
+    if (!complete) {
       return undefined;
     }
     let cancelled = false;
-    request<EstimateQuality>('/estimates/quality', {
-      method: 'POST',
-      body: {
-        p10Hours: numberFrom(answers.p10Hours),
-        p50Hours: numberFrom(answers.p50Hours),
-        p90Hours: numberFrom(answers.p90Hours)
-      }
-    })
-      .then((graded) => {
-        if (!cancelled) {
-          setQuality(graded);
-        }
+    const asking = setTimeout(() => {
+      request<EstimateQuality>('/estimates/quality', {
+        method: 'POST',
+        body: values()
       })
-      .catch(() => {
-        if (!cancelled) {
-          setQuality(null);
-        }
-      });
+        .then((graded) => {
+          if (!cancelled) {
+            setQuality(graded);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setQuality(null);
+          }
+        });
+    }, SETTLE_MS);
     return () => {
       cancelled = true;
+      clearTimeout(asking);
     };
-  }, [at, answers, request]);
+    // `values` reads `answers`, which is listed; naming the function as well would re-ask
+    // on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answers, complete, request]);
 
-  const reviewing = at === REVIEW;
-  // Undefined on the review, and the type says so: `STEPS[REVIEW]` is off the end of the
-  // array, and TypeScript would hand it back as a `Step` without complaint. Narrowing here
-  // means the question markup cannot be rendered on a screen that has no question.
-  const step = reviewing ? undefined : STEPS[at];
+  function values() {
+    return {
+      p10Hours: numberFrom(answers.p10Hours),
+      p50Hours: numberFrom(answers.p50Hours),
+      p90Hours: numberFrom(answers.p90Hours)
+    };
+  }
 
   function handle(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    // Every step submits, so Enter moves the visitor on rather than sending three
-    // questions' worth of half an answer.
-    if (!reviewing) {
-      setAt(at + 1);
-      return;
-    }
-    onSubmit({
-      p10Hours: numberFrom(answers.p10Hours),
-      p50Hours: numberFrom(answers.p50Hours),
-      p90Hours: numberFrom(answers.p90Hours),
-      method: METHOD
-    });
+    onSubmit({ ...values(), method: METHOD });
   }
 
   return (
@@ -209,104 +161,68 @@ export function EstimateForm({
         </p>
       )}
 
-      {step ? (
-        <span className="field">
-          <label htmlFor={`${id}-${step.field}`}>
-            {t(`projects.items.estimate.steps.${step.wording}.question`)}
-          </label>
-          <input
-            id={`${id}-${step.field}`}
-            name={step.field}
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="0.25"
-            value={answers[step.field]}
-            onChange={(event) =>
-              setAnswers({ ...answers, [step.field]: event.target.value })
-            }
-            aria-invalid={fieldErrors[step.field] ? true : undefined}
-          />
-          <span className="hint">
-            {t(`projects.items.estimate.steps.${step.wording}.hint`)}
+      <span className="points">
+        {FIELDS.map(({ field, wording }) => (
+          <span className="field" key={field}>
+            <span className="label">
+              <label htmlFor={`${id}-${field}`}>
+                {t(`projects.items.estimate.fields.${wording}.label`)}
+              </label>{' '}
+              <Help label={t(`projects.items.estimate.fields.${wording}.help`)}>
+                {t(`projects.items.estimate.fields.${wording}.explain`)}
+              </Help>
+            </span>
+            <input
+              id={`${id}-${field}`}
+              name={field}
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.25"
+              value={answers[field]}
+              onChange={(event) =>
+                setAnswers({ ...answers, [field]: event.target.value })
+              }
+              aria-invalid={fieldErrors[field] ? true : undefined}
+            />
+            {fieldErrors[field] && (
+              <span className="field-error">{fieldErrors[field]}</span>
+            )}
           </span>
-          {fieldErrors[step.field] && (
-            <span className="field-error">{fieldErrors[step.field]}</span>
-          )}
-        </span>
-      ) : (
-        <div className="review">
-          <h3>{t('projects.items.estimate.review.title')}</h3>
-          <ul>
-            {STEPS.map((answered) => (
-              <li key={answered.field}>
-                {t(`projects.items.estimate.review.${answered.wording}`, {
-                  answer:
-                    answers[answered.field] === ''
-                      ? t('projects.items.estimate.review.unanswered')
-                      : t('projects.items.estimate.review.hours', {
-                          value: answers[answered.field]
-                        })
-                })}
-              </li>
-            ))}
-          </ul>
+        ))}
+      </span>
 
-          {/*
-            The betting frame, which makes a number typed cheaply feel expensive. It gates
-            nothing: saying yes is pressing save, and the only control is the way out —
-            because a bet somebody would not take is a P90 they have not really given.
-          */}
-          {answers.p90Hours !== '' && (
-            <p className="bet">
-              {t('projects.items.estimate.bet.question', {
-                hours: answers.p90Hours
-              })}{' '}
-              <button type="button" className="link" onClick={() => setAt(0)}>
-                {t('projects.items.estimate.bet.decline')}
-              </button>
-            </p>
-          )}
+      {/*
+        The betting frame, which makes a number typed cheaply feel expensive. It gates
+        nothing: saying yes is pressing save, and saying no is changing the box above.
+      */}
+      {answers.p90Hours !== '' && (
+        <p className="bet">
+          {t('projects.items.estimate.bet', { hours: answers.p90Hours })}
+        </p>
+      )}
 
-          {/*
-            Advice, never a refusal — decision 5. A tight band is sometimes exactly right,
-            and a rule that blocked one would become a specification people learn to type,
-            which is 3/5/8 with an extra step. Rendered from what the server said, so
-            moving a threshold there needs no change here.
-          */}
-          {quality?.overconfident && (
-            <p className="warning">
-              {t('projects.items.estimate.warnings.overconfident')}
-            </p>
-          )}
-          {quality?.inconsistent && (
-            <p className="warning">
-              {t('projects.items.estimate.warnings.inconsistent')}
-            </p>
-          )}
-        </div>
+      {/*
+        Advice, never a refusal. A tight band is sometimes exactly right, and a rule that
+        blocked one would become a specification people learn to type. Rendered from what
+        the server said, so moving a threshold there needs no change here.
+      */}
+      {quality?.overconfident && (
+        <p className="warning">
+          {t('projects.items.estimate.warnings.overconfident')}
+        </p>
+      )}
+      {quality?.inconsistent && (
+        <p className="warning">
+          {t('projects.items.estimate.warnings.inconsistent')}
+        </p>
       )}
 
       <p className="actions">
-        <span className="progress">
-          {reviewing
-            ? t('projects.items.estimate.review.progress')
-            : t('projects.items.estimate.progress', {
-                step: at + 1,
-                total: STEPS.length
-              })}
-        </span>
-        {at > 0 && (
-          <button type="button" className="link" onClick={() => setAt(at - 1)}>
-            {t('projects.items.estimate.back')}
-          </button>
-        )}
         <button type="submit" className="primary" disabled={busy}>
-          {reviewing
-            ? busy
-              ? t('projects.items.estimate.submitting')
-              : t('projects.items.estimate.submit')
-            : t('projects.items.estimate.next')}
+          {busy
+            ? t('projects.items.estimate.submitting')
+            : t('projects.items.estimate.submit')}
         </button>
         <button type="button" className="link" onClick={onCancel}>
           {t('projects.items.estimate.cancel')}

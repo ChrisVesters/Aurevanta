@@ -835,55 +835,36 @@ export const en = {
         // question about calendars and who is available, and that is a later work's
         // to answer rather than something to bake into what somebody types here.
         hint: 'In hours of effort — how much work it is, not how long it will be before it is done.',
-        // One question at a time, and the percentile names appear in none of them. "P90"
-        // asks somebody to reason about tail probability, which nobody can do; surprise is
-        // a thing people recognise. The three boxes these replaced produced 3/5/8 without
-        // anybody thinking, and no check can catch that — a Fibonacci triple agrees with
-        // itself almost perfectly. The order is the defence, so it is fixed: the bad case
-        // is the only one of the three with nothing above it, and it is answered before
-        // any number is on screen to anchor it.
-        steps: {
+        // Three boxes on one screen, bad case first. Each label names the case before its
+        // percentage — "bad case" is a thing people recognise and "90%" is the precise claim
+        // it makes — and the "?" beside it holds the question the one-at-a-time form used to
+        // ask, so the surprise framing is one press away rather than gone. The order of the
+        // boxes is the defence that is left: see `FIELDS` in EstimateForm.
+        fields: {
           bad: {
-            question:
-              'Think of a version of this that goes badly — not a disaster, just a bad week. What number would make you genuinely surprised to have gone over?',
-            hint: 'Asked first and on its own. It is the number teams get wrong most often, and the only one with nothing above it.'
+            label: 'Bad case — 90%',
+            help: 'What goes in the bad case?',
+            explain:
+              'Think of a version of this that goes badly — not a disaster, just a bad week. What number would make you genuinely surprised to have gone over? Nine times in ten the work should take less than this. Fill this one in first: it is the number teams get wrong most often, and the only one with nothing above it.'
           },
           good: {
-            question:
-              'Now the version where everything goes right. What is the least this could take?',
-            hint: 'Not an impossible case — the one where nothing gets in the way.'
+            label: 'Good case — 10%',
+            help: 'What goes in the good case?',
+            explain:
+              'The version where everything goes right — not an impossible case, just the one where nothing gets in the way. Only one time in ten should the work take less than this.'
           },
           typical: {
-            question: 'And what do you actually expect it to take?',
-            hint: 'The middle: as likely to come in under as over.'
+            label: 'Expected — 50%',
+            help: 'What goes in the expected case?',
+            explain:
+              'What you actually expect it to take: as likely to come in under as over. Fill it in last, so it does not pull the other two towards it.'
           }
         },
-        progress: 'Question {{step}} of {{total}}',
-        // The first and only moment the three are seen together. Together *while* one is
-        // still being answered is the anchoring the order exists to prevent; together once
-        // all three exist is the only way to notice that the bad week is barely worse than
-        // the ordinary one.
-        review: {
-          title: 'What you have said',
-          // The answer is interpolated whole rather than as a bare number, because a
-          // question nobody answered has no number and "not answered hours" is not a
-          // sentence. Both readings have to be grammatical, and a unit assembled outside
-          // the catalogue would be a literal string in the code.
-          bad: 'A bad week: {{answer}}',
-          good: 'Everything goes right: {{answer}}',
-          typical: 'What you expect: {{answer}}',
-          hours: '{{value}} hours',
-          unanswered: 'not answered',
-          progress: 'Before you save it'
-        },
         // The betting frame, which is a check on an answer rather than a way to get one —
-        // it needs a number to bet about, so it can only be asked here. It makes a number
-        // typed cheaply feel expensive, and it gates nothing: saying yes is pressing save.
-        bet: {
-          question:
-            'You are saying that nine times in ten this comes in under {{hours}} hours. Would you take that bet?',
-          decline: 'No — let me change that'
-        },
+        // it needs a number to bet about, so it appears once there is a bad case. It makes a
+        // number typed cheaply feel expensive, and it gates nothing: saying yes is pressing
+        // save, and saying no is changing the box.
+        bet: 'You are saying that nine times in ten this comes in under {{hours}} hours. Would you take that bet?',
         // Advice and never a refusal. A tight band is sometimes exactly right, and a rule
         // that blocked one would become a specification people learn to type — which is
         // 3/5/8 with an extra step, and the product teaching the failure it exists to
@@ -894,8 +875,6 @@ export const en = {
           inconsistent:
             'What you expect sits a long way from the middle your own two ends imply. Worth another look — and saved exactly as you gave it, either way.'
         },
-        back: 'Back',
-        next: 'Next',
         submit: 'Save estimate',
         submitting: 'Saving…',
         cancel: 'Cancel',
@@ -1222,7 +1201,7 @@ export const en = {
     // What V15 exists for, and the only evidence elicitation's claim will ever have.
     methods: {
       title: 'By how the range was asked for',
-      lede: 'The question changed in August 2026. Whether that produced honester ranges is a thing only this table can answer.',
+      lede: 'How ranges are asked for has changed: three boxes until August 2026, one question at a time until November 2026, and three boxes with the bad case first since. Whether any of them produced honester ranges is a thing only this table can answer.',
       three_point: 'Three boxes, filled in together',
       surprise_framed: 'One question at a time, bad case first',
       unknown: 'Asked in a way this page does not recognise'

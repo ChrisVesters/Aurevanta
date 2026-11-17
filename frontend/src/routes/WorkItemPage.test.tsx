@@ -59,11 +59,9 @@ const THREE_ITEMS: WorkItem[] = [
  * written out rather than looked up so that a change to the wording has to be made here
  * too, deliberately: these strings are the work.
  */
-const BAD_CASE =
-  'Think of a version of this that goes badly — not a disaster, just a bad week. What number would make you genuinely surprised to have gone over?';
-const GOOD_CASE =
-  'Now the version where everything goes right. What is the least this could take?';
-const TYPICAL_CASE = 'And what do you actually expect it to take?';
+const BAD_CASE = 'Bad case — 90%';
+const GOOD_CASE = 'Good case — 10%';
+const TYPICAL_CASE = 'Expected — 50%';
 
 /** A pool this organisation has declared, which is what a requirement can name. */
 const BACKEND: Resource = {
@@ -179,27 +177,46 @@ describe('WorkItemPage', () => {
     userEvent.click(screen.getByRole('button', { name: 'Order' }));
 
   /**
-   * Walking the three questions in the order they are asked, as far as the review. An
-   * empty string leaves that question unanswered, which is a different thing from zero and
-   * is what the server has to be told apart.
+   * Filling the three boxes, top to bottom. An empty string leaves that box empty, which is
+   * a different thing from zero and is what the server has to be told apart.
    */
-  async function answerTheThree(bad: string, good: string, typical: string) {
-    for (const [question, given] of [
+  async function fillTheThree(bad: string, good: string, typical: string) {
+    for (const [label, given] of [
       [BAD_CASE, bad],
       [GOOD_CASE, good],
       [TYPICAL_CASE, typical]
     ] as const) {
+      const box = screen.getByLabelText(label);
+      await userEvent.clear(box);
       if (given !== '') {
-        await userEvent.type(screen.getByLabelText(question), given);
+        await userEvent.type(box, given);
       }
-      await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     }
-    await screen.findByText('What you have said');
   }
 
-  /** The three questions, then the review, then saving it. */
+  /**
+   * Answers the save with a refusal and everything else as before. Wrapping the current
+   * double rather than arming a `once`, because the form asks the server about the range a
+   * moment after the boxes settle, and a `once` set beforehand could be spent on that.
+   */
+  function refuseSaveWith(status: number, body: unknown) {
+    const before = fetchMock.getMockImplementation() as (
+      url: string,
+      init?: RequestInit
+    ) => Promise<Response>;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      url === `/api/items/${ITEM.id}/estimates` && init?.method === 'POST'
+        ? Promise.resolve(jsonResponse(status, body))
+        : before(url, init)
+    );
+  }
+
+  const qualityCalls = () =>
+    fetchMock.mock.calls.filter(([url]) => url === '/api/estimates/quality');
+
+  /** The three boxes, then saving them. */
   async function estimateThrough(bad: string, good: string, typical: string) {
-    await answerTheThree(bad, good, typical);
+    await fillTheThree(bad, good, typical);
     await userEvent.click(
       screen.getByRole('button', { name: 'Save estimate' })
     );
@@ -631,78 +648,57 @@ describe('WorkItemPage', () => {
   });
 
   /**
-   * <strong>The order is the work, and this is what holds it.</strong> The bad case
-   * is asked first because it is the only one of the three with nothing above it; the
-   * middle is asked last because the fit does not use it and it is the number people
-   * answer fastest. A form that asked them in any other order would pass every other test
-   * in this file.
+   * <strong>The order is what is left of the defence, and this is what holds it.</strong>
+   * All three boxes are on one screen, so the box somebody reaches first is the bad case —
+   * the only one with nothing above it — and the middle, which the fit does not use, comes
+   * last. A form that put them 10 / 50 / 90 would pass every other test in this file.
    */
-  it('asks the bad case first, the good case second and the typical one last', async () => {
+  it('puts the bad case first, the good case second and the expected case last', async () => {
     await open();
     await openEstimate();
 
-    expect(screen.getByLabelText(BAD_CASE)).toBeInTheDocument();
-    expect(screen.queryByLabelText(GOOD_CASE)).toBeNull();
-    expect(screen.queryByLabelText(TYPICAL_CASE)).toBeNull();
-
-    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-    expect(screen.getByLabelText(GOOD_CASE)).toBeInTheDocument();
-    expect(screen.queryByLabelText(BAD_CASE)).toBeNull();
-    // The whole point of one at a time: the answer just given is not on screen to
-    // anchor the next one, and a hidden input holding it would be no better.
-    expect(screen.queryByDisplayValue('12')).toBeNull();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-    expect(screen.getByLabelText(TYPICAL_CASE)).toBeInTheDocument();
-    expect(screen.queryByLabelText(GOOD_CASE)).toBeNull();
+    expect(screen.getAllByRole('spinbutton')).toEqual([
+      screen.getByLabelText(BAD_CASE),
+      screen.getByLabelText(GOOD_CASE),
+      screen.getByLabelText(TYPICAL_CASE)
+    ]);
+    // And one press saves all three: there are no steps to walk.
+    expect(screen.queryByRole('button', { name: 'Next' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Save estimate' })
+    ).toBeInTheDocument();
   });
 
   /**
-   * The percentile names are what invite somebody to reason about tail probability, which
-   * nobody can do. They appear nowhere on this form, and this is the assertion that fails
-   * the day one comes back as a "clearer" label.
+   * The question the one-at-a-time form used to ask is behind each box's "?", so what goes
+   * where is one press away rather than gone.
    */
-  it('never names a percentile while a question is being answered', async () => {
+  it('explains what goes in each box behind a question mark', async () => {
     await open();
     await openEstimate();
+    const explanation = screen.getByText(
+      /genuinely surprised to have gone over/
+    );
+    expect(explanation).not.toBeVisible();
 
-    for (const question of [BAD_CASE, GOOD_CASE, TYPICAL_CASE]) {
-      expect(screen.getByLabelText(question)).toBeInTheDocument();
-      expect(screen.queryByText(/\bP(10|50|90)\b/)).toBeNull();
-      await userEvent.click(
-        screen.getByRole('button', {
-          name: question === TYPICAL_CASE ? 'Cancel' : 'Next'
-        })
-      );
-    }
-  });
+    await userEvent.click(
+      screen.getByRole('button', { name: 'What goes in the bad case?' })
+    );
 
-  /** Going back is revision rather than anchoring, so that step keeps its own answer. */
-  it('keeps each answer when somebody steps back and forward again', async () => {
-    await open();
-    await openEstimate();
-
-    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await userEvent.type(screen.getByLabelText(GOOD_CASE), '3');
-    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
-
-    expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-    expect(screen.getByLabelText(GOOD_CASE)).toHaveValue(3);
+    expect(explanation).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'What goes in the good case?' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'What goes in the expected case?' })
+    ).toBeInTheDocument();
   });
 
   /**
-   * **The one thing a task's own page could easily have got wrong.** A row had space to
-   * name a colleague and nothing else; a page has space to print their numbers — and two
-   * people who anchored on each other are not two estimates, so the moment somebody starts
-   * answering, what everybody else said leaves the screen. This is the assertion that fails
-   * if the ranges are ever left beside the form.
+   * **The one thing a task's own page could easily have got wrong.** Two people who
+   * anchored on each other are not two estimates, so the moment somebody starts answering,
+   * what everybody else said leaves the screen. This is the assertion that fails if the
+   * ranges are ever left beside the form.
    */
   it('never shows a colleague’s numbers while somebody is answering', async () => {
     await open({ estimates: ESTIMATES });
@@ -710,59 +706,23 @@ describe('WorkItemPage', () => {
 
     await openEstimate();
 
-    for (const question of [BAD_CASE, GOOD_CASE, TYPICAL_CASE]) {
-      expect(screen.getByLabelText(question)).toBeInTheDocument();
-      expect(screen.queryByText('Bob: 10 / 20 / 40 hours')).toBeNull();
-      for (const his of ['10', '20', '40']) {
-        expect(screen.queryByDisplayValue(his)).toBeNull();
-      }
-      if (question !== TYPICAL_CASE) {
-        await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-      }
+    expect(screen.getByLabelText(BAD_CASE)).toBeInTheDocument();
+    expect(screen.queryByText('Bob: 10 / 20 / 40 hours')).toBeNull();
+    for (const his of ['10', '20', '40']) {
+      expect(screen.queryByDisplayValue(his)).toBeNull();
     }
   });
 
   /**
-   * <strong>The first and only moment the three are seen together.</strong> Together while
-   * one is still being answered is the anchoring the order exists to prevent; together once
-   * all three exist is the only way to notice that a bad week is barely worse than an
-   * ordinary one. In plain words, and still no percentile named.
+   * <strong>The betting frame, which gates nothing.</strong> It makes a number typed cheaply
+   * feel expensive, and it appears as soon as there is a bad case to bet about.
    */
-  it('shows all three answers together at the review and nowhere earlier', async () => {
+  it('asks whether somebody would take the bet their own bad case implies', async () => {
     await open();
     await openEstimate();
+    expect(screen.queryByText(/Would you take that bet/)).toBeNull();
 
-    await answerTheThree('12', '3', '5');
-
-    expect(screen.getByText('A bad week: 12 hours')).toBeInTheDocument();
-    expect(
-      screen.getByText('Everything goes right: 3 hours')
-    ).toBeInTheDocument();
-    expect(screen.getByText('What you expect: 5 hours')).toBeInTheDocument();
-    expect(screen.queryByText(/\bP(10|50|90)\b/)).toBeNull();
-  });
-
-  /** A question nobody answered says so rather than showing a gap. */
-  it('says which of the three was never answered', async () => {
-    await open();
-    await openEstimate();
-
-    await answerTheThree('', '3', '5');
-
-    expect(screen.getByText('A bad week: not answered')).toBeInTheDocument();
-  });
-
-  /**
-   * <strong>The betting frame, which gates nothing.</strong> It makes a number typed
-   * cheaply feel expensive, and the only control it carries is the way out — because a bet
-   * somebody would not take is a P90 they have not really given. Saying yes is pressing
-   * save.
-   */
-  it('asks whether somebody would take the bet their own high number implies', async () => {
-    await open();
-    await openEstimate();
-
-    await answerTheThree('12', '3', '5');
+    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
 
     expect(
       screen.getByText(
@@ -771,35 +731,10 @@ describe('WorkItemPage', () => {
     ).toBeInTheDocument();
   });
 
-  /** Declining goes back to the question that number answers, with it still in the box. */
-  it('sends somebody back to the bad case when they would not take the bet', async () => {
-    await open();
-    await openEstimate();
-    await answerTheThree('12', '3', '5');
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'No — let me change that' })
-    );
-
-    expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
-
-    await userEvent.clear(screen.getByLabelText(BAD_CASE));
-    await userEvent.type(screen.getByLabelText(BAD_CASE), '40');
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-
-    expect(await screen.findByText('A bad week: 40 hours')).toBeInTheDocument();
-    expect(
-      screen.getByText(/nine times in ten this comes in under 40 hours/)
-    ).toBeInTheDocument();
-  });
-
   /**
-   * <strong>Rendered from what the server said, not worked out here.</strong> 6/10/14 is a
-   * tight band and 3/5/8 is not, and this test does not know which is which — it renders
-   * whatever the response carried, which is what lets a threshold move on the server with
-   * no change on this side.
+   * <strong>Rendered from what the server said, not worked out here.</strong> This test
+   * does not know whether 6/10/14 is a tight band — it renders whatever the response
+   * carried, which is what lets a threshold move on the server with no change on this side.
    */
   it('shows the warnings the server sent, whatever the numbers were', async () => {
     await open({
@@ -807,10 +742,12 @@ describe('WorkItemPage', () => {
     });
     await openEstimate();
 
-    await answerTheThree('8', '6', '10');
+    await fillTheThree('8', '6', '10');
 
     expect(
-      screen.getByText(/Your bad week is barely worse than what you expect/)
+      await screen.findByText(
+        /Your bad week is barely worse than what you expect/
+      )
     ).toBeInTheDocument();
     expect(screen.queryByText(/a long way from the middle/)).toBeNull();
   });
@@ -822,10 +759,12 @@ describe('WorkItemPage', () => {
     });
     await openEstimate();
 
-    await answerTheThree('40', '5', '10');
+    await fillTheThree('40', '5', '10');
 
     expect(
-      screen.getByText(/a long way from the middle your own two ends imply/)
+      await screen.findByText(
+        /a long way from the middle your own two ends imply/
+      )
     ).toBeInTheDocument();
   });
 
@@ -834,24 +773,51 @@ describe('WorkItemPage', () => {
     await open();
     await openEstimate();
 
-    await answerTheThree('8', '3', '5');
+    await fillTheThree('8', '3', '5');
 
+    await waitFor(() => expect(qualityCalls()).toHaveLength(1));
     expect(screen.queryByText(/Your bad week is barely worse/)).toBeNull();
     expect(screen.queryByText(/a long way from the middle/)).toBeNull();
   });
 
   /**
+   * Nothing is asked about a range that is not all there yet, and the answers settle before
+   * anything is: typing a whole estimate is one question to the server, not one per key.
+   */
+  it('asks about the range once, and only once all three are given', async () => {
+    await open();
+    await openEstimate();
+
+    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
+    await userEvent.type(screen.getByLabelText(GOOD_CASE), '3');
+    await new Promise((settled) => setTimeout(settled, 400));
+    expect(qualityCalls()).toHaveLength(0);
+
+    await userEvent.type(screen.getByLabelText(TYPICAL_CASE), '5');
+
+    await waitFor(() => expect(qualityCalls()).toHaveLength(1));
+    expect(JSON.parse(qualityCalls()[0][1].body)).toEqual({
+      p10Hours: 3,
+      p50Hours: 5,
+      p90Hours: 12
+    });
+  });
+
+  /**
    * <strong>Advice, never a refusal.</strong> A tight band is sometimes exactly right, and
-   * a rule that blocked one would become a specification people learn to type, which is
-   * 3/5/8 with an extra step.
+   * a rule that blocked one would become a specification people learn to type.
    */
   it('saves a warned estimate exactly as it was given', async () => {
     await open({
       quality: { consistency: 1.09, inconsistent: false, overconfident: true }
     });
     await openEstimate();
+    await fillTheThree('14', '6', '10');
+    await screen.findByText(/Your bad week is barely worse/);
 
-    await estimateThrough('14', '6', '10');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Save estimate' })
+    );
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -862,7 +828,7 @@ describe('WorkItemPage', () => {
             p10Hours: 6,
             p50Hours: 10,
             p90Hours: 14,
-            method: 'surprise_framed'
+            method: 'three_point'
           })
         })
       )
@@ -870,60 +836,55 @@ describe('WorkItemPage', () => {
   });
 
   /**
-   * The review is advice, so it survives not getting any. A server that cannot be reached
-   * about the range must not stop somebody saving what they came to say.
+   * The warnings are advice, so the form survives not getting any. A server that cannot be
+   * reached about the range must not stop somebody saving what they came to say.
    */
-  it('reviews without warnings when the server could not be asked', async () => {
+  it('stays usable without warnings when the server could not be asked', async () => {
     await open();
+    const before = fetchMock.getMockImplementation() as (
+      url: string,
+      init?: RequestInit
+    ) => Promise<Response>;
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      url === '/api/estimates/quality'
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : before(url, init)
+    );
     await openEstimate();
-    await userEvent.type(screen.getByLabelText(BAD_CASE), '12');
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await userEvent.type(screen.getByLabelText(GOOD_CASE), '3');
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
-    await userEvent.type(screen.getByLabelText(TYPICAL_CASE), '5');
-    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
 
-    expect(await screen.findByText('A bad week: 12 hours')).toBeInTheDocument();
+    await fillTheThree('12', '3', '5');
+
+    await waitFor(() => expect(qualityCalls()).toHaveLength(1));
     expect(screen.queryByText(/Your bad week is barely worse/)).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Save estimate' })
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Save estimate' })).toBeEnabled();
   });
 
   /**
    * Somebody can close the form while the server is still being asked about their range,
-   * and nothing arriving afterwards may touch it. The practical cost is a warning painted
-   * onto a form somebody has already walked away from — or onto the next one they open,
-   * about numbers that are not theirs.
+   * and nothing arriving afterwards may touch it — or the next form they open, about numbers
+   * that are not theirs.
    */
   it('ignores an answer about a range that arrives after the form has gone', async () => {
-    storeAccessToken();
     let settle: (value: Response) => void = () => {};
     let fail: (reason: unknown) => void = () => {};
-    answer();
-    const plain = fetchMock.getMockImplementation();
+    await open();
+    const before = fetchMock.getMockImplementation() as (
+      url: string,
+      init?: RequestInit
+    ) => Promise<Response>;
     fetchMock.mockImplementation((url: string, init?: RequestInit) =>
       url === '/api/estimates/quality'
         ? new Promise<Response>((resolve, reject) => {
             settle = resolve;
             fail = reject;
           })
-        : (plain as (u: string, i?: RequestInit) => Promise<Response>)(
-            url,
-            init
-          )
+        : before(url, init)
     );
-    renderRouted(
-      <Routes>
-        <Route path="/app/items/:itemId" element={<WorkItemPage />} />
-      </Routes>,
-      { route: `/app/items/${ITEM.id}` }
-    );
-    await screen.findByRole('heading', { level: 1, name: ITEM.title });
 
     await openEstimate();
-    await answerTheThree('12', '3', '5');
+    await fillTheThree('12', '3', '5');
+    await waitFor(() => expect(qualityCalls()).toHaveLength(1));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     settle(
       jsonResponse(200, {
@@ -934,13 +895,27 @@ describe('WorkItemPage', () => {
     );
 
     await openEstimate();
-    await answerTheThree('12', '3', '5');
+    await fillTheThree('12', '3', '5');
+    await waitFor(() => expect(qualityCalls()).toHaveLength(2));
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fail(new TypeError('Failed to fetch'));
 
+    await openEstimate();
     await waitFor(() =>
       expect(screen.queryByText(/Your bad week is barely worse/)).toBeNull()
     );
+  });
+
+  /** Closing the form before the answers have settled asks the server nothing at all. */
+  it('asks nothing about a range left before it settled', async () => {
+    await open();
+    await openEstimate();
+
+    await fillTheThree('12', '3', '5');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await new Promise((settled) => setTimeout(settled, 400));
+
+    expect(qualityCalls()).toHaveLength(0);
   });
 
   it('records a three-point estimate against the task', async () => {
@@ -958,25 +933,22 @@ describe('WorkItemPage', () => {
             p10Hours: 3,
             p50Hours: 5,
             p90Hours: 12,
-            // The form that asks says how it asked, so the row can be partitioned by it
-            // later — which is the only way calibration can ever say whether this work
-            // changed anything.
-            method: 'surprise_framed'
+            // The form that asks says how it asked, so the track record can split by it —
+            // which is the only way to learn whether three boxes cost accuracy.
+            method: 'three_point'
           })
         })
       )
     );
   });
 
-  /** Revising starts from what that person last said, not from three empty questions. */
+  /** Revising starts from what that person last said, not from three empty boxes. */
   it('opens with the reader’s current estimate already in it', async () => {
     await open({ estimates: ESTIMATES });
     await openEstimate();
 
     expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByLabelText(GOOD_CASE)).toHaveValue(3);
-    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByLabelText(TYPICAL_CASE)).toHaveValue(5);
   });
 
@@ -999,7 +971,7 @@ describe('WorkItemPage', () => {
             p10Hours: null,
             p50Hours: 5,
             p90Hours: null,
-            method: 'surprise_framed'
+            method: 'three_point'
           })
         })
       )
@@ -1007,21 +979,15 @@ describe('WorkItemPage', () => {
   });
 
   /**
-   * <strong>The refusal that belongs to no single box, on a form where no box is in
-   * view.</strong> Each number is fine and the order is not, so it arrives in the banner —
-   * and a banner about three numbers the visitor cannot see is useless, so the form goes
-   * back to the first question for them to read their own answers in order.
+   * <strong>The refusal that belongs to no single box.</strong> Each number is fine and the
+   * order is not, so it arrives in the banner, with all three still on screen to read.
    */
-  it('says so when the three numbers do not go up, and goes back to the first question', async () => {
+  it('says so when the three numbers do not go up, and keeps them', async () => {
     await open();
     await openEstimate();
+    await fillTheThree('12', '5', '3');
+    refuseSaveWith(400, { code: 'estimate_out_of_order' });
 
-    await answerTheThree('12', '5', '3');
-    // Armed here rather than before the walk: the review asks the server about the range
-    // first, and a `once` mock set earlier would be spent on that instead.
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(400, { code: 'estimate_out_of_order' })
-    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Save estimate' })
     );
@@ -1030,25 +996,23 @@ describe('WorkItemPage', () => {
       /The three numbers must go up/
     );
     expect(screen.getByLabelText(BAD_CASE)).toHaveValue(12);
+    expect(screen.getByLabelText(TYPICAL_CASE)).toHaveValue(3);
   });
 
   /**
-   * And a complaint that <em>does</em> belong to one box brings that box's own question
-   * back, rather than being rendered on a screen nobody is looking at. `useFormFailure`
-   * suppresses the banner because the field is one this form renders — which is only true
-   * once the form has navigated to it.
+   * And a complaint that <em>does</em> belong to one box is shown under that box, with no
+   * banner repeating it — `useFormFailure` suppresses the banner because the field is one
+   * this form renders.
    */
-  it('brings back the question a refused number was answered on', async () => {
+  it('puts a refused number’s complaint under its own box', async () => {
     await open();
     await openEstimate();
+    await fillTheThree('12', '0', '5');
+    refuseSaveWith(400, {
+      code: 'validation_failed',
+      errors: { p10Hours: { code: 'positive' } }
+    });
 
-    await answerTheThree('12', '0', '5');
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(400, {
-        code: 'validation_failed',
-        errors: { p10Hours: { code: 'positive' } }
-      })
-    );
     await userEvent.click(
       screen.getByRole('button', { name: 'Save estimate' })
     );
@@ -1056,7 +1020,11 @@ describe('WorkItemPage', () => {
     expect(
       await screen.findByText('Use a number greater than zero.')
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(GOOD_CASE)).toHaveValue(0);
+    expect(screen.getByLabelText(GOOD_CASE)).toHaveAttribute(
+      'aria-invalid',
+      'true'
+    );
+    expect(screen.getByLabelText(BAD_CASE)).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -1104,10 +1072,8 @@ describe('WorkItemPage', () => {
     await open();
     await openEstimate();
 
-    await answerTheThree('12', '3', '5');
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(409, { code: 'work_already_started' })
-    );
+    await fillTheThree('12', '3', '5');
+    refuseSaveWith(409, { code: 'work_already_started' });
     await userEvent.click(
       screen.getByRole('button', { name: 'Save estimate' })
     );
