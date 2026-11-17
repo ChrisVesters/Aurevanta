@@ -17,6 +17,7 @@ import {
   storeAccessToken
 } from '../test/render';
 import type {
+  CombinedEstimate,
   Dependency,
   Estimate,
   EstimateQuality,
@@ -87,6 +88,7 @@ describe('WorkItemPage', () => {
     pools?: Resource[];
     needs?: Requirement[];
     history?: ProgressReport[];
+    combined?: CombinedEstimate | 'fails';
   };
 
   /**
@@ -120,6 +122,13 @@ describe('WorkItemPage', () => {
       }
       if (url === `/api/projects/${PROJECT.id}/dependencies`) {
         return Promise.resolve(jsonResponse(200, plan.dependencies ?? []));
+      }
+      if (url.endsWith('/estimates/combined')) {
+        return Promise.resolve(
+          plan.combined === 'fails'
+            ? jsonResponse(500, null)
+            : jsonResponse(200, plan.combined ?? { estimators: 0, range: null })
+        );
       }
       if (url === '/api/resources') {
         return Promise.resolve(jsonResponse(200, plan.pools ?? []));
@@ -496,6 +505,99 @@ describe('WorkItemPage', () => {
     const ranges = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(ranges[0]).toHaveTextContent('Bob: 10 / 20 / 40 hours');
     expect(ranges[1]).toHaveTextContent('Carol: 4 / 6 / 9 hours');
+  });
+
+  // Read together -----------------------------------------------------------
+
+  const COMBINED_URL = `/api/items/${ITEM.id}/estimates/combined`;
+
+  /** Ada says 3 to 12, Bob 10 to 40 — what the forecast reads from the two of them. */
+  const TOGETHER: CombinedEstimate = {
+    estimators: 2,
+    range: { p10Hours: 4.1, p50Hours: 11.62, p90Hours: 33.8 }
+  };
+
+  const combinedReads = () =>
+    fetchMock.mock.calls.filter(([url]) => url === COMBINED_URL);
+
+  /**
+   * Beside the ranges and never instead of them, with a line saying it is not an average.
+   * The numbers are the server's: the browser holds no part of the model.
+   */
+  it('says what several ranges come to together', async () => {
+    await open({ estimates: ESTIMATES, combined: TOGETHER });
+
+    expect(
+      await screen.findByText('Taken together: 4.1 / 11.62 / 33.8 hours')
+    ).toBeInTheDocument();
+    expect(screen.getByText(/It is not an average/)).toBeInTheDocument();
+    expect(screen.getByText('Bob: 10 / 20 / 40 hours')).toBeInTheDocument();
+  });
+
+  /** One person's range is already everything a combination of it would say. */
+  it('asks for no combination where only one person has estimated', async () => {
+    await open({ estimates: [ESTIMATES[0]], combined: TOGETHER });
+
+    expect(
+      screen.getByText('Your estimate: 3 / 5 / 12 hours')
+    ).toBeInTheDocument();
+    expect(combinedReads()).toHaveLength(0);
+    expect(screen.queryByText(/Taken together/)).toBeNull();
+  });
+
+  /** Made of everybody else's numbers, so it leaves with them while somebody answers. */
+  it('takes the combination off the screen while somebody is answering', async () => {
+    await open({ estimates: ESTIMATES, combined: TOGETHER });
+    await screen.findByText(/Taken together/);
+
+    await openEstimate();
+
+    expect(screen.getByLabelText(BAD_CASE)).toBeInTheDocument();
+    expect(screen.queryByText(/Taken together/)).toBeNull();
+  });
+
+  /** Put-away work shows no estimates at all, so there is nothing to combine. */
+  it('asks for no combination on work that has been put away', async () => {
+    await open({
+      item: ARCHIVED_WORK_ITEM,
+      estimates: ESTIMATES.map((range) => ({
+        ...range,
+        itemId: ARCHIVED_WORK_ITEM.id
+      })),
+      combined: TOGETHER
+    });
+
+    expect(combinedReads()).toHaveLength(0);
+    expect(screen.queryByText(/Taken together/)).toBeNull();
+  });
+
+  /** The combination is context: losing it leaves the ranges, and says nothing more. */
+  it('leaves the ranges alone when the combination cannot be read', async () => {
+    await open({ estimates: ESTIMATES, combined: 'fails' });
+
+    await waitFor(() => expect(combinedReads()).toHaveLength(1));
+    expect(screen.getByText('Bob: 10 / 20 / 40 hours')).toBeInTheDocument();
+    expect(screen.queryByText(/Taken together/)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /** A revision changes what the ranges come to, so saving one asks again. */
+  it('asks for the combination again once an estimate is saved', async () => {
+    await open({ estimates: ESTIMATES, combined: TOGETHER });
+    await waitFor(() => expect(combinedReads()).toHaveLength(1));
+
+    await openEstimate();
+    await estimateThrough('20', '6', '9');
+
+    await waitFor(() => expect(combinedReads()).toHaveLength(2));
+  });
+
+  /** Ranges that changed under it between two reads leave nothing to say. */
+  it('says nothing where the server found nothing to combine', async () => {
+    await open({ estimates: ESTIMATES });
+
+    await waitFor(() => expect(combinedReads()).toHaveLength(1));
+    expect(screen.queryByText(/Taken together/)).toBeNull();
   });
 
   it('says so when nobody has estimated it', async () => {

@@ -1041,7 +1041,13 @@ export const en = {
         // in a plan of five hundred has one line for this and can name them; a page has the
         // room for the numbers, and two people who disagree about a task are saying
         // something that is invisible while only their names are on screen.
-        theirs: '{{name}}: {{p10}} / {{p50}} / {{p90}} hours'
+        theirs: '{{name}}: {{p10}} / {{p50}} / {{p90}} hours',
+        // What the ranges above say together, as the forecast reads them. Not an average,
+        // and the hint says so — an average of two people who disagree is a narrow band
+        // neither of them gave.
+        combined: 'Taken together: {{p10}} / {{p50}} / {{p90}} hours',
+        combinedHint:
+          'How the forecast reads these ranges: each is as likely to be right as the others, so the more they disagree, the wider this is. It is not an average, and it is nobody’s estimate.'
       },
       progress: {
         title: 'Progress'

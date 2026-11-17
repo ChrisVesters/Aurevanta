@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../api/client';
+import { useLoaded } from '../api/useLoaded';
 import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
@@ -15,6 +16,7 @@ import { RequirementForm } from '../projects/RequirementForm';
 import { WorkItemForm } from '../projects/WorkItemForm';
 import { byEnd, describeProgress, describeShape } from '../projects/work';
 import type {
+  CombinedEstimate,
   Dependency,
   Estimate,
   Project,
@@ -157,6 +159,19 @@ export function WorkItemPage() {
   );
 
   const own = ranges.find((estimate) => estimate.estimatorId === userId);
+
+  /**
+   * What the ranges say together, asked for only where there is more than one to combine —
+   * one person's range already says everything a combination of it would — and only on
+   * work still in the plan, since put-away work shows no estimates at all. Read again after
+   * every write, because a colleague's new range changes it.
+   */
+  const combining =
+    item !== null && item.archivedAt == null && ranges.length > 1;
+  const { data: combined } = useLoaded<CombinedEstimate>(
+    combining ? `/items/${itemId}/estimates/combined` : null,
+    [itemId, reloads, combining]
+  );
 
   const outgoing = useMemo(
     () => byEnd(dependencies, 'predecessorItemId'),
@@ -466,6 +481,27 @@ export function WorkItemPage() {
                           </li>
                         ))}
                       </ul>
+                    )}
+                    {/*
+                      Beside the ranges and never instead of them: "2–8 and 10–40" says go
+                      and talk, and the combination alone would hide that. Off the screen
+                      with them while somebody answers, since it is made of their numbers.
+                      The count is checked here as well as in the read, because a read that
+                      is no longer asked for keeps its last answer.
+                    */}
+                    {combining && combined?.range && (
+                      <div className="combined">
+                        <p>
+                          {t('projects.item.estimate.combined', {
+                            p10: combined.range.p10Hours,
+                            p50: combined.range.p50Hours,
+                            p90: combined.range.p90Hours
+                          })}
+                        </p>
+                        <p className="hint">
+                          {t('projects.item.estimate.combinedHint')}
+                        </p>
+                      </div>
                     )}
                     {item.status === 'NOT_STARTED' ? (
                       <p className="actions">

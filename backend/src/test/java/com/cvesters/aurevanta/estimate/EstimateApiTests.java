@@ -590,6 +590,76 @@ class EstimateApiTests {
 		assertThat(this.estimates.findAll()).isEmpty();
 	}
 
+	// Read together ------------------------------------------------------------
+
+	@Test
+	void workNobodyHasEstimatedCombinesToNothing() throws Exception {
+		combined(this.ada, this.migration).andExpect(status().isOk())
+			.andExpect(jsonPath("$.estimators").value(0))
+			.andExpect(jsonPath("$.range").value(org.hamcrest.Matchers.nullValue()));
+	}
+
+	/** One person's range read back through the mixture is that range: its two ends. */
+	@Test
+	void oneEstimateCombinesToItsOwnEnds() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isCreated());
+
+		combined(this.ada, this.migration).andExpect(jsonPath("$.estimators").value(1))
+			.andExpect(jsonPath("$.range.p10Hours").value(3.0))
+			// The geometric middle of the two ends, since the fit reads only those.
+			.andExpect(jsonPath("$.range.p50Hours").value(6.0))
+			.andExpect(jsonPath("$.range.p90Hours").value(12.0));
+	}
+
+	/**
+	 * Two people who disagree are combined as the forecast combines them — wider than an
+	 * average of their numbers, which would have been 6 / 12 / 24.
+	 */
+	@Test
+	void disagreementCombinesAsTheForecastSamplesIt() throws Exception {
+		estimate(this.ada, this.migration, "2", "4", "8").andExpect(status().isCreated());
+		estimate(this.bob, this.migration, "10", "20", "40").andExpect(status().isCreated());
+
+		combined(this.bob, this.migration).andExpect(jsonPath("$.estimators").value(2))
+			.andExpect(jsonPath("$.range.p10Hours").value(org.hamcrest.Matchers.closeTo(2.5, 0.05)))
+			.andExpect(jsonPath("$.range.p50Hours").value(org.hamcrest.Matchers.closeTo(8.9, 0.05)))
+			.andExpect(jsonPath("$.range.p90Hours").value(org.hamcrest.Matchers.closeTo(31.5, 0.05)));
+	}
+
+	/** A revision replaces its author's range in the combination; it does not join it. */
+	@Test
+	void onlyTheCurrentRangeOfEachPersonCounts() throws Exception {
+		estimate(this.ada, this.migration, "10", "20", "40").andExpect(status().isCreated());
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isCreated());
+
+		combined(this.ada, this.migration).andExpect(jsonPath("$.estimators").value(1))
+			.andExpect(jsonPath("$.range.p90Hours").value(12.0));
+	}
+
+	/** Work put away still answers, as {@code GET /api/items/{id}} does. */
+	@Test
+	void workPutAwayIsStillCombined() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isCreated());
+		this.migration.archive(CREATED_AT);
+		this.items.save(this.migration);
+
+		combined(this.ada, this.migration).andExpect(status().isOk()).andExpect(jsonPath("$.estimators").value(1));
+	}
+
+	@Test
+	void cannotCombineTheEstimatesOfAnotherOrganisation() throws Exception {
+		estimate(this.ada, this.migration, "3", "5", "12").andExpect(status().isCreated());
+
+		combined(this.grace, this.migration).andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("work_item_not_found"));
+	}
+
+	@Test
+	void combiningRequiresAToken() throws Exception {
+		this.mvc.perform(get("/api/items/" + this.migration.getId() + "/estimates/combined"))
+			.andExpect(status().isUnauthorized());
+	}
+
 	// Coverage ----------------------------------------------------------------
 
 	/**
@@ -679,6 +749,11 @@ class EstimateApiTests {
 
 	private ResultActions current(Membership caller) throws Exception {
 		return this.mvc.perform(get("/api/projects/" + this.acmePlan.getId() + "/estimates")
+			.header(HttpHeaders.AUTHORIZATION, bearer(caller)));
+	}
+
+	private ResultActions combined(Membership caller, WorkItem item) throws Exception {
+		return this.mvc.perform(get("/api/items/" + item.getId() + "/estimates/combined")
 			.header(HttpHeaders.AUTHORIZATION, bearer(caller)));
 	}
 

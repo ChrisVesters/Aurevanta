@@ -107,6 +107,16 @@ export type Dependency = {
  * exactly as it was said, because that is the only form of it a calibration report can ask
  * about later.
  */
+/**
+ * What everybody's current ranges on one piece of work say together — the distribution the
+ * forecast samples it from, read at the three points the estimate form asks about. Worked
+ * out by the server on every read and never stored; never an average, and nobody's estimate.
+ */
+export type CombinedEstimate = {
+  estimators: number;
+  range: { p10Hours: number; p50Hours: number; p90Hours: number } | null;
+};
+
 export type Estimate = {
   id: string;
   itemId: string;

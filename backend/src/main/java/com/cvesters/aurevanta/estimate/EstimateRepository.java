@@ -39,6 +39,22 @@ public interface EstimateRepository extends JpaRepository<Estimate, UUID> {
 	List<Estimate> findCurrentInProject(@Param("tenantId") UUID tenantId, @Param("projectId") UUID projectId);
 
 	/**
+	 * Every estimator's current range on one piece of work, archived or not — the item is
+	 * addressed by its identifier, and a caller holding one is asking about that item,
+	 * the rule {@code GET /api/items/{id}} already keeps. Ordered so the same rows always
+	 * come back in the same order.
+	 */
+	@Query("""
+			select e from Estimate e
+			join fetch e.estimator
+			where e.tenant.id = :tenantId and e.workItem.id = :itemId
+			  and e.createdAt = (select max(x.createdAt) from Estimate x
+			                     where x.workItem = e.workItem and x.estimator = e.estimator)
+			order by e.createdAt asc, e.id asc
+			""")
+	List<Estimate> findCurrentForItem(@Param("tenantId") UUID tenantId, @Param("itemId") UUID itemId);
+
+	/**
 	 * Every range this organisation ever wrote against work that is finished and said how
 	 * long it took.
 	 *

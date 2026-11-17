@@ -77,6 +77,16 @@ class EstimateController {
 	 * comes back is enough to say which items are covered and what each person last said,
 	 * which is the whole of what the plan schema promised to make visible.
 	 */
+	/**
+	 * What everybody's current ranges on one piece of work say together. Worked out on
+	 * every request and never stored: it is exact arithmetic over the rows, so it cannot
+	 * go stale, and it is computed by the same model the forecast samples from.
+	 */
+	@GetMapping("/api/items/{itemId}/estimates/combined")
+	CombinedEstimateResponse combined(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID itemId) {
+		return CombinedEstimateResponse.of(this.estimates.currentOnItem(caller.userId(), caller.tenantId(), itemId));
+	}
+
 	@GetMapping("/api/projects/{projectId}/estimates")
 	List<EstimateResponse> current(@AuthenticationPrincipal AuthenticatedUser caller, @PathVariable UUID projectId) {
 		return this.estimates.currentInProject(caller.userId(), caller.tenantId(), projectId)

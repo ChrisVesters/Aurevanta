@@ -132,6 +132,17 @@ public class EstimateService {
 	 * has two records and the two never meet.
 	 * @throws NotAMemberException if the caller no longer belongs to that organisation
 	 */
+	/**
+	 * Every current range on one piece of work, for reading together. Whether the caller
+	 * may reach the work is asked of {@link WorkItemService#get}, as everywhere else
+	 * here.
+	 */
+	@Transactional(readOnly = true)
+	public List<Estimate> currentOnItem(UUID callerId, UUID tenantId, UUID itemId) {
+		WorkItem item = this.items.get(callerId, tenantId, itemId);
+		return this.estimates.findCurrentForItem(item.getTenant().getId(), item.getId());
+	}
+
 	@Transactional(readOnly = true)
 	public List<ScorableEstimate> scorable(UUID callerId, UUID tenantId) {
 		this.memberships.requireMember(callerId, tenantId);
