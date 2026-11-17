@@ -69,7 +69,7 @@ export function ResourceForm({
   }
 
   return (
-    <form onSubmit={handle} noValidate>
+    <form className="resource-form" onSubmit={handle} noValidate>
       {children}
       {banner && (
         <p className="form-error" role="alert">

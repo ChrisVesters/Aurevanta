@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { Route, Routes, useLocation } from 'react-router';
 import userEvent from '@testing-library/user-event';
 import { ForecastPage } from './ForecastPage';
@@ -180,6 +180,10 @@ describe('ForecastPage', () => {
   beforeEach(() => {
     known.clear();
     plan = PROJECTS[0];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   /**
@@ -405,12 +409,9 @@ describe('ForecastPage', () => {
     );
   }
 
-  function burnUpTable() {
-    return screen.getByRole('table', { name: /weeks delivered/ });
-  }
-
-  function burnUpTableWhenReady() {
-    return screen.findByRole('table', { name: /weeks delivered/ });
+  /** The burn-up, which a screen reader hears as one image named by its weeks. */
+  function burnUpChartWhenReady() {
+    return screen.findByRole('img', { name: /weeks delivered/ });
   }
 
   function pointsOf(container: HTMLElement, selector: string) {
@@ -609,7 +610,7 @@ describe('ForecastPage', () => {
   it('reads the history as of the day the forecast was made', async () => {
     await openWithHistory(DELIVERING);
 
-    await screen.findByText(/Its own history says/);
+    await screen.findByText(/From what this plan has delivered/);
     expect(
       fetchMock.mock.calls.some(
         ([url]) => url === `${THROUGHPUT_URL}?asOf=2026-08-14`
@@ -841,12 +842,13 @@ describe('ForecastPage', () => {
   it('says what the plan’s own history says, beside what its estimates say', async () => {
     await openWithHistory(DELIVERING);
 
-    expect(
-      await screen.findByText('Its own history says 80% likely by Nov 2, 2026.')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('The estimates above say Aug 25, 2026.')
-    ).toBeInTheDocument();
+    await screen.findByText('80% likely by Nov 2, 2026');
+    const row = (label: string) =>
+      screen.getByText(label).nextElementSibling?.textContent;
+    expect(row('From the estimates')).toBe('80% likely by Aug 25, 2026');
+    expect(row('From what this plan has delivered')).toBe(
+      '80% likely by Nov 2, 2026'
+    );
     expect(
       screen.getByText(/The history is 69 days later/)
     ).toBeInTheDocument();
@@ -881,7 +883,7 @@ describe('ForecastPage', () => {
   it('leaves a long history unmarked', async () => {
     await openWithHistory(DELIVERING);
 
-    await screen.findByText('Its own history says 80% likely by Nov 2, 2026.');
+    await screen.findByText('80% likely by Nov 2, 2026');
     expect(screen.queryByText(/cannot show a week worse/)).toBeNull();
   });
 
@@ -891,19 +893,15 @@ describe('ForecastPage', () => {
    */
   it('moves both dates when the confidence changes', async () => {
     await openWithHistory(DELIVERING);
-    await screen.findByText('Its own history says 80% likely by Nov 2, 2026.');
+    await screen.findByText('80% likely by Nov 2, 2026');
     const before = fetchMock.mock.calls.length;
 
     await userEvent.click(screen.getByRole('radio', { name: '50%' }));
 
     expect(
-      await screen.findByText(
-        'Its own history says 50% likely by Oct 12, 2026.'
-      )
+      await screen.findByText('50% likely by Oct 12, 2026')
     ).toBeInTheDocument();
-    expect(
-      screen.getByText('The estimates above say Aug 21, 2026.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('50% likely by Aug 21, 2026')).toBeInTheDocument();
     expect(fetchMock.mock.calls).toHaveLength(before);
   });
 
@@ -984,7 +982,7 @@ describe('ForecastPage', () => {
     expect(
       screen.getByText(/26 weeks of history, 104 delivered/)
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Its own history says/)).toBeNull();
+    expect(screen.queryByText(/From what this plan has delivered/)).toBeNull();
   });
 
   /** A reason this version has never heard of gets a sentence rather than nothing. */
@@ -1051,7 +1049,7 @@ describe('ForecastPage', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
-        name: 'What this plan has actually been delivering'
+        name: 'Estimates against delivery'
       })
     ).toBeInTheDocument();
     // And the band it sits under is untouched.
@@ -1082,80 +1080,40 @@ describe('ForecastPage', () => {
     // produced, where this would have been a window over two dates.
     expect(screen.queryByText(/done between/)).toBeNull();
     expect(screen.queryByText(/Oct 5, 2026/)).toBeNull();
-    expect(
-      screen.getByText('Its own history says 80% likely by Nov 2, 2026.')
-    ).toBeInTheDocument();
+    expect(screen.getByText('80% likely by Nov 2, 2026')).toBeInTheDocument();
   });
 
   /**
-   * <strong>The table says how many weeks it holds, and then holds them.</strong> Decision 9
-   * inverted: the equivalent is not a fallback bolted to a picture, it is the thing that is
-   * asserted — so a week the drawing draws and the table does not is a failing test rather
-   * than a reader told less than a viewer.
+   * <strong>It says how many weeks it holds, and then draws them.</strong> The name a screen
+   * reader hears and the shapes a viewer sees are one set of numbers, so a week drawn and not
+   * counted, or counted and not drawn, is a failing test.
    */
-  it('renders every week it says it does', async () => {
-    await openWithHistory(DELIVERING);
-
-    expect(
-      await screen.findByText(
-        '26 weeks delivered, then 13 weeks this history projects.'
-      )
-    ).toBeInTheDocument();
-    // Twenty-six delivered, thirteen projected, the heading over each half, and the row of
-    // column headings: every week is a row and nothing is summarised away.
-    expect(within(burnUpTable()).getAllByRole('row')).toHaveLength(41);
-    expect(
-      within(burnUpTable()).getByRole('rowheader', { name: 'Feb 16, 2026' })
-    ).toBeInTheDocument();
-    expect(
-      within(burnUpTable()).getByRole('rowheader', { name: 'Nov 17, 2026' })
-    ).toBeInTheDocument();
-  });
-
-  /**
-   * <strong>The past is a figure and the future is a band, and the table is what says
-   * which.</strong> A row carrying a range has not happened yet; one without a range has.
-   * The group heading says it in words as well, because a range column alone is thin to hang
-   * that on when it is being read out one cell at a time.
-   */
-  it('separates what happened from what is projected', async () => {
-    await openWithHistory(DELIVERING);
-
-    const rows = within(await burnUpTableWhenReady()).getAllByRole('row');
-
-    // The last delivered week, which carries a number and no range.
-    expect(within(rows[26]).getByRole('rowheader')).toHaveTextContent(
-      'Aug 10, 2026'
-    );
-    expect(within(rows[26]).getAllByRole('cell')[0]).toHaveTextContent('104');
-    expect(within(rows[26]).getAllByRole('cell')[1]).toBeEmptyDOMElement();
-    // The heading over the projected half, and then the first week of it. `rowgroup` and
-    // not `colgroup`: it labels the rows below it, and a `colgroup` scope points at a
-    // `<colgroup>` element — so it would be a heading associated with nothing, which is
-    // exactly the association carrying "this half has not happened yet".
-    expect(rows[27]).toHaveTextContent('What the history projects');
-    expect(within(rows[27]).getByRole('rowheader')).toHaveAttribute(
-      'scope',
-      'rowgroup'
-    );
-    expect(within(rows[28]).getAllByRole('cell')[1]).toHaveTextContent(
-      '107 to 110'
-    );
-  });
-
-  /**
-   * <strong>The drawing is out of the accessibility tree and the table is not.</strong> A
-   * picture and its equivalent saying the same thing twice to a screen reader is worse than
-   * either alone — so the enhancement is hidden from it and the feature is what is read.
-   */
-  it('hides the drawing from a screen reader and not the table', async () => {
+  it('draws every week it says it does', async () => {
     const { container } = await openWithHistory(DELIVERING);
 
-    await burnUpTableWhenReady();
-    const drawing = container.querySelector('.burnup svg');
-    expect(drawing).not.toBeNull();
-    expect(drawing).toHaveAttribute('aria-hidden', 'true');
-    // And it carries a cone as well as a line, or the hidden half is hiding nothing.
+    expect(
+      await screen.findByRole('img', {
+        name: '26 weeks delivered, then 13 weeks this history projects.'
+      })
+    ).toBeInTheDocument();
+    // Twenty-six weeks delivered; the cone starts on the last of them and runs thirteen more,
+    // so fourteen points along each edge and down its middle.
+    expect(pointsOf(container, '.burnup .delivered')).toHaveLength(26);
+    expect(pointsOf(container, '.burnup .middle')).toHaveLength(14);
+    expect(pointsOf(container, '.burnup .cone')).toHaveLength(28);
+  });
+
+  /**
+   * <strong>One image, with one name.</strong> Its labels and legend are part of the picture;
+   * a screen reader hears the sentence that says what it holds, not each label in turn.
+   */
+  it('names the drawing for a screen reader as one image', async () => {
+    const { container } = await openWithHistory(DELIVERING);
+
+    const drawing = await burnUpChartWhenReady();
+    expect(drawing).toHaveClass('chart');
+    expect(drawing.querySelector('svg')).not.toBeNull();
+    // And it carries a cone as well as a line, or the picture has half its subject.
     expect(container.querySelector('.burnup polygon')).not.toBeNull();
     expect(container.querySelector('.burnup polyline')).not.toBeNull();
   });
@@ -1170,7 +1128,7 @@ describe('ForecastPage', () => {
   it('joins the delivered line to the cone', async () => {
     const { container } = await openWithHistory(DELIVERING);
 
-    await burnUpTableWhenReady();
+    await burnUpChartWhenReady();
     const line = pointsOf(container, '.burnup .delivered');
     const band = pointsOf(container, '.burnup .cone');
 
@@ -1202,9 +1160,9 @@ describe('ForecastPage', () => {
     });
 
     expect(
-      await screen.findByText(
-        '1 week delivered, then 0 weeks this history projects.'
-      )
+      await screen.findByRole('img', {
+        name: '1 week delivered, then 0 weeks this history projects.'
+      })
     ).toBeInTheDocument();
   });
 
@@ -1216,9 +1174,9 @@ describe('ForecastPage', () => {
     });
 
     expect(
-      await screen.findByText(
-        '26 weeks delivered, then 1 week this history projects.'
-      )
+      await screen.findByRole('img', {
+        name: '26 weeks delivered, then 1 week this history projects.'
+      })
     ).toBeInTheDocument();
   });
 
@@ -1239,12 +1197,19 @@ describe('ForecastPage', () => {
     });
 
     expect(
-      await screen.findByText(
-        '26 weeks delivered, then 0 weeks this history projects.'
-      )
+      await screen.findByRole('img', {
+        name: '26 weeks delivered, then 0 weeks this history projects.'
+      })
     ).toBeInTheDocument();
-    expect(screen.queryByText('What the history projects')).toBeNull();
     expect(screen.queryByText(/On this history the last of it/)).toBeNull();
+    // Labelled as a past alone: no "this week" divide, no projection in the legend, and its
+    // dates run from the first week to the last one delivered.
+    const chart = document.querySelector('.burnup .chart') as HTMLElement;
+    expect(within(chart).queryByText('This week')).toBeNull();
+    expect(within(chart).queryByText('Most likely from here')).toBeNull();
+    expect(within(chart).getByText('Delivered so far')).toBeInTheDocument();
+    expect(within(chart).getByText('Feb 16, 2026')).toBeInTheDocument();
+    expect(within(chart).getByText('Aug 10, 2026')).toBeInTheDocument();
     // And the reason is on screen, where it already was.
     expect(
       screen.getByText(/There is not enough finished work here to project from/)
@@ -1255,14 +1220,135 @@ describe('ForecastPage', () => {
    * A plan nobody has finished anything in has no picture at all, for the reason it has no
    * window: an empty axis is a chart of nothing, and the sentence beside it already says why.
    */
+
+  /**
+   * <strong>A drawing nobody can read is decoration.</strong> The first one had no labels,
+   * and once its table was folded nobody could tell what the shapes were. So it says what the
+   * line across the top is, where this week is, which dates it runs between, and what each
+   * mark means.
+   */
+  it('labels what the drawing shows', async () => {
+    await openWithHistory(DELIVERING);
+    await burnUpChartWhenReady();
+    const chart = within(
+      document.querySelector('.burnup .chart') as HTMLElement
+    );
+
+    expect(chart.getByText('144 items in the plan')).toBeInTheDocument();
+    expect(chart.getByText('Feb 16, 2026')).toBeInTheDocument();
+    // Twenty-five weeks in, of thirty-eight drawn.
+    expect(chart.getByText('This week').style.left).toBe(`${(25 / 38) * 100}%`);
+    expect(chart.getByText('Nov 17, 2026')).toBeInTheDocument();
+    expect(
+      chart
+        .getAllByRole('listitem', { hidden: true })
+        .map((item) => item.textContent)
+    ).toEqual([
+      'Delivered so far',
+      'Most likely from here',
+      'Range: 1 run in 10 does better, 1 in 10 worse'
+    ]);
+  });
+
+  /**
+   * Points at the drawing that far across it, as a pointer would. jsdom lays nothing out, so
+   * the drawing is given a width of 380 — thirty-eight weeks drawn, ten pixels each.
+   */
+  function pointAt(clientX: number) {
+    const plot = document.querySelector('.burnup .plot') as HTMLElement;
+    vi.spyOn(plot, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      width: 380
+    } as DOMRect);
+    fireEvent.pointerMove(plot, { clientX });
+    return plot;
+  }
+
+  /**
+   * <strong>Pointing at a week names it.</strong> A week already behind says what had been
+   * delivered by then; a week ahead says the most likely count and the range the wedge is.
+   */
+  it('names the week under the pointer and what it holds', async () => {
+    await openWithHistory(DELIVERING);
+    await burnUpChartWhenReady();
+    const tip = () => document.querySelector('.burnup .tip');
+
+    expect(tip()).toBeNull();
+
+    pointAt(54);
+    expect(tip()).toHaveTextContent('Week of Mar 23, 2026');
+    expect(tip()).toHaveTextContent('24 of 144 delivered');
+    expect(tip()).not.toHaveClass('leftward');
+
+    pointAt(300);
+    expect(tip()).toHaveTextContent('Week of Sep 22, 2026');
+    expect(tip()).toHaveTextContent(
+      'Most likely 129 of 144 delivered — 121 to 133'
+    );
+    // Past the middle it turns to the left, so it never runs off the right edge.
+    expect(tip()).toHaveClass('leftward');
+
+    fireEvent.pointerLeave(pointAt(300));
+    expect(tip()).toBeNull();
+  });
+
+  /** A pointer outside the drawing's edges names the first or last week, never nothing. */
+  it('names the nearest end for a pointer past either edge', async () => {
+    await openWithHistory(DELIVERING);
+    await burnUpChartWhenReady();
+    const tip = () => document.querySelector('.burnup .tip');
+
+    pointAt(-40);
+    expect(tip()).toHaveTextContent('Week of Feb 16, 2026');
+
+    pointAt(900);
+    expect(tip()).toHaveTextContent('Week of Nov 17, 2026');
+  });
+
+  /** An edge date that would sit on top of "this week" is left off rather than overprinted. */
+  it('leaves off a date that would crowd this week', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      burnUp: {
+        ...burnUp(),
+        past: burnUp().past.slice(-2),
+        cone: burnUp().cone
+      }
+    });
+    await burnUpChartWhenReady();
+    const chart = within(
+      document.querySelector('.burnup .chart') as HTMLElement
+    );
+
+    expect(chart.getByText('This week')).toBeInTheDocument();
+    expect(chart.queryByText('Aug 3, 2026')).toBeNull();
+    expect(chart.getByText('Nov 17, 2026')).toBeInTheDocument();
+  });
+
+  /** And the same at the far end, when the projection is short. */
+  it('leaves off the last date when the projection is short', async () => {
+    await openWithHistory({
+      ...DELIVERING,
+      burnUp: { ...burnUp(), cone: burnUp().cone.slice(0, 2) }
+    });
+    await burnUpChartWhenReady();
+    const chart = within(
+      document.querySelector('.burnup .chart') as HTMLElement
+    );
+
+    expect(chart.getByText('This week')).toBeInTheDocument();
+    expect(chart.getByText('Feb 16, 2026')).toBeInTheDocument();
+    expect(chart.queryByText('Aug 25, 2026')).toBeNull();
+  });
+
   it('draws nothing for a plan that has delivered nothing', async () => {
     await openWithHistory(NO_HISTORY);
 
     await screen.findByRole('heading', {
-      name: 'What this plan has actually been delivering'
+      name: 'Estimates against delivery'
     });
     expect(screen.queryByText(/Delivered 0 of/)).toBeNull();
-    expect(screen.queryByText(/weeks delivered, then/)).toBeNull();
+    expect(screen.queryByRole('img', { name: /weeks delivered/ })).toBeNull();
   });
 
   /**
@@ -1283,9 +1369,9 @@ describe('ForecastPage', () => {
     });
 
     expect(
-      await screen.findByText('Its own history says 80% likely by Nov 2, 2026.')
+      await screen.findByText('80% likely by Nov 2, 2026')
     ).toBeInTheDocument();
-    expect(screen.queryByText(/The estimates above say/)).toBeNull();
+    expect(screen.queryByText('From the estimates')).toBeNull();
     expect(screen.queryByText(/days later than the estimates/)).toBeNull();
   });
 
@@ -1309,7 +1395,7 @@ describe('ForecastPage', () => {
     renderPage();
 
     await settled();
-    expect(screen.queryByText(/Its own history says/)).toBeNull();
+    expect(screen.queryByText(/From what this plan has delivered/)).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -1342,7 +1428,7 @@ describe('ForecastPage', () => {
     fail(new TypeError('Failed to fetch'));
 
     await waitFor(() =>
-      expect(screen.queryByText(/Its own history says/)).toBeNull()
+      expect(screen.queryByText(/From what this plan has delivered/)).toBeNull()
     );
   });
 

@@ -223,7 +223,7 @@ export function ResourcesPage() {
               <span className="actions">
                 <button
                   type="button"
-                  className="link"
+                  className="secondary"
                   onClick={() =>
                     setEditing((open) =>
                       open === resource.id ? null : resource.id
@@ -234,7 +234,7 @@ export function ResourcesPage() {
                 </button>
                 <button
                   type="button"
-                  className="link"
+                  className="secondary"
                   disabled={busy}
                   onClick={() =>
                     void setAway(resource.id, resource.archivedAt === null)

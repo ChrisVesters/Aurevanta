@@ -394,7 +394,7 @@ export function ForecastPage() {
               )}
 
               {history && (
-                <>
+                <div className="moved">
                   <h2>{t('projects.forecast.page.moved.title')}</h2>
                   {before === undefined ? (
                     <p className="empty">
@@ -424,7 +424,7 @@ export function ForecastPage() {
                       )}
                     </>
                   )}
-                </>
+                </div>
               )}
             </>
           )}

@@ -63,28 +63,38 @@ export function ThroughputComparison({
     <div className="throughput">
       {heading}
 
-      <p className="hint">
-        {history.window !== null &&
-          `${t('projects.forecast.throughput.window', {
-            weeks: history.window.weeks,
-            completed: history.window.completed,
-            best: history.window.best,
-            worst: history.window.worst
-          })} `}
-        {t('projects.forecast.throughput.remaining', {
-          count: history.remaining
-        })}
-      </p>
-
       {theirs === null ? (
         <p className="empty">{describeNoSecondOpinion(t, history)}</p>
       ) : (
         <>
-          <p className="date">
-            {t('projects.forecast.throughput.date', {
-              confidence,
-              date: formatDay(theirs, i18n.language)
-            })}
+          {/*
+            The two dates as two labelled rows, at the confidence the page is read at, so the
+            comparison is the first thing seen rather than something assembled from sentences.
+          */}
+          <dl className="versus">
+            {ours !== null && (
+              <div>
+                <dt>{t('projects.forecast.throughput.fromEstimates')}</dt>
+                <dd>
+                  {t('projects.forecast.list.at', {
+                    confidence,
+                    date: formatDay(ours, i18n.language)
+                  })}
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>{t('projects.forecast.throughput.fromHistory')}</dt>
+              <dd>
+                {t('projects.forecast.list.at', {
+                  confidence,
+                  date: formatDay(theirs, i18n.language)
+                })}
+              </dd>
+            </div>
+          </dl>
+          <p className="caveat">
+            {ours !== null && `${describeDifference(t, ours, theirs)} `}
             {/*
               Named rather than subtracted into a figure. Two of these make the forecast look
               slow and two make it look fast, and the first two carry this run's own numbers
@@ -105,27 +115,29 @@ export function ThroughputComparison({
             </Help>
           </p>
           {/*
-            The one limitation that qualifies an answer rather than replacing it, and the
-            window alone does not carry it: a reader has to be told that a short window is
-            *why* the worst week above may be missing. Whether it fires is the server's to
-            decide, as `EstimateQuality`'s thresholds are — this end renders a flag it was
-            sent.
+            The one limitation that qualifies an answer rather than replacing it: a reader has
+            to be told that a short window is *why* the worst week may be missing. Whether it
+            fires is the server's to decide — this end renders a flag it was sent.
           */}
           {history.limitations.includes('throughput_window_is_short') && (
             <p className="caveat">{t('projects.forecast.throughput.short')}</p>
           )}
-          {ours !== null && (
-            <>
-              <p className="hint">
-                {t('projects.forecast.throughput.against', {
-                  date: formatDay(ours, i18n.language)
-                })}
-              </p>
-              <p className="caveat">{describeDifference(t, ours, theirs)}</p>
-            </>
-          )}
         </>
       )}
+
+      {/* What the history is made of, under both dates and whichever way it went. */}
+      <p className="hint">
+        {history.window !== null &&
+          `${t('projects.forecast.throughput.window', {
+            weeks: history.window.weeks,
+            completed: history.window.completed,
+            best: history.window.best,
+            worst: history.window.worst
+          })} `}
+        {t('projects.forecast.throughput.remaining', {
+          count: history.remaining
+        })}
+      </p>
 
       {/*
         The picture, and the table it is a picture of. Both are the same numbers the date

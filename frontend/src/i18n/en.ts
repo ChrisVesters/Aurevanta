@@ -425,12 +425,13 @@ export const en = {
       // dates and what they are not agreeing about. Nothing here averages them or picks one:
       // "six weeks against eleven" starts a conversation and a number in the middle ends it.
       throughput: {
-        title: 'What this plan has actually been delivering',
+        title: 'Estimates against delivery',
         help: 'Where does this come from?',
         lede: 'The plan’s own delivery history on the day this forecast was made, projected forward with no estimate in it.',
         // Read at whichever confidence the control above is set to, so the two move together.
-        date: 'Its own history says {{confidence}}% likely by {{date}}.',
-        against: 'The estimates above say {{date}}.',
+        // The two rows the comparison is, each read the way the list reads a forecast.
+        fromEstimates: 'From the estimates',
+        fromHistory: 'From what this plan has delivered',
         // Named rather than computed into a figure, for the reason above.
         differenceLater:
           'The history is {{days}} days later than the estimates.',
@@ -455,6 +456,23 @@ export const en = {
         // that has to be seen to be understood is one this product cannot ship.
         burnUp: {
           title: 'What has been delivered',
+          // The drawing's labels and legend. It is read by the shapes alone otherwise, and a
+          // first version without any of these could not be read at all.
+          total_one: '1 item in the plan',
+          total_other: '{{count}} items in the plan',
+          now: 'This week',
+          // What pointing at one week of the drawing says about it.
+          tip: {
+            week: 'Week of {{date}}',
+            delivered: '{{count}} of {{total}} delivered',
+            likely:
+              'Most likely {{likely}} of {{total}} delivered — {{low}} to {{high}}'
+          },
+          legend: {
+            delivered: 'Delivered so far',
+            likely: 'Most likely from here',
+            range: 'Range: 1 run in 10 does better, 1 in 10 worse'
+          },
           // The sentence somebody reads out. The two halves are separate because the second
           // needs a projection and the first never does.
           // **One sentence and no second date**, which the review pass corrected: the date
@@ -462,21 +480,14 @@ export const en = {
           // two-sided form decision 2 exists to keep out had crept back into the plan's own
           // example for this step.
           delivered: 'Delivered {{delivered}} of {{total}}.',
-          // What the table shows, said before it rather than left to be counted. Two counts
+          // The drawing's name to a screen reader, which hears it as one image. Two counts
           // again, and both reach one: a plan with a week of history, and one the history
           // says finishes inside a week.
           caption: '{{past}}, then {{ahead}} this history projects.',
           captionPast_one: '1 week delivered',
           captionPast_other: '{{count}} weeks delivered',
           captionAhead_one: '1 week',
-          captionAhead_other: '{{count}} weeks',
-          week: 'Week',
-          count: 'Delivered',
-          // The band, and it is the column that says a row is a projection rather than a
-          // record: the past has no range because it already happened.
-          range: 'If it goes better or worse',
-          band: '{{low}} to {{high}}',
-          projected: 'What the history projects'
+          captionAhead_other: '{{count}} weeks'
         },
         // Decision 7's table. The first two carry this run's own numbers; the last two are
         // properties of the two methods and are the same on every plan.

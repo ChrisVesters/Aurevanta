@@ -675,6 +675,17 @@ button.link {
   display: flex;
   flex-direction: column;
   gap: 16px;
+
+  /*
+    Each part carries a rule above it from when they were stacked on one page. Under the
+    tab strip that rule is a second line beneath the strip's own.
+  */
+  > .work,
+  > .forecasts,
+  > .project-form {
+    padding-top: 0;
+    border-top: none;
+  }
 }
 
 .project-form {
@@ -693,13 +704,30 @@ button.link {
 }
 
 /*
-  The rule above this form separates it from the plan it configures. Inside a dialog there
-  is nothing above it to be separated from, and a line across the top of a panel reads as
-  something having been cut off.
+  Every form asked for in a dialog is laid out one way, whichever page it came from: a
+  column of fields, the buttons in a row under them. The rule some carry on a page separates
+  them from what is above, and inside a dialog there is nothing above — a line across the top
+  of a panel reads as something having been cut off. Stated once here rather than per form,
+  because the resource and invite dialogs each drifted from the plan's by being styled
+  separately.
 */
-.modal .project-form {
+.modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   padding-top: 0;
   border-top: none;
+
+  .lede {
+    margin: 0;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
 }
 
 .project-list,
@@ -1430,6 +1458,13 @@ button.danger {
     display: flex;
     align-items: center;
     gap: 12px;
+
+    /* The member list's row buttons, for the same reason: one height, on the centre line. */
+    button {
+      align-self: center;
+      box-sizing: border-box;
+      min-height: 38px;
+    }
   }
 }
 
@@ -1447,21 +1482,8 @@ button.danger {
   border-top: 1px dashed var(--border);
 }
 
-/* And declaring one sits under the list, separated the way the invite form is. */
-.resources > form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-
-  button.primary {
-    align-self: flex-start;
-  }
-}
-
 .resource-list form,
-.resources > form {
+.resource-form {
   select {
     font: inherit;
     font-size: 16px;
@@ -1941,18 +1963,14 @@ button.danger {
 /*
   What the plan's own history says, beside what its estimates say.
 
-  Ruled off above rather than boxed, because it is a second reading of the same plan and not a
-  second panel: the confidence control above moves both dates, and two boxes would read as two
-  screens. The list underneath is the four things the two are not agreeing about, and it sits
-  *below* both dates deliberately — a reader who has taken the difference and stopped has taken
-  a subtraction of two answers to slightly different questions.
+  The first thing on the Compare tab, so nothing above it to rule off from: the tab strip is
+  the line. The two dates come first, then the gap with why they differ behind a "?", then the
+  history behind the second date and its drawing.
 */
 .forecast .throughput {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
 
   h3 {
     margin: 0;
@@ -1999,41 +2017,146 @@ button.danger {
   gap: 6px;
   margin-top: 6px;
 
-  .weeks {
-    border-collapse: collapse;
-    font-size: 13px;
-    text-align: left;
-  }
-
-  caption {
-    caption-side: top;
-    padding-bottom: 4px;
-    color: var(--muted);
-    text-align: left;
-  }
-
-  th,
-  td {
-    padding: 2px 16px 2px 0;
-    font-weight: 400;
-  }
-
-  thead th,
-  th[scope='colgroup'] {
-    color: var(--muted);
-  }
-
-  th[scope='colgroup'] {
-    padding-top: 8px;
-  }
-
   /*
     Coloured from the same variables as everything else rather than from anything of its own,
     so it follows a theme instead of pinning one — which is what makes a restyle a restyle.
   */
   .drawing {
+    display: block;
     width: 100%;
     height: auto;
+  }
+
+  /*
+    The labels sit over the drawing at the same coordinates as a share of its size, so they
+    keep their place at any width and the size of the text around them.
+  */
+  .plot {
+    position: relative;
+    cursor: crosshair;
+    /* A drag across the drawing on a touch screen points at weeks rather than scrolling. */
+    touch-action: pan-y;
+  }
+
+  /* The week being pointed at: a guide through it, a dot on the line, and its label. */
+  .guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px solid var(--accent-border);
+    pointer-events: none;
+  }
+
+  .dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 50%;
+    background: var(--accent);
+    pointer-events: none;
+  }
+
+  .tip {
+    position: absolute;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    color: var(--text-h);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    pointer-events: none;
+
+    &.leftward {
+      margin-left: -8px;
+      transform: translateX(-100%);
+    }
+  }
+
+  .label {
+    position: absolute;
+    font-size: 12px;
+    line-height: 1;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .plot .total {
+    left: 0;
+    transform: translateY(calc(-100% - 4px));
+  }
+
+  .axis {
+    position: relative;
+    height: 18px;
+    margin-top: 4px;
+
+    .start {
+      left: 0;
+    }
+
+    .now {
+      transform: translateX(-50%);
+      color: var(--text-h);
+      font-weight: 600;
+    }
+
+    .end {
+      right: 0;
+    }
+  }
+
+  .now {
+    stroke: var(--text);
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--text);
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  }
+
+  /* A sample of each mark, drawn the way the drawing draws it. */
+  .swatch {
+    display: inline-block;
+    width: 18px;
+    height: 10px;
+
+    &.delivered {
+      height: 0;
+      border-top: 2px solid var(--accent);
+    }
+
+    &.middle {
+      height: 0;
+      border-top: 1px dashed var(--accent-border);
+    }
+
+    &.cone {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+    }
   }
 
   .ceiling {
@@ -2433,4 +2556,47 @@ button.danger {
   flex-direction: column;
   gap: 8px;
   font-size: 14px;
+}
+
+/*
+  The Compare tab holds two questions — the estimates against what the plan has delivered,
+  and why the date moved since the forecast before — and each starts on its own rule, so they
+  never read as one account.
+*/
+.forecast-page .moved {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+
+  > p {
+    margin: 0;
+  }
+}
+
+/* The two dates the comparison is, as two labelled rows. */
+.forecast .throughput .versus {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+
+  > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+
+  dt {
+    flex: 0 0 240px;
+    color: var(--text);
+    font-size: 14px;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--text-h);
+    font-weight: 600;
+  }
 }
