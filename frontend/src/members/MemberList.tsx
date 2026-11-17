@@ -35,6 +35,11 @@ export function MemberList({
   // Which row has asked "are you sure": removal is the one action here that cannot be
   // undone from this screen, since re-adding somebody means inviting them again.
   const [confirming, setConfirming] = useState<string | null>(null);
+  // The one owner left can be neither demoted nor removed — the server refuses both with
+  // `last_owner` — so their row offers neither, by this list's own rule: hidden rather than
+  // offered and refused.
+  const owners = members.filter((member) => member.role === 'OWNER').length;
+  const fixed = (member: Member) => member.role === 'OWNER' && owners === 1;
 
   return (
     <ul className="member-list">
@@ -55,7 +60,7 @@ export function MemberList({
             <span className="email">{member.email}</span>
           </span>
 
-          {canAdminister ? (
+          {canAdminister && !fixed(member) ? (
             <>
               <label
                 className="visually-hidden"
@@ -83,6 +88,7 @@ export function MemberList({
           )}
 
           {canAdminister &&
+            !fixed(member) &&
             (confirming === member.id ? (
               <span className="confirm" role="group">
                 <span>

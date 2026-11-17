@@ -5,7 +5,7 @@ import { useLoaded } from '../api/useLoaded';
 import type { Resource } from '../resource/types';
 import { Modal } from '../ui/Modal';
 import { DATE_AT, USUAL_CONFIDENCE } from './confidence';
-import { formatDay, formatMoment } from './dates';
+import { formatDay, formatMomentAt } from './dates';
 import { ForecastAsk } from './ForecastAsk';
 import {
   describeDrift,
@@ -45,7 +45,6 @@ export function ForecastList({ projectId }: { projectId: string }) {
 
   return (
     <section className="forecasts">
-      <h2>{t('projects.forecast.list.title')}</h2>
       <p className="hint">{t('projects.forecast.list.lede')}</p>
 
       {/*
@@ -107,7 +106,7 @@ export function ForecastList({ projectId }: { projectId: string }) {
                 <span className="name">
                   <Link to={`/app/forecasts/${run.id}`}>
                     {t('projects.forecast.list.entry', {
-                      day: formatMoment(run.createdAt, i18n.language)
+                      day: formatMomentAt(run.createdAt, i18n.language)
                     })}
                   </Link>
                   {index === 0 && (
@@ -120,10 +119,7 @@ export function ForecastList({ projectId }: { projectId: string }) {
                 <span className="description">
                   {t('projects.forecast.list.by', { who: run.requestedByName })}
                   {' · '}
-                  {t('projects.forecast.list.assumed', {
-                    capacity: run.capacity,
-                    ...stretchAndGrowth(run, i18n.language)
-                  })}
+                  {assumed(run)}
                 </span>
               </span>
             </li>
@@ -132,6 +128,26 @@ export function ForecastList({ projectId }: { projectId: string }) {
       )}
     </section>
   );
+
+  /**
+   * What a run assumed, in one line. A question the run was not asked is named as left
+   * out rather than printed as "up to 0%", which read as a claim about the team.
+   */
+  function assumed(run: Forecast) {
+    const { worseBy, growthLow, growthHigh } = stretchAndGrowth(
+      run,
+      i18n.language
+    );
+    return t('projects.forecast.list.assumed', {
+      capacity: run.capacity,
+      stretch: run.limitations.includes('no_team_factor')
+        ? t('projects.forecast.list.noStretch')
+        : t('projects.forecast.list.stretch', { worseBy }),
+      growth: run.limitations.includes('no_scope_uncertainty')
+        ? t('projects.forecast.list.noGrowth')
+        : t('projects.forecast.list.growth', { growthLow, growthHigh })
+    });
+  }
 
   /** The usual reading of one run: a day where it has one, its hours where it does not. */
   function reading(run: Forecast) {

@@ -215,7 +215,7 @@ describe('ResourcesPage', () => {
   it('puts a pool away without losing it', async () => {
     await open([BACKEND]);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Put away' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
 
     expect(
       fetchMock.mock.calls.some((call) =>
@@ -228,7 +228,7 @@ describe('ResourcesPage', () => {
     await open([{ ...BACKEND, archivedAt: '2026-08-10T09:00:00Z' }]);
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'Show what has been put away' })
+      screen.getByRole('button', { name: 'Show archived resources' })
     );
 
     expect(
@@ -292,7 +292,7 @@ describe('ResourcesPage', () => {
       )
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Put away' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Archive' }));
 
     expect(
       await screen.findByText(
@@ -342,7 +342,7 @@ describe('ResourcesPage', () => {
   it('brings a pool back', async () => {
     await open([{ ...BACKEND, archivedAt: '2026-08-10T09:00:00Z' }]);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Show what has been put away' })
+      screen.getByRole('button', { name: 'Show archived resources' })
     );
     await screen.findByText('Backend engineers — 3 units');
 

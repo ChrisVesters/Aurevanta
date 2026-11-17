@@ -252,8 +252,6 @@ export function WorkItems({ projectId }: { projectId: string }) {
 
   return (
     <section className="work">
-      <h2>{t('projects.items.title')}</h2>
-
       {failure && (
         <p className="form-error" role="alert">
           {failure}
@@ -438,20 +436,28 @@ export function WorkItems({ projectId }: { projectId: string }) {
         <span className="who">
           {/*
             The title is the way in, rather than a button beside it called "Open". A card is
-            about one task and its name is what somebody is looking for.
+            about one task and its name is what somebody is looking for. Marked as a link
+            the way a plan's and a forecast's names are, so it reads as one.
           */}
-          <Link className="name" to={`/app/items/${item.id}`}>
-            {item.title}
-          </Link>
+          <span className="name">
+            <Link to={`/app/items/${item.id}`}>{item.title}</Link>
+          </span>
           {item.description && (
             <span className="description">{item.description}</span>
           )}
           {!archived && (
             <>
               <span className="estimate">{summary(item.id)}</span>
-              <span className="progress">
-                {describeProgress(t, i18n.language, item)}
-              </span>
+              {/*
+                Not for work not yet begun: the column already says so, and it was the same
+                two words on every card in it. Begun and finished work carry a date the
+                column does not.
+              */}
+              {item.status !== 'NOT_STARTED' && (
+                <span className="progress">
+                  {describeProgress(t, i18n.language, item)}
+                </span>
+              )}
               {describeShape(t, item.id, outgoing, incoming, titles).map(
                 (line) => (
                   <span className="shape" key={line}>

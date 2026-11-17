@@ -165,16 +165,23 @@ describe('WorkItemPage', () => {
     await screen.findByRole('heading', { level: 1, name: item.title });
   }
 
+  /** Either wording, since which one shows depends on whether the reader has estimated. */
+  const ESTIMATE_CONTROL = /^(Give|Revise) your estimate$/;
+
   const openEdit = () =>
-    userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    userEvent.click(screen.getByRole('button', { name: 'Rename or describe' }));
   const openEstimate = () =>
-    userEvent.click(screen.getByRole('button', { name: 'Estimate' }));
+    userEvent.click(screen.getByRole('button', { name: ESTIMATE_CONTROL }));
   const openProgress = () =>
-    userEvent.click(screen.getByRole('button', { name: 'Progress' }));
+    userEvent.click(screen.getByRole('button', { name: 'Report progress' }));
   const openNeeds = () =>
-    userEvent.click(screen.getByRole('button', { name: 'Needs' }));
+    userEvent.click(
+      screen.getByRole('button', { name: 'Change what it needs' })
+    );
   const openOrder = () =>
-    userEvent.click(screen.getByRole('button', { name: 'Order' }));
+    userEvent.click(
+      screen.getByRole('button', { name: 'Set what it must finish before' })
+    );
 
   /**
    * Filling the three boxes, top to bottom. An empty string leaves that box empty, which is
@@ -456,10 +463,17 @@ describe('WorkItemPage', () => {
     await open({ item: ARCHIVED_WORK_ITEM });
 
     expect(screen.getByText(/This task has been put away/)).toBeInTheDocument();
-    for (const control of ['Estimate', 'Progress', 'Needs', 'Order']) {
+    for (const control of [
+      ESTIMATE_CONTROL,
+      'Report progress',
+      'Change what it needs',
+      'Set what it must finish before'
+    ]) {
       expect(screen.queryByRole('button', { name: control })).toBeNull();
     }
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Rename or describe' })
+    ).toBeInTheDocument();
   });
 
   it('says so when archiving is refused', async () => {
@@ -1037,7 +1051,7 @@ describe('WorkItemPage', () => {
   it('offers no estimate on work that has been started', async () => {
     await open({ item: WORK_ITEMS[1] });
 
-    expect(screen.queryByRole('button', { name: 'Estimate' })).toBeNull();
+    expect(screen.queryByRole('button', { name: ESTIMATE_CONTROL })).toBeNull();
     expect(
       screen.getByText(/Started work is no longer estimated/)
     ).toBeInTheDocument();
@@ -1048,7 +1062,7 @@ describe('WorkItemPage', () => {
       item: { ...ITEM, status: 'DONE', completedOn: '2026-08-14' }
     });
 
-    expect(screen.queryByRole('button', { name: 'Estimate' })).toBeNull();
+    expect(screen.queryByRole('button', { name: ESTIMATE_CONTROL })).toBeNull();
   });
 
   /**
@@ -1060,7 +1074,7 @@ describe('WorkItemPage', () => {
     await open({ item: WORK_ITEMS[1], estimates: [COLLEAGUES_ESTIMATE] });
 
     expect(screen.getByText('Bob: 1 / 2 / 4 hours')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Estimate' })).toBeNull();
+    expect(screen.queryByRole('button', { name: ESTIMATE_CONTROL })).toBeNull();
   });
 
   /**

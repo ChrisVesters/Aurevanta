@@ -224,7 +224,7 @@ describe('ForecastPage', () => {
   }
 
   /** What the page is called once the forecast has arrived: the day it was made. */
-  const TITLE = 'Forecast of Aug 14, 2026';
+  const TITLE = 'Forecast of Aug 14, 2026, 6:00 AM';
 
   async function settled() {
     await screen.findByRole('heading', { level: 1, name: TITLE });
@@ -509,7 +509,7 @@ describe('ForecastPage', () => {
     await userEvent.click(tab('Explore'));
     expect(screen.getByTestId('address')).toHaveTextContent('?view=explore');
     expect(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     ).toBeInTheDocument();
     expect(screen.queryByText('What it assumed')).toBeNull();
 
@@ -794,6 +794,28 @@ describe('ForecastPage', () => {
       await screen.findByText('Up to 0% longer in a bad stretch')
     ).toBeInTheDocument();
     expect(screen.getByText('0–0% more work than listed')).toBeInTheDocument();
+  });
+
+  /**
+   * <strong>Said once, where the run left it out.</strong> A run that answered zero carries
+   * the matching caveat, and "up to 0% longer" above "No bad stretches" said one thing
+   * twice — the first time as a number that read like a claim about the team.
+   */
+  it('leaves an unasked question to what the forecast leaves out', async () => {
+    await open([
+      {
+        ...FORECAST,
+        teamFactorWorseByPercent: 0,
+        scopeGrowthP10Percent: 0,
+        scopeGrowthP90Percent: 0,
+        limitations: ['no_team_factor', 'no_scope_uncertainty']
+      }
+    ]);
+
+    expect(await screen.findByText('No bad stretches')).toBeInTheDocument();
+    expect(screen.getByText('No unlisted work')).toBeInTheDocument();
+    expect(screen.queryByText(/longer in a bad stretch/)).toBeNull();
+    expect(screen.queryByText(/more work than listed/)).toBeNull();
   });
 
   /**
@@ -1605,7 +1627,7 @@ describe('ForecastPage', () => {
     ).toHaveTextContent(/Answer the growth question under Advanced/);
   });
 
-  // What the spread is made of ---------------------------------------------
+  // What makes the range wide ---------------------------------------------
 
   /**
    * <strong>Loaded when somebody asks, and not before.</strong> Working it out replays the
@@ -1616,20 +1638,24 @@ describe('ForecastPage', () => {
     await open([FORECAST], CONTRIBUTIONS, 'explore');
     // Settled on the question rather than on the answer: the point is that opening the
     // part that offers the breakdown has not already asked for one.
-    await screen.findByRole('button', { name: 'What is widening this?' });
+    await screen.findByRole('button', { name: 'Show what widens it' });
 
     expect(
       fetchMock.mock.calls.filter(([url]) => url === CONTRIBUTIONS_URL)
     ).toHaveLength(0);
-    expect(screen.queryByText('What the spread is made of')).toBeNull();
+    // The question is titled before it is asked; only the answer waits.
+    expect(
+      screen.getByRole('heading', { name: 'What makes the range wide?' })
+    ).toBeInTheDocument();
+    expect(document.querySelector('.ranking')).toBeNull();
 
     await userEvent.click(
-      screen.getByRole('button', { name: 'What is widening this?' })
+      screen.getByRole('button', { name: 'Show what widens it' })
     );
 
-    expect(
-      await screen.findByText('What the spread is made of')
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(document.querySelector('.ranking')).not.toBeNull()
+    );
   });
 
   /**
@@ -1641,16 +1667,13 @@ describe('ForecastPage', () => {
   it('ranks the sources by how much the finish moves with them', async () => {
     await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
 
-    const ranking = within(
-      (
-        await screen.findByRole('heading', {
-          name: 'What the spread is made of'
-        })
-      ).parentElement as HTMLElement
+    await waitFor(() =>
+      expect(document.querySelector('.ranking')).not.toBeNull()
     );
+    const ranking = within(document.querySelector('.ranking') as HTMLElement);
 
     expect(
       ranking.getAllByRole('listitem').map((row) => row.textContent)
@@ -1670,7 +1693,7 @@ describe('ForecastPage', () => {
   it('names the two sources that are not work', async () => {
     await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
 
     expect(
@@ -1689,7 +1712,7 @@ describe('ForecastPage', () => {
   it('states that the shares overlap, and shows no percentage at all', async () => {
     await open([FORECAST], CONTRIBUTIONS, 'explore');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
 
     expect(
@@ -1715,7 +1738,7 @@ describe('ForecastPage', () => {
     );
 
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
 
     expect(
@@ -1737,7 +1760,7 @@ describe('ForecastPage', () => {
       'explore'
     );
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
 
     expect(
@@ -1775,7 +1798,7 @@ describe('ForecastPage', () => {
     );
 
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
 
     expect(
@@ -1783,7 +1806,7 @@ describe('ForecastPage', () => {
         'This forecast cannot be broken down: it was made by an earlier version of the model, which no longer reproduces it exactly.'
       )
     ).toBeInTheDocument();
-    expect(screen.queryByText('What the spread is made of')).toBeNull();
+    expect(document.querySelector('.ranking')).toBeNull();
   });
 
   /**
@@ -1814,21 +1837,19 @@ describe('ForecastPage', () => {
 
     const answered = renderPage(FORECAST, 'explore');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
     answered.unmount();
     settle(jsonResponse(200, CONTRIBUTIONS));
 
     const refused = renderPage(FORECAST, 'explore');
     await userEvent.click(
-      await screen.findByRole('button', { name: 'What is widening this?' })
+      await screen.findByRole('button', { name: 'Show what widens it' })
     );
     refused.unmount();
     fail(new TypeError('Failed to fetch'));
 
-    await waitFor(() =>
-      expect(screen.queryByText('What the spread is made of')).toBeNull()
-    );
+    await waitFor(() => expect(document.querySelector('.ranking')).toBeNull());
   });
 
   /**
@@ -1946,7 +1967,7 @@ describe('ForecastPage', () => {
     // different part of the panel — which is true of every forecast ever made.
     await openWithHistory(DELIVERING, FORECAST, 'explore');
 
-    await screen.findByRole('button', { name: 'What is widening this?' });
+    await screen.findByRole('button', { name: 'Show what widens it' });
     expect(
       screen.queryByRole('heading', { name: 'What if we had one more?' })
     ).toBeNull();

@@ -96,17 +96,16 @@ describe('routing', () => {
     );
   });
 
-  it('shows the dashboard to a signed-in visitor', async () => {
+  /** `/app` is where the guards send people, and it opens on the plans. */
+  it('opens a signed-in visitor on their plans', async () => {
     signedIn();
 
     renderRouted(<App />, { route: '/app' });
 
-    await waitFor(() =>
-      expect(screen.getByText('Acme Planning Co')).toBeInTheDocument()
-    );
     expect(
-      screen.getByRole('heading', { name: /you.re set up/i })
+      await screen.findByRole('heading', { level: 1, name: 'Projects' })
     ).toBeInTheDocument();
+    expect(screen.getByText('Acme Planning Co')).toBeInTheDocument();
   });
 
   it('keeps a signed-in visitor off the sign-in page', async () => {
@@ -116,7 +115,7 @@ describe('routing', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: /you.re set up/i })
+        screen.getByRole('heading', { level: 1, name: 'Projects' })
       ).toBeInTheDocument()
     );
   });
@@ -128,7 +127,7 @@ describe('routing', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: /you.re set up/i })
+        screen.getByRole('heading', { level: 1, name: 'Projects' })
       ).toBeInTheDocument()
     );
   });
@@ -163,7 +162,7 @@ describe('routing', () => {
       ).toBeInTheDocument()
     );
     expect(
-      screen.queryByRole('heading', { name: /you.re set up/i })
+      screen.queryByRole('heading', { level: 1, name: 'Projects' })
     ).not.toBeInTheDocument();
   });
 
@@ -208,7 +207,7 @@ describe('routing', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: /you.re set up/i })
+        screen.getByRole('heading', { level: 1, name: 'Projects' })
       ).toBeInTheDocument()
     );
   });
@@ -235,7 +234,7 @@ describe('routing', () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: /you.re set up/i })
+        screen.getByRole('heading', { level: 1, name: 'Projects' })
       ).toBeInTheDocument()
     );
   });
@@ -376,7 +375,7 @@ describe('routing', () => {
     );
 
     expect(
-      await screen.findByRole('heading', { name: /you.re set up/i })
+      await screen.findByRole('heading', { level: 1, name: 'Projects' })
     ).toBeInTheDocument();
   });
 
@@ -384,7 +383,7 @@ describe('routing', () => {
   it('reaches member management from the signed-in header', async () => {
     signedIn();
     renderRouted(<App />, { route: '/app' });
-    await screen.findByRole('heading', { name: /you.re set up/i });
+    await screen.findByRole('heading', { level: 1, name: 'Projects' });
 
     answering({
       '/api/auth/me': jsonResponse(200, ACCOUNT),
@@ -425,7 +424,7 @@ describe('routing', () => {
     renderRouted(<App />, { route: '/app' });
     await waitFor(() =>
       expect(
-        screen.getByRole('heading', { name: /you.re set up/i })
+        screen.getByRole('heading', { level: 1, name: 'Projects' })
       ).toBeInTheDocument()
     );
 

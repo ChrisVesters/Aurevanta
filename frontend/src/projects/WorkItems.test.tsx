@@ -62,7 +62,7 @@ describe('WorkItems', () => {
     renderRouted(<WorkItems projectId={PROJECT_ID} />, {
       route: `/app/projects/${PROJECT_ID}`
     });
-    await screen.findByRole('heading', { name: 'Work' });
+    await screen.findByRole('button', { name: 'Add a task' });
   }
 
   /**
@@ -490,7 +490,9 @@ describe('WorkItems', () => {
     await open();
 
     const rows = await screen.findAllByRole('listitem');
-    expect(within(rows[0]).getByText('Not started')).toBeInTheDocument();
+    // Not on a card in the not-started column, which already says so — it was the same
+    // two words on every card there.
+    expect(within(rows[0]).queryByText('Not started')).toBeNull();
     // A status with no date beside it is a claim nobody has to stand behind.
     expect(
       within(rows[1]).getByText('In progress since Aug 10, 2026')

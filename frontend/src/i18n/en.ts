@@ -13,7 +13,6 @@ export const en = {
     signOut: 'Sign out',
     nav: {
       label: 'Sections',
-      overview: 'Overview',
       projects: 'Projects',
       members: 'Members',
       // "Resources" and not "Team": people are one kind of thing in here, and a staging
@@ -257,7 +256,6 @@ export const en = {
     forecast: {
       // The Forecasts tab: every forecast made of this plan, newest first.
       list: {
-        title: 'Forecasts',
         lede: 'Every forecast made of this plan, newest first. Open one to read it and to ask questions of it.',
         loading: 'Loading forecasts…',
         none: 'No forecasts yet. Press “New forecast” to make the first one.',
@@ -270,8 +268,11 @@ export const en = {
         // and said with its percentage, so it is never mistaken for a promise.
         at: '{{confidence}}% likely by {{date}}',
         atHours: '{{hours}} hours of effort at {{confidence}}%',
-        assumed:
-          '{{capacity}} at a time, up to {{worseBy}}% longer in a bad stretch, {{growthLow}}–{{growthHigh}}% more work.'
+        assumed: '{{capacity}} at a time, {{stretch}}, {{growth}}.',
+        stretch: 'up to {{worseBy}}% longer in a bad stretch',
+        noStretch: 'no bad stretches',
+        growth: '{{growthLow}}–{{growthHigh}}% more work',
+        noGrowth: 'no unlisted work'
       },
       // The pop-up that asks for one. The button's words and the dialog's title are the
       // same, like every other form that adds to a list.
@@ -558,12 +559,13 @@ export const en = {
       // at the largest plan this product supports, which is not a cost to put on opening a
       // page nobody may scroll.
       contributions: {
-        open: 'What is widening this?',
+        open: 'Show what widens it',
         loading: 'Working out what moves the finish…',
-        title: 'What the spread is made of',
+        title: 'What makes the range wide?',
+        help: 'What does this show?',
         // The sentence the ranking answers, said plainly rather than left to be inferred
         // from an ordered list.
-        lede: 'Tighten the top of this list and the band narrows most.',
+        lede: 'Which estimates, and which shared risks, move the finish date most. Tighten the top of this list and the range narrows most.',
         // Never a percentage, and this is why. The shares overlap because a bad quarter is
         // bad for everything at once, so adding them up gives more than the whole — which
         // is exactly the precise-looking wrong number this product exists to replace.
@@ -800,7 +802,6 @@ export const en = {
     // The work inside one plan. No numbers on any of it yet: estimates are the next step,
     // and how they are *asked for* is a subject of its own.
     items: {
-      title: 'Work',
       loading: 'Loading work…',
       // "Above" and not "below": the way in moved to the top of the section, and an empty
       // state that points the wrong way is worse than one that points nowhere.
@@ -821,8 +822,10 @@ export const en = {
         submit: 'Add task',
         submitting: 'Adding…'
       },
+      // Each control on a task's page says what it does: it is the only way into its form,
+      // and a button repeating its section's heading ("Progress" under "Progress") did not.
       edit: {
-        open: 'Edit',
+        open: 'Rename or describe',
         submit: 'Save',
         submitting: 'Saving…',
         cancel: 'Cancel'
@@ -841,7 +844,8 @@ export const en = {
       unarchive: 'Bring back',
       unarchiveNamed: 'Bring {{title}} back',
       estimate: {
-        open: 'Estimate',
+        open: 'Give your estimate',
+        revise: 'Revise your estimate',
         // Hours of effort, never a date and never a duration: what a day is worth is a
         // question about calendars and who is available, and that is a later work's
         // to answer rather than something to bake into what somebody types here.
@@ -903,7 +907,7 @@ export const en = {
       // because a requirement means little alone — and an empty set is a claim rather than
       // an omission, which is why the form says so where somebody is deciding.
       needs: {
-        open: 'Needs',
+        open: 'Change what it needs',
         lede: 'How many of each does this tie up while it is being done?',
         available: '{{units}} available',
         // A pool the team has put away that this work still names. Shown rather than
@@ -922,7 +926,7 @@ export const en = {
         cancel: 'Cancel'
       },
       blocks: {
-        open: 'Order',
+        open: 'Set what it must finish before',
         hint: 'Pick what cannot start until this is finished. Everything else about the plan follows from these.',
         fields: {
           successorItemId: 'Must finish before',
@@ -956,7 +960,7 @@ export const en = {
       // What has already happened. Three states and no more: this is not a workflow, and
       // what a forecast needs to know is only whether an item is still ahead of it.
       progress: {
-        open: 'Progress',
+        open: 'Report progress',
         statusLabel: 'Status',
         status: {
           NOT_STARTED: 'Not started',
@@ -1102,8 +1106,9 @@ export const en = {
     loading: 'Loading resources…',
     none: 'No resources yet. Until there are, a forecast asks how much can be under way at once.',
     noneArchived: 'Nothing has been put away.',
-    showArchived: 'Show what has been put away',
-    showCurrent: 'Show what is in use',
+    // The words plans and work use for the same two listings and the same control.
+    showArchived: 'Show archived resources',
+    showCurrent: 'Show current resources',
     // The unit count is the whole of what a pool is, so it is in the line rather than
     // beside it.
     entry_one: '{{name}} — 1 unit',
@@ -1111,7 +1116,7 @@ export const en = {
     person: 'This is {{name}}.',
     change: 'Change',
     changing: 'Changing…',
-    putAway: 'Put away',
+    putAway: 'Archive',
     bringBack: 'Bring back',
     fields: {
       name: { label: 'What is it called?' },
@@ -1191,7 +1196,7 @@ export const en = {
       lede: 'These are three separate answers about three sets of estimates. They do not add up to anything.',
       forecasts: 'Before the work began',
       forecastsHint:
-        'The only ones that were predictions. Everything above is these.',
+        'The only ones that were real predictions, so the only ones that say how good the estimating is.',
       reports: 'After the work began',
       reportsHint:
         'Written by somebody who could already see how it was going. Expect these to be very good; how much better than the forecasts is the size of hindsight on your own work.',
@@ -1227,7 +1232,9 @@ export const en = {
     // The main screen of this page for most of its first year, and written as such: each
     // line is a different thing to go and do rather than an apology.
     coverage: {
-      title: 'What is not being scored',
+      // What is counted and what is left out, both: the list says how many are scored as
+      // well as what is missing, and a heading naming only the second contradicted it.
+      title: 'What is scored, and what is not',
       nothingFinished:
         'Nothing has been finished here yet. A track record starts with work that is done, estimated, and measured.',
       noActual_one:
@@ -1247,7 +1254,9 @@ export const en = {
         '1 finished task would have counted as a prediction if an estimate written on the day the work began counted as one. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
       startDay_other:
         '{{count}} finished tasks would have counted as predictions if an estimate written on the day the work began counted as one. A start date is a day and an estimate is a moment, so the two cannot be told apart within it.',
-      span: 'Covering estimates written between {{first}} and {{last}}.'
+      span: 'Covering estimates written between {{first}} and {{last}}.',
+      // "Between Nov 17 and Nov 17" is a range with nothing in it.
+      oneDay: 'Covering estimates written on {{day}}.'
     }
   },
   members: {
@@ -1328,11 +1337,6 @@ export const en = {
       body: 'Everything you plan from here belongs to this organisation and is visible only to its members.',
       open: '<app>Open Aurevanta</app> to get started.'
     }
-  },
-  dashboard: {
-    title: 'You’re set up',
-    body: '{{organisation}} is ready. Everything you plan from here belongs to this organisation and is visible only to its members.',
-    next: 'Estimating comes next.'
   },
   // Shared controls, belonging to no one screen.
   ui: {

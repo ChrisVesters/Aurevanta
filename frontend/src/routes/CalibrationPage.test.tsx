@@ -144,7 +144,9 @@ describe('CalibrationPage', () => {
     // The coverage section is the one part of this page that is always there, record or no
     // record — waiting on the title would wait for nothing, since it is on screen while the
     // request is still in flight.
-    await screen.findByRole('heading', { name: 'What is not being scored' });
+    await screen.findByRole('heading', {
+      name: 'What is scored, and what is not'
+    });
   }
 
   // The state this page spends its first year in ------------------------------
@@ -212,6 +214,19 @@ describe('CalibrationPage', () => {
       screen.getByText(
         'Covering estimates written between Feb 3, 2026 and Aug 14, 2026.'
       )
+    ).toBeInTheDocument();
+  });
+
+  /** One day is named once: "between Aug 14 and Aug 14" is a range with nothing in it. */
+  it('names a single day rather than a span from it to itself', async () => {
+    await open({
+      ...RECORDED,
+      firstScored: '2026-08-14T09:00:00Z',
+      lastScored: '2026-08-15T02:00:00Z'
+    });
+
+    expect(
+      screen.getByText('Covering estimates written on Aug 14, 2026.')
     ).toBeInTheDocument();
   });
 

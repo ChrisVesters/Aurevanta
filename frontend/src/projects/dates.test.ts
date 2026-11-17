@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDay, formatMoment, todayHere } from './dates';
+import { formatDay, formatMoment, formatMomentAt, todayHere } from './dates';
 
 /**
  * **These three exist because of one off-by-one, and this suite runs in `America/New_York`
@@ -32,6 +32,13 @@ describe('dates', () => {
 
   it('leaves a moment already inside the reader’s day alone', () => {
     expect(formatMoment('2026-08-14T18:00:00Z', 'en')).toBe('Aug 14, 2026');
+  });
+
+  /** Two forecasts asked for on one day are told apart by the hour, where the reader is. */
+  it('names a moment with its time of day where the reader is', () => {
+    expect(formatMomentAt('2026-08-15T02:00:00Z', 'en')).toBe(
+      'Aug 14, 2026, 10:00 PM'
+    );
   });
 
   /**

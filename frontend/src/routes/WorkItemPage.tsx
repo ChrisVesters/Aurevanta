@@ -510,7 +510,9 @@ export function WorkItemPage() {
                           disabled={busy}
                           onClick={() => show('estimate')}
                         >
-                          {t('projects.items.estimate.open')}
+                          {own
+                            ? t('projects.items.estimate.revise')
+                            : t('projects.items.estimate.open')}
                         </button>
                       </p>
                     ) : (

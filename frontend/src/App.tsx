@@ -1,9 +1,8 @@
-import { Route, Routes } from 'react-router';
+import { Navigate, Route, Routes } from 'react-router';
 import { RedirectWhenSignedIn } from './auth/RedirectWhenSignedIn';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppLayout } from './routes/AppLayout';
 import { CalibrationPage } from './routes/CalibrationPage';
-import { DashboardPage } from './routes/DashboardPage';
 import { ForgotPasswordPage } from './routes/ForgotPasswordPage';
 import { LandingPage } from './routes/LandingPage';
 import { InvitePage } from './routes/InvitePage';
@@ -51,7 +50,15 @@ function App() {
       <Route element={<RequireAuth />}>
         {/* One header, one organisation switcher, however many pages sit under it. */}
         <Route element={<AppLayout />}>
-          <Route path="/app" element={<DashboardPage />} />
+          {/*
+            Signing in lands on the plans. There was an overview here, and it was a
+            placeholder promising features that live on other pages; a page saying nothing
+            is worse than no page. `/app` stays the address the guards send people to.
+          */}
+          <Route
+            path="/app"
+            element={<Navigate to="/app/projects" replace />}
+          />
           {/*
             Addressed by identifier and not by organisation handle: the organisation comes
             from the token, as it does on every other route. That is what lets the handle change's two

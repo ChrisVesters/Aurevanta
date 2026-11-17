@@ -81,7 +81,7 @@ describe('ForecastList', () => {
   }
 
   async function settled() {
-    await screen.findByRole('heading', { name: 'Forecasts' });
+    await screen.findByRole('button', { name: 'New forecast' });
   }
 
   function answer(runs: Forecast[]) {
@@ -818,14 +818,19 @@ describe('ForecastList', () => {
         capacity: 1,
         teamFactorWorseByPercent: 0,
         scopeGrowthP10Percent: 0,
-        scopeGrowthP90Percent: 0
+        scopeGrowthP90Percent: 0,
+        // What a run that answered zero carries, and what the row names instead of
+        // printing "up to 0%" as though it were a claim about the team.
+        limitations: ['no_team_factor', 'no_scope_uncertainty']
       }
     ]);
 
     const rows = screen.getAllByRole('listitem');
     expect(rows).toHaveLength(2);
     expect(
-      within(rows[0]).getByRole('link', { name: 'Forecast of Aug 14, 2026' })
+      within(rows[0]).getByRole('link', {
+        name: 'Forecast of Aug 14, 2026, 6:00 AM'
+      })
     ).toHaveAttribute('href', `/app/forecasts/${FORECAST.id}`);
     expect(within(rows[0]).getByText('Newest')).toBeInTheDocument();
     expect(
@@ -838,12 +843,14 @@ describe('ForecastList', () => {
     ).toBeInTheDocument();
 
     expect(
-      within(rows[1]).getByRole('link', { name: 'Forecast of Aug 7, 2026' })
+      within(rows[1]).getByRole('link', {
+        name: 'Forecast of Aug 7, 2026, 6:00 AM'
+      })
     ).toHaveAttribute('href', `/app/forecasts/${OLDER.id}`);
     expect(within(rows[1]).queryByText('Newest')).toBeNull();
     expect(
       within(rows[1]).getByText(
-        'Asked for by Bob · 1 at a time, up to 0% longer in a bad stretch, 0–0% more work.'
+        'Asked for by Bob · 1 at a time, no bad stretches, no unlisted work.'
       )
     ).toBeInTheDocument();
   });

@@ -302,7 +302,7 @@ describe('ProjectPage', () => {
     );
     expect(tab('Work')).toHaveAttribute('aria-selected', 'true');
     expect(
-      await screen.findByRole('heading', { name: 'Work' })
+      await screen.findByRole('button', { name: 'Add a task' })
     ).toBeInTheDocument();
     expect(url()).toBe('');
   });
@@ -319,7 +319,7 @@ describe('ProjectPage', () => {
     await userEvent.click(tab('Forecasts'));
 
     expect(
-      await screen.findByRole('heading', { name: 'Forecasts' })
+      await screen.findByRole('button', { name: 'New forecast' })
     ).toBeInTheDocument();
     expect(tab('Forecasts')).toHaveAttribute('aria-selected', 'true');
     expect(url()).toBe('?tab=forecasts');
@@ -333,7 +333,7 @@ describe('ProjectPage', () => {
     await open(PROJECTS[0], 'forecasts');
 
     expect(
-      await screen.findByRole('heading', { name: 'Forecasts' })
+      await screen.findByRole('button', { name: 'New forecast' })
     ).toBeInTheDocument();
     expect(tab('Forecasts')).toHaveAttribute('aria-selected', 'true');
   });
@@ -348,7 +348,7 @@ describe('ProjectPage', () => {
       await open(PROJECTS[0], retired as PlanTab);
 
       expect(
-        await screen.findByRole('heading', { name: 'Forecasts' })
+        await screen.findByRole('button', { name: 'New forecast' })
       ).toBeInTheDocument();
       expect(tab('Forecasts')).toHaveAttribute('aria-selected', 'true');
     }
@@ -363,7 +363,7 @@ describe('ProjectPage', () => {
     await open(PROJECTS[0], 'sideways' as PlanTab);
 
     expect(
-      await screen.findByRole('heading', { name: 'Work' })
+      await screen.findByRole('button', { name: 'Add a task' })
     ).toBeInTheDocument();
     expect(tab('Work')).toHaveAttribute('aria-selected', 'true');
   });
@@ -387,7 +387,7 @@ describe('ProjectPage', () => {
     await userEvent.keyboard('{Enter}');
 
     expect(
-      await screen.findByRole('heading', { name: 'Forecasts' })
+      await screen.findByRole('button', { name: 'New forecast' })
     ).toBeInTheDocument();
     expect(url()).toBe('?tab=forecasts');
   });
@@ -418,7 +418,7 @@ describe('ProjectPage', () => {
    */
   it('is one stop for the tab key however many parts there are', async () => {
     await open(PROJECTS[0], 'forecasts');
-    await screen.findByRole('heading', { name: 'Forecasts' });
+    await screen.findByRole('button', { name: 'New forecast' });
 
     expect(tab('Forecasts')).toHaveAttribute('tabindex', '0');
     for (const name of TABS.filter((each) => each !== 'Forecasts')) {

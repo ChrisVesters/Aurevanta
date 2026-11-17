@@ -34,6 +34,12 @@ const METHODS = ['three_point', 'surprise_framed'] as const;
  */
 export function TrackRecord({ record }: { record: Calibration }) {
   const { t, i18n } = useTranslation();
+
+  /** The days the scored estimates were written on, or the one day where that is all. */
+  const spanOf = (first: string, last: string) =>
+    first === last
+      ? t('calibration.coverage.oneDay', { day: first })
+      : t('calibration.coverage.span', { first, last });
   const forecasts = record.forecasts;
   // Pulled out once, because they are what decides whether each block exists — and because
   // reading them off the record inside the markup would put the same null check in four
@@ -225,10 +231,10 @@ export function TrackRecord({ record }: { record: Calibration }) {
           )}
           {record.firstScored !== null && record.lastScored !== null && (
             <li>
-              {t('calibration.coverage.span', {
-                first: formatMoment(record.firstScored, i18n.language),
-                last: formatMoment(record.lastScored, i18n.language)
-              })}
+              {spanOf(
+                formatMoment(record.firstScored, i18n.language),
+                formatMoment(record.lastScored, i18n.language)
+              )}
             </li>
           )}
         </ul>

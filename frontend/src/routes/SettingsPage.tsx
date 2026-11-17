@@ -91,7 +91,7 @@ function OrganisationForm({ organisation }: { organisation: Organisation }) {
 
   return (
     <form
-      className="invite-form"
+      className="settings-form"
       onSubmit={(event) => void save(event)}
       noValidate
     >

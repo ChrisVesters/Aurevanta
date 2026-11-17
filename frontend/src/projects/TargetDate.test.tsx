@@ -274,6 +274,27 @@ describe('TargetDate', () => {
     expect(screen.queryByLabelText('Thought of afterwards')).toBeNull();
   });
 
+  /**
+   * <strong>Nor work already delivered.</strong> Dropping something finished is not a
+   * decision anybody can act on, and on a plan half done it was most of the list.
+   */
+  it('does not offer work that is already finished', async () => {
+    const finished: WorkItem = {
+      ...WORK_ITEMS[0],
+      id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+      title: 'Shipped last month',
+      status: 'DONE',
+      completedOn: '2026-07-01'
+    };
+    answer([...WORK_ITEMS, finished]);
+    await open();
+
+    expect(
+      await screen.findByLabelText(WORK_ITEMS[0].title)
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Shipped last month')).toBeNull();
+  });
+
   /** A forecast older than everything now in the plan has nothing it could weigh. */
   it('says so when there is nothing the forecast could weigh', async () => {
     answer([]);

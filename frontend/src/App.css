@@ -498,25 +498,6 @@ button.link {
   }
 }
 
-.home {
-  margin-inline: auto;
-  width: 100%;
-  padding: 32px 24px 64px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  h1 {
-    margin: 0;
-  }
-
-  /* Prose keeps a measure whatever the shell is set to; a line this long is unreadable. */
-  .lede {
-    max-width: 68ch;
-  }
-}
-
 /* Members and invitations ------------------------------------------------- */
 
 /*
@@ -761,20 +742,6 @@ button.link {
 
   .name {
     color: var(--text-h);
-  }
-
-  /*
-    The title is the row's link. Underlined on hover rather than always, because a list of
-    five hundred underlined titles is harder to read down than a list of plain ones — and
-    it keeps its own colour, since the name is what somebody is scanning for.
-  */
-  a.name {
-    text-decoration: none;
-
-    &:hover,
-    &:focus-visible {
-      text-decoration: underline;
-    }
   }
 
   .description {
@@ -1403,12 +1370,16 @@ button.danger {
   border-top: 1px solid var(--border);
 }
 
-.invite-form {
+/*
+  The invite form and the organisation's own settings: a column of fields. No rule above
+  either — the invite form opens in a dialog, and the settings form is its page's only
+  content, where a line under the page's lede was the one no other page had.
+*/
+.invite-form,
+.settings-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
 
   select {
     font: inherit;
@@ -2224,14 +2195,22 @@ button.danger {
     font-weight: 600;
   }
 
+  /*
+    Capped and scrolled inside itself, so a plan with a hundred open tasks does not push the
+    button that asks the question a hundred rows down.
+  */
   .ticks {
     display: flex;
     flex-direction: column;
     gap: 4px;
     margin: 0;
-    padding: 0;
+    padding: 8px 10px;
     list-style: none;
     font-size: 14px;
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
   }
 
   .ticks label {

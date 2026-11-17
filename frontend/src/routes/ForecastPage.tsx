@@ -10,7 +10,7 @@ import {
   USUAL_CONFIDENCE
 } from '../projects/confidence';
 import type { Confidence } from '../projects/confidence';
-import { dayHere, formatDay, formatMoment } from '../projects/dates';
+import { dayHere, formatDay, formatMomentAt } from '../projects/dates';
 import {
   calendarOf,
   describeDrift,
@@ -161,7 +161,7 @@ export function ForecastPage() {
   const drifting = newest
     ? readingOf(history?.drift ?? null, confidence)
     : null;
-  const madeOn = formatMoment(run.createdAt, i18n.language);
+  const madeOn = formatMomentAt(run.createdAt, i18n.language);
   const view = viewFrom(params.get(VIEW_PARAM));
   const stretch = stretchAndGrowth(run, i18n.language);
 
@@ -315,17 +315,26 @@ export function ForecastPage() {
                         capacity: run.capacity
                       })}
                 </li>
-                <li>
-                  {t('projects.forecast.page.assume.stretch', {
-                    worseBy: stretch.worseBy
-                  })}
-                </li>
-                <li>
-                  {t('projects.forecast.page.assume.growth', {
-                    growthLow: stretch.growthLow,
-                    growthHigh: stretch.growthHigh
-                  })}
-                </li>
+                {/*
+                  Not where the run left it out: "up to 0% longer" here and "No bad
+                  stretches" under *What it leaves out* said one thing twice, the first time
+                  as a number that read like a claim. The caveat is the one that stays.
+                */}
+                {!run.limitations.includes('no_team_factor') && (
+                  <li>
+                    {t('projects.forecast.page.assume.stretch', {
+                      worseBy: stretch.worseBy
+                    })}
+                  </li>
+                )}
+                {!run.limitations.includes('no_scope_uncertainty') && (
+                  <li>
+                    {t('projects.forecast.page.assume.growth', {
+                      growthLow: stretch.growthLow,
+                      growthHigh: stretch.growthHigh
+                    })}
+                  </li>
+                )}
                 {calendar && (
                   <li>
                     {t('projects.forecast.page.assume.calendar', calendar)}
@@ -404,7 +413,7 @@ export function ForecastPage() {
                     <>
                       <p className="hint">
                         {t('projects.forecast.page.moved.since', {
-                          day: formatMoment(before.createdAt, i18n.language),
+                          day: formatMomentAt(before.createdAt, i18n.language),
                           who: before.requestedByName
                         })}
                       </p>

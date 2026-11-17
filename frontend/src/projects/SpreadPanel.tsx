@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLoaded } from '../api/useLoaded';
+import { Help } from '../ui/Help';
 import { describeSource } from './forecastText';
 import type { Contribution } from './forecastTypes';
 
@@ -42,6 +43,16 @@ export function SpreadPanel({ runId }: { runId: string }) {
 
   return (
     <div className="spread">
+      {/*
+        Titled before it is asked, like the two questions below it: a lone button opening
+        the tab read as a control belonging to nothing.
+      */}
+      <div className="titled">
+        <h2>{t('projects.forecast.contributions.title')}</h2>
+        <Help label={t('projects.forecast.contributions.help')}>
+          {t('projects.forecast.contributions.lede')}
+        </Help>
+      </div>
       {spread === null && spreadFailure === null ? (
         <p className="actions">
           <button
@@ -59,8 +70,6 @@ export function SpreadPanel({ runId }: { runId: string }) {
         <p className="empty">{spreadFailure}</p>
       ) : (
         <>
-          <h2>{t('projects.forecast.contributions.title')}</h2>
-          <p className="hint">{t('projects.forecast.contributions.lede')}</p>
           <ul className="ranking">
             {spread?.map((source) => (
               <li key={source.itemId ?? source.kind}>

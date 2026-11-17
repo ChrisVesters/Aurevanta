@@ -31,9 +31,6 @@ export function AppLayout() {
           <span className="role">{t(`roles.${account.role}`)}</span>
         </div>
         <nav aria-label={t('app.nav.label')}>
-          <NavLink to="/app" end>
-            {t('app.nav.overview')}
-          </NavLink>
           <NavLink to="/app/projects">{t('app.nav.projects')}</NavLink>
           <NavLink to="/app/members">{t('app.nav.members')}</NavLink>
           <NavLink to="/app/resources">{t('app.nav.resources')}</NavLink>

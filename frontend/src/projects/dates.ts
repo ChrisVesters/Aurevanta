@@ -36,6 +36,20 @@ export function formatMoment(instant: string, locale: string): string {
 }
 
 /**
+ * A moment from the API with the time of day as well, where the reader is.
+ *
+ * For what is named by when it was made — a forecast — where the day alone stops telling
+ * two apart as soon as somebody asks twice in one day, which is the ordinary case when
+ * trying out assumptions.
+ */
+export function formatMomentAt(instant: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(new Date(instant));
+}
+
+/**
  * What day it is *here*, as the `yyyy-mm-dd` the server takes.
  *
  * The same bug as {@link formatDay} written the other way round: `toISOString()` is UTC, so

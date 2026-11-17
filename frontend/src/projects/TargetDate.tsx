@@ -96,7 +96,11 @@ export function TargetDate({ run }: { run: Forecast }) {
     );
   }
 
-  const offered = (work ?? []).filter((item) => wasInTheRun(item, run));
+  // Finished work is not offered either: dropping something already delivered is not a
+  // decision anybody can act on, and on a plan half done it was most of the list.
+  const offered = (work ?? []).filter(
+    (item) => wasInTheRun(item, run) && item.status !== 'DONE'
+  );
   const atTheLimit = ticked.length >= MOST_CANDIDATES;
 
   function tick(itemId: string) {

@@ -18,14 +18,24 @@ describe('MembersPage', () => {
   const fetchMock = mockFetch();
 
   /**
+   * Bob promoted alongside Ada. Only with a second owner can either be demoted or removed —
+   * the last one is offered neither — so every case about doing that to an owner starts here.
+   */
+  const TWO_OWNERS = [MEMBERS[0], { ...MEMBERS[1], role: 'OWNER' as const }];
+
+  /**
    * Restores a session and answers the two loads the page makes: everybody in the
    * organisation, then — only for an owner — what is still outstanding.
    */
-  async function open(account: Account = ACCOUNT, invitations = [INVITATION]) {
+  async function open(
+    account: Account = ACCOUNT,
+    invitations = [INVITATION],
+    members = MEMBERS
+  ) {
     storeAccessToken();
     fetchMock
       .mockResolvedValueOnce(jsonResponse(200, account))
-      .mockResolvedValueOnce(jsonResponse(200, MEMBERS))
+      .mockResolvedValueOnce(jsonResponse(200, members))
       .mockResolvedValueOnce(jsonResponse(200, invitations));
     renderRouted(<MembersPage />, { route: '/app/members' });
     await screen.findByText('Ada');
@@ -90,8 +100,24 @@ describe('MembersPage', () => {
    * organisation with nobody able to administer it cannot be repaired from inside the
    * product at all.
    */
-  it('says so when a change would leave the organisation with no owner', async () => {
+  /**
+   * Hidden rather than offered and refused, by this list's own rule: the one owner left can
+   * be neither demoted nor removed, and the server says `last_owner` to both.
+   */
+  it('offers the last owner nothing that would leave the organisation without one', async () => {
     await open();
+
+    expect(screen.queryByLabelText('Role for Ada')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove Ada' })).toBeNull();
+    expect(screen.getByLabelText('Role for Bob')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Remove Bob' })
+    ).toBeInTheDocument();
+  });
+
+  /** Still reachable: the other owner can step down between this list loading and the change. */
+  it('says so when a change would leave the organisation with no owner', async () => {
+    await open(ACCOUNT, [INVITATION], TWO_OWNERS);
     fetchMock.mockResolvedValueOnce(jsonResponse(409, { code: 'last_owner' }));
 
     await userEvent.selectOptions(
@@ -376,14 +402,14 @@ describe('MembersPage', () => {
    * is the thing hiding the controls from a member was for.
    */
   it('takes the owner controls away when you demote yourself', async () => {
-    await open();
+    await open(ACCOUNT, [INVITATION], TWO_OWNERS);
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse(200, { ...MEMBERS[0], role: 'MEMBER' })
       )
       .mockResolvedValueOnce(jsonResponse(200, { ...ACCOUNT, role: 'MEMBER' }))
       .mockResolvedValueOnce(
-        jsonResponse(200, [{ ...MEMBERS[0], role: 'MEMBER' }, MEMBERS[1]])
+        jsonResponse(200, [{ ...MEMBERS[0], role: 'MEMBER' }, TWO_OWNERS[1]])
       );
 
     await userEvent.selectOptions(
@@ -404,7 +430,7 @@ describe('MembersPage', () => {
    * refused — starting with reloading the list it is sitting on.
    */
   it('ends the session when you remove yourself', async () => {
-    await open();
+    await open(ACCOUNT, [INVITATION], TWO_OWNERS);
     fetchMock.mockResolvedValueOnce(jsonResponse(204));
 
     await userEvent.click(screen.getByRole('button', { name: 'Remove Ada' }));
