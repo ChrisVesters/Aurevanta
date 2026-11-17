@@ -995,6 +995,72 @@ button.link {
   color: var(--accent);
 }
 
+/*
+  The current work, one column per status. Side by side where there is room and stacked
+  where there is not, in the order work moves through them.
+*/
+.board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    min-height: 120px;
+    border: 1px dashed transparent;
+    border-radius: 10px;
+    background: var(--accent-bg);
+    transition: border-color 0.15s;
+
+    /* Where a dragged card can land. */
+    &.over {
+      border-color: var(--accent);
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 15px;
+      color: var(--text-h);
+    }
+
+    .empty {
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+
+  /* Cards stack their contents and the archive button, since a column is narrow. */
+  .work-item-list li {
+    flex-direction: column;
+    align-items: stretch;
+    background: var(--bg);
+
+    &[draggable='true'] {
+      cursor: grab;
+    }
+
+    &.dragging {
+      opacity: 0.5;
+    }
+
+    .who {
+      min-width: 0;
+    }
+
+    button {
+      align-self: flex-start;
+    }
+  }
+}
+
 /* The work inside a plan, above the settings that configure the plan itself. */
 .work {
   display: flex;

@@ -54,6 +54,7 @@ export function ProgressForm({
   id,
   item,
   estimated,
+  startAs,
   busy,
   banner,
   fieldErrors,
@@ -71,6 +72,14 @@ export function ProgressForm({
    * free is the moment somebody presses save on this form.
    */
   estimated: boolean;
+  /**
+   * The status the form opens on, where that is not the one the work already has.
+   *
+   * The plan's board passes the column a card was dropped on, so the drag says *what*
+   * changed and this form still asks *when* — the dates are the part a drop cannot carry,
+   * and the rule about which boxes a status has room for stays stated once, here.
+   */
+  startAs?: WorkItemStatus;
   busy: boolean;
   banner: string | null;
   fieldErrors: Record<string, string>;
@@ -78,7 +87,7 @@ export function ProgressForm({
   onCancel: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [status, setStatus] = useState<WorkItemStatus>(item.status);
+  const [status, setStatus] = useState<WorkItemStatus>(startAs ?? item.status);
   const records = RECORDS[status];
 
   // Asked for on its own rather than carried on the item, because the plan listing draws

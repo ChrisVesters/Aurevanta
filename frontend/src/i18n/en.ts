@@ -816,6 +816,15 @@ export const en = {
         submitting: 'Saving…',
         cancel: 'Cancel'
       },
+      // The current work, in one column per status. A drop says what changed and the
+      // progress form still asks when, so the hint says both halves — and names the task's
+      // own page, which is the way to do the same thing without a mouse.
+      board: {
+        column: '{{status}} · {{count}}',
+        empty: 'Nothing here.',
+        hint: 'Drag a task to another column to report its progress — you will be asked when it changed. Or open the task and report it there.',
+        move: 'Report progress on {{title}}'
+      },
       archive: 'Archive',
       archiveNamed: 'Archive {{title}}',
       unarchive: 'Bring back',

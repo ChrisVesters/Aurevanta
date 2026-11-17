@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { WorkItems } from './WorkItems';
 import {
@@ -26,10 +26,11 @@ describe('WorkItems', () => {
   const fetchMock = mockFetch();
 
   /**
-   * Answers four URLs separately: the session, the work in the plan, what everybody
-   * currently thinks it will take, and how the plan is joined up. A double that answered
-   * them alike would hand the estimate list a page of work items, and every row would
-   * quietly read as unestimated.
+   * Answers five URLs separately: the session, the work in the plan, what everybody
+   * currently thinks it will take, how the plan is joined up, and — once a card has been
+   * dropped — who last reported progress on it. A double that answered them alike would
+   * hand the estimate list a page of work items, and every row would quietly read as
+   * unestimated.
    */
   function answer(
     items: WorkItem[],
@@ -44,7 +45,9 @@ describe('WorkItems', () => {
             ? jsonResponse(200, estimates)
             : url === DEPENDENCIES_URL
               ? jsonResponse(200, dependencies)
-              : jsonResponse(200, items)
+              : url.endsWith('/progress')
+                ? jsonResponse(200, [])
+                : jsonResponse(200, items)
       )
     );
   }
@@ -549,5 +552,236 @@ describe('WorkItems', () => {
         'Must finish before a task that has been put away'
       )
     ).toBeInTheDocument();
+  });
+
+  // The board ---------------------------------------------------------------
+
+  /** The column a piece of work sits in, found by its heading. */
+  function column(heading: RegExp) {
+    return screen
+      .getByRole('heading', { name: heading })
+      .closest('section') as HTMLElement;
+  }
+
+  /** The card a task is drawn on. */
+  function cardOf(title: string) {
+    return screen
+      .getByRole('link', { name: title })
+      .closest('li') as HTMLElement;
+  }
+
+  /**
+   * A drag from one card to one column, as the browser raises it. The `dataTransfer` is a
+   * stand-in because jsdom has none; the component writes to it for Firefox's sake and
+   * reads the card from its own state.
+   */
+  function drag(title: string, to: HTMLElement) {
+    const card = cardOf(title);
+    const dataTransfer = { setData: vi.fn(), effectAllowed: 'none' };
+    fireEvent.dragStart(card, { dataTransfer });
+    const accepted = fireEvent.dragOver(to);
+    fireEvent.drop(to);
+    fireEvent.dragEnd(card);
+    return { dataTransfer, accepted };
+  }
+
+  it('puts each piece of work in the column for its status', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+
+    expect(
+      within(column(/^Not started · 1$/)).getByText('Migrate the auth service')
+    ).toBeInTheDocument();
+    expect(
+      within(column(/^In progress · 1$/)).getByText('Write the runbook')
+    ).toBeInTheDocument();
+    // An empty column is said, not left as a blank box somebody might think is loading.
+    expect(
+      within(column(/^Done · 0$/)).getByText('Nothing here.')
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * **A drop is not a save.** The server needs the day work started or finished and will
+   * not stamp its own clock, so a drop opens the progress form with the column's status
+   * already chosen, and nothing is written until somebody presses save.
+   */
+  it('asks when it happened before moving a card to another column', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+
+    const { dataTransfer, accepted } = drag(
+      'Migrate the auth service',
+      column(/^In progress/)
+    );
+
+    // The browser is told a drop is possible, and the card travels as its identifier.
+    expect(accepted).toBe(false);
+    expect(dataTransfer.setData).toHaveBeenCalledWith(
+      'text/plain',
+      WORK_ITEMS[0].id
+    );
+    expect(dataTransfer.effectAllowed).toBe('move');
+
+    const form = within(
+      await screen.findByRole('dialog', {
+        name: 'Report progress on Migrate the auth service'
+      })
+    );
+    expect(form.getByLabelText('Status')).toHaveValue('IN_PROGRESS');
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+    ).toHaveLength(0);
+
+    await userEvent.type(form.getByLabelText('Started on'), '2026-11-16');
+    await userEvent.click(form.getByRole('button', { name: 'Save progress' }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/items/${WORK_ITEMS[0].id}/progress`,
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({
+            status: 'IN_PROGRESS',
+            startedOn: '2026-11-16',
+            completedOn: null,
+            actualEffortHours: null
+          })
+        })
+      )
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  /**
+   * Moving out of not-started closes estimating, and the form says so — more sharply where
+   * nobody has estimated the work, which a drop is just as able to do as the task's page.
+   */
+  it('warns that a moved card can no longer be estimated', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+
+    drag('Migrate the auth service', column(/^Done/));
+
+    const form = within(await screen.findByRole('dialog'));
+    expect(form.getByLabelText('Status')).toHaveValue('DONE');
+    expect(
+      form.getByText(/can no longer be estimated or re-estimated/)
+    ).toHaveTextContent(/every forecast will carry it at no effort/);
+  });
+
+  it('does not warn about unestimated work when somebody has estimated it', async () => {
+    await open(WORK_ITEMS, ESTIMATES);
+    await screen.findByText('Migrate the auth service');
+
+    drag('Migrate the auth service', column(/^Done/));
+
+    const form = within(await screen.findByRole('dialog'));
+    expect(
+      form.getByText(/can no longer be estimated or re-estimated/)
+    ).not.toHaveTextContent(/at no effort/);
+  });
+
+  it('does nothing when a card is let go over its own column', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+
+    const { accepted } = drag(
+      'Migrate the auth service',
+      column(/^Not started/)
+    );
+
+    // Not cancelled, so the browser shows no drop is possible there.
+    expect(accepted).toBe(true);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  /** A drop arriving with nothing dragged — a file from the desktop, say — is ignored. */
+  it('ignores a drop that carries no card', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+
+    const target = column(/^Done/);
+    expect(fireEvent.dragOver(target)).toBe(true);
+    fireEvent.drop(target);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('marks the column a card can land in, and the card being dragged', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+    const card = cardOf('Migrate the auth service');
+    const target = column(/^Done/);
+
+    fireEvent.dragStart(card, {
+      dataTransfer: { setData: vi.fn(), effectAllowed: 'none' }
+    });
+    fireEvent.dragOver(target);
+
+    expect(card).toHaveClass('dragging');
+    expect(target).toHaveClass('over');
+
+    fireEvent.dragLeave(target);
+    expect(target).not.toHaveClass('over');
+
+    fireEvent.dragOver(target);
+    fireEvent.dragEnd(card);
+    expect(card).not.toHaveClass('dragging');
+    expect(target).not.toHaveClass('over');
+  });
+
+  it('keeps the dialog open beside the refusal when the move is refused', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+    fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+      Promise.resolve(
+        init?.method === 'PATCH'
+          ? jsonResponse(400, { code: 'progress_date_required' })
+          : url.endsWith('/progress')
+            ? jsonResponse(200, [])
+            : jsonResponse(200, ACCOUNT)
+      )
+    );
+
+    drag('Migrate the auth service', column(/^In progress/));
+    const form = within(await screen.findByRole('dialog'));
+    await userEvent.click(form.getByRole('button', { name: 'Save progress' }));
+
+    expect(await form.findByRole('alert')).toHaveTextContent(
+      /Work in progress needs a start date/
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('moves nothing when the dialog is cancelled', async () => {
+    await open();
+    await screen.findByText('Migrate the auth service');
+
+    drag('Migrate the auth service', column(/^Done/));
+    const form = within(await screen.findByRole('dialog'));
+    await userEvent.click(form.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(
+      fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+    ).toHaveLength(0);
+  });
+
+  /** Put-away work is in no forecast and reports no progress, so it has no column. */
+  it('lists archived work without columns, and lets none of it be dragged', async () => {
+    await open();
+    answer([ARCHIVED_WORK_ITEM]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show archived work' })
+    );
+    await screen.findByText('Something we dropped');
+
+    expect(screen.queryByRole('heading', { name: /^Not started/ })).toBeNull();
+    expect(cardOf('Something we dropped')).toHaveAttribute(
+      'draggable',
+      'false'
+    );
   });
 });
