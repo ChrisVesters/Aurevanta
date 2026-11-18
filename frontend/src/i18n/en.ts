@@ -218,7 +218,7 @@ export const en = {
   },
   projects: {
     title: 'Projects',
-    // The five parts of one plan. Plain nouns, and the same words the headings inside use:
+    // The four parts of one plan. Plain nouns, and the same words the headings inside use:
     // a strip whose labels paraphrase what they select makes somebody check whether they
     // landed where they pressed.
     tabs: {
@@ -226,6 +226,9 @@ export const en = {
       // rather than repeating one of them.
       label: 'This plan',
       work: 'Work',
+      // What waits on what, as a whole. "Order" and not "Timeline" or "Gantt": it promises no
+      // time, and it is the word the task's own page already uses for the same arrows.
+      order: 'Order',
       // Every forecast made of the plan, each opening on a page of its own — which is where
       // the questions asked of a forecast now live, rather than in two more tabs here.
       forecasts: 'Forecasts',
@@ -799,6 +802,46 @@ export const en = {
       submitting: 'Creating…',
       cancel: 'Cancel'
     },
+    // The order of a plan's work. Read-only, and with no time anywhere in it: a step is "after
+    // what comes before" and never a week, and the only hours are an arrow's own wait.
+    order: {
+      loading: 'Loading the order…',
+      lede: 'What waits on what. A step only means "after everything before it that it is joined to" — it is not a week, and nothing here says when anything will happen.',
+      nothing: 'This plan has no work to show yet.',
+      noOrder:
+        'No order has been set yet. Open a task and use "Set what it must finish before" to say what has to be finished first.',
+      // A loop cannot be drawn through the product, so this is a refusal to guess.
+      cycle:
+        'The arrows in this plan form a loop, so there is no order to show. Open the tasks involved and remove one of the arrows.',
+      summary_one: '1 task is ordered against others, in {{steps}}.',
+      summary_other:
+        '{{count}} tasks are ordered against others, in {{steps}}.',
+      steps_one: '1 step',
+      steps_other: '{{count}} steps',
+      stepsLabel: 'The order, step by step',
+      step: 'Step {{n}}',
+      canStartNow: 'Can start now',
+      notEstimated: 'Not estimated',
+      // On the box of a task whose only arrows are to or from work that has been put away,
+      // which the forecast ignores and so does the order. Short, because it shares a line.
+      putAwayOnly: 'Only arrows to put-away work',
+      notOrdered: {
+        title: 'Not ordered against anything · {{count}}',
+        hint: 'These tasks have no arrow to or from any other live task.'
+      },
+      focus: {
+        label: 'Show the chain through',
+        whole: 'Whole plan',
+        showing:
+          'Showing only {{title}}, what it waits on, and what waits on it.',
+        clear: 'Show the whole plan',
+        unknown:
+          'The task in the address is not in this plan, or has been put away, so the whole plan is shown.'
+      },
+      drawing: {
+        lag: '{{count}} h'
+      }
+    },
     // The work inside one plan. No numbers on any of it yet: estimates are the next step,
     // and how they are *asked for* is a subject of its own.
     items: {
@@ -939,7 +982,11 @@ export const en = {
         submitting: 'Adding…',
         cancel: 'Done',
         drawn: 'Must finish before {{title}}',
-        drawnWithLag: 'Must finish before {{title}}, plus {{hours}} hours',
+        // An arrow's wait, worded once for every screen that says it. Not a plural:
+        // "1-hour wait" and "16-hour wait" read the same way. The `_an` form is for the
+        // numbers an English speaker says with a vowel, since "a 8-hour wait" reads badly.
+        wait: 'with a {{hours}}-hour wait',
+        wait_an: 'with an {{hours}}-hour wait',
         remove: 'Remove',
         removeNamed: 'Stop requiring this to finish before {{title}}',
         nothingLeft:

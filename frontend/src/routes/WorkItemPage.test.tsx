@@ -2027,11 +2027,14 @@ describe('WorkItemPage', () => {
   it('says how long a wait is where an arrow has one', async () => {
     await open({ dependencies: [{ ...DEPENDENCIES[0], lagHours: 8 }] });
 
+    // The summary (shared `describeShape`) and the ordering panel are two screens saying
+    // one fact, and they must say it in the same words.
+    const phrase = 'Must finish before Write the runbook with an 8-hour wait';
+    expect(await screen.findByText(phrase)).toBeInTheDocument();
+
     await openOrder();
 
-    expect(
-      screen.getByText('Must finish before Write the runbook, plus 8 hours')
-    ).toBeInTheDocument();
+    expect(screen.getByText(phrase)).toBeInTheDocument();
   });
 
   /**

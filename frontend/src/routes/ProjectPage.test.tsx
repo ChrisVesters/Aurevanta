@@ -12,7 +12,8 @@ import {
   NO_HISTORY,
   NOTHING_SCORED,
   renderRouted,
-  storeAccessToken
+  storeAccessToken,
+  WORK_ITEMS
 } from '../test/render';
 import type { PlanTab } from '../projects/tabs';
 import type { Project } from '../projects/types';
@@ -90,7 +91,7 @@ describe('ProjectPage', () => {
   }
 
   /** What this page is called on each of its three parts. */
-  const TABS = ['Work', 'Forecasts', 'Settings'];
+  const TABS = ['Work', 'Order', 'Forecasts', 'Settings'];
 
   /** The query string, on screen, so a case can say what a link somebody copies holds. */
   function Where() {
@@ -285,7 +286,7 @@ describe('ProjectPage', () => {
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
   });
 
-  // The five parts of a plan ------------------------------------------------
+  // The parts of a plan ------------------------------------------------
 
   /**
    * <strong>The plan URL people already hold opens on what it always opened on.</strong>
@@ -369,6 +370,63 @@ describe('ProjectPage', () => {
   });
 
   /**
+   * <strong>The order is the second part, and it is read from the address like the others.</strong>
+   * It replaces rather than pushes, and a link to it opens on it.
+   */
+  it('opens the order on press, in the address, without adding to history', async () => {
+    await open();
+    await screen.findByRole('heading', { name: 'Q3 platform work' });
+    const before = window.history.length;
+
+    await userEvent.click(tab('Order'));
+
+    expect(
+      await screen.findByText(/This plan has no work to show yet/)
+    ).toBeInTheDocument();
+    expect(tab('Order')).toHaveAttribute('aria-selected', 'true');
+    expect(url()).toBe('?tab=order');
+    expect(window.history.length).toBe(before);
+  });
+
+  it('opens on the order when a link names it', async () => {
+    await open(PROJECTS[0], 'order');
+
+    expect(
+      await screen.findByText(/This plan has no work to show yet/)
+    ).toBeInTheDocument();
+    expect(tab('Order')).toHaveAttribute('aria-selected', 'true');
+  });
+
+  /** A focus means something only on the order, so leaving it leaves the focus behind. */
+  it('drops the focus when another part is chosen', async () => {
+    storeAccessToken();
+    fetchMock.mockImplementation((url: string) =>
+      Promise.resolve(
+        url.endsWith('/items')
+          ? jsonResponse(200, WORK_ITEMS)
+          : reads(url, PROJECTS[0])
+      )
+    );
+    renderRouted(
+      <>
+        <Where />
+        <Routes>
+          <Route path="/app/projects/:projectId" element={<ProjectPage />} />
+        </Routes>
+      </>,
+      {
+        route: `/app/projects/${PROJECTS[0].id}?tab=order&focus=${WORK_ITEMS[0].id}`
+      }
+    );
+    await screen.findByRole('heading', { name: 'Q3 platform work' });
+    expect(url()).toBe(`?tab=order&focus=${WORK_ITEMS[0].id}`);
+
+    await userEvent.click(tab('Forecasts'));
+
+    expect(url()).toBe('?tab=forecasts');
+  });
+
+  /**
    * <strong>Arrows move focus and pressing takes the tab.</strong> The manual half of the
    * pattern, and it is manual because moving to the forecast loads it: arrowing past a part
    * must not fire the requests that part would make.
@@ -378,7 +436,7 @@ describe('ProjectPage', () => {
     await screen.findByRole('heading', { name: 'Q3 platform work' });
     tab('Work').focus();
 
-    await userEvent.keyboard('{ArrowRight}');
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}');
 
     expect(tab('Forecasts')).toHaveFocus();
     expect(tab('Work')).toHaveAttribute('aria-selected', 'true');

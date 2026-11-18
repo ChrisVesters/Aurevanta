@@ -5,11 +5,13 @@ import { useAuth } from '../auth/AuthContext';
 import { useFormFailure } from '../auth/useFormFailure';
 import { describeFailure } from '../i18n/problems';
 import { ForecastList } from '../projects/ForecastList';
+import { OrderView } from '../projects/OrderView';
 import { ProjectForm } from '../projects/ProjectForm';
 import { PlanTabs } from '../projects/PlanTabs';
 import { WorkItems } from '../projects/WorkItems';
 import {
   FIRST_TAB,
+  FOCUS_PARAM,
   PLAN_PANEL_ID,
   TAB_PARAM,
   tabFrom,
@@ -21,7 +23,8 @@ import type { Project } from '../projects/types';
 /**
  * One plan: what it is called, what it covers, and whether it is still in use.
  *
- * The work, then the forecasts made of it, then what the plan is called. **That order is the
+ * The work, the order it has to be done in, the forecasts made of it, then what the plan is
+ * called. **That order is the
  * argument of the whole product**: ranges go on the work, the engine reads them, and the name
  * is a setting. Each forecast opens on a page of its own, which is where the questions asked
  * *of* it live — they were two more tabs here until November 2026, about the newest forecast
@@ -137,6 +140,8 @@ export function ProjectPage() {
   const show = useCallback(
     (next: PlanTab) => {
       const updated = new URLSearchParams(params);
+      // A focus belongs to the order view and means nothing on any other part.
+      updated.delete(FOCUS_PARAM);
       if (next === FIRST_TAB) {
         updated.delete(TAB_PARAM);
       } else {
@@ -190,6 +195,8 @@ export function ProjectPage() {
             aria-labelledby={tabId(tab)}
           >
             {tab === 'work' && <WorkItems projectId={project.id} />}
+
+            {tab === 'order' && <OrderView projectId={project.id} />}
 
             {tab === 'forecasts' && <ForecastList projectId={project.id} />}
 

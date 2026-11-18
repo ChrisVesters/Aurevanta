@@ -96,6 +96,10 @@ export function byEnd(
  * An arrow whose far end has been put away since is named as such rather than shown as a
  * blank, which is {@link describeWork}'s middle case reaching the plan screens: the
  * archived listing is a different screen, so its titles are not in the map.
+ *
+ * An arrow with a wait says so beside the title it points at. The order view reads the same
+ * lines, and a lag stated on one screen and left off another is a plan that looks different
+ * depending on where somebody opened it.
  */
 export function describeShape(
   t: TFunction,
@@ -132,6 +136,25 @@ function named(
   titles: Map<string, string>
 ): string {
   return edges
-    .map((edge) => titles.get(edge[end]) ?? t('projects.items.blocks.putAway'))
+    .map((edge) => {
+      const title = titles.get(edge[end]) ?? t('projects.items.blocks.putAway');
+      return withWait(t, title, edge.lagHours);
+    })
     .join(', ');
+}
+
+/**
+ * An arrow's wait, as a phrase — "with a 16-hour wait". Stated once so the board, the
+ * order text and the ordering panel cannot word one fact three ways. English picks its
+ * article by sound, so the numbers that start with a vowel ("an 8-hour wait") say so.
+ */
+export function describeWait(t: TFunction, hours: number): string {
+  const whole = String(Math.trunc(hours));
+  const an = whole.startsWith('8') || whole === '11' || whole === '18';
+  return t('projects.items.blocks.wait', { hours, context: an ? 'an' : '' });
+}
+
+/** A task's title, followed by the wait on the arrow to it when there is one. */
+export function withWait(t: TFunction, title: string, hours: number): string {
+  return hours > 0 ? `${title} ${describeWait(t, hours)}` : title;
 }

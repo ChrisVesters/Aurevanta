@@ -536,6 +536,43 @@ describe('WorkItems', () => {
     ).toBeInTheDocument();
   });
 
+  /** A wait is the only thing an arrow carries beyond itself, and the board says it too. */
+  it('says how long an arrow waits, and nothing where it does not', async () => {
+    await open(WORK_ITEMS, [], [{ ...DEPENDENCIES[0], lagHours: 16 }]);
+
+    const rows = await screen.findAllByRole('listitem');
+    expect(
+      within(rows[0]).getByText(
+        'Must finish before Write the runbook with a 16-hour wait'
+      )
+    ).toBeInTheDocument();
+    expect(
+      within(rows[1]).getByText(
+        'Waiting on Migrate the auth service with a 16-hour wait'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('says a single hour as a 1-hour wait and an eight as an 8-hour one', async () => {
+    await open(WORK_ITEMS, [], [{ ...DEPENDENCIES[0], lagHours: 1 }]);
+
+    expect(
+      await screen.findByText(
+        'Must finish before Write the runbook with a 1-hour wait'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('says an eight-hour wait with "an"', async () => {
+    await open(WORK_ITEMS, [], [{ ...DEPENDENCIES[0], lagHours: 8 }]);
+
+    expect(
+      await screen.findByText(
+        'Must finish before Write the runbook with an 8-hour wait'
+      )
+    ).toBeInTheDocument();
+  });
+
   /**
    * Nothing removes an arrow when its far end is archived, and the archived listing is a
    * different screen — so the title is not on this one to look up. Saying so beats a row

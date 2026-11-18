@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { SubmitEvent } from 'react';
 import { textField } from '../auth/formValues';
 import { numberField } from './fields';
+import { withWait } from './work';
 import type { Dependency, WorkItem } from './types';
 
 export type DependencyValues = {
@@ -116,12 +117,9 @@ export function DependencyForm({
           {drawn.map((edge) => (
             <li key={edge.id}>
               <span className="who">
-                {edge.lagHours > 0
-                  ? t('projects.items.blocks.drawnWithLag', {
-                      title: name(edge),
-                      hours: edge.lagHours
-                    })
-                  : t('projects.items.blocks.drawn', { title: name(edge) })}
+                {t('projects.items.blocks.drawn', {
+                  title: withWait(t, name(edge), edge.lagHours)
+                })}
               </span>
               <button
                 type="button"
